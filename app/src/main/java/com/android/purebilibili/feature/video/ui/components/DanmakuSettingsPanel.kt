@@ -1071,8 +1071,8 @@ fun DanmakuSettingsPanel(
                                 DanmakuSliderItem(
                                     label = "合并窗口",
                                     value = duplicateMergeWindowMs.toFloat(),
-                                    valueRange = 100f..15000f,
-                                    steps = 148,
+                                    valueRange = 1000f..15000f,
+                                    steps = 139,
                                     displayValue = { "${it.roundToInt()}ms" },
                                     onValueChange = { onDuplicateMergeWindowMsChange(it.roundToInt()) },
                                     colors = panelColors,
