@@ -2120,12 +2120,22 @@ private fun VideoHeaderContent(
             )
         }
 
-        if (info.pages.size > 1) {
+        val collectionSections = info.ugc_season?.sections.orEmpty().filter { it.episodes.isNotEmpty() }
+        if (info.pages.size > 1 || collectionSections.isNotEmpty()) {
             PagesSelector(
                 pages = info.pages,
                 coverUrl = info.pic,
                 currentPageIndex = currentPageIndex,
                 isPlaying = isVideoPlaying,
+                ugcSeason = info.ugc_season,
+                currentBvid = info.bvid,
+                currentCid = info.cid,
+                onEpisodeSelect = { episode ->
+                    onRelatedVideoClick(
+                        episode.bvid,
+                        buildVideoNavigationOptions(targetCid = episode.cid)
+                    )
+                },
                 onPageSelect = onPageSelect
             )
         }

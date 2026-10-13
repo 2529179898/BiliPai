@@ -52,6 +52,7 @@ import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.components.AppFilterChip
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppIconButton
+import com.android.purebilibili.core.ui.components.AppLazyColumn
 import androidx.compose.material3.MaterialTheme
 import com.android.purebilibili.core.ui.components.AppOutlinedTextField
 import com.android.purebilibili.core.ui.components.AppText
@@ -70,6 +71,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.android.purebilibili.core.ui.AppModalBottomSheet
 import com.android.purebilibili.data.model.response.Page
+import com.android.purebilibili.data.model.response.UgcEpisode
+import com.android.purebilibili.data.model.response.UgcSeason
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,9 +85,13 @@ fun PagesSelector(
     onDismissRequest: (() -> Unit)? = null,
     coverUrl: String = "",
     isPlaying: Boolean = false,
+    ugcSeason: UgcSeason? = null,
+    currentBvid: String = "",
+    currentCid: Long = 0L,
+    onEpisodeSelect: ((UgcEpisode) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    if (pages.isEmpty()) return
+    if (pages.isEmpty() && ugcSeason?.sections.isNullOrEmpty()) return
 
     val configuration = LocalConfiguration.current
     val isLandscape = remember(configuration.orientation, configuration.screenWidthDp, configuration.screenHeightDp) {
@@ -112,6 +119,28 @@ fun PagesSelector(
         navigationBarBottomDp = navigationBarBottomPadding.value.toInt()
     )
     val groups = remember(pages) { resolvePageSelectorGroups(pages) }
+
+    //  合集数据：多季分集与每集元信息（封面/时长/发布时间/播放数/弹幕数）
+    val collectionSections = remember(ugcSeason) {
+        ugcSeason?.sections.orEmpty().filter { it.episodes.isNotEmpty() }
+    }
+    val showCollection = collectionSections.isNotEmpty()
+    val totalCollectionEpisodes = remember(collectionSections) {
+        collectionSections.sumOf { it.episodes.size }
+    }
+    val initialSectionIndex = remember(collectionSections, currentBvid, currentCid) {
+        collectionSections.indexOfFirst { section ->
+            section.episodes.any { isCurrentUgcEpisode(currentBvid, currentCid, it) }
+        }.coerceAtLeast(0)
+    }
+    var activeSectionIndex by rememberSaveable(collectionSections.size, showCollection) {
+        mutableStateOf(initialSectionIndex)
+    }
+    val activeSection = collectionSections.getOrNull(activeSectionIndex) ?: collectionSections.firstOrNull()
+    val visibleEpisodes = activeSection?.episodes.orEmpty()
+    val currentEpisodeIndex = visibleEpisodes.indexOfFirst {
+        isCurrentUgcEpisode(currentBvid, currentCid, it)
+    }
 
     var inlineQuery by rememberSaveable(pages.size, forceGridMode) { mutableStateOf("") }
     var inlineGroupKey by rememberSaveable(pages.size, forceGridMode) { mutableStateOf<String?>(null) }
@@ -183,8 +212,14 @@ fun PagesSelector(
                 }
             }
         } else {
-            //  标题行：视频选集 + 正在播放：<当前分P> + 共N集
-            val currentPage = pages.getOrNull(currentPageIndex) ?: pages.first()
+            //  标题行：视频选集 + 正在播放：<当前分P 或 当前集> + 共N集
+            val currentPage = pages.getOrNull(currentPageIndex) ?: pages.firstOrNull()
+            val currentTitle = if (showCollection) {
+                visibleEpisodes.getOrNull(currentEpisodeIndex.coerceAtLeast(0))?.title.orEmpty()
+            } else {
+                currentPage?.part?.ifBlank { "第${currentPage.page}P" }.orEmpty()
+            }
+            val totalCount = if (showCollection) totalCollectionEpisodes else pages.size
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -199,7 +234,7 @@ fun PagesSelector(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 AppText(
-                    text = "正在播放：${currentPage.part.ifBlank { "第${currentPage.page}P" }}",
+                    text = "正在播放：$currentTitle",
                     fontSize = 12.sp,
                     color = AppContentColors.secondaryText(),
                     maxLines = 1,
@@ -215,7 +250,7 @@ fun PagesSelector(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AppText(
-                        text = "共${pages.size}集",
+                        text = "共${totalCount}集",
                         fontSize = 13.sp,
                         color = AppContentColors.accent()
                     )
@@ -260,11 +295,27 @@ fun PagesSelector(
             )
         } else {
             Spacer(modifier = Modifier.height(6.dp))
+            val previewTitles = if (showCollection) {
+                visibleEpisodes.map { it.title }
+            } else {
+                pages.map { it.part.ifBlank { "第${it.page}P" } }
+            }
+            val previewCurrentIndex = if (showCollection) {
+                currentEpisodeIndex.coerceAtLeast(0)
+            } else {
+                currentPageIndex
+            }
             PagesHorizontalPreviewRow(
-                pages = pages,
-                currentPageIndex = currentPageIndex,
+                titles = previewTitles,
+                currentIndex = previewCurrentIndex,
                 isPlaying = isPlaying,
-                onPageSelect = onPageSelect,
+                onSelect = { index ->
+                    if (showCollection) {
+                        visibleEpisodes.getOrNull(index)?.let { onEpisodeSelect?.invoke(it) }
+                    } else {
+                        onPageSelect(index)
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -293,6 +344,7 @@ fun PagesSelector(
                     .fillMaxWidth()
                     .fillMaxHeight(0.9f)
             ) {
+                val sheetTotalCount = if (showCollection) totalCollectionEpisodes else pages.size
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -300,7 +352,7 @@ fun PagesSelector(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AppText(
-                        text = "分集(${pages.size})",
+                        text = "分集(${sheetTotalCount})",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = AppContentColors.primaryText()
@@ -315,34 +367,89 @@ fun PagesSelector(
                     }
                 }
 
-                PagesSelectorFilterBar(
-                    groups = groups,
-                    selectedGroupKey = expandedGroupKey,
-                    query = expandedQuery,
-                    totalCount = pages.size,
-                    onGroupSelect = { expandedGroupKey = it },
-                    onQueryChange = { expandedQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                )
+                if (showCollection) {
+                    //  合集：多季切换 + 每集封面/标题/时长/发布时间/播放数/弹幕数
+                    if (collectionSections.size > 1) {
+                        LazyRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                        ) {
+                            items(collectionSections.size) { index ->
+                                val section = collectionSections[index]
+                                AppFilterChip(
+                                    selected = index == activeSectionIndex,
+                                    onClick = { activeSectionIndex = index },
+                                    label = {
+                                        AppText(
+                                            text = section.title.ifBlank { "第${index + 1}季" },
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    AppLazyColumn(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        contentPadding = PaddingValues(bottom = gridBottomPaddingDp.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(
+                            count = visibleEpisodes.size,
+                            key = { index ->
+                                val episode = visibleEpisodes[index]
+                                "$activeSectionIndex-${episode.bvid}-${episode.cid}-${episode.id}"
+                            },
+                        ) { index ->
+                            val episode = visibleEpisodes[index]
+                            CollectionEpisodeRow(
+                                episode = episode,
+                                isCurrentEpisode = isCurrentUgcEpisode(currentBvid, currentCid, episode),
+                                onClick = {
+                                    showExpandedSheet = false
+                                    onEpisodeSelect?.invoke(episode)
+                                },
+                                onPartClick = { part ->
+                                    showExpandedSheet = false
+                                    onEpisodeSelect?.invoke(episode.copy(cid = part.cid))
+                                },
+                            )
+                        }
+                    }
+                } else {
+                    PagesSelectorFilterBar(
+                        groups = groups,
+                        selectedGroupKey = expandedGroupKey,
+                        query = expandedQuery,
+                        totalCount = pages.size,
+                        onGroupSelect = { expandedGroupKey = it },
+                        onQueryChange = { expandedQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    )
 
-                PageCoverList(
-                    pages = pages,
-                    visiblePageIndices = expandedVisibleIndices,
-                    currentPageIndex = currentPageIndex,
-                    coverUrl = coverUrl,
-                    onPageSelect = { index ->
-                        onPageSelect(index)
-                        showExpandedSheet = false
-                    },
-                    blockParentVerticalScroll = true,
-                    bottomContentPaddingDp = gridBottomPaddingDp,
-                    onResetFilters = { expandedQuery = ""; expandedGroupKey = null },
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    PageCoverList(
+                        pages = pages,
+                        visiblePageIndices = expandedVisibleIndices,
+                        currentPageIndex = currentPageIndex,
+                        coverUrl = coverUrl,
+                        onPageSelect = { index ->
+                            onPageSelect(index)
+                            showExpandedSheet = false
+                        },
+                        blockParentVerticalScroll = true,
+                        bottomContentPaddingDp = gridBottomPaddingDp,
+                        onResetFilters = { expandedQuery = ""; expandedGroupKey = null },
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                    )
+                }
             }
         }
     }
@@ -398,27 +505,27 @@ private fun PlayingEqualizerIcon(
  */
 @Composable
 private fun PagesHorizontalPreviewRow(
-    pages: List<Page>,
-    currentPageIndex: Int,
+    titles: List<String>,
+    currentIndex: Int,
     isPlaying: Boolean,
-    onPageSelect: (Int) -> Unit,
+    onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (pages.isEmpty()) return
+    if (titles.isEmpty()) return
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
-    val currentIndex = currentPageIndex.coerceIn(0, pages.lastIndex)
-    var hasPositioned by remember(pages) { mutableStateOf(false) }
+    val activeIndex = currentIndex.coerceIn(0, titles.lastIndex)
+    var hasPositioned by remember(titles) { mutableStateOf(false) }
 
-    LaunchedEffect(currentIndex, pages.size) {
+    LaunchedEffect(activeIndex, titles.size) {
         // 定位当前项：其左边缘停在视口左侧半张卡片宽度处，首帧不做动画，之后平滑滚动。
         val halfItemPx = with(density) { PagesPreviewItemWidth.toPx() / 2f }
         if (hasPositioned) {
-            listState.animateScrollToItem(currentIndex)
+            listState.animateScrollToItem(activeIndex)
             listState.animateScrollBy(-halfItemPx)
         } else {
-            listState.scrollToItem(currentIndex)
+            listState.scrollToItem(activeIndex)
             listState.scrollBy(-halfItemPx)
             hasPositioned = true
         }
@@ -430,16 +537,16 @@ private fun PagesHorizontalPreviewRow(
         horizontalArrangement = Arrangement.spacedBy(PagesPreviewItemSpacing),
         contentPadding = PaddingValues(horizontal = 16.dp),
     ) {
-        items(pages.size) { index ->
-            val page = pages[index]
-            val isCurrent = index == currentIndex
+        items(titles.size) { index ->
+            val title = titles[index]
+            val isCurrent = index == activeIndex
             Row(
                 modifier = Modifier
                     .width(PagesPreviewItemWidth)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(PagesPreviewItemCorner))
                     .background(AppSurfaceTokens.cardContainer())
-                    .clickable { onPageSelect(index) }
+                    .clickable { onSelect(index) }
                     .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -452,7 +559,7 @@ private fun PagesHorizontalPreviewRow(
                     Spacer(modifier = Modifier.width(6.dp))
                 }
                 AppText(
-                    text = page.part.ifBlank { "第${page.page}P" },
+                    text = title,
                     fontSize = 13.sp,
                     color = if (isCurrent) AppContentColors.accent() else AppContentColors.primaryText(),
                     maxLines = 1,

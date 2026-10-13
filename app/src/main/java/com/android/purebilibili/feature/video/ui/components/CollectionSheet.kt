@@ -386,7 +386,7 @@ fun CollectionSheet(
  * 单集多分 P 时在条目下方展示分 P chips。
  */
 @Composable
-private fun CollectionEpisodeRow(
+internal fun CollectionEpisodeRow(
     episode: UgcEpisode,
     isCurrentEpisode: Boolean,
     onClick: () -> Unit,
