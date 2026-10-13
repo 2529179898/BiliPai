@@ -20,6 +20,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.compositionLocalOf
 import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
+import com.android.purebilibili.core.ui.LocalAppThemeConfig
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Size
@@ -156,6 +157,7 @@ fun Modifier.appElasticPress(
     return Modifier.then(ElasticPressMarker).composed {
         if (!enabled || !LocalComponentMotionEnabled.current || !LocalElasticPressEnabled.current) return@composed this
         val elasticState = state ?: rememberAppElasticPressState(visualSize)
+        val effectiveDragEnabled = dragEnabled && LocalAppThemeConfig.current.globalDragFeedbackEnabled
         val press = elasticState.press
         val position = elasticState.position
         val scope = rememberCoroutineScope()
@@ -174,7 +176,7 @@ fun Modifier.appElasticPress(
         }
 
         this
-            .pointerInput(elasticState, dragEnabled) {
+            .pointerInput(elasticState, effectiveDragEnabled) {
                 // Pointer-down starts feedback; Final-pass observation gives native business
                 // gestures first refusal. Multi-touch cancels feedback instead of changing fingers.
                 awaitEachGesture {
@@ -197,7 +199,7 @@ fun Modifier.appElasticPress(
                             if (!change.pressed) break
                             if (change.position != change.previousPosition) {
                                 if (change.isConsumed && !allowConsumedDrag()) break
-                                if (dragEnabled) {
+                                if (effectiveDragEnabled) {
                                     positionJob?.cancel()
                                     positionJob = scope.launch { position.snapTo(change.position) }
                                 }

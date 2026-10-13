@@ -217,6 +217,9 @@ class VideoActivity : ComponentActivity() {
             val globalTextTapCopyEnabled by SettingsManager
                 .getGlobalTextTapCopyEnabled(this@VideoActivity)
                 .collectAsStateWithLifecycle(initialValue = false)
+            val globalDragFeedbackEnabled by SettingsManager
+                .getGlobalDragFeedbackEnabled(this@VideoActivity)
+                .collectAsStateWithLifecycle(initialValue = true)
             val uiEntranceAnimationEnabled by SettingsManager
                 .getUiEntranceAnimationEnabled(this@VideoActivity)
                 .collectAsStateWithLifecycle(initialValue = true)
@@ -235,6 +238,7 @@ class VideoActivity : ComponentActivity() {
                 hapticFeedbackEnabled,
                 globalTextTapCopyEnabled,
                 uiEntranceAnimationEnabled,
+                globalDragFeedbackEnabled,
                 runtimeVisualGuardEnabled,
             ) {
                 AppThemeConfig(
@@ -247,6 +251,7 @@ class VideoActivity : ComponentActivity() {
                     hapticFeedbackEnabled = hapticFeedbackEnabled,
                     globalTextTapCopyEnabled = globalTextTapCopyEnabled,
                     uiEntranceAnimationEnabled = uiEntranceAnimationEnabled,
+                    globalDragFeedbackEnabled = globalDragFeedbackEnabled,
                     runtimeVisualGuardEnabled = runtimeVisualGuardEnabled,
                 )
             }
