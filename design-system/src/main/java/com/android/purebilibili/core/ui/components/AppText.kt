@@ -122,6 +122,17 @@ fun AppText(
     style: TextStyle = currentAppTextStyle(),
     tapToCopyEnabled: Boolean = true,
 ) {
+    if (appTextSearchMatchRanges(text, LocalAppTextSearchQuery.current).isNotEmpty()) {
+        AppText(
+            text = appSearchHighlightedText(text), modifier = modifier, color = color,
+            autoSize = autoSize, fontSize = fontSize, fontStyle = fontStyle, fontWeight = fontWeight,
+            fontFamily = fontFamily, letterSpacing = letterSpacing, textDecoration = textDecoration,
+            textAlign = textAlign, lineHeight = lineHeight, overflow = overflow, softWrap = softWrap,
+            maxLines = maxLines, minLines = minLines, onTextLayout = onTextLayout ?: {}, style = style,
+            tapToCopyEnabled = tapToCopyEnabled,
+        )
+        return
+    }
     val effectiveModifier = if (tapToCopyEnabled) modifier.globalTextTapCopy(text) else modifier
     when (LocalAppUiStyle.current) {
         AppUiStyle.MATERIAL3 -> AppMaterial3Text(
@@ -159,6 +170,17 @@ fun AppText(
     style: TextStyle = currentAppTextStyle(),
     tapToCopyEnabled: Boolean = true,
 ) {
+    if (appTextSearchMatchRanges(text, LocalAppTextSearchQuery.current).isNotEmpty()) {
+        AppText(
+            text = appSearchHighlightedText(text), color = color, modifier = modifier,
+            autoSize = autoSize, fontSize = fontSize, fontStyle = fontStyle, fontWeight = fontWeight,
+            fontFamily = fontFamily, letterSpacing = letterSpacing, textDecoration = textDecoration,
+            textAlign = textAlign, lineHeight = lineHeight, overflow = overflow, softWrap = softWrap,
+            maxLines = maxLines, minLines = minLines, onTextLayout = onTextLayout ?: {}, style = style,
+            tapToCopyEnabled = tapToCopyEnabled,
+        )
+        return
+    }
     val effectiveModifier = if (tapToCopyEnabled) modifier.globalTextTapCopy(text) else modifier
     when (LocalAppUiStyle.current) {
         AppUiStyle.MATERIAL3 -> AppMaterial3Text(

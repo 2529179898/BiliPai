@@ -40,6 +40,7 @@ data class SettingsSearchFocusRequest(
     val focusId: String,
     val token: Long = System.nanoTime(),
     val settingId: String? = null,
+    val query: String = "",
 )
 
 data class SettingsSceneDetailFocus(
@@ -51,12 +52,12 @@ object SettingsSearchFocusController {
     private val _request = MutableStateFlow<SettingsSearchFocusRequest?>(null)
     val request = _request.asStateFlow()
 
-    fun submit(target: SettingsSearchTarget, focusId: String?, settingId: String? = null) {
+    fun submit(target: SettingsSearchTarget, focusId: String?, settingId: String? = null, query: String = "") {
         if (focusId.isNullOrBlank()) {
             _request.value = null
             return
         }
-        _request.value = SettingsSearchFocusRequest(target = target, focusId = focusId, settingId = settingId)
+        _request.value = SettingsSearchFocusRequest(target = target, focusId = focusId, settingId = settingId, query = query.trim())
     }
 
     fun clear(token: Long? = null) {

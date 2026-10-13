@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.settings
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
@@ -74,6 +76,7 @@ internal fun SettingsSearchResultsSection(
     onResultClick: (SettingsSearchResult) -> Unit,
     settingsState: SettingsUiState? = null,
     onClearQuery: () -> Unit = {},
+    query: String = "",
 ) {
     val visualSpec = rememberAdaptiveListVisualCapabilities().componentSpec
     // 必须包一层 Column：上层 Entrance 是 Box，多个子节点会叠在同一原点，
@@ -81,7 +84,7 @@ internal fun SettingsSearchResultsSection(
     Column(modifier = Modifier.fillMaxWidth()) {
         if (results.isEmpty()) {
             val iconContainerColor =
-                rememberAdaptivePreferenceIconContainerColor(MaterialTheme.colorScheme.primary)
+                rememberAdaptivePreferenceIconContainerColor(AppContentColors.accent())
             val iconContentColor = rememberAdaptivePreferenceIconContentColor(iconContainerColor)
             Column(
                 modifier = Modifier
@@ -113,7 +116,7 @@ internal fun SettingsSearchResultsSection(
                 AppText(
                     text = stringResource(R.string.settings_search_empty_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     textAlign = TextAlign.Center,
                 )
                 androidx.compose.material3.TextButton(onClick = onClearQuery, modifier = Modifier.appElasticPress()) { AppText("清除搜索") }
@@ -133,15 +136,19 @@ internal fun SettingsSearchResultsSection(
                     } else if (settingsState != null) item?.readState?.invoke(settingsState)
                         ?: playbackSettingStateValue(result.settingId, settingsState) else result.currentValue
                     val visual = rememberSettingsEntryVisual(result.target)
-                    AppPreference(
-                        icon = visual.icon,
-                        iconPainter = visual.iconResId?.let { painterResource(id = it) },
-                        title = result.title,
-                        subtitle = result.path,
-                        value = currentValue,
-                        onClick = { onResultClick(result) },
-                        iconTint = visual.iconTint,
-                    )
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        com.android.purebilibili.core.ui.components.LocalAppTextSearchQuery provides query,
+                    ) {
+                        AppPreference(
+                            icon = visual.icon,
+                            iconPainter = visual.iconResId?.let { painterResource(id = it) },
+                            title = result.title,
+                            subtitle = listOf(result.path, resolveSettingsSearchDescriptionSnippet(result.subtitle, query)).filter { it.isNotBlank() }.joinToString("\n"),
+                            value = currentValue,
+                            onClick = { onResultClick(result) },
+                            iconTint = visual.iconTint,
+                        )
+                    }
                     if (index != results.lastIndex) {
                         AppPreferenceDivider(startIndent = visualSpec.dividerStartIndentDp.dp)
                     }
