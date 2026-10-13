@@ -29,8 +29,8 @@ enum class AppIconStyle {
 }
 
 /**
- * AUTO 跟随原生主题的图标形状；两套主题的普通设置图标均使用中性色，
- * 仅 MATERIAL3 预设解析为官方推荐样式。
+ * AUTO 跟随原生主题的图标形状：Miuix 的普通设置入口沿用七彩图标色，
+ * Material 3 使用中性色，仅 MATERIAL3 预设解析为官方推荐样式。
  */
 fun resolveAppIconStyle(
     iconStyle: AppIconStyle,

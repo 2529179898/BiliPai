@@ -1,6 +1,7 @@
 package com.android.purebilibili.core.ui.components
 
 import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.ui.ProvideAppEntryIconColors
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,14 +39,19 @@ fun AppPreferenceGroup(
     border: BorderStroke? = null,
     presentation: AppPreferenceGroupPresentation = AppPreferenceGroupPresentation.CARD,
     content: @Composable ColumnScope.() -> Unit,
-) = AdaptivePreferenceGroupRenderer(
-    modifier = modifier,
-    containerColor = containerColor,
-    shape = shape,
-    border = border,
-    presentation = presentation,
-    content = content,
-)
+) {
+    // 分组即“同级”边界：组内入口按声明顺序分配多彩色，重新进入分组时从头取色
+    ProvideAppEntryIconColors {
+        AdaptivePreferenceGroupRenderer(
+            modifier = modifier,
+            containerColor = containerColor,
+            shape = shape,
+            border = border,
+            presentation = presentation,
+            content = content,
+        )
+    }
+}
 
 @Composable
 fun AppSwitchPreference(

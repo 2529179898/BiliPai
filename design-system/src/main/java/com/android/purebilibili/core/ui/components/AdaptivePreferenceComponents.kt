@@ -3,6 +3,7 @@
 package com.android.purebilibili.core.ui.components
 
 import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.ui.LocalAppEntryIconColorCursor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -327,8 +328,8 @@ internal fun resolveAdaptiveSemanticIconTint(
     colorScheme: ColorScheme,
     useSemanticAccentRoles: Boolean = true,
 ): Color {
-    // Preference icons describe navigation, not selection or success/error state.
-    // Both native renderers use the same neutral role, including legacy callers.
+    // Miuix 保留各入口自己的图标色；Material 3 的导航类入口统一使用中性内容色。
+    if (uiStyle != AppUiStyle.MATERIAL3) return iconTint
     return colorScheme.onSurfaceVariant
 }
 
@@ -342,9 +343,8 @@ internal fun resolveAdaptivePreferenceIconContainerColor(
 ): Color = when (iconStyle) {
     AppIconStyle.THEME_CONTAINER -> colorScheme?.primaryContainer ?: semanticTint
     AppIconStyle.MD3_STANDARD -> Color.Transparent
-    AppIconStyle.AUTO -> if (treatment == AppPreferenceIconTreatment.FILLED) {
-        colorScheme?.surfaceContainerHigh ?: semanticTint
-    } else Color.Transparent
+    // AUTO（Miuix 默认）沿用调用方传入的入口色作为图标底色；MD3 走上面的 MD3_STANDARD 分支
+    AppIconStyle.AUTO -> semanticTint
 }
 
 internal fun resolveAdaptivePreferenceIconContentColor(
@@ -411,6 +411,13 @@ fun rememberAdaptiveSemanticIconTint(
     dynamicColorActive: Boolean = LocalDynamicColorActive.current
 ): Color {
     val colorScheme = MaterialTheme.colorScheme
+    val cursor = LocalAppEntryIconColorCursor.current
+    val neutralEntryColor = AppContentColors.secondaryText()
+    val requestsNeutralEntryColor = iconTint == Color.Unspecified || iconTint == neutralEntryColor
+    // Miuix 分组内的中性图标请求按声明顺序取多彩入口色；其余情况保持语义解析结果
+    if (uiStyle == AppUiStyle.MIUIX && cursor != null && requestsNeutralEntryColor) {
+        return remember(cursor) { cursor.nextColor() }
+    }
     return remember(iconTint, uiStyle, dynamicColorActive, colorScheme) {
         resolveAdaptiveSemanticIconTint(
             iconTint = iconTint,

@@ -232,9 +232,7 @@ internal fun SettingsRootCategoryListSection(
     onCategoryClick: (SettingsRootCategory) -> Unit,
     onDonateClick: () -> Unit,
 ) {
-    val siblingTints = remember(categories.size) {
-        resolveSettingsSiblingIconTints(categories.size + 1)
-    }
+    val siblingTints = rememberSettingsSiblingIconTints(categories.size + 1)
     val donateVisual = rememberSettingsEntryVisual(SettingsSearchTarget.DONATE)
     SettingsCardGroup {
         categories.forEachIndexed { index, category ->
@@ -346,9 +344,7 @@ internal fun SettingsDetailGroup(
 internal fun SettingsDetailEntrySection(
     entries: List<SettingsDetailEntry>
 ) {
-    val siblingTints = remember(entries.size) {
-        resolveSettingsSiblingIconTints(entries.size)
-    }
+    val siblingTints = rememberSettingsSiblingIconTints(entries.size)
     SettingsCardGroup {
         entries.forEachIndexed { index, entry ->
             val visual = rememberSettingsEntryVisual(entry.target)
@@ -903,7 +899,7 @@ fun SupportToolsSection(
 ) {
     val tipsVisual = rememberSettingsEntryVisual(SettingsSearchTarget.TIPS)
     val openLinksVisual = rememberSettingsEntryVisual(SettingsSearchTarget.OPEN_LINKS)
-    val siblingTints = remember { resolveSettingsSiblingIconTints(2, paletteOffset = 1) }
+    val siblingTints = rememberSettingsSiblingIconTints(2, paletteOffset = 1)
 
     SettingsCardGroup {
         SettingClickableItem(
@@ -1055,7 +1051,7 @@ fun FeedApiSection(
     homeRefreshCount: Int,
     onHomeRefreshCountChange: (Int) -> Unit
 ) {
-    val siblingTints = remember { resolveSettingsSiblingIconTints(10, paletteOffset = 1) }
+    val siblingTints = rememberSettingsSiblingIconTints(10, paletteOffset = 1)
     val feedIcon = rememberSettingsSemanticIcon(SettingsIconRole.FEED_API)
     val refreshIcon = rememberSettingsSemanticIcon(SettingsIconRole.REFRESH_COUNT)
     val visibilityIcon = rememberSettingsSemanticIcon(SettingsIconRole.DYNAMIC_TAB_VISIBILITY)
@@ -1336,7 +1332,7 @@ fun PrivacySection(
     val personalRecapEnabled by remember(context) {
         SettingsManager.getSubscriptionRecapEnabled(context)
     }.collectAsStateWithLifecycle(initialValue = false)
-    val siblingTints = remember { resolveSettingsSiblingIconTints(4, paletteOffset = 4) }
+    val siblingTints = rememberSettingsSiblingIconTints(4, paletteOffset = 4)
     val permissionVisual = rememberSettingsEntryVisual(SettingsSearchTarget.PERMISSION)
     val messageNotificationVisual =
         rememberSettingsEntryVisual(SettingsSearchTarget.MESSAGE_NOTIFICATION)
@@ -1452,7 +1448,7 @@ fun DataStorageSection(
     val downloadPathVisual = rememberSettingsEntryVisual(SettingsSearchTarget.DOWNLOAD_PATH)
     val imageSavePathVisual = rememberSettingsEntryVisual(SettingsSearchTarget.IMAGE_SAVE_PATH)
     val clearCacheVisual = rememberSettingsEntryVisual(SettingsSearchTarget.CLEAR_CACHE)
-    val siblingTints = remember { resolveSettingsSiblingIconTints(7, paletteOffset = 2) }
+    val siblingTints = rememberSettingsSiblingIconTints(7, paletteOffset = 2)
     val showExplicitActionChevron =
         rememberAdaptiveListVisualCapabilities().showExplicitActionChevron
 
@@ -1564,7 +1560,7 @@ private fun DiagnosticsSection(
     onExportLogsClick: () -> Unit,
 ) {
     val context = LocalContext.current
-    val siblingTints = remember { resolveSettingsSiblingIconTints(6, paletteOffset = 5) }
+    val siblingTints = rememberSettingsSiblingIconTints(6, paletteOffset = 5)
     val exportLogsVisual = rememberSettingsEntryVisual(SettingsSearchTarget.EXPORT_LOGS)
     val useMd3ExportLogsDescription = LocalAppUiStyle.current == AppUiStyle.MATERIAL3
     val exportLogsDescription = "默认导出崩溃摘要，详细错误记录需另选"
@@ -1888,7 +1884,7 @@ fun AboutSection(
     }
     var detailDialogContent by remember { mutableStateOf<AppBuildInfoDialogContent?>(null) }
     val easterEggTint = rememberSettingsEntryTint(AppSemanticAccentRole.TERTIARY, AppContentColors.warning())
-    val updateSiblingTints = remember { resolveSettingsSiblingIconTints(5, paletteOffset = 3) }
+    val updateSiblingTints = rememberSettingsSiblingIconTints(5, paletteOffset = 3)
     val licensesVisual = rememberSettingsEntryVisual(SettingsSearchTarget.OPEN_SOURCE_LICENSES)
     val openSourceHomeVisual = rememberSettingsEntryVisual(SettingsSearchTarget.OPEN_SOURCE_HOME)
     val checkUpdateVisual = rememberSettingsEntryVisual(SettingsSearchTarget.CHECK_UPDATE)

@@ -56,8 +56,8 @@ import com.android.purebilibili.feature.settings.SettingsHomeSearchEntry
 import com.android.purebilibili.feature.settings.SettingsRootCategory
 import com.android.purebilibili.feature.settings.canonicalSettingsRootCategory
 import com.android.purebilibili.feature.settings.rememberSettingsEntryVisual
+import com.android.purebilibili.feature.settings.rememberSettingsSiblingIconTints
 import com.android.purebilibili.feature.settings.resolveSettingsRootCategoryOrder
-import com.android.purebilibili.feature.settings.resolveSettingsSiblingIconTints
 import com.android.purebilibili.feature.settings.resolveSettingsTabletLayoutPolicy
 import com.android.purebilibili.feature.settings.resolveSettingsVisualSpec
 import com.android.purebilibili.feature.settings.shouldRenderSettingsTabletDetailPane
@@ -89,9 +89,7 @@ fun SettingsTabletShell(
         selectedCategory = selectedCategory,
         isSearchActive = isSearchActive,
     )
-    val categoryIconTints = remember(categories.size) {
-        resolveSettingsSiblingIconTints(categories.size)
-    }
+    val categoryIconTints = rememberSettingsSiblingIconTints(categories.size)
     val useThreePaneLayout =
         LocalWindowSizeClass.current.shouldUseThreePaneLayout && selectedCategory != null
     val emptyDetailPane: @Composable () -> Unit = {
