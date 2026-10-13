@@ -1,6 +1,8 @@
 // 文件路径: feature/video/VideoPlayerSection.kt
 package com.android.purebilibili.feature.video.ui.section
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.feature.video.ui.overlay.NextWatchOverlay
 
 import coil3.request.crossfade
@@ -121,7 +123,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -138,6 +139,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.layout
+import com.android.purebilibili.feature.video.ui.components.landscapeEndDrawerPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.alpha
@@ -434,7 +436,7 @@ private fun BoxScope.VideoSubtitleOverlayHost(
     suppressSubtitleOverlay: Boolean,
     isFullscreen: Boolean,
     controlsVisible: Boolean,
-    endDrawerReservedWidth: Dp,
+    endDrawerReservedWidthProvider: () -> Dp,
     playerViewportSize: IntSize,
     bottomControlsHeightPx: Int
 ) {
@@ -582,7 +584,7 @@ private fun BoxScope.VideoSubtitleOverlayHost(
     Column(
         modifier = Modifier
             .align(Alignment.BottomCenter)
-            .padding(end = endDrawerReservedWidth)
+            .landscapeEndDrawerPadding(endDrawerReservedWidthProvider)
             .offset {
                 val viewportHeightPx = playerViewportSize.height
                     .takeIf { it > 0 }
@@ -1040,12 +1042,12 @@ private fun VideoPlayerSectionContent(
     }
     val fixedFullscreenAspectRatio = playerInteractionSettings.fixedFullscreenAspectRatio
     val subtitleAutoPreference = playerInteractionSettings.subtitleAutoPreference
-    
+
     //  [新增] 双击跳转视觉反馈状态
     var seekFeedbackText by remember { mutableStateOf<String?>(null) }
     var seekFeedbackVisible by remember { mutableStateOf(false) }
     var seekFeedbackGeneration by remember { mutableLongStateOf(0L) }
-    
+
     //  [新增] 长按倍速设置和状态
     val longPressSpeed = playerInteractionSettings.longPressSpeed
     val longPressSpeedLockEnabled = playerInteractionSettings.longPressSpeedLockEnabled
@@ -1119,7 +1121,7 @@ private fun VideoPlayerSectionContent(
             twoFingerSpeedFeedbackVisible = false
         }
     }
-    
+
     //  [新增] 缓冲状态监听
     var isBuffering by remember { mutableStateOf(false) }
     var bufferingStartedAtMs by remember { mutableLongStateOf(0L) }
@@ -1354,7 +1356,7 @@ private fun VideoPlayerSectionContent(
                 ?.raw
         }
     }
-    
+
     // 🔒 [新增] 屏幕锁定状态（全屏时防误触）
     var isScreenLocked by remember { mutableStateOf(false) }
     LaunchedEffect(isScreenLocked, showControls) {
@@ -1539,7 +1541,7 @@ private fun VideoPlayerSectionContent(
         stateName = "video_player:gesture_mode",
         stateValue = gestureMode.takeUnless { it == VideoGestureMode.None }?.name
     )
-    
+
     //  视频比例状态
     var currentAspectRatio by remember {
         mutableStateOf(
@@ -1549,7 +1551,7 @@ private fun VideoPlayerSectionContent(
             )
         )
     }
-    
+
     //  [新增] 视频翻转状态
     var isFlippedHorizontal by remember { mutableStateOf(false) }
     var isFlippedVertical by remember { mutableStateOf(false) }
@@ -1703,6 +1705,7 @@ private fun VideoPlayerSectionContent(
         mutableStateOf<com.android.purebilibili.feature.video.danmaku.CommandDanmakuItem?>(null)
     }
     var showEndDrawer by remember { mutableStateOf(false) }
+    val endDrawerCloseProgress = remember { mutableFloatStateOf(1f) }
     var endDrawerInitialTab by remember { mutableIntStateOf(0) }
     LaunchedEffect(endDrawerRequestKey) {
         if (endDrawerRequestKey > 0) {
@@ -1721,11 +1724,10 @@ private fun VideoPlayerSectionContent(
         isFullscreen = isFullscreen,
         screenWidthDp = configuration.screenWidthDp
     )
-    val animatedEndDrawerReservedWidth by animateDpAsState(
-        targetValue = endDrawerReservedWidthDp.dp,
-        animationSpec = tween(durationMillis = 220),
-        label = "landscape_end_drawer_reserved_width"
-    )
+    // Share the panel's exact drag/settle progress instead of animating visibility separately.
+    val endDrawerReservedWidthProvider: () -> Dp = {
+        endDrawerReservedWidthDp.dp * (1f - endDrawerCloseProgress.floatValue.coerceIn(0f, 1f))
+    }
     val landscapeCommentReservedWidthDp = remember(
         isFullscreen,
         landscapeCommentPanelVisible,
@@ -2013,7 +2015,7 @@ private fun VideoPlayerSectionContent(
                         true
                     }
                     PlayerKeyAction.ToggleLike -> {
-                        if (likeStatusKnown) onToggleLike()
+                        onToggleLike()
                         true
                     }
                     PlayerKeyAction.Coin -> {
@@ -2085,7 +2087,7 @@ private fun VideoPlayerSectionContent(
         .layout { measurable, constraints ->
             val commentInset = (landscapeCommentReservedWidthDp.dp.toPx() *
                 (1f - state.landscapeCommentCloseProgressProvider().coerceIn(0f, 1f))).toInt()
-            val endInset = animatedEndDrawerReservedWidth.roundToPx()
+            val endInset = endDrawerReservedWidthProvider().roundToPx()
             val totalInset = (commentInset + endInset).coerceAtMost(constraints.maxWidth)
             val placeable = measurable.measure(constraints.offset(horizontal = -totalInset))
             layout(placeable.width + totalInset, placeable.height) {
@@ -2355,7 +2357,7 @@ private fun VideoPlayerSectionContent(
                             if (scale > 1.01f) {  // 留一点浮点数buffer
                                 return@detectDragGestures
                             }
-                            
+
                             // 🔒 锁定时禁用拖拽手势
                             if (isScreenLocked) {
                                 return@detectDragGestures
@@ -2584,11 +2586,11 @@ private fun VideoPlayerSectionContent(
                             if (!isGestureVisible && gestureMode == VideoGestureMode.None) {
                                 // do nothing
                             } else {
-                            
+
                             // [修复] 累积拖动距离，用于更准确的方向判断
                             totalDragDistanceX += dragAmount.x
                             totalDragDistanceY += dragAmount.y
-                            
+
                             // [修复] 等待累积一定距离后再确定手势类型，避免初始噪声导致误判
                             val minDragThreshold = 20.dp.toPx()
                             val totalDrag = kotlin.math.hypot(totalDragDistanceX, totalDragDistanceY)
@@ -2726,7 +2728,7 @@ private fun VideoPlayerSectionContent(
                                     //  应用灵敏度
                                     val deltaPercent = -totalDragDistanceY / screenHeight * gestureSensitivity
                                     val newBrightness = (startBrightness + deltaPercent).coerceIn(0f, 1f)
-                                    
+
                                     //  优化：仅在变化超过阈值时更新（减少 WindowManager 调用）
                                     if (kotlin.math.abs(newBrightness - gesturePercent) > 0.02f) {
                                         getActivity()?.window?.attributes = getActivity()?.window?.attributes?.apply {
@@ -2921,7 +2923,7 @@ private fun VideoPlayerSectionContent(
                         }
                         // 🔒 锁定时禁用双击
                         if (isScreenLocked) return@detectTapGestures
-                        
+
                         val screenWidth = size.width.toFloat()
                         val player = playerState.player
                         val relativeX = if (screenWidth > 0f) {
@@ -3458,7 +3460,7 @@ private fun VideoPlayerSectionContent(
             delay(760)
             orientationHintVisible = false
         }
-        
+
         //  弹幕设置变化时实时应用
         LaunchedEffect(danmakuManager, danmakuSettings) {
             danmakuManager.updateSettings(settings = danmakuSettings)
@@ -3504,7 +3506,7 @@ private fun VideoPlayerSectionContent(
                 )
             }
         }
-        
+
         // 每个 Compose owner 严格成对绑定/解绑；SessionFactory 负责跨渲染目标复用。
         val keepDanmakuHost = shouldKeepVideoPlayerDanmakuHost(
             danmakuHostActive = danmakuHostActive,
@@ -3520,7 +3522,7 @@ private fun VideoPlayerSectionContent(
                 attachedPlayer?.let { danmakuManager.detachPlayer(it) }
             }
         }
-        
+
         // Activity 生命周期监听必须只跟随 LifecycleOwner。合集内换片会替换 Player，若把 Player
         // 作为 effect key，重新注册的 observer 会立刻收到当前 ON_RESUME，误触发前台 Surface 恢复。
         val lifecyclePlayer by rememberUpdatedState(playerState.player)
@@ -3622,7 +3624,7 @@ private fun VideoPlayerSectionContent(
                 lifecycleOwner.lifecycle.removeObserver(observer)
             }
         }
-        
+
         // --- [优化] 视频封面逻辑 ---
         // 使用 isFirstFrameRendered + smooth reveal 确保只有在首帧稳定后才揭开封面，避免黑屏和硬切。
         val autoPlayOnOpenEnabled by SettingsManager
@@ -3989,7 +3991,7 @@ private fun VideoPlayerSectionContent(
                 isFirstFrameRendered = true
             }
         }
-        
+
         DisposableEffect(playerState.player) {
             val listener = object : Player.Listener {
                 override fun onRenderedFirstFrame() {
@@ -4007,7 +4009,7 @@ private fun VideoPlayerSectionContent(
                     }
                 }
             }
-            
+
             // 兼容性：同时也监听 Events
             override fun onEvents(player: Player, events: Player.Events) {
                 if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
@@ -4030,13 +4032,13 @@ private fun VideoPlayerSectionContent(
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
                     // 播放结束显示重播状态（通常由上层逻辑处理，这里不复位封面以免闪烁）
-                    // isFirstFrameRendered = false 
+                    // isFirstFrameRendered = false
                 }
             }
         }
-        
+
         playerState.player.addListener(listener)
-        
+
         // 初始化检查：如果播放器已经开始播放且有进度，可能错过了事件
         // [Debug] Log initial check
         if (playerState.player.isPlaying && playerState.player.currentPosition > 0) {
@@ -4069,7 +4071,7 @@ private fun VideoPlayerSectionContent(
                 hasStartedSmoothReveal = false
             }
         }
-    
+
     // 4. 封面图 — prefer stationary list Coil request (same pixels as home card at rest).
     val detailCoverUrl = (uiState as? VideoPlaybackUiState.Success)?.info?.pic.orEmpty()
     val stationaryListCover = stationaryListCoverUrl.trim()
@@ -4090,7 +4092,7 @@ private fun VideoPlayerSectionContent(
     } else {
         FormatUtils.fixImageUrl(rawCoverUrl)
     }
-    
+
     LaunchedEffect(playerState.player, bvid, forceCoverDuringReturnAnimation) {
         if (forceCoverDuringReturnAnimation || isFirstFrameRendered) return@LaunchedEffect
         while (isActive && !isFirstFrameRendered) {
@@ -4464,7 +4466,7 @@ private fun VideoPlayerSectionContent(
                         AppIcon(
                             painter = manualStartPlayIcon,
                             contentDescription = "播放视频",
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = AppContentColors.accent(),
                             modifier = Modifier.size(60.dp),
                         )
                     }
@@ -4509,7 +4511,7 @@ private fun VideoPlayerSectionContent(
                     (24 * context.resources.displayMetrics.density).toInt()
                 }
             }
-            
+
             // 竖屏「屏幕顶部」模式：弹幕覆盖整个播放器容器；默认仍贴合视频画面，避免落在黑边里。
             val useScreenTopDanmakuSurface = shouldUseScreenTopDanmakuSurface(
                 portraitDisplayAreaMode = portraitDanmakuDisplayAreaMode,
@@ -4520,7 +4522,7 @@ private fun VideoPlayerSectionContent(
                 statusBarHeightPx = statusBarHeightPx,
                 useScreenTopSurface = useScreenTopDanmakuSurface
             )
-            
+
             //  [修复] 移除 key(isFullscreen)，避免横竖屏切换时重建 DanmakuView 导致弹幕消失
             // 使用 remember 保存 DanmakuView 引用，在 update 回调中处理尺寸变化
             val viewportAspectRatio = if (isFullscreen) currentAspectRatio else VideoAspectRatio.FIT
@@ -5046,7 +5048,7 @@ private fun VideoPlayerSectionContent(
                 suppressSubtitleOverlay = suppressSubtitleOverlay,
                 isFullscreen = isFullscreen,
                 controlsVisible = showControls,
-                endDrawerReservedWidth = animatedEndDrawerReservedWidth,
+                endDrawerReservedWidthProvider = endDrawerReservedWidthProvider,
                 playerViewportSize = measuredPlayerViewportSize,
                 bottomControlsHeightPx = measuredBottomControlsHeightPx
             )
@@ -5120,6 +5122,7 @@ private fun VideoPlayerSectionContent(
         // 主题原生的音量/亮度反馈。
         GestureLevelOverlayHost(
             visible = shouldShowLevelIndicator,
+            compact = !isFullscreen,
             mode = gestureMode,
             percent = gesturePercent,
             glassBackdrop = playerPageBackdrop.backdrop.takeIf {
@@ -5194,7 +5197,7 @@ private fun VideoPlayerSectionContent(
                 )
             }
         }
-        
+
         //  [新增] 双击跳转视觉反馈 (±Ns 提示)
         LaunchedEffect(seekFeedbackGeneration) {
             if (seekFeedbackGeneration > 0L) {
@@ -5202,7 +5205,7 @@ private fun VideoPlayerSectionContent(
                 seekFeedbackVisible = false
             }
         }
-        
+
         AnimatedVisibility(
             visible = seekFeedbackVisible && !isInPipMode,
             modifier = Modifier.align(Alignment.Center),
@@ -5217,7 +5220,7 @@ private fun VideoPlayerSectionContent(
             ) {
                 AppText(
                     text = seekFeedbackText ?: "",
-                    color = if (seekFeedbackText?.startsWith("+") == true) com.android.purebilibili.core.theme.iOSGreen else com.android.purebilibili.core.theme.iOSRed,
+                    color = com.android.purebilibili.core.ui.MediaContrastPalette.Foreground,
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold
                     )
@@ -5270,7 +5273,7 @@ private fun VideoPlayerSectionContent(
                 )
             }
         }
-        
+
         AnimatedVisibility(
             visible = longPressSpeedLockEnabled && isLongPressing && !longPressSpeedLocked && !isInPipMode,
             modifier = Modifier.matchParentSize(),
@@ -5282,7 +5285,7 @@ private fun VideoPlayerSectionContent(
                 val zoneModifier = Modifier
                     .fillMaxWidth()
                     .height(longPressSpeedLockSensitivity.lockZoneHeightDp.dp)
-                val markerColor = MaterialTheme.colorScheme.primary
+                val markerColor = AppContentColors.accent()
                 Box(modifier = zoneModifier.align(Alignment.TopCenter)) {
                     Box(
                         modifier = Modifier
@@ -5637,7 +5640,9 @@ private fun VideoPlayerSectionContent(
                     currentPlayMode = currentPlayMode,
                     endDrawerVisible = showEndDrawer,
                     endDrawerInitialTab = endDrawerInitialTab,
-                    endDrawerReservedWidth = animatedEndDrawerReservedWidth,
+                    endDrawerReservedWidth = endDrawerReservedWidthDp.dp,
+                    endDrawerCloseProgress = endDrawerCloseProgress,
+                    endDrawerReservedWidthProvider = endDrawerReservedWidthProvider,
                     // [新增] 侧边栏抽屉数据与交互
                     relatedVideos = relatedVideos,
                     ugcSeason = ugcSeason,

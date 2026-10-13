@@ -19,10 +19,12 @@ import kotlinx.coroutines.Job
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.offset
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -124,3 +126,13 @@ internal fun LandscapeSidePanel(
         content(requestDismiss)
     }
 }
+
+/** Read the occupied drawer width during measurement so drag updates only relayout content. */
+internal fun Modifier.landscapeEndDrawerPadding(widthProvider: () -> Dp): Modifier =
+    layout { measurable, constraints ->
+        val inset = widthProvider().roundToPx().coerceIn(0, constraints.maxWidth)
+        val placeable = measurable.measure(constraints.offset(horizontal = -inset))
+        layout(placeable.width + inset, placeable.height) {
+            placeable.placeRelative(0, 0)
+        }
+    }
