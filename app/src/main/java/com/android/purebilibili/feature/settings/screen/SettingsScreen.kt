@@ -85,6 +85,7 @@ const val GITHUB_URL = OFFICIAL_GITHUB_URL
 fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel(),
     onBack: () -> Unit,
+    onSettingsHome: () -> Unit = onBack,
     onOpenSourceLicensesClick: () -> Unit,
     onAppearanceClick: () -> Unit = {},
     onHomeClick: () -> Unit = {},
@@ -769,6 +770,7 @@ fun SettingsScreen(
                     rootEntranceEnabled = rootEntranceEnabled,
                     rootEntranceStartWhen = rootEntranceStartWhen,
                     onBack = onBack,
+                    onSettingsHome = onSettingsHome,
                     onCategoryClick = onCategoryClick,
                     onSearchOpen = onSearchOpen,
                     onAppearanceClick = onAppearanceClick,
@@ -967,6 +969,7 @@ private fun MobileSettingsNavLayout(
     rootEntranceEnabled: Boolean,
     rootEntranceStartWhen: Boolean,
     onBack: () -> Unit,
+    onSettingsHome: () -> Unit,
     onCategoryClick: (SettingsRootCategory) -> Unit,
     onSearchOpen: () -> Unit,
     onAppearanceClick: () -> Unit,
@@ -1192,11 +1195,18 @@ private fun MobileSettingsNavLayout(
                 }
             }
             is SettingsNavDestination.Category -> {
-                SettingsRootCategoryContent(
-                    category = destination.category,
-                    actions = rootCategoryActions,
-                    state = rootCategoryState,
-                )
+                Column {
+                    SettingsCategoryBreadcrumb(
+                        title = screenTitle,
+                        onSettingsHome = onSettingsHome,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                    SettingsRootCategoryContent(
+                        category = destination.category,
+                        actions = rootCategoryActions,
+                        state = rootCategoryState,
+                    )
+                }
             }
             SettingsNavDestination.Search -> Unit
         }

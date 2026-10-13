@@ -47,6 +47,7 @@ import com.android.purebilibili.core.ui.AppScaffold
 import com.android.purebilibili.core.ui.AppTopBar
 import com.android.purebilibili.core.ui.AppTopBarStyle
 import com.android.purebilibili.core.ui.AppSurfaceTokens
+import com.android.purebilibili.core.ui.AdaptivePlainTooltipBox
 import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.theme.LocalAppUiStyle
 import com.android.purebilibili.core.ui.LocalBottomBarContentPadding
@@ -215,11 +216,16 @@ internal fun SettingsPageScaffold(
                                 )
                         } else Modifier,
                         navigationIcon = {
-                            AppIconButton(onClick = onBack) {
-                                AppIcon(
-                                    imageVector = rememberAppBackIcon(),
-                                    contentDescription = backContentDescription,
-                                )
+                            AdaptivePlainTooltipBox(
+                                text = backContentDescription,
+                                enabled = true,
+                            ) {
+                                AppIconButton(onClick = onBack) {
+                                    AppIcon(
+                                        imageVector = rememberAppBackIcon(),
+                                        contentDescription = backContentDescription,
+                                    )
+                                }
                             }
                         },
                         actions = actions,

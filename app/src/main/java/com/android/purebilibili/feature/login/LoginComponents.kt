@@ -15,7 +15,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -185,7 +184,7 @@ internal fun resolveLoginPalette(
 
 @Composable
 private fun rememberLoginPalette(): LoginPalette {
-    val dark = isSystemInDarkTheme()
+    val dark = com.android.purebilibili.core.ui.isAppInDarkTheme()
     val cs = MaterialTheme.colorScheme
 
     return remember(dark, cs) {
@@ -306,7 +305,7 @@ fun GlassCard(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            palette.primaryText.copy(alpha = if (isSystemInDarkTheme()) 0.05f else 0.35f),
+                            palette.primaryText.copy(alpha = if (com.android.purebilibili.core.ui.isAppInDarkTheme()) 0.05f else 0.35f),
                             Color.Transparent,
                         )
                     )
@@ -410,8 +409,8 @@ fun LoginMethodTabs(
                 val bgBrush = if (selected) {
                     Brush.horizontalGradient(
                         colors = listOf(
-                            palette.accentStart.copy(alpha = if (isSystemInDarkTheme()) 0.24f else 0.20f),
-                            palette.accentEnd.copy(alpha = if (isSystemInDarkTheme()) 0.26f else 0.16f)
+                            palette.accentStart.copy(alpha = if (com.android.purebilibili.core.ui.isAppInDarkTheme()) 0.24f else 0.20f),
+                            palette.accentEnd.copy(alpha = if (com.android.purebilibili.core.ui.isAppInDarkTheme()) 0.26f else 0.16f)
                         )
                     )
                 } else {

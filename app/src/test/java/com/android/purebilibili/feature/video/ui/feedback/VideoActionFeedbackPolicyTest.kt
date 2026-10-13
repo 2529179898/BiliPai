@@ -1,6 +1,7 @@
 package com.android.purebilibili.feature.video.ui.feedback
 
 import androidx.compose.ui.graphics.Color
+import com.android.purebilibili.core.theme.AppUiStyle
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -81,6 +82,21 @@ class VideoActionFeedbackPolicyTest {
         assertEquals(primary, colors.primaryAction)
         assertEquals(tertiary, colors.watchLater)
         assertEquals(secondary, colors.downloadInProgress)
+        assertEquals(primary, colors.downloaded)
+    }
+
+    @Test
+    fun `miuix active actions do not inherit neutral secondary color`() {
+        val primary = Color(0xFF3366FF)
+        val colors = resolveVideoDetailActionActiveColors(
+            primary = primary,
+            secondary = Color.Gray,
+            tertiary = Color.Gray,
+            uiStyle = AppUiStyle.MIUIX,
+        )
+
+        assertEquals(primary, colors.watchLater)
+        assertEquals(primary, colors.downloadInProgress)
         assertEquals(primary, colors.downloaded)
     }
 

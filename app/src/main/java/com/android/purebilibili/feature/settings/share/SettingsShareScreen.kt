@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.android.purebilibili.feature.settings.share
 
 import android.content.Intent
@@ -188,7 +190,21 @@ fun SettingsShareScreen(
 
             item {
                 AppPreferenceSectionTitle("操作")
-                AppPreferenceGroup {
+                if (com.android.purebilibili.core.theme.LocalAppUiStyle.current == com.android.purebilibili.core.theme.AppUiStyle.MATERIAL3) {
+                    MaterialSettingsTransferActions(
+                        enabled = !uiState.isBusy,
+                        onExport = {
+                            exportLauncher.launch(buildSettingsShareFileName(
+                                appVersion = BuildConfig.VERSION_NAME,
+                                epochMs = System.currentTimeMillis(),
+                            ))
+                        },
+                        onShare = { viewModel.prepareShare() },
+                        onImport = { importLauncher.launch(arrayOf("application/json", "text/plain")) },
+                        onSave = { profileName = ""; showSaveProfileDialog = true },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                } else                 AppPreferenceGroup {
                     AppPreference(
                         icon = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_download_fill_24),
                         title = "导出到文件",
@@ -229,29 +245,52 @@ fun SettingsShareScreen(
             item {
                 AppPreferenceSectionTitle("本机保存的设置")
                 AppPreferenceGroup {
-                    AppPreference(
-                        icon = com.android.purebilibili.feature.settings.rememberMaterialSymbol(
-                            com.android.purebilibili.R.drawable.ms_download_fill_24,
-                        ),
-                        title = "保存当前配置",
-                        subtitle = "自定义名称，保存后可一键恢复",
-                        onClick = {
-                            profileName = ""
-                            showSaveProfileDialog = true
-                        },
-                        iconTint = iOSBlue,
-                    )
-                    uiState.savedProfiles.forEach { profile ->
-                        AppPreferenceDivider(startIndent = 66.dp)
+                    if (com.android.purebilibili.core.theme.LocalAppUiStyle.current != com.android.purebilibili.core.theme.AppUiStyle.MATERIAL3) {
                         AppPreference(
                             icon = com.android.purebilibili.feature.settings.rememberMaterialSymbol(
-                                com.android.purebilibili.R.drawable.ms_restore_24,
+                                com.android.purebilibili.R.drawable.ms_download_fill_24,
                             ),
-                            title = profile.name,
-                            subtitle = "点击立即恢复此配置",
-                            onClick = { viewModel.restoreSavedProfile(profile) },
-                            iconTint = iOSGreen,
+                            title = "保存当前配置",
+                            subtitle = "自定义名称，保存后可一键恢复",
+                            onClick = {
+                                profileName = ""
+                                showSaveProfileDialog = true
+                            },
+                            iconTint = iOSBlue,
                         )
+                    }
+                    if (com.android.purebilibili.core.theme.LocalAppUiStyle.current == com.android.purebilibili.core.theme.AppUiStyle.MATERIAL3) {
+                        if (uiState.savedProfiles.isEmpty()) {
+                            com.android.purebilibili.core.ui.components.AppText(
+                                "暂无保存的配置，可使用上方按钮保存。",
+                                modifier = Modifier.padding(16.dp),
+                            )
+                        }
+                        uiState.savedProfiles.forEachIndexed { index, profile ->
+                            androidx.compose.material3.SegmentedListItem(
+                                onClick = { viewModel.restoreSavedProfile(profile) },
+                                enabled = !uiState.isBusy,
+                                shapes = androidx.compose.material3.ListItemDefaults.segmentedShapes(
+                                    index = index,
+                                    count = uiState.savedProfiles.size,
+                                ),
+                                supportingContent = { com.android.purebilibili.core.ui.components.AppText("点击恢复此配置") },
+                                modifier = Modifier.padding(vertical = 2.dp),
+                            ) { com.android.purebilibili.core.ui.components.AppText(profile.name) }
+                        }
+                    } else {
+                        uiState.savedProfiles.forEach { profile ->
+                            AppPreferenceDivider(startIndent = 66.dp)
+                            AppPreference(
+                                icon = com.android.purebilibili.feature.settings.rememberMaterialSymbol(
+                                    com.android.purebilibili.R.drawable.ms_restore_24,
+                                ),
+                                title = profile.name,
+                                subtitle = "点击立即恢复此配置",
+                                onClick = { viewModel.restoreSavedProfile(profile) },
+                                iconTint = iOSGreen,
+                            )
+                        }
                     }
                 }
             }

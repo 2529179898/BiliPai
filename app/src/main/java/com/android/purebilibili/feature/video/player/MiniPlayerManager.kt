@@ -195,6 +195,19 @@ internal fun shouldContinuePlaybackDuringPause(
 }
 
 internal const val SHORT_BACKGROUND_LIGHT_MODE_MS = 15_000L
+internal const val BACKGROUND_PAUSED_RELEASE_DELAY_MS = 30_000L
+
+internal fun shouldReleasePausedBackgroundPlayback(
+    isInBackground: Boolean,
+    ownsBackgroundPlayer: Boolean,
+    playWhenReady: Boolean,
+    isPlaying: Boolean,
+    hasMediaItems: Boolean,
+    isPipActiveOrPending: Boolean,
+    alreadyReleased: Boolean,
+): Boolean = isInBackground && ownsBackgroundPlayer &&
+    !playWhenReady && !isPlaying && hasMediaItems &&
+    !isPipActiveOrPending && !alreadyReleased
 
 internal fun shouldApplyHeavyBackgroundVideoOptimization(
     backgroundElapsedMs: Long,
@@ -787,6 +800,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
     private var backgroundOptimizationPlayer: Player? = null
     private var savedTrackParams: androidx.media3.common.TrackSelectionParameters? = null
     private var backgroundHeavyOptimizationJob: Job? = null
+    private var backgroundPausedReleaseJob: Job? = null
     private var enteredBackgroundAtMs: Long = 0L
     @Volatile
     private var didApplyHeavyBackgroundVideoOptimization = false
@@ -852,6 +866,8 @@ class MiniPlayerManager private constructor(private val context: Context) :
     
     /** Cancel work and discard resume flags before handing off or closing a player. */
     private fun resetBackgroundOptimizationState() {
+        backgroundPausedReleaseJob?.cancel()
+        backgroundPausedReleaseJob = null
         backgroundHeavyOptimizationJob?.cancel()
         backgroundHeavyOptimizationJob = null
         val owner = backgroundOptimizationPlayer
@@ -932,6 +948,11 @@ class MiniPlayerManager private constructor(private val context: Context) :
         }
 
         // 短后台不立刻关视频轨/清 surface/清弹幕，降低回前台固定顿一下的概率（仅针对活跃后台音频）。
+        scheduleBackgroundVideoOptimization(currentPlayer)
+    }
+
+    private fun scheduleBackgroundVideoOptimization(currentPlayer: Player) {
+        backgroundHeavyOptimizationJob?.cancel()
         backgroundHeavyOptimizationJob = scope.launch {
             delay(SHORT_BACKGROUND_LIGHT_MODE_MS)
             val elapsedMs = (SystemClock.elapsedRealtime() - enteredBackgroundAtMs).coerceAtLeast(0L)
@@ -1015,6 +1036,8 @@ class MiniPlayerManager private constructor(private val context: Context) :
     }
     
     override fun onEnterForeground() {
+        backgroundPausedReleaseJob?.cancel()
+        backgroundPausedReleaseJob = null
         if (!isLowMemoryMode) return
         if (player == null || backgroundOptimizationPlayer !== player) {
             resetBackgroundOptimizationState()
@@ -1160,6 +1183,61 @@ class MiniPlayerManager private constructor(private val context: Context) :
         didApplyIdlePlaybackRelease = true
         pendingForegroundSurfaceRecovery = true
         Logger.d(TAG, "🔋 后台闲置释放：stop 播放器并保留 media item")
+    }
+
+    /** Re-evaluate a pause made after entering background, including media-session controls. */
+    private fun onBackgroundPlayWhenReadyChanged(playWhenReady: Boolean) {
+        backgroundPausedReleaseJob?.cancel()
+        backgroundPausedReleaseJob = null
+        val currentPlayer = player ?: return
+        if (!isLowMemoryMode || !BackgroundManager.isInBackground ||
+            backgroundOptimizationPlayer !== currentPlayer
+        ) return
+
+        // The current request supersedes the snapshot taken while entering background.
+        // In particular, returning to the app must not undo an explicit background pause.
+        foregroundResumeIntent = playWhenReady
+        if (playWhenReady) {
+            if (didApplyIdlePlaybackRelease) {
+                didApplyIdlePlaybackRelease = false
+                if (currentPlayer.mediaItemCount > 0 && currentPlayer.playbackState == Player.STATE_IDLE) {
+                    currentPlayer.prepare()
+                }
+            }
+            if (pendingHeavyBackgroundVideoOptimization && !didApplyHeavyBackgroundVideoOptimization) {
+                scheduleBackgroundVideoOptimization(currentPlayer)
+            }
+            return
+        }
+
+        fun canRelease(): Boolean = shouldReleasePausedBackgroundPlayback(
+            isInBackground = isLowMemoryMode && BackgroundManager.isInBackground,
+            ownsBackgroundPlayer = isActive && player === currentPlayer &&
+                backgroundOptimizationPlayer === currentPlayer,
+            playWhenReady = currentPlayer.playWhenReady,
+            isPlaying = currentPlayer.isPlaying,
+            hasMediaItems = currentPlayer.mediaItemCount > 0,
+            isPipActiveOrPending = shouldKeepPlaybackForPipTransition(),
+            alreadyReleased = didApplyIdlePlaybackRelease,
+        )
+        if (!canRelease()) return
+        // The older deadline must not stop a newly paused session before its grace period.
+        backgroundHeavyOptimizationJob?.cancel()
+        backgroundHeavyOptimizationJob = null
+        backgroundPausedReleaseJob = scope.launch {
+            delay(BACKGROUND_PAUSED_RELEASE_DELAY_MS)
+            backgroundPausedReleaseJob = null
+            if (!canRelease()) return@launch
+            // Retire the older "keep background audio" decision before dropping buffers.
+            backgroundHeavyOptimizationJob?.cancel()
+            backgroundHeavyOptimizationJob = null
+            applyHeavyBackgroundVideoOptimization(
+                currentPlayer = currentPlayer,
+                shouldKeepBackgroundAudio = false,
+                wasPlaybackActive = false,
+                requestIdlePlaybackRelease = true,
+            )
+        }
     }
 
 
@@ -2671,6 +2749,12 @@ class MiniPlayerManager private constructor(private val context: Context) :
 
     // --- 播放器监听器 ---
     private val playerListener = object : Player.Listener {
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
+                onBackgroundPlayWhenReadyChanged(playWhenReady)
+            }
+        }
+
         override fun onIsPlayingChanged(playing: Boolean) {
             isPlaying = playing
             Logger.d(TAG, "isPlaying changed: $playing")

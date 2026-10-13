@@ -18,16 +18,14 @@ import androidx.compose.ui.unit.sp
 internal data class UserUpBadgeVisualSpec(
     val cornerRadiusDp: Int,
     val horizontalPaddingDp: Int,
-    val verticalPaddingDp: Int,
-    val fontSp: Int
+    val verticalPaddingDp: Int
 )
 
 internal fun resolveUserUpBadgeVisualSpec(): UserUpBadgeVisualSpec {
     return UserUpBadgeVisualSpec(
         cornerRadiusDp = 3,
         horizontalPaddingDp = 3,
-        verticalPaddingDp = 2,
-        fontSp = 9
+        verticalPaddingDp = 2
     )
 }
 
@@ -49,8 +47,7 @@ fun UserUpBadge(
     ) {
         Text(
             text = "UP",
-            fontSize = spec.fontSp.sp,
-            lineHeight = spec.fontSp.sp,
+            style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = contentColor
         )

@@ -14,3 +14,6 @@ interface AppTopBarIconDecorator {
 val LocalAppTopBarIconDecorator = staticCompositionLocalOf<AppTopBarIconDecorator?> { null }
 val LocalAppTopBarIconDecorationEnabled = staticCompositionLocalOf { false }
 val LocalAppTopBarIconBackdrop = staticCompositionLocalOf<Backdrop?> { null }
+
+/** True only when the surrounding decorator actually drew a glass material. */
+val LocalAppIconButtonGlassSurfaceProvided = staticCompositionLocalOf { false }

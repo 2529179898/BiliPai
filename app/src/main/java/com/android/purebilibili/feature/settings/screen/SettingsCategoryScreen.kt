@@ -13,6 +13,7 @@ fun SettingsCategoryScreen(
     category: SettingsRootCategory,
     viewModel: SettingsViewModel = viewModel(),
     onBack: () -> Unit,
+    onSettingsHome: () -> Unit = onBack,
     onOpenSourceLicensesClick: () -> Unit,
     onAppearanceClick: () -> Unit = {},
     onHomeClick: () -> Unit = {},
@@ -34,6 +35,7 @@ fun SettingsCategoryScreen(
     SettingsScreen(
         viewModel = viewModel,
         onBack = onBack,
+        onSettingsHome = onSettingsHome,
         onOpenSourceLicensesClick = onOpenSourceLicensesClick,
         onAppearanceClick = onAppearanceClick,
         onHomeClick = onHomeClick,

@@ -48,7 +48,7 @@ fun resolveUserVipBadgeLabel(
 fun UserVipBadge(
     label: String = "大会员",
     modifier: Modifier = Modifier,
-    fontSize: TextUnit = 11.sp,
+    fontSize: TextUnit = MaterialTheme.typography.labelSmall.fontSize,
     compact: Boolean = false,
 ) {
     val text = resolveUserVipBadgeLabel(label)

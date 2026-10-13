@@ -1259,7 +1259,10 @@ fun UpInfoSection(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = if (isCompact) 8.dp else 12.dp)
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = if (isCompact) 8.dp else 12.dp),
                 ) {
                     AppText(
                         text = if (followStatusKnown) {

@@ -22,7 +22,7 @@ import com.android.purebilibili.core.ui.components.AppIconButton
 import com.android.purebilibili.core.ui.components.AppSurface
 import com.android.purebilibili.core.ui.motion.AppMotionEasing
 
-/** The paused frame keeps a direct resume target even when the other controls are hidden. */
+/** The central play/pause target follows the visibility of the rest of the player controls. */
 @Composable
 internal fun CenterPlaybackControl(
     visible: Boolean,

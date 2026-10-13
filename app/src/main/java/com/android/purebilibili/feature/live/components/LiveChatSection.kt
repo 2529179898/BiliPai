@@ -320,9 +320,9 @@ private fun ChatMessageItem(
     val readableText = colorScheme.onSurface
     val readableSecondaryText = colorScheme.onSurfaceVariant
     val usernameColor = if (item.isAdmin) {
-        LiveStatusPalette.AdminName
+        if (isOverlay) LiveStatusPalette.AdminName else colorScheme.tertiary
     } else if (item.isSelf) {
-        palette.accentStrong
+        if (isOverlay) colorScheme.primaryFixed else colorScheme.primary
     } else if (isOverlay) {
         LiveStatusPalette.MediaContent.copy(alpha = tokens.nameAlpha)
     } else {
@@ -534,9 +534,9 @@ private fun SuperChatMessageItem(
     isOverlay: Boolean
 ) {
     val bg = resolveLiveSuperChatColor(item.superChatBackgroundColor)
-        .copy(alpha = if (isOverlay) 0.82f else 1f)
+    val badgeColors = com.android.purebilibili.feature.live.readableLiveBadgeColors(bg)
     AppSurface(
-        color = bg,
+        color = badgeColors.containerColor,
         shape = AppShapes.container(ContainerLevel.Card),
         modifier = Modifier.fillMaxWidth(if (isOverlay) 0.72f else 0.82f)
     ) {
@@ -549,7 +549,7 @@ private fun SuperChatMessageItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AppText(
                     text = item.uname.ifBlank { "醒目留言" },
-                    color = LiveStatusPalette.MediaContent,
+                    color = badgeColors.contentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.labelLarge,
@@ -559,11 +559,11 @@ private fun SuperChatMessageItem(
                 if (item.superChatPrice.isNotBlank()) {
                     AppSurface(
                         shape = AppShapes.container(ContainerLevel.Pill),
-                        color = LiveStatusPalette.MediaScrim.copy(alpha = 0.18f)
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh
                     ) {
                         AppText(
                             text = item.superChatPrice,
-                            color = LiveStatusPalette.MediaContent,
+                            color = MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(
@@ -578,7 +578,7 @@ private fun SuperChatMessageItem(
                 Spacer(Modifier.height(AppSpacingTokens.ExtraSmall))
                 AppText(
                     text = item.text,
-                    color = LiveStatusPalette.MediaContent,
+                    color = badgeColors.contentColor,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = if (isOverlay) 2 else 4,
                     overflow = TextOverflow.Ellipsis
@@ -592,10 +592,11 @@ private fun SuperChatMessageItem(
 @Composable
 private fun MedalBadge(name: String, level: Int, colorInt: Int) {
     val color = resolveLiveMedalColor(colorInt)
+    val badgeColors = com.android.purebilibili.feature.live.readableLiveBadgeColors(color)
     val visualSpec = remember { resolveLiveMedalBadgeVisualSpec() }
     
     AppSurface(
-        color = color,
+        color = badgeColors.containerColor,
         shape = AppShapes.container(ContainerLevel.Tag),
         modifier = Modifier.padding(top = AppSpacingTokens.Micro)
     ) {
@@ -609,7 +610,7 @@ private fun MedalBadge(name: String, level: Int, colorInt: Int) {
             AppText(
                 text = name,
                 style = MaterialTheme.typography.labelSmall,
-                color = LiveStatusPalette.MediaContent,
+                color = badgeColors.contentColor,
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.width(AppSpacingTokens.Micro))
@@ -618,13 +619,13 @@ private fun MedalBadge(name: String, level: Int, colorInt: Int) {
                 Modifier
                     .width(visualSpec.dividerWidthDp.dp)
                     .height(AppSpacingTokens.Small)
-                    .background(LiveStatusPalette.MediaContent.copy(0.7f))
+                    .background(badgeColors.contentColor)
             )
             Spacer(Modifier.width(AppSpacingTokens.Micro))
             AppText(
                 text = "$level",
                 style = MaterialTheme.typography.labelSmall,
-                color = LiveStatusPalette.MediaContent,
+                color = badgeColors.contentColor,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -636,18 +637,18 @@ private fun MedalBadge(name: String, level: Int, colorInt: Int) {
 private fun UserLevelBadge(level: Int) {
     // 简单的胶囊样式
     // 颜色根据等级变化 (简化处理：低等级灰/蓝，高等级橙/红)
-    val color = resolveLiveLevelColor(level)
+    val color = MaterialTheme.colorScheme.secondary
     
     AppSurface(
                 border = androidx.compose.foundation.BorderStroke(AppSpacingTokens.Micro / 2, color),
         shape = AppShapes.borderedContainer(ContainerLevel.Tag),
-        color = Color.Transparent, // 空心
+        color = MaterialTheme.colorScheme.secondaryContainer,
         modifier = Modifier.padding(top = AppSpacingTokens.Micro)
     ) {
          AppText(
             text = "UL$level",
             style = MaterialTheme.typography.labelSmall,
-            color = color,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = AppSpacingTokens.Micro)
         )

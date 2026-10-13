@@ -10,7 +10,6 @@ import com.android.purebilibili.core.theme.LocalAppUiStyle
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import com.android.purebilibili.core.ui.components.AppLazyColumn as LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -784,7 +783,7 @@ private fun PartitionSideRail(
         val railPageBackdrop = rememberLayerBackdrop()
         val railContentBackdrop = rememberLayerBackdrop()
         val combinedBackdrop = rememberCombinedBackdrop(railPageBackdrop, railContentBackdrop)
-        val isDarkTheme = isSystemInDarkTheme()
+        val isDarkTheme = com.android.purebilibili.core.ui.isAppInDarkTheme()
         // Reserve the same overflow as the home dock so the indicator lens can
         // sample pixels just outside the rail bounds without clipping.
         Box(
@@ -917,7 +916,7 @@ private fun PartitionSideRailMovingIndicator(
     }
 
     val shape = resolveSharedBottomBarCapsuleShape()
-    val isDarkTheme = isSystemInDarkTheme()
+    val isDarkTheme = com.android.purebilibili.core.ui.isAppInDarkTheme()
     val motionSpec = remember { resolveSegmentedControlMotionSpec() }
     val pressProgress = dragAnimation.pressProgress
     val refractionMotionProfile = resolveBottomBarRefractionMotionProfile(

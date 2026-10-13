@@ -360,13 +360,12 @@ internal fun resolveNativeMiuixColors(
         }
         else -> upstream.copy(background = Color(0xFF121212), surface = Color(0xFF121212))
     }
-    val accentContainer = opaqueCompositeOver(scheme.primary.copy(alpha = 0.2f), base.surface)
     val accentScheme = scheme.copy(
         surface = base.surface,
-        primaryFixed = accentContainer,
-        onPrimaryFixed = scheme.primary,
-        primaryContainer = scheme.primary,
-        onPrimaryContainer = scheme.onPrimary,
+        primaryFixed = scheme.primaryFixed,
+        onPrimaryFixed = scheme.onPrimaryFixed,
+        primaryContainer = scheme.primaryContainer,
+        onPrimaryContainer = scheme.onPrimaryContainer,
     )
     val accent = resolveMiuixColorsFromMaterialBridge(createMiuixMaterialBridge(accentScheme), darkTheme)
     return base.copy(
@@ -376,10 +375,20 @@ internal fun resolveNativeMiuixColors(
         onPrimaryVariant = accent.onPrimaryVariant,
         primaryContainer = accent.primaryContainer,
         onPrimaryContainer = accent.onPrimaryContainer,
-        tertiaryContainer = accentContainer,
-        onTertiaryContainer = scheme.primary,
+        tertiaryContainer = scheme.tertiaryContainer,
+        onTertiaryContainer = scheme.onTertiaryContainer,
         sliderKeyPoint = scheme.primary.copy(alpha = base.sliderKeyPoint.alpha),
         sliderKeyPointForeground = scheme.primary,
+        // Native neutral containers also carry readable text, including search and quality rows.
+        onSecondary = base.onSurface,
+        error = scheme.error,
+        onError = scheme.onError,
+        errorContainer = scheme.errorContainer,
+        onErrorContainer = scheme.onErrorContainer,
+        onSecondaryContainer = base.onSurface,
+        onSecondaryContainerVariant = base.onSurface,
+        onSurfaceContainerHigh = base.onSurface,
+        onSurfaceContainerVariant = base.onSurface,
     )
 }
 
@@ -474,7 +483,7 @@ internal fun resolveMiuixColorsFromMaterialBridge(
             candidate = bridge.outline,
             background = bridge.outlineVariant,
             fallback = bridge.onSurface,
-            minimumContrast = ACCESSIBLE_UI_MIN_CONTRAST,
+            minimumContrast = ACCESSIBLE_TEXT_MIN_CONTRAST,
         ),
         secondaryVariant = bridge.surfaceContainerHigh,
         onSecondaryVariant = bridge.onSurface,
@@ -759,16 +768,6 @@ internal fun createBiliPaiStyleColorScheme(
         }
     }
 
-    if (uiStyle == AppUiStyle.MIUIX) {
-        return enforceDynamicTextContrast(
-            createMiuixAlignedColorScheme(
-                primaryColor = seedColor,
-                darkTheme = darkTheme,
-                amoledDarkTheme = amoledDarkTheme
-            )
-        )
-    }
-
     val scheme = dynamicColorScheme(
         seedColor = seedColor,
         isDark = darkTheme,
@@ -837,8 +836,12 @@ fun PureBiliBiliTheme(
     val materialMotionScheme = remember(uiStyle) {
         resolveMaterialMotionScheme(uiStyle)
     }
-    val miuixTextStyles = remember(materialTypography) {
-        materialTypography.toMiuixTextStyles()
+    val miuixTextStyles = remember(uiStyle, liquidGlassEnabled, fontSizePreset, appFontFamily, appFontWeightPreset) {
+        resolveMaterialTypography(uiStyle, liquidGlassEnabled)
+            .toMiuixTextStyles()
+            .scaled(fontSizePreset.multiplier)
+            .withFontFamily(appFontFamily)
+            .withFontWeight(appFontWeightPreset.fontWeight)
     }
     val systemWallpaperRefreshToken = rememberSystemWallpaperRefreshToken(isDynamicColorActive)
     val dynamicLightBaseScheme = if (

@@ -1,12 +1,17 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.android.purebilibili.core.ui.renderer.material3
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import com.android.purebilibili.core.ui.components.LocalAppIconButtonGlassSurfaceProvided
 import com.android.purebilibili.core.ui.components.AppIconButtonColors
 import com.android.purebilibili.core.ui.components.AppIconButtonVariant
 import com.android.purebilibili.core.ui.components.appDesktopInteractionVisuals
@@ -22,7 +27,8 @@ internal fun AppMaterial3IconButton(
     content: @Composable () -> Unit,
 ) {
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
-    val nativeShape = when (variant) {
+    val glassSurfaceProvided = LocalAppIconButtonGlassSurfaceProvided.current
+    val nativeShape = if (glassSurfaceProvided) CircleShape else when (variant) {
         AppIconButtonVariant.Standard -> IconButtonDefaults.standardShape
         AppIconButtonVariant.Filled -> IconButtonDefaults.filledShape
     }
@@ -30,7 +36,7 @@ internal fun AppMaterial3IconButton(
         AppIconButtonVariant.Standard -> IconButtonDefaults.iconButtonColors()
         AppIconButtonVariant.Filled -> IconButtonDefaults.filledIconButtonColors()
     }
-    val nativeColors = colors?.let {
+    val requestedColors = colors?.let {
         defaultColors.copy(
             containerColor = it.containerColor,
             contentColor = it.contentColor,
@@ -38,6 +44,16 @@ internal fun AppMaterial3IconButton(
             disabledContentColor = it.disabledContentColor,
         )
     } ?: defaultColors
+    val nativeColors = if (glassSurfaceProvided) {
+        requestedColors.copy(
+            containerColor = Color.Transparent,
+            disabledContainerColor = Color.Transparent,
+        )
+    } else requestedColors
+    val nativeShapes = IconButtonDefaults.shapes(
+        shape = nativeShape,
+        pressedShape = if (glassSurfaceProvided) nativeShape else null,
+    )
     val nativeModifier = modifier.appDesktopInteractionVisuals(
         interactionSource = resolvedInteractionSource,
         enabled = enabled,
@@ -51,14 +67,14 @@ internal fun AppMaterial3IconButton(
             enabled = enabled,
             colors = nativeColors,
             interactionSource = resolvedInteractionSource,
-            shape = nativeShape,
+            shapes = nativeShapes,
             content = content,
         )
         AppIconButtonVariant.Filled -> FilledIconButton(
             onClick = onClick,
             modifier = nativeModifier,
             enabled = enabled,
-            shape = nativeShape,
+            shapes = nativeShapes,
             colors = nativeColors,
             interactionSource = resolvedInteractionSource,
             content = content,

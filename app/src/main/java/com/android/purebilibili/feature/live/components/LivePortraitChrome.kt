@@ -157,7 +157,7 @@ internal fun LivePortraitChatStream(
                             Modifier
                         }
                     )
-                    .background(LiveStatusPalette.MediaScrim.copy(alpha = if (hazeState != null) 0.38f else 0.52f))
+                    .background(LiveStatusPalette.MediaScrim.copy(alpha = 0.8f))
                     .padding(horizontal = AppSpacingTokens.Medium, vertical = AppSpacingTokens.ExtraSmall)
                     .clickable(
                         enabled = onOpenHistory != null,
@@ -362,7 +362,7 @@ private fun LivePortraitDanmakuBubble(
     val bubbleShape = AppShapes.container(ContainerLevel.Pill)
     val usernameColor = when {
         item.isAdmin -> LiveStatusPalette.AdminName
-        item.isSelf -> palette.accentStrong
+        item.isSelf -> MaterialTheme.colorScheme.primaryFixed
         else -> LiveStatusPalette.MediaContent.copy(alpha = 0.92f)
     }
     val emoticonMap by DanmakuEmoticonMapper.emoticonMap.collectAsStateWithLifecycle()
@@ -380,7 +380,7 @@ private fun LivePortraitDanmakuBubble(
                     Modifier
                 }
             )
-            .background(LiveStatusPalette.MediaScrim.copy(alpha = if (hazeState != null) 0.38f else 0.52f))
+            .background(LiveStatusPalette.MediaScrim.copy(alpha = 0.8f))
             .clickable(
                 role = Role.Button,
                 onClickLabel = "操作弹幕：${item.uname}",
@@ -505,30 +505,29 @@ private fun LivePortraitMedalBadge(
     color: Int,
 ) {
     val medalColor = resolveLiveMedalColor(color)
+    val badgeColors = com.android.purebilibili.feature.live.readableLiveBadgeColors(medalColor)
     val visualSpec = resolveLiveMedalBadgeVisualSpec()
     Row(
         modifier = Modifier
             .height(visualSpec.heightDp.dp)
             .clip(RoundedCornerShape(visualSpec.cornerRadiusDp.dp))
-            .background(medalColor.copy(alpha = 0.85f))
+            .background(badgeColors.containerColor)
             .padding(horizontal = visualSpec.horizontalPaddingDp.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         AppText(
             text = name,
-            color = Color.White,
+            color = badgeColors.contentColor,
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = visualSpec.fontSizeSp.sp,
                 fontWeight = FontWeight.Bold
             ),
             maxLines = 1
         )
         AppText(
             text = "$level",
-            color = Color.White.copy(alpha = 0.9f),
+            color = badgeColors.contentColor,
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = visualSpec.fontSizeSp.sp,
                 fontWeight = FontWeight.Medium
             )
         )
@@ -543,8 +542,9 @@ private fun LivePortraitSuperChatBubble(
     onClick: () -> Unit,
 ) {
     val bg = resolveLiveSuperChatColor(item.superChatBackgroundColor)
+    val badgeColors = com.android.purebilibili.feature.live.readableLiveBadgeColors(bg)
     AppSurface(
-        color = bg.copy(alpha = 0.88f),
+        color = badgeColors.containerColor,
         shape = AppShapes.container(ContainerLevel.Card),
         modifier = Modifier
             .padding(vertical = 2.dp)
@@ -561,20 +561,20 @@ private fun LivePortraitSuperChatBubble(
             ) {
                 AppText(
                     text = item.uname.ifBlank { "醒目留言" },
-                    color = Color.White,
+                    color = badgeColors.contentColor,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold
                 )
                 AppText(
                     text = "¥${item.superChatPrice}",
-                    color = Color.White.copy(alpha = 0.95f),
+                    color = badgeColors.contentColor,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
             }
             AppText(
                 text = item.text,
-                color = Color.White,
+                color = badgeColors.contentColor,
                 style = MaterialTheme.typography.bodySmall
             )
         }

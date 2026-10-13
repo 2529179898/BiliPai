@@ -29,7 +29,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 //  Material Icons
@@ -1862,7 +1861,7 @@ fun DynamicCardV2(
             major = content?.major?.takeUnless {
                 it.music != null || it.subscription_new != null || it.medialist != null || it.courses != null
             },
-            darkTheme = isSystemInDarkTheme(),
+            darkTheme = com.android.purebilibili.core.ui.isAppInDarkTheme(),
         )?.let { majorCard ->
             DynamicNativeLinkCard(
                 title = majorCard.title,

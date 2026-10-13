@@ -161,6 +161,7 @@ internal fun Modifier.playerControlGlassSurface(
         pressProgress = 0f,
         lensIntensity = 1f,
         liquidGlassTuning = tuning,
+        darkTheme = darkTheme,
     )
 }
 

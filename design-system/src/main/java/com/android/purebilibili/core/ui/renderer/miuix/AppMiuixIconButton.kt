@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import com.android.purebilibili.core.ui.components.LocalAppIconButtonGlassSurfaceProvided
 import com.android.purebilibili.core.ui.components.AppIconButtonColors
 import com.android.purebilibili.core.ui.components.AppIconButtonVariant
 import com.android.purebilibili.core.ui.components.appDesktopFocusableItemVisuals
@@ -75,12 +76,15 @@ internal fun AppMiuixIconButton(
         )
         .then(pointerMirror)
 
-    CompositionLocalProvider(MiuixLocalContentColor provides contentColor) {
+    CompositionLocalProvider(
+        MiuixLocalContentColor provides contentColor,
+        androidx.compose.material3.LocalContentColor provides contentColor,
+    ) {
         MiuixIconButton(
             onClick = onClick,
             modifier = nativeModifier,
             enabled = enabled,
-            backgroundColor = backgroundColor,
+            backgroundColor = if (LocalAppIconButtonGlassSurfaceProvided.current) Color.Transparent else backgroundColor,
             cornerRadius = AppChromeSizeTokens.MiuixNativeCompactCornerRadiusDp.dp,
             content = content,
         )

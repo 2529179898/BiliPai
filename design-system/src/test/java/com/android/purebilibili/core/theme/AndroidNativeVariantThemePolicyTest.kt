@@ -14,19 +14,19 @@ import kotlin.test.assertTrue
 class AndroidNativeVariantThemePolicyTest {
 
     @Test
-    fun miuix_alwaysUsesBiliMiuixTypographyRegardlessOfLiquidGlass() {
-        assertSame(BiliMiuixTypography, resolveMaterialTypography(AppUiStyle.MIUIX, false))
-        assertSame(BiliMiuixTypography, resolveMaterialTypography(AppUiStyle.MIUIX, true))
+    fun bothVariantsUseStandardTypographyRegardlessOfLiquidGlass() {
+        assertSame(Md3Typography, resolveMaterialTypography(AppUiStyle.MIUIX, false))
+        assertSame(Md3Typography, resolveMaterialTypography(AppUiStyle.MIUIX, true))
         assertSame(Md3Typography, resolveMaterialTypography(AppUiStyle.MATERIAL3, false))
         assertSame(Md3Typography, resolveMaterialTypography(AppUiStyle.MATERIAL3, true))
     }
 
     @Test
-    fun miuixVariant_usesFullMiuixTypography() {
+    fun miuixVariant_usesStandardTypography() {
         val typography = resolveMaterialTypography(AppUiStyle.MIUIX)
 
-        assertSame(BiliMiuixTypography, typography)
-        assertNotSame(Md3Typography, typography)
+        assertSame(Md3Typography, typography)
+        assertSame(Md3Typography, typography)
     }
 
     @Test

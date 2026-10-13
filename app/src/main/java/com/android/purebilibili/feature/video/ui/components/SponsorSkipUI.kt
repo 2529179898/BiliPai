@@ -62,7 +62,8 @@ fun SponsorSkipButton(
                 modifier = Modifier
                     .padding(16.dp)
                     .clip(AppShapes.container(ContainerLevel.Card)),
-                color = Color.Black.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
                 shadowElevation = 8.dp
             ) {
                 Row(
@@ -73,7 +74,7 @@ fun SponsorSkipButton(
                     // 类别标签
                     AppText(
                         text = seg.categoryName,
-                        color = Color(0xFFFFA500),
+                        color = MaterialTheme.colorScheme.inversePrimary,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -83,7 +84,7 @@ fun SponsorSkipButton(
                         modifier = Modifier
                             .clip(AppShapes.container(ContainerLevel.Chip))
                             .clickable { onSkip() },
-                        color = Color(0xFF00C853)
+                        color = MaterialTheme.colorScheme.primary
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -93,26 +94,26 @@ fun SponsorSkipButton(
                             AppIcon(
                                 imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                                 contentDescription = "跳过",
-                                tint = Color.White,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
                             AppText(
                                 text = "跳过",
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
-                    AppTextButton(onClick = { onVote(1) }) { AppText("有用") }
-                    AppTextButton(onClick = { onVote(0) }) { AppText("不准确") }
+                    AppTextButton(onClick = { onVote(1) }) { AppText("有用", color = MaterialTheme.colorScheme.inverseOnSurface) }
+                    AppTextButton(onClick = { onVote(0) }) { AppText("不准确", color = MaterialTheme.colorScheme.inverseOnSurface) }
                     
                     // 关闭按钮
                     AppIconButton(onClick = onDismiss) {
                         AppIcon(
                             imageVector = clearIcon,
                             contentDescription = "忽略",
-                            tint = Color.White.copy(alpha = 0.6f),
+                            tint = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.6f),
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -279,7 +280,8 @@ fun SponsorSkipToast(
                 modifier = Modifier
                     .padding(top = 60.dp, start = 16.dp, end = 16.dp)
                     .clip(AppShapes.container(ContainerLevel.Floating)),
-                color = Color(0xFF00C853).copy(alpha = 0.9f)
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -289,12 +291,12 @@ fun SponsorSkipToast(
                     AppIcon(
                         imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
                         modifier = Modifier.size(16.dp)
                     )
                     AppText(
                         text = it,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium
                     )

@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.android.purebilibili.feature.settings.screen
 
 import coil3.request.crossfade
@@ -242,6 +244,24 @@ fun SkinCatalogScreen(
                     AppText(
                         text = "没有找到相关装扮",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else if (com.android.purebilibili.core.theme.LocalAppUiStyle.current == com.android.purebilibili.core.theme.AppUiStyle.MATERIAL3) {
+                val carouselState = androidx.compose.material3.carousel.rememberCarouselState { state.filteredThemes.size }
+                androidx.compose.material3.carousel.HorizontalUncontainedCarousel(
+                    state = carouselState,
+                    itemWidth = 240.dp,
+                    itemSpacing = 12.dp,
+                    contentPadding = PaddingValues(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { index ->
+                    val entry = state.filteredThemes.getOrNull(index) ?: return@HorizontalUncontainedCarousel
+                    SkinCatalogCard(
+                        entry = entry,
+                        onClick = {
+                            stateHolder.openPreview(entry)
+                            preparePreview(entry)
+                        },
                     )
                 }
             } else {

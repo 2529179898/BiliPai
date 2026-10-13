@@ -73,6 +73,7 @@ fun PortraitBottomContainer(
                 end = layoutPolicy.horizontalPaddingDp.dp
             )
             .height(layoutPolicy.touchAreaHeightDp.dp)
+            .playerControlGlassProgressDock()
         ,
         contentAlignment = Alignment.Center
     ) {
@@ -277,13 +278,14 @@ fun ThinWigglyProgressBar(
                     .fillMaxWidth()
                     .align(Alignment.CenterStart)
             ) {
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset(thumbOffsetX.roundToInt(), 0) }
-                        .size(thumbSize)
-                        .align(Alignment.CenterStart)
-                        .background(Color.White, CircleShape)
-                )
+                val thumbModifier = Modifier
+                    .offset { IntOffset(thumbOffsetX.roundToInt(), 0) }
+                    .align(Alignment.CenterStart)
+                if (LocalPlayerControlGlassEnabled.current) {
+                    PlayerControlGlassThumb(size = thumbSize, dragging = true, modifier = thumbModifier)
+                } else {
+                    Box(thumbModifier.size(thumbSize).background(Color.White, CircleShape))
+                }
             }
 
             if (videoshotData != null && videoshotData.isValid) {

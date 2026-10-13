@@ -1603,7 +1603,7 @@ private fun VideoPlayerOverlayContent(
         }
 
         CenterPlaybackControl(
-            visible = (isVisible || !effectiveIsPlaying) &&
+            visible = isVisible &&
                 (pluginPlaybackStatus.first || player.playbackState == Player.STATE_READY || player.playbackState == Player.STATE_ENDED) &&
                 centerLoadingUiState == null &&
                 !isScreenLocked && !isSeekScrubbing && !danmakuComposerVisible &&

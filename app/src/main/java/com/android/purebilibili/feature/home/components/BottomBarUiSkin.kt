@@ -194,7 +194,7 @@ internal fun resolveMiuixDockedBottomBarItemHeight(hasUiSkinDecoration: Boolean)
 
 @Composable
 fun rememberBottomBarUiSkinDecoration(uiSkinState: UiSkinState): BottomBarUiSkinDecoration? {
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = com.android.purebilibili.core.ui.isAppInDarkTheme()
     return remember(uiSkinState, isDark) {
         resolveBottomBarUiSkinDecoration(uiSkinState, isDark)
     }

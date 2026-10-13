@@ -36,7 +36,6 @@ import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.core.util.bouncyClickable
 import com.android.purebilibili.data.model.response.RelatedVideo
 import com.android.purebilibili.data.model.response.ViewInfo
-import androidx.compose.foundation.isSystemInDarkTheme
 import com.android.purebilibili.core.theme.ActionLikeDark
 import com.android.purebilibili.core.theme.ActionCoinDark
 import com.android.purebilibili.core.theme.ActionFavoriteDark
@@ -397,7 +396,7 @@ fun ActionButton(
     iconSize: androidx.compose.ui.unit.Dp = 24.dp,
     onClick: () -> Unit = {}
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.android.purebilibili.core.ui.isAppInDarkTheme()
     
     //  按压动画状态
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }

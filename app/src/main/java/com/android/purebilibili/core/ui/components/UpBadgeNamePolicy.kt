@@ -5,18 +5,14 @@ import com.android.purebilibili.core.util.FormatUtils
 
 /**
  * UP 主名字颜色规则（空间页与视频详情页统一）：
- * 有效年度大会员 → B 站粉，有效月度大会员 → 主题次色，其余 → 常规前景色。
+ * 名称使用表面文字色，会员身份由独立标签说明。
  */
 internal fun resolveUpNameColor(
     vipStatus: Int,
     vipType: Int,
     onSurface: Color,
     secondary: Color,
-): Color = when {
-    vipStatus == 1 && vipType == 2 -> Color(0xFFFB7299)
-    vipStatus == 1 -> secondary
-    else -> onSurface
-}
+): Color = onSurface
 
 internal fun resolveUpStatsText(
     followerCount: Int?,

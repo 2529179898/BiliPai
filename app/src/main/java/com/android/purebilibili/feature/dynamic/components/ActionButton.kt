@@ -42,8 +42,8 @@ import com.android.purebilibili.core.ui.rememberAppLikeIcon
 import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.theme.LocalAppUiStyle
 import com.android.purebilibili.feature.dynamic.resolveDynamicActionButtonText
-import androidx.compose.foundation.isSystemInDarkTheme
-import top.yukonga.miuix.kmp.basic.ButtonColors as MiuixButtonColors
+import top.yukonga.miuix.kmp.basic.ButtonDefaults as MiuixButtonDefaults
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Button as MiuixButton
 /**
  *  iOS 风格操作按钮 - 现代化胶囊设计
@@ -64,25 +64,23 @@ fun ActionButton(
     activeColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f),
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val colorScheme = MaterialTheme.colorScheme
     val isLike = label == "点赞"
     val isForward = label == "转发"
     val isComment = label == "评论"
     
-    //  统一中性操作按钮颜色 - 避免主题色入侵卡片底部操作区
-    val neutralContentColor = if (isDark) Color(0xFFDDDDDD) else Color(0xFF444444)
+    // Ordinary actions remain neutral; confirmed likes use the active theme accent.
+    val miuix = LocalAppUiStyle.current == AppUiStyle.MIUIX
+    val neutralContentColor = if (miuix) MiuixTheme.colorScheme.onSecondaryVariant
+        else colorScheme.onSurfaceVariant
     val buttonColor = when {
-        !enabled -> if (isDark) Color(0xFF666666) else Color(0xFF999999)
+        !enabled -> if (miuix) MiuixTheme.colorScheme.disabledOnSecondaryVariant
+            else colorScheme.onSurface.copy(alpha = 0.38f)
         isLike && isActive -> DynamicStatusPalette.liked()
         else -> neutralContentColor
     }
-    val containerBgColor = if (isDark) Color(0xFF242424) else Color(0xFFF2F2F2)
-    val disabledContainerBgColor = if (isDark) Color(0x10FFFFFF) else Color(0x05000000)
-    val miuixButtonColors = MiuixButtonColors(
-        color = containerBgColor,
+    val miuixButtonColors = MiuixButtonDefaults.buttonColors(
         contentColor = buttonColor,
-        disabledColor = disabledContainerBgColor,
-        disabledContentColor = if (isDark) Color(0xFF666666) else Color(0xFF999999),
     )
     
     val interactionSource = remember { MutableInteractionSource() }
@@ -112,11 +110,10 @@ fun ActionButton(
                 onClick = onClick,
                 enabled = enabled,
                 colors = miuixButtonColors,
-                modifier = Modifier.fillMaxWidth().appElasticPress(enabled = enabled),
-                insideMargin = PaddingValues(
-                    horizontal = AppSpacingTokens.Small,
-                    vertical = AppSpacingTokens.Medium
-                )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .appElasticPress(enabled = enabled),
+                insideMargin = MiuixButtonDefaults.InsideMargin
             ) {
                 AppIcon(
                     imageVector = buttonIcon,

@@ -115,8 +115,9 @@ private fun LandscapeChatItem(
         // [新增] 粉丝牌 (横屏版，稍微小一点)
         if (item.medalLevel > 0) {
             val color = resolveLiveMedalColor(item.medalColor)
+            val badgeColors = com.android.purebilibili.feature.live.readableLiveBadgeColors(color)
             AppSurface(
-                color = color.copy(alpha = 0.8f), // 稍微透明一点
+                color = badgeColors.containerColor,
                 shape = AppShapes.container(ContainerLevel.Tag),
                 modifier = Modifier.padding(end = AppSpacingTokens.ExtraSmall)
             ) {
@@ -129,15 +130,15 @@ private fun LandscapeChatItem(
                 ) {
                     AppText(
                         text = item.medalName,
-                        fontSize = visualSpec.medalFontSizeSp.sp,
-                        color = LiveStatusPalette.MediaContent,
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                        color = badgeColors.contentColor,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(Modifier.width(AppSpacingTokens.Micro))
                     AppText(
                         text = "${item.medalLevel}",
-                        fontSize = visualSpec.medalFontSizeSp.sp,
-                        color = LiveStatusPalette.MediaContent,
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                        color = badgeColors.contentColor,
                         fontWeight = FontWeight.Bold
                     )
                 }

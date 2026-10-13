@@ -10,7 +10,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.animateContentSize
@@ -26,6 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
+import com.android.purebilibili.core.theme.LocalAppUiStyle
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -126,7 +127,9 @@ fun ActionButtonsRow(
     modifier: Modifier = Modifier.fillMaxWidth()
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val uiStyle = LocalAppUiStyle.current
     val activeColors = remember(
+        uiStyle,
         colorScheme.primary,
         colorScheme.secondary,
         colorScheme.tertiary
@@ -134,7 +137,8 @@ fun ActionButtonsRow(
         resolveVideoDetailActionActiveColors(
             primary = colorScheme.primary,
             secondary = colorScheme.secondary,
-            tertiary = colorScheme.tertiary
+            tertiary = colorScheme.tertiary,
+            uiStyle = uiStyle,
         )
     }
     val haptic = rememberHapticFeedback()
@@ -789,11 +793,14 @@ fun ActionButton(
     icon: ImageVector,
     text: String,
     isActive: Boolean = false,
-    iconColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    iconColor: Color = Color.Unspecified,
     iconSize: Dp = 24.dp,
     onClick: () -> Unit = {}
 ) {
-    val isDark = isSystemInDarkTheme()
+    val resolvedIconColor = iconColor.takeOrElse {
+        if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val isDark = com.android.purebilibili.core.ui.isAppInDarkTheme()
 
     val interactionSource = remember { MutableInteractionSource() }
 
@@ -836,13 +843,13 @@ fun ActionButton(
                     scaleY = pulseScale
                 }
                 .clip(CircleShape)
-                .background(iconColor.copy(alpha = if (isDark) 0.15f else 0.1f)),
+                .background(resolvedIconColor.copy(alpha = if (isDark) 0.15f else 0.1f)),
             contentAlignment = Alignment.Center
         ) {
             AppIcon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = iconColor,
+                tint = resolvedIconColor,
                 modifier = Modifier.size(iconSize)
             )
         }
@@ -850,7 +857,7 @@ fun ActionButton(
         AppText(
             text = text,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (isActive) resolvedIconColor else MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Normal,
             maxLines = 1
         )

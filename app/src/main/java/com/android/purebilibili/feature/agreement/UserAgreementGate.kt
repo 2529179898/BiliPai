@@ -1,7 +1,6 @@
 package com.android.purebilibili.feature.agreement
 
 import androidx.activity.compose.LocalActivity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -57,7 +56,7 @@ fun UserAgreementGate(content: @Composable () -> Unit) {
 @Composable
 private fun UserAgreementGateScreen(onAgree: () -> Unit) {
     val activity = LocalActivity.current
-    val darkTheme = isSystemInDarkTheme()
+    val darkTheme = com.android.purebilibili.core.ui.isAppInDarkTheme()
     val titleColor = if (darkTheme) MaterialTheme.colorScheme.onBackground
     else MaterialTheme.colorScheme.onSurface
     // The agree button unlocks only after the user has scrolled the full text to the bottom

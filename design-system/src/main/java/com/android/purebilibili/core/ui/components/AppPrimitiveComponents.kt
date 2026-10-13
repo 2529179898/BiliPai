@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.android.purebilibili.core.ui.components
 
 import com.android.purebilibili.core.theme.AppUiStyle
@@ -139,14 +141,9 @@ internal fun TabPosition.toAppTabSlot(): AppTabSlot = AppTabSlot(
 
 /** Visual padding only; native button sizing and touch-target handling stay intact. */
 object AppButtonDefaults {
-    val ContentPadding = PaddingValues(
-        horizontal = AppSpacingTokens.Large,
-        vertical = AppSpacingTokens.Small,
-    )
-    val TextButtonContentPadding = PaddingValues(
-        horizontal = AppSpacingTokens.Small,
-        vertical = AppSpacingTokens.ExtraSmall,
-    )
+    val ContentPadding = ButtonDefaults.ContentPadding
+    val TextButtonContentPadding = ButtonDefaults.TextButtonContentPadding
+
 }
 
 internal fun resolveElasticTabIndicatorBounds(
@@ -485,7 +482,7 @@ fun AppButton(
     border: BorderStroke? = null,
     defaultElevation: Dp = 0.dp,
     pressedElevation: Dp = defaultElevation,
-    contentPadding: PaddingValues = AppButtonDefaults.ContentPadding,
+    contentPadding: PaddingValues = appButtonPadding(AppButtonDefaults.ContentPadding),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ) {
@@ -508,13 +505,14 @@ fun AppButton(
                 colors = miuixColors,
                 insideMargin = contentPadding,
                 interactionSource = resolvedInteractionSource,
+                border = border,
                 content = content,
             )
             AppUiStyle.MATERIAL3 -> Button(
                 onClick = onClick,
                 modifier = interactionModifier,
                 enabled = enabled,
-                shape = shape,
+                shapes = ButtonDefaults.shapes(shape = shape),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = containerColor,
                     contentColor = readableContentColor,
@@ -547,7 +545,7 @@ fun AppButton(
     colors: ButtonColors? = null,
     elevation: androidx.compose.material3.ButtonElevation? = ButtonDefaults.buttonElevation(),
     border: BorderStroke? = null,
-    contentPadding: PaddingValues = AppButtonDefaults.ContentPadding,
+    contentPadding: PaddingValues = appButtonPadding(AppButtonDefaults.ContentPadding),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ) {
@@ -584,13 +582,14 @@ fun AppButton(
                 colors = readableMiuixColors,
                 insideMargin = contentPadding,
                 interactionSource = resolvedInteractionSource,
+                border = border,
                 content = content,
             )
             AppUiStyle.MATERIAL3 -> Button(
                 onClick = onClick,
                 modifier = interactionModifier,
                 enabled = enabled,
-                shape = shape,
+                shapes = ButtonDefaults.shapes(shape = shape),
                 colors = readableMaterialColors,
                 elevation = elevation,
                 border = border,
@@ -606,26 +605,46 @@ fun AppButton(
     }
 }
 
+/** Secondary actions use the active renderer's own neutral palette. */
+@Composable
+private fun appSecondaryButtonColors(materialColors: ButtonColors): ButtonColors {
+    if (LocalAppUiStyle.current != AppUiStyle.MIUIX) return materialColors
+    val native = MiuixButtonDefaults.buttonColors()
+    return ButtonDefaults.buttonColors(
+        containerColor = native.color,
+        contentColor = native.contentColor,
+        disabledContainerColor = native.disabledColor,
+        disabledContentColor = native.disabledContentColor,
+    )
+}
+
+@Composable
+private fun appButtonPadding(materialPadding: PaddingValues): PaddingValues =
+    if (LocalAppUiStyle.current == AppUiStyle.MIUIX) MiuixButtonDefaults.InsideMargin else materialPadding
+
 @Composable
 fun AppTextButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = ButtonDefaults.textShape,
-    colors: androidx.compose.material3.ButtonColors = ButtonDefaults.textButtonColors(),
-    contentPadding: PaddingValues = AppButtonDefaults.TextButtonContentPadding,
+    colors: androidx.compose.material3.ButtonColors = appSecondaryButtonColors(ButtonDefaults.textButtonColors()),
+    contentPadding: PaddingValues = appButtonPadding(AppButtonDefaults.TextButtonContentPadding),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ) {
     ProvideAppElasticFeedback(enabled = enabled) {
+        val readableColors = colors.copy(
+            contentColor = resolveButtonContentColor(colors.containerColor, colors.contentColor, MaterialTheme.colorScheme),
+        )
         val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
         val interactionModifier = modifier.appElasticPress(enabled = enabled, highlightShape = shape)
             .appDesktopInteractionVisuals(resolvedInteractionSource, enabled)
         val miuixColors = MiuixButtonColors(
-            color = colors.containerColor,
-            disabledColor = colors.disabledContainerColor,
-            contentColor = colors.contentColor,
-            disabledContentColor = colors.disabledContentColor,
+            color = readableColors.containerColor,
+            disabledColor = readableColors.disabledContainerColor,
+            contentColor = readableColors.contentColor,
+            disabledContentColor = readableColors.disabledContentColor,
         )
         when (LocalAppUiStyle.current) {
             AppUiStyle.MIUIX -> AppMiuixButton(
@@ -642,7 +661,7 @@ fun AppTextButton(
                 modifier = interactionModifier,
                 enabled = enabled,
                 shape = shape,
-                colors = colors,
+                colors = readableColors,
                 contentPadding = contentPadding,
                 interactionSource = resolvedInteractionSource,
                 content = content,
@@ -904,14 +923,17 @@ fun AppOutlinedButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = ButtonDefaults.outlinedShape,
-    colors: ButtonColors = ButtonDefaults.outlinedButtonColors(),
+    colors: ButtonColors = appSecondaryButtonColors(ButtonDefaults.outlinedButtonColors()),
     elevation: androidx.compose.material3.ButtonElevation? = null,
-    border: BorderStroke? = ButtonDefaults.outlinedButtonBorder(enabled),
-    contentPadding: PaddingValues = AppButtonDefaults.ContentPadding,
+    border: BorderStroke? = if (LocalAppUiStyle.current == AppUiStyle.MIUIX) null else ButtonDefaults.outlinedButtonBorder(enabled),
+    contentPadding: PaddingValues = appButtonPadding(AppButtonDefaults.ContentPadding),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ) {
     ProvideAppElasticFeedback(enabled = enabled) {
+        val readableColors = colors.copy(
+            contentColor = resolveButtonContentColor(colors.containerColor, colors.contentColor, MaterialTheme.colorScheme),
+        )
         val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
         val interactionModifier = modifier.appElasticPress(enabled = enabled, highlightShape = shape)
             .appDesktopInteractionVisuals(resolvedInteractionSource, enabled)
@@ -920,9 +942,15 @@ fun AppOutlinedButton(
                 onClick = onClick,
                 modifier = interactionModifier,
                 enabled = enabled,
-                colors = MiuixButtonDefaults.buttonColors(),
+                colors = MiuixButtonColors(
+                    color = readableColors.containerColor,
+                    contentColor = readableColors.contentColor,
+                    disabledColor = readableColors.disabledContainerColor,
+                    disabledContentColor = readableColors.disabledContentColor,
+                ),
                 insideMargin = contentPadding,
                 interactionSource = resolvedInteractionSource,
+                border = border,
                 content = content,
             )
             return@ProvideAppElasticFeedback
@@ -932,7 +960,7 @@ fun AppOutlinedButton(
             modifier = interactionModifier,
             enabled = enabled,
             shape = shape,
-            colors = colors,
+            colors = readableColors,
             elevation = elevation,
             border = border,
             contentPadding = contentPadding,
@@ -1088,7 +1116,7 @@ private fun resolveReadableFloatingActionButtonColors(
         resolveMiuixFabContainerColor(
             requested = requestedContainerColor,
             defaultMaterialContainer = defaultContainer,
-            miuixPrimary = MiuixTheme.colorScheme.primary,
+            miuixDefaultContainer = MiuixTheme.colorScheme.primaryContainer,
         )
     } else {
         requestedContainerColor
@@ -1097,7 +1125,7 @@ private fun resolveReadableFloatingActionButtonColors(
         resolveMiuixFabContentColor(
             requested = requestedContentColor,
             defaultMaterialContent = defaultContent,
-            miuixOnPrimary = MiuixTheme.colorScheme.onPrimary,
+            miuixDefaultContent = MiuixTheme.colorScheme.onPrimaryContainer,
         )
     } else {
         requestedContentColor

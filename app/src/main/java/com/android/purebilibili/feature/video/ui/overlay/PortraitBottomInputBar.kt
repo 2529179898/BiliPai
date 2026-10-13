@@ -1,5 +1,4 @@
 package com.android.purebilibili.feature.video.ui.overlay
-import com.android.purebilibili.core.ui.components.appElasticPress
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material3.MaterialTheme
@@ -60,22 +59,28 @@ fun PortraitBottomInputBar(
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 输入框 (伪装)
-        Box(
+        val glass = LocalPlayerControlGlassEnabled.current
+        PlayerControlGlassDock(
+            enabled = true,
             modifier = Modifier
                 .weight(1f)
-                .height(layoutPolicy.inputHeightDp.dp)
-                .clip(RoundedCornerShape((layoutPolicy.inputHeightDp / 2).dp))
-                .background(Color.White.copy(alpha = 0.2f))
-                .clickable { onInputClick() }
-                .padding(horizontal = layoutPolicy.inputHorizontalPaddingDp.dp),
-            contentAlignment = Alignment.CenterStart
+                .height(layoutPolicy.inputHeightDp.dp),
         ) {
-            AppText(
-                text = "发弹幕...",
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = layoutPolicy.inputFontSp.sp
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape((layoutPolicy.inputHeightDp / 2).dp))
+                    .background(if (glass) Color.Transparent else Color.White.copy(alpha = 0.2f))
+                    .clickable(onClick = onInputClick)
+                    .padding(horizontal = layoutPolicy.inputHorizontalPaddingDp.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                AppText(
+                    text = "发弹幕...",
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
         
         Spacer(modifier = Modifier.width(layoutPolicy.afterInputSpacingDp.dp))
@@ -84,14 +89,20 @@ fun PortraitBottomInputBar(
             horizontalArrangement = Arrangement.spacedBy(layoutPolicy.actionSpacingDp.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            NativeDanmakuToggleButton(
-                enabled = danmakuEnabled,
-                onToggle = onDanmakuToggle,
-                activeTint = MaterialTheme.colorScheme.primary,
-                inactiveTint = Color.White,
+            PlayerControlGlassDock(
+                enabled = true,
+                shape = CircleShape,
                 modifier = Modifier.size(layoutPolicy.actionButtonSizeDp.dp),
-                iconSize = layoutPolicy.actionIconSizeDp.dp,
-            )
+            ) {
+                NativeDanmakuToggleButton(
+                    enabled = danmakuEnabled,
+                    onToggle = onDanmakuToggle,
+                    activeTint = Color.White,
+                    inactiveTint = Color.White,
+                    modifier = Modifier.fillMaxSize(),
+                    iconSize = layoutPolicy.actionIconSizeDp.dp,
+                )
+            }
             PortraitInputIconButton(
                 icon = Icons.Rounded.ScreenRotation,
                 desc = "切换横屏",
@@ -110,22 +121,27 @@ private fun PortraitInputIconButton(
     selected: Boolean = false,
     onClick: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .size(layoutPolicy.actionButtonSizeDp.dp)
-            .appElasticPress()
-            .clip(CircleShape)
-            .background(
-                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.24f) else Color.Transparent
-            )
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
+    PlayerControlGlassDock(
+        enabled = true,
+        shape = CircleShape,
+        modifier = Modifier.size(layoutPolicy.actionButtonSizeDp.dp),
     ) {
-        AppIcon(
-            imageVector = icon,
-            contentDescription = desc,
-            tint = if (selected) MaterialTheme.colorScheme.primary else Color.White,
-            modifier = Modifier.size(layoutPolicy.actionIconSizeDp.dp)
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(CircleShape)
+                .background(
+                    if (selected && !LocalPlayerControlGlassEnabled.current) MaterialTheme.colorScheme.primary.copy(alpha = 0.24f) else Color.Transparent
+                )
+                .clickable { onClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            AppIcon(
+                imageVector = icon,
+                contentDescription = desc,
+                tint = Color.White,
+                modifier = Modifier.size(layoutPolicy.actionIconSizeDp.dp)
+            )
+        }
     }
 }

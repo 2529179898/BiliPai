@@ -28,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -67,7 +66,7 @@ fun BangumiReviewScreen(
     onOpenWeb: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
-    val darkTheme = isSystemInDarkTheme()
+    val darkTheme = com.android.purebilibili.core.ui.isAppInDarkTheme()
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     var reviewType by remember { mutableStateOf(BangumiReviewType.SHORT) }

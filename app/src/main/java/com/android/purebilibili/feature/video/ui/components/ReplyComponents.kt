@@ -2987,18 +2987,19 @@ fun TopTag(modifier: Modifier = Modifier) {
     }
 }
 
-// 充电评论徽标（仿官方样式）：浅橙底、橙色文字、闪电前缀
+// 充电评论使用主题 tertiaryContainer / onTertiaryContainer，并保留闪电身份标识。
 @Composable
 fun ChargedReplyTag(text: String, modifier: Modifier = Modifier) {
     val labelStyle = MaterialTheme.typography.labelSmall
-    val chargedColor = Color(0xFFF09337)
+    val chargedContainer = MaterialTheme.colorScheme.tertiaryContainer
+    val chargedContent = MaterialTheme.colorScheme.onTertiaryContainer
     val opticalOffset = with(androidx.compose.ui.platform.LocalDensity.current) {
         (labelStyle.fontSize * -0.08f).toDp()
     }
     Box(
         modifier = modifier
             .clip(AppShapes.container(ContainerLevel.Tag))
-            .background(chargedColor.copy(alpha = 0.14f))
+            .background(chargedContainer)
             .padding(horizontal = 4.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -3013,7 +3014,7 @@ fun ChargedReplyTag(text: String, modifier: Modifier = Modifier) {
                     trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
                 ),
             ),
-            color = chargedColor,
+            color = chargedContent,
             maxLines = 1,
             tapToCopyEnabled = false,
         )

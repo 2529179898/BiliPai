@@ -172,6 +172,7 @@ fun PortraitFullscreenOverlay(
     onSearchClick: () -> Unit = {},
     onMoreClick: () -> Unit = {},
     
+    playbackReady: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val configuration = LocalConfiguration.current
@@ -196,8 +197,9 @@ fun PortraitFullscreenOverlay(
     val density = LocalDensity.current
     val commentOverlayOffsetPx = with(density) { 24.dp.toPx() } * commentProgress
 
-    Box(
-        modifier = modifier.fillMaxSize()
+    PlayerControlsBackdropHost(
+        enabled = true,
+        modifier = modifier.fillMaxSize(),
     ) {
         
         // 控件层动画
@@ -270,30 +272,41 @@ fun PortraitFullscreenOverlay(
                         }
                 ) {
                     // 视频信息 (Video Info)
-                    PortraitVideoInfo(
-                        layoutPolicy = layoutPolicy,
-                        authorName = authorName,
-                        authorFace = authorFace,
-                        staff = staff,
-                        ownerMid = ownerMid,
-                        onStaffMemberClick = onStaffMemberClick,
-                        title = title,
-                        declarations = declarations,
-                        ugcSeason = ugcSeason,
-                        currentBvid = currentBvid,
-                        currentCid = currentCid,
-                        isPlaying = isPlaying,
-                        onCollectionClick = onDetailClick,
-                        isFollowing = isFollowing,
-                        followStatusKnown = followStatusKnown,
-                        onFollowClick = onFollowClick,
-                        onTitleClick = onTitleClick,
-                        onAuthorClick = onAuthorClick,
+                    PlayerControlGlassDock(
+                        enabled = true,
+                        shape = RoundedCornerShape(24.dp),
                         modifier = Modifier
                             .fillMaxWidth(layoutPolicy.infoWidthFraction)
                             .padding(horizontal = layoutPolicy.infoHorizontalPaddingDp.dp)
-                            .padding(bottom = layoutPolicy.infoBottomPaddingDp.dp)
-                    )
+                            .padding(bottom = layoutPolicy.infoBottomPaddingDp.dp),
+                    ) {
+                        PortraitVideoInfo(
+                            layoutPolicy = layoutPolicy,
+                            authorName = authorName,
+                            authorFace = authorFace,
+                            staff = staff,
+                            ownerMid = ownerMid,
+                            onStaffMemberClick = onStaffMemberClick,
+                            title = title,
+                            declarations = declarations,
+                            ugcSeason = ugcSeason,
+                            currentBvid = currentBvid,
+                            currentCid = currentCid,
+                            isPlaying = isPlaying,
+                            onCollectionClick = onDetailClick,
+                            isFollowing = isFollowing,
+                            followStatusKnown = followStatusKnown,
+                            onFollowClick = onFollowClick,
+                            onTitleClick = onTitleClick,
+                            onAuthorClick = onAuthorClick,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    horizontal = if (LocalPlayerControlGlassEnabled.current) 12.dp else 0.dp,
+                                    vertical = if (LocalPlayerControlGlassEnabled.current) 8.dp else 0.dp,
+                                )
+                        )
+                    }
 
                     PortraitProgressControlStrip(
                         timeLabel = progressTimeLabel,
@@ -400,6 +413,17 @@ fun PortraitFullscreenOverlay(
             }
         }
 
+        CenterPlaybackControl(
+            visible = showControls && playbackReady && !isPlaybackRecovering &&
+                !isSeekScrubbing && commentOverlayAlpha > 0.001f,
+            isPlaying = isPlaying,
+            onPlayPause = onPlayPause,
+            diameter = 72.dp,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .graphicsLayer { alpha = commentOverlayAlpha },
+        )
+
         // 控件隐藏时仍显示底部细进度条，方便随时感知播放进度
         if (!showControls) {
             PersistentBottomProgressBar(
@@ -472,11 +496,14 @@ private fun PortraitProgressControlStrip(
         modifier = modifier.height(46.dp).padding(top = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AppText(
-            text = timeLabel,
-            color = Color.White.copy(alpha = 0.86f),
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium)
-        )
+        PlayerControlGlassDock(enabled = true) {
+            AppText(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                text = timeLabel,
+                color = Color.White.copy(alpha = 0.86f),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium)
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
         if (showSubtitleChip) {
             PortraitChromeChip(
@@ -523,34 +550,37 @@ private fun PortraitChromeChip(
     showHiResBadge: Boolean = false,
     showDolbyBadge: Boolean = false
 ) {
-    AppSurface(
-        onClick = onClick,
-        modifier = modifier,
-        shape = AppShapes.container(ContainerLevel.Pill),
-        color = Color.White.copy(alpha = 0.14f),
-        contentColor = if (highlighted) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            Color.White
-        }
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AppText(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (showHiResBadge) {
-                Spacer(modifier = Modifier.width(4.dp))
-                HiResBadge()
+    val glass = LocalPlayerControlGlassEnabled.current
+    PlayerControlGlassDock(enabled = true, modifier = modifier) {
+        AppSurface(
+            onClick = onClick,
+            modifier = Modifier,
+            shape = AppShapes.container(ContainerLevel.Pill),
+            color = if (glass) Color.Transparent else Color.White.copy(alpha = 0.14f),
+            contentColor = if (highlighted) {
+                MaterialTheme.colorScheme.primaryFixed
+            } else {
+                Color.White
             }
-            if (showDolbyBadge) {
-                Spacer(modifier = Modifier.width(4.dp))
-                DolbyBadge()
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AppText(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (showHiResBadge) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    HiResBadge()
+                }
+                if (showDolbyBadge) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    DolbyBadge()
+                }
             }
         }
     }
@@ -583,10 +613,9 @@ private fun PortraitTopControlBar(
             modifier = Modifier.align(Alignment.CenterStart),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AppIconButton(
+            PortraitGlassIconButton(
                 onClick = onBack,
-                colors = AppIconButtonDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.size(layoutPolicy.topBackButtonSizeDp.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 AppIcon(
                     imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
@@ -595,10 +624,9 @@ private fun PortraitTopControlBar(
                     modifier = Modifier.size(layoutPolicy.topBackIconSizeDp.dp)
                 )
             }
-            AppIconButton(
+            PortraitGlassIconButton(
                 onClick = onHomeClick,
-                colors = AppIconButtonDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.size(layoutPolicy.topBackButtonSizeDp.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 AppIcon(
                     imageVector = Icons.Outlined.Home,
@@ -609,11 +637,14 @@ private fun PortraitTopControlBar(
             }
             Spacer(modifier = Modifier.width(layoutPolicy.topViewCountStartSpacingDp.dp))
             if (shouldShowPortraitViewCount(viewCount = viewCount, compactMode = layoutPolicy.compactMode)) {
-                AppText(
-                    text = "${FormatUtils.formatStat(viewCount.toLong())}播放",
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = layoutPolicy.topViewCountFontSp.sp
-                )
+                PlayerControlGlassDock(enabled = true) {
+                    AppText(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        text = "${FormatUtils.formatStat(viewCount.toLong())}播放",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = layoutPolicy.topViewCountFontSp.sp
+                    )
+                }
             }
         }
 
@@ -623,7 +654,7 @@ private fun PortraitTopControlBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(layoutPolicy.topActionSpacingDp.dp)
         ) {
-            AppIconButton(onClick = onSearchClick) {
+            PortraitGlassIconButton(onClick = onSearchClick) {
                 AppIcon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = "搜索",
@@ -632,7 +663,7 @@ private fun PortraitTopControlBar(
                 )
             }
             if (shouldShowPortraitTopMoreAction()) {
-                AppIconButton(onClick = onMoreClick) {
+                PortraitGlassIconButton(onClick = onMoreClick) {
                     AppIcon(
                         imageVector = Icons.Rounded.MoreVert,
                         contentDescription = "菜单",
@@ -747,37 +778,44 @@ private fun PortraitVideoInfo(
             // 关注按钮
             val isFollowed = followStatusKnown && isFollowing
             val buttonColor = if (!followStatusKnown || isFollowed) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primary
-            val contentColor = if (!followStatusKnown || isFollowed) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onPrimary
+            val contentColor = if (LocalPlayerControlGlassEnabled.current) Color.White else if (!followStatusKnown || isFollowed) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onPrimary
             val buttonText = if (!followStatusKnown) "待确认" else if (isFollowed) "已关注" else "关注"
             val iconVisible = followStatusKnown && !isFollowed
 
-            AppSurface(
+            PlayerControlGlassDock(
+                enabled = true,
                 shape = RoundedCornerShape(layoutPolicy.followButtonCornerRadiusDp.dp),
-                color = buttonColor,
                 modifier = Modifier
                     .height(layoutPolicy.followButtonHeightDp.dp)
-                    .followActionAnchor()
-                    .clickable(enabled = followStatusKnown) { onFollowClick() }
+                    .followActionAnchor(),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = layoutPolicy.followButtonHorizontalPaddingDp.dp)
+                AppSurface(
+                    shape = RoundedCornerShape(layoutPolicy.followButtonCornerRadiusDp.dp),
+                    color = if (LocalPlayerControlGlassEnabled.current) Color.Transparent else buttonColor,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .clickable(enabled = followStatusKnown) { onFollowClick() }
                 ) {
-                    if (iconVisible) {
-                        AppIcon(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = null,
-                            tint = contentColor,
-                            modifier = Modifier.size(layoutPolicy.followIconSizeDp.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = layoutPolicy.followButtonHorizontalPaddingDp.dp)
+                    ) {
+                        if (iconVisible) {
+                            AppIcon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = null,
+                                tint = contentColor,
+                                modifier = Modifier.size(layoutPolicy.followIconSizeDp.dp)
+                            )
+                            Spacer(modifier = Modifier.width(layoutPolicy.followIconSpacingDp.dp))
+                        }
+                        AppText(
+                            text = buttonText,
+                            color = contentColor,
+                            fontSize = layoutPolicy.followTextFontSp.sp,
+                            fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.width(layoutPolicy.followIconSpacingDp.dp))
                     }
-                    AppText(
-                        text = buttonText,
-                        color = contentColor,
-                        fontSize = layoutPolicy.followTextFontSp.sp,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
             }
         }
@@ -963,5 +1001,21 @@ private fun PortraitStaffSheet(
             }
         }
         Spacer(modifier = Modifier.navigationBarsPadding().height(12.dp))
+    }
+}
+
+@Composable
+private fun PortraitGlassIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier.size(48.dp),
+    content: @Composable () -> Unit,
+) {
+    PlayerControlGlassDock(enabled = true, modifier = modifier, shape = CircleShape) {
+        AppIconButton(
+            onClick = onClick,
+            modifier = Modifier.fillMaxSize(),
+            colors = AppIconButtonDefaults.colors(containerColor = Color.Transparent),
+            content = content,
+        )
     }
 }

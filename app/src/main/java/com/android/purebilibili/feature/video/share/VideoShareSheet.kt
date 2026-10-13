@@ -126,16 +126,16 @@ internal fun VideoShareSheet(
             label = "微信",
             iconText = "微",
             iconVector = null,
-            backgroundColor = Color(0xFF31C95B),
-            contentColor = Color.White
+            backgroundColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
         ),
         VideoShareSheetItem(
             target = VideoShareTarget.QQ,
             label = "QQ",
             iconText = "Q",
             iconVector = null,
-            backgroundColor = Color(0xFF25A9F2),
-            contentColor = Color.White
+            backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
         ),
         VideoShareSheetItem(
             target = VideoShareTarget.COPY_LINK,

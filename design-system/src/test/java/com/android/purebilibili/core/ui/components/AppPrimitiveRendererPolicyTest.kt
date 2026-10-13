@@ -71,16 +71,16 @@ class AppPrimitiveRendererPolicyTest {
     }
 
     @Test
-    fun fabDefaultMaterialContainerRemapsToMiuixPrimary() {
+    fun fabDefaultMaterialContainerRemapsToMiuixContainer() {
         val materialDefault = Color(0xFF123456)
         val custom = Color(0xFFABCDEF)
-        val miuixPrimary = Color(0xFF111111)
+        val miuixDefaultContainer = Color(0xFF111111)
         assertEquals(
-            miuixPrimary,
+            miuixDefaultContainer,
             resolveMiuixFabContainerColor(
                 requested = materialDefault,
                 defaultMaterialContainer = materialDefault,
-                miuixPrimary = miuixPrimary,
+                miuixDefaultContainer = miuixDefaultContainer,
             ),
         )
         assertEquals(
@@ -88,7 +88,7 @@ class AppPrimitiveRendererPolicyTest {
             resolveMiuixFabContainerColor(
                 requested = custom,
                 defaultMaterialContainer = materialDefault,
-                miuixPrimary = miuixPrimary,
+                miuixDefaultContainer = miuixDefaultContainer,
             ),
         )
     }

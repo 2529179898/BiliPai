@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -36,8 +37,10 @@ object BiliPaiTopBarIconDecorator : AppTopBarIconDecorator {
             allowConsumedDrag = { ownsDrag.value },
             useNeutralLiquidContainer = true,
             shellLensIntensity = resolveFloatingDockGeometryScale(48f),
-        ) { _ ->
-            Box(Modifier.size(48.dp)) { content(Modifier.matchParentSize()) }
+        ) { glassSurfaceProvided ->
+            CompositionLocalProvider(LocalAppIconButtonGlassSurfaceProvided provides glassSurfaceProvided) {
+                Box(Modifier.size(48.dp)) { content(Modifier.matchParentSize()) }
+            }
         }
     }
 }

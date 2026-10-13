@@ -857,7 +857,7 @@ fun SpaceScreen(
     }
 
     // 与 SpaceHeader 同规则解析夜间封面，保证回位落在用户看到的同一张图上
-    val spaceHeaderIsDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+    val spaceHeaderIsDarkTheme = com.android.purebilibili.core.ui.isAppInDarkTheme()
     val previewUrl = normalizeSpaceTopPhotoUrl(
         if (spaceHeaderIsDarkTheme) {
             currentSuccessState?.userInfo?.nightTopPhoto.takeUnless { it.isNullOrBlank() }
@@ -2698,7 +2698,7 @@ private fun SpaceHeader(
     useExpandedLayout: Boolean = false,
 ) {
     val context = LocalContext.current
-    val isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDarkTheme = com.android.purebilibili.core.ui.isAppInDarkTheme()
     val resolvedPhoto = if (isDarkTheme && userInfo.nightTopPhoto.isNotBlank()) {
         userInfo.nightTopPhoto
     } else {

@@ -293,7 +293,7 @@ private fun CommandDanmakuCard(
                                 Modifier
                             }
                         ),
-                    color = Color.Black.copy(alpha = 0.54f),
+                    color = Color.Black.copy(alpha = 0.8f),
                     contentColor = Color.White,
                     shape = AppShapes.container(ContainerLevel.Chip)
                 ) {
@@ -352,7 +352,6 @@ private const val ATTENTION_ICON_SLOT_DP = 44
 private const val ATTENTION_FOLLOW_TARGET_DP = 66
 private const val ATTENTION_ACTION_SPACING_DP = 8
 private const val ATTENTION_HORIZONTAL_PADDING_DP = 5
-private val attentionFollowColor = Color(0xFFFB7299)
 private const val VOTE_CLOSE_OVERHANG_DP = 14
 private const val VOTE_CARD_BODY_WIDTH_DP = 130
 private const val GRADE_CARD_BODY_WIDTH_DP = 180
@@ -381,7 +380,7 @@ private fun AttentionCommandCard(
 
     AppSurface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.Black.copy(alpha = 0.45f),
+        color = Color.Black.copy(alpha = 0.8f),
         contentColor = Color.White,
         shape = RoundedCornerShape(4.dp),
     ) {
@@ -493,6 +492,10 @@ private fun AttentionCommandFollowButton(
     followStatusKnown: Boolean,
     onClick: () -> Unit,
 ) {
+    val scheme = MaterialTheme.colorScheme
+    val actionable = followStatusKnown && !isFollowing
+    val containerColor = if (actionable) scheme.primary else scheme.surfaceContainerHigh
+    val contentColor = if (actionable) scheme.onPrimary else scheme.onSurface
     val baseTextStyle = MaterialTheme.typography.labelMedium
     val textStyle = remember(baseTextStyle) {
         baseTextStyle.copy(fontSize = 12.sp, lineHeight = 16.sp)
@@ -502,7 +505,7 @@ private fun AttentionCommandFollowButton(
             .widthIn(min = ATTENTION_FOLLOW_TARGET_DP.dp)
             .heightIn(min = 24.dp)
             .clip(RoundedCornerShape(4.dp))
-            .background(if (!followStatusKnown || isFollowing) Color.White.copy(alpha = 0.16f) else attentionFollowColor)
+            .background(containerColor)
             .clickable(enabled = followStatusKnown && !isFollowing, role = Role.Button, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -512,7 +515,7 @@ private fun AttentionCommandFollowButton(
             AppIcon(
                 Icons.Rounded.Add,
                 contentDescription = null,
-                tint = Color.White,
+                tint = contentColor,
                 modifier = Modifier.size(14.dp),
             )
         }
@@ -520,7 +523,7 @@ private fun AttentionCommandFollowButton(
             text = if (!followStatusKnown) "—" else if (isFollowing) "已关注" else "关注",
             style = textStyle,
             fontWeight = FontWeight.Medium,
-            color = Color.White,
+            color = contentColor,
             maxLines = 1,
             softWrap = false,
         )

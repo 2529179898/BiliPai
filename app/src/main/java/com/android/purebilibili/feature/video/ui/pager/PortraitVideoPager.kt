@@ -37,7 +37,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.*
 import com.android.purebilibili.core.ui.components.AppButton
@@ -48,7 +47,9 @@ import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppIconButton
 import com.android.purebilibili.core.ui.components.AppText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -2103,6 +2104,32 @@ private fun VideoPageItem(
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+    val portraitPageBackdrop = com.android.purebilibili.core.ui.blur.rememberChromeBackdropSource()
+    val portraitGlassSupported = com.android.purebilibili.feature.video.ui.section.supportsPlayerPageGlass(
+        liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
+        fullscreen = true,
+        portraitFullscreen = true,
+        hdr = requiresHdrSurfaceOutput(
+            currentQualityId = selectedQualityId,
+            colorTransfer = exoPlayer.videoFormat?.colorInfo?.colorTransfer ?: 0,
+        ),
+        anime4k = false,
+        audioOnly = false,
+        pip = false,
+    )
+    val portraitGlassVisibility = androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isCurrentPage && portraitOverlayVisible) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween<Float>(
+            com.android.purebilibili.feature.video.ui.overlay.PLAYER_GLASS_VISIBILITY_DURATION_MS,
+        ),
+        label = "portraitPlayerGlassCapture",
+    )
+    val portraitGlassCaptureVisible by remember(portraitGlassVisibility) {
+        derivedStateOf { portraitGlassVisibility.value > 0f }
+    }
+    val capturePortraitPage = portraitGlassSupported && isCurrentPage && isPortraitPlaybackAllowed &&
+        (portraitOverlayVisible || portraitGlassCaptureVisible)
+
     val longPressSpeed by SettingsManager
         .getLongPressSpeed(context)
         .collectAsStateWithLifecycle(initialValue = 2.0f
@@ -2895,6 +2922,24 @@ private fun VideoPageItem(
                 )
             }
     ) {
+        // The portrait pager hides system bars for immersive playback. In that state the
+        // visible status-bar inset becomes zero even though the camera cutout still occupies
+        // the top edge. Keep the danmaku page surface below the largest relevant safe inset.
+        val pageDanmakuTopInset = with(density) {
+            resolvePortraitDanmakuTopInsetPx(
+                visibleStatusBarTopPx = WindowInsets.statusBars.getTop(this),
+                statusBarsIgnoringVisibilityTopPx =
+                    WindowInsets.statusBarsIgnoringVisibility.getTop(this),
+                displayCutoutTopPx = WindowInsets.displayCutout.getTop(this),
+            ).toDp()
+        }
+
+        // Record only media siblings; controls consume this source outside the recording box.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (capturePortraitPage) portraitPageBackdrop.modifier else Modifier),
+        ) {
         val mediaLayerModifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
@@ -2922,17 +2967,7 @@ private fun VideoPageItem(
                 translationX = panX
                 translationY = panY
             }
-        // The portrait pager hides system bars for immersive playback. In that state the
-        // visible status-bar inset becomes zero even though the camera cutout still occupies
-        // the top edge. Keep the danmaku page surface below the largest relevant safe inset.
-        val pageDanmakuTopInset = with(density) {
-            resolvePortraitDanmakuTopInsetPx(
-                visibleStatusBarTopPx = WindowInsets.statusBars.getTop(this),
-                statusBarsIgnoringVisibilityTopPx =
-                    WindowInsets.statusBarsIgnoringVisibility.getTop(this),
-                displayCutoutTopPx = WindowInsets.displayCutout.getTop(this),
-            ).toDp()
-        }
+
 
         // 横屏 letterbox 上下黑边：照搬播放页沉浸状态栏的动态 haze（默认可关）
         if (letterboxBarHeightPx > 0) {
@@ -2966,7 +3001,7 @@ private fun VideoPageItem(
                 modifier = mediaLayerModifier,
                 fillContainer = portraitPagerFillContainer
             ) {
-                key(currentPlayingBvid, bvid) {
+                key(currentPlayingBvid, bvid, portraitGlassSupported) {
                     Box(
                         modifier = viewportTransformModifier
                     ) {
@@ -2976,7 +3011,7 @@ private fun VideoPageItem(
                                 val preferTexture = shouldUseTextureSurfaceForFlip(
                                     isFlippedHorizontal = false,
                                     isFlippedVertical = false,
-                                    navigationTransformEnabled = useTextureSurfaceForNavigation,
+                                    navigationTransformEnabled = useTextureSurfaceForNavigation || portraitGlassSupported,
                                     requiresHdrSurfaceOutput = requiresHdrSurfaceOutput(
                                         currentQualityId = selectedQualityId
                                     )
@@ -3124,26 +3159,8 @@ private fun VideoPageItem(
             }
         }
 
-        // 暂停图标 (仅当前页且暂停时显示)
-        // [修复] 使用响应式的 isPlaying 状态
-        val showPauseIcon = shouldShowPortraitPauseIcon(
-            isCurrentPage = isCurrentPage,
-            isPlaying = isPlaying,
-            playWhenReady = exoPlayer.playWhenReady,
-            isLoading = isLoading,
-            isSeekGesture = isSeekGesture
-        )
-        if (showPauseIcon) {
-            AppIcon(
-                imageVector = Icons.Filled.PlayArrow,
-                contentDescription = "Pause",
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(60.dp),
-                tint = Color.White.copy(alpha = 0.8f)
-            )
-        }
-        
+        } // media backdrop source
+
         // 滑动进度提示
         if (isSeekGesture && progressState.duration > 0) {
             val gestureVideoshotData = currentSuccess?.videoshotData
@@ -3511,7 +3528,15 @@ private fun VideoPageItem(
         }
     }
 
+    CompositionLocalProvider(
+        com.android.purebilibili.feature.video.ui.overlay.LocalPlayerPageBackdrop provides
+            portraitPageBackdrop.backdrop.takeIf {
+                capturePortraitPage && portraitPageBackdrop.isReady &&
+                    (!isPlayerReadyForThisVideo || playerViewRef?.videoSurfaceView is android.view.TextureView)
+            },
+    ) {
     PortraitFullscreenOverlay(
+            playbackReady = isCurrentPage && !isLoading && isPlayerReadyForThisVideo,
             title = title,
             declarations = videoDeclarations,
             ugcSeason = portraitDetailInfo?.ugc_season,
@@ -3793,6 +3818,8 @@ private fun VideoPageItem(
             ),
             commentExpansionProgress = commentSheetVisibilityProgress
         )
+
+    }
 
         val pageCidForSubtitle = snapshotCid.takeIf { it > 0L }
             ?: portraitDetailInfo?.cid

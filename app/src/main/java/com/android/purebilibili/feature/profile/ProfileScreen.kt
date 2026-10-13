@@ -4152,12 +4152,7 @@ fun VipBannerSection(user: UserState) {
             .height(60.dp)
             .clip(AppShapes.container(ContainerLevel.Chip))
             .background(
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        colorScheme.tertiaryContainer,
-                        colorScheme.primaryContainer
-                    )
-                )
+                colorScheme.tertiaryContainer
             )
     ) {
         Row(
@@ -4176,7 +4171,7 @@ fun VipBannerSection(user: UserState) {
                 )
                 AppText(
                     text = "硬币: ${user.coin}   B币: ${user.bcoin}",
-                    color = colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                    color = colorScheme.onTertiaryContainer,
                     style = MaterialTheme.typography.labelSmall
                 )
             }

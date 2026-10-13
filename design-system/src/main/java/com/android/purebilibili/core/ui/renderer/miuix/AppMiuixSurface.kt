@@ -3,6 +3,7 @@ package com.android.purebilibili.core.ui.renderer.miuix
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,7 +38,13 @@ internal fun AppMiuixSurface(
         contentColor = contentColor.takeOrElse { miuixContentColorFor(resolvedColor) },
         shadowElevation = shadowElevation,
         border = border,
-        content = content,
+        content = {
+            CompositionLocalProvider(
+                androidx.compose.material3.LocalContentColor provides LocalContentColor.current,
+            ) {
+                content()
+            }
+        },
     )
 }
 
@@ -74,7 +81,13 @@ internal fun AppMiuixSurface(
         shadowElevation = shadowElevation,
         border = border,
         interactionSource = resolvedInteractionSource,
-        content = content,
+        content = {
+            CompositionLocalProvider(
+                androidx.compose.material3.LocalContentColor provides LocalContentColor.current,
+            ) {
+                content()
+            }
+        },
     )
 }
 
@@ -95,8 +108,11 @@ internal fun miuixContentColorFor(backgroundColor: Color): Color {
     return when (backgroundColor) {
         colors.primary -> colors.onPrimary
         colors.primaryContainer -> colors.onPrimaryContainer
+        colors.primaryVariant -> colors.onPrimaryVariant
         colors.secondary -> colors.onSecondary
         colors.secondaryContainer -> colors.onSecondaryContainer
+        colors.secondaryVariant -> colors.onSecondaryVariant
+        colors.secondaryContainerVariant -> colors.onSecondaryContainerVariant
         colors.error -> colors.onError
         colors.errorContainer -> colors.onErrorContainer
         colors.background -> colors.onBackground

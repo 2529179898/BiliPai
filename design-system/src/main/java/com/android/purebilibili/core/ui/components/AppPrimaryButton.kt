@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.android.purebilibili.core.ui.components
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -57,7 +59,7 @@ fun AppPrimaryButton(
                 },
                 modifier = modifier.appElasticPress(enabled = enabled && !isLoading),
                 enabled = enabled && !isLoading,
-                shape = ButtonDefaults.shape,
+                shapes = ButtonDefaults.shapes(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = primaryContentColor,

@@ -1,6 +1,7 @@
 package com.android.purebilibili.feature.video.ui.feedback
 
 import androidx.compose.ui.graphics.Color
+import com.android.purebilibili.core.theme.AppUiStyle
 
 enum class VideoFeedbackAnchor {
     BottomCenter,
@@ -30,12 +31,13 @@ data class VideoDetailActionActiveColors(
 fun resolveVideoDetailActionActiveColors(
     primary: Color,
     secondary: Color,
-    tertiary: Color
+    tertiary: Color,
+    uiStyle: AppUiStyle = AppUiStyle.MATERIAL3,
 ): VideoDetailActionActiveColors {
     return VideoDetailActionActiveColors(
         primaryAction = primary,
-        watchLater = tertiary,
-        downloadInProgress = secondary,
+        watchLater = if (uiStyle == AppUiStyle.MIUIX) primary else tertiary,
+        downloadInProgress = if (uiStyle == AppUiStyle.MIUIX) primary else secondary,
         downloaded = primary
     )
 }

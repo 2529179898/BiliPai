@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.android.purebilibili.feature.plugin
 
 import androidx.compose.foundation.layout.Arrangement
@@ -510,6 +512,38 @@ private fun TimePickerDropdown(
     label: String
 ) {
     var expanded by remember { mutableStateOf(false) }
+    if (com.android.purebilibili.core.theme.LocalAppUiStyle.current == com.android.purebilibili.core.theme.AppUiStyle.MATERIAL3) {
+        AppOutlinedButton(onClick = { expanded = true }, modifier = modifier.fillMaxWidth()) {
+            AppText("$label：${formatClockHour(selectedHour)}")
+        }
+        if (expanded) {
+            val timeState = androidx.compose.material3.rememberTimePickerState(
+                initialHour = selectedHour,
+                initialMinute = 0,
+                is24Hour = true,
+            )
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { expanded = false },
+                title = { AppText(label) },
+                text = {
+                    Column {
+                        androidx.compose.material3.TimeInput(state = timeState)
+                        AppText("当前定时按整点保存，分钟请保持 00。")
+                    }
+                },
+                confirmButton = {
+                    com.android.purebilibili.core.ui.components.AppTextButton(
+                        enabled = timeState.minute == 0,
+                        onClick = { onHourSelected(timeState.hour); expanded = false },
+                    ) { AppText("确定") }
+                },
+                dismissButton = {
+                    com.android.purebilibili.core.ui.components.AppTextButton(onClick = { expanded = false }) { AppText("取消") }
+                },
+            )
+        }
+        return
+    }
     Box(modifier = modifier.fillMaxWidth()) {
         AppOutlinedButton(
             onClick = { expanded = true },

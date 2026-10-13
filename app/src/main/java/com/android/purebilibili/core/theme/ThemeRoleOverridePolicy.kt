@@ -73,7 +73,7 @@ internal fun applyThemeRoleOverrides(
     val surface = lerp(background, primaryText, if (darkTheme) 0.12f else 0.055f)
     val surfaceHigh = lerp(background, primaryText, if (darkTheme) 0.18f else 0.09f)
 
-    return scheme.copy(
+    return enforceDynamicTextContrast(scheme.copy(
         primary = accent,
         onPrimary = onAccent,
         primaryContainer = lerp(background, accent, if (darkTheme) 0.34f else 0.18f),
@@ -95,7 +95,7 @@ internal fun applyThemeRoleOverrides(
         surfaceContainerHighest = lerp(background, primaryText, if (darkTheme) 0.24f else 0.13f),
         outline = secondaryText.copy(alpha = 0.72f),
         outlineVariant = secondaryText.copy(alpha = 0.36f)
-    )
+    ))
 }
 
 internal fun themeRoleContrastRatio(foregroundHex: String, backgroundHex: String): Float {
@@ -108,7 +108,7 @@ internal fun themeRoleContrastRatio(foregroundHex: String, backgroundHex: String
 
 internal fun hasThemeRoleContrastWarning(roles: ThemeModeRoleOverrides): Boolean {
     return themeRoleContrastRatio(roles.primaryTextHex, roles.backgroundHex) < 4.5f ||
-        themeRoleContrastRatio(roles.secondaryTextHex, roles.backgroundHex) < 3f
+        themeRoleContrastRatio(roles.secondaryTextHex, roles.backgroundHex) < ACCESSIBLE_TEXT_MIN_CONTRAST
 }
 
 private fun parseThemeRoleColor(hex: String, fallback: Color): Color {

@@ -3299,6 +3299,16 @@ fun AppNavigation(
                                     category = categoryKey.category,
                                     viewModel = settingsViewModel,
                                     onBack = { performSystemBackAction() },
+                                    onSettingsHome = {
+                                        val rootIndex = navigation3BackStack.indexOfLast { it == BiliPaiNavKey.Settings }
+                                        if (rootIndex >= 0) {
+                                            replaceNavigation3BackStack(navigation3BackStack.take(rootIndex + 1))
+                                        } else {
+                                            val categoryIndex = navigation3BackStack.indexOfFirst { it is BiliPaiNavKey.SettingsCategory }
+                                            val prefix = navigation3BackStack.take(categoryIndex.coerceAtLeast(1))
+                                            replaceNavigation3BackStack(prefix + BiliPaiNavKey.Settings)
+                                        }
+                                    },
                                     onOpenSourceLicensesClick = { pushNavigation3Key(BiliPaiNavKey.OpenSourceLicenses) },
                                     onAppearanceClick = { pushNavigation3Key(BiliPaiNavKey.AppearanceSettings) },
                                     onHomeClick = { pushNavigation3Key(BiliPaiNavKey.HomeSettings) },

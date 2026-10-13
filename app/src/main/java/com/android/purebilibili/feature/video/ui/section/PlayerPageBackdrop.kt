@@ -45,7 +45,7 @@ internal fun supportsPlayerPageGlass(
     audioOnly: Boolean,
     pip: Boolean,
     detailInline: Boolean = false,
-): Boolean = liquidGlassEnabled && (fullscreen || detailInline) && !portraitFullscreen &&
+): Boolean = liquidGlassEnabled && (fullscreen || portraitFullscreen || detailInline) &&
     !hdr && !anime4k && !audioOnly && !pip
 
 internal fun shouldUsePlayerPageTexture(

@@ -1167,7 +1167,7 @@ private fun MobileBangumiDetailContent(
                                         ),
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = if (isCurrentPage) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (isCurrentPage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -1793,7 +1793,7 @@ private fun EpisodeSelectionSheet(
                                 ),
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (isCurrentPage) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (isCurrentPage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }

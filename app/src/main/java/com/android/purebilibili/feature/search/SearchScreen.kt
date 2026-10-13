@@ -4349,7 +4349,7 @@ internal fun BangumiSearchResultCard(
                             SearchResultText(
                                 text = "⭐ ${score.score}",
                                 role = SearchResultTextRole.METADATA,
-                                color = Color(0xFFFF9800)
+                                color = MaterialTheme.colorScheme.tertiary
                             )
                             Spacer(modifier = Modifier.width(AppSpacingTokens.ExtraSmall))
                             SearchResultText(

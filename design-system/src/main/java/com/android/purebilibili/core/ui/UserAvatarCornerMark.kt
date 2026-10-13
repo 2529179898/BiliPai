@@ -52,7 +52,6 @@ fun resolveUserAvatarCornerMark(
     }
 }
 
-private val VipAvatarPink = Color(0xFFFB7299)
 
 @Composable
 fun UserAvatarCornerMarkBadge(
@@ -82,12 +81,12 @@ fun UserAvatarCornerMarkBadge(
                         .fillMaxSize()
                         .padding(1.dp)
                         .clip(CircleShape)
-                        .background(VipAvatarPink),
+                        .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = "大",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontSize = (badgeSize.value * 0.58f).sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
@@ -101,9 +100,9 @@ fun UserAvatarCornerMarkBadge(
                     imageVector = Icons.Outlined.Bolt,
                     contentDescription = null,
                     tint = if (mark == UserAvatarCornerMark.Personal) {
-                        Color(0xFFFFCC00)
+                        MaterialTheme.colorScheme.tertiary
                     } else {
-                        Color(0xFF40C4FF)
+                        MaterialTheme.colorScheme.primary
                     },
                     modifier = Modifier.fillMaxSize(),
                 )

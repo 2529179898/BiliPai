@@ -122,7 +122,7 @@ fun MineSideDrawer(
     }
     
     // 检测深色模式
-    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val isDark = com.android.purebilibili.core.ui.isAppInDarkTheme()
 
     val liquidGlassActive = liquidGlassEnabled && miuixBackdrop != null
     val blurActive = hazeState != null && isBlurEnabled && !liquidGlassActive

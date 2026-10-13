@@ -124,6 +124,25 @@ fun FrostedSideBar(
                 onToggleSidebar = onToggleSidebar,
                 onAccountSwitchClick = onAccountSwitchClick,
             )
+        } else if (
+            com.android.purebilibili.core.theme.LocalAppUiStyle.current == com.android.purebilibili.core.theme.AppUiStyle.MATERIAL3 &&
+            !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled &&
+            uiSkinDecoration == null && itemColorIndices.isEmpty()
+        ) {
+            MaterialExpressiveSideBar(
+                currentItem = currentItem,
+                onItemClick = onItemClick,
+                visibleItems = visibleItems,
+                itemLabels = itemLabels,
+                expanded = sidebarExpanded,
+                onExpandedChange = onSidebarExpandedChange,
+                onHomeDoubleTap = onHomeDoubleTap,
+                onDynamicDoubleTap = onDynamicDoubleTap,
+                onToggleSidebar = onToggleSidebar,
+                onAccountSwitchClick = onAccountSwitchClick,
+                firstItemModifier = firstItemModifier,
+                modifier = modifier,
+            )
         } else {
             FrostedSideBarContent(
                 currentItem = currentItem,

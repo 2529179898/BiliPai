@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package com.android.purebilibili.core.ui.components
 
 import androidx.compose.foundation.background
@@ -69,6 +71,7 @@ import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.preference.ArrowPreference as MiuixArrowPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference as MiuixSliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference as MiuixSwitchPreference
 import top.yukonga.miuix.kmp.basic.InputField
@@ -932,8 +935,9 @@ private fun Md3NativeListItemContent(
 ) {
     val haptic = LocalHapticFeedback.current
     val hapticsEnabled = LocalAppThemeConfig.current.hapticFeedbackEnabled
-    ListItem(
-        headlineContent = {
+    androidx.compose.material3.SegmentedListItem(
+        shapes = androidx.compose.material3.ListItemDefaults.segmentedShapes(index = 0, count = 1),
+        content = {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
@@ -1089,7 +1093,11 @@ internal fun AdaptivePreferenceContent(
         return
     }
     if (nativeListItem && clickableRenderer == AppClickableItemRenderer.MIUIX_ARROW) {
-        BasicComponent(
+        MiuixArrowPreference(
+            title = title,
+            titleColor = BasicComponentDefaults.titleColor(color = textColor),
+            summary = subtitle?.takeIf { it.isNotBlank() },
+            summaryColor = BasicComponentDefaults.summaryColor(color = subtitleColor),
             onClick = onClick,
             insideMargin = PaddingValues(
                 horizontal = rowSpec.insideHorizontalPaddingDp.dp,
@@ -1160,31 +1168,8 @@ internal fun AdaptivePreferenceContent(
                             )
                     )
                 }
-                if (showChevron && onClick != null) {
-                    if (trailingContent != null || !value.isNullOrBlank()) Spacer(Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = chevronTint,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
             },
-        ) {
-            Text(
-                text = title,
-                color = textColor,
-                fontSize = MiuixTheme.textStyles.headline1.fontSize,
-                fontWeight = FontWeight.Medium,
-            )
-            if (!subtitle.isNullOrBlank()) {
-                Text(
-                    text = subtitle,
-                    color = subtitleColor,
-                    fontSize = MiuixTheme.textStyles.body2.fontSize,
-                )
-            }
-        }
+        )
         return
     }
     if (clickableRenderer == AppClickableItemRenderer.MD3_BASIC) {

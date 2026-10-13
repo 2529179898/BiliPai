@@ -535,13 +535,13 @@ private fun DanmakuPoolItemRow(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(3.dp))
-                        .background(Color(0xFFFB7299).copy(alpha = 0.18f))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
                         .padding(horizontal = 4.dp, vertical = 1.dp),
                 ) {
                     AppText(
                         text = "UP",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFFB7299),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontWeight = FontWeight.Bold,
                     )
                 }

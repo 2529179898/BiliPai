@@ -4,7 +4,6 @@
 package com.android.purebilibili.feature.home.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.height
@@ -162,8 +161,9 @@ internal fun Modifier.biliPaiFloatingDockShell(
     interactionLayerBlock: (GraphicsLayerScope.() -> Unit)? = null,
     interactionState: com.android.purebilibili.core.ui.components.AppElasticPressState? = null,
     tint: Color = Color.Unspecified,
+    darkTheme: Boolean? = null,
 ): Modifier {
-    val isDark = isSystemInDarkTheme()
+    val isDark = darkTheme ?: com.android.purebilibili.core.ui.isAppInDarkTheme()
     val density = LocalDensity.current
     val shapeBlock = remember(shape) { { shape } }
     val baseModifier = this
@@ -301,7 +301,7 @@ internal fun Modifier.biliPaiFloatingDockCaptureSurface(
     shape: Shape = CircleShape,
     liquidGlassTuning: LiquidGlassTuning = resolveLiquidGlassTuning(progress = 0.5f),
 ): Modifier {
-    val isDark = isSystemInDarkTheme()
+    val isDark = com.android.purebilibili.core.ui.isAppInDarkTheme()
     val density = LocalDensity.current
     val surfaceColor = containerColor.copy(alpha = liquidGlassTuning.surfaceAlpha)
     val readabilityScrimColor = if (isDark) Color.Black else Color.White

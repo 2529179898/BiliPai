@@ -3,7 +3,6 @@ package com.android.purebilibili.core.ui.renderer.miuix
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -12,7 +11,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -53,33 +51,20 @@ import com.android.purebilibili.core.ui.components.AppSegmentOption
 import com.android.purebilibili.core.ui.components.AppSegmentedControlColors
 import com.android.purebilibili.core.ui.components.resolveAppMiuixSegmentedColors
 import com.android.purebilibili.core.ui.components.resolveAppSegmentedSelectionIndex
-import com.android.purebilibili.core.ui.components.resolveAppMiuixTabContentColor
 import com.android.purebilibili.core.ui.resolveRoundedControlVisualGeometry
 import com.android.purebilibili.core.ui.resolveMiuixNonGlassControlGeometry
 import com.android.purebilibili.core.ui.isMiuixNonGlassEnabled
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.TabRowDefaults
-import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.ui.draw.dropShadow
-import androidx.compose.ui.graphics.shadow.Shadow
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.sp
 import com.android.purebilibili.core.ui.components.AppText
-import com.android.purebilibili.core.ui.components.resolveAppSegmentedLabelFontSize
 import com.android.purebilibili.core.ui.components.resolveMiuixNonGlassContentTabItemWidths
 
-import kotlin.math.absoluteValue
-import androidx.compose.ui.graphics.lerp
 
 @Composable
 internal fun <T> AppMiuixSegmentedControl(
@@ -93,116 +78,19 @@ internal fun <T> AppMiuixSegmentedControl(
     indicatorPositionProvider: (() -> Float)? = null,
     onSelectionChange: (T) -> Unit,
 ) {
-    val isDark = isSystemInDarkTheme()
-    val longestLabelLength = remember(options) {
-        options.maxOfOrNull { it.label.length } ?: 0
-    }
-    val labelFontSize = resolveAppSegmentedLabelFontSize(
-        MaterialTheme.typography.labelLarge.fontSize, options.size, longestLabelLength
+    // Compact choices use the same native geometry and transition as other Miuix tabs.
+    AppMiuixNonGlassTabs(
+        options = options,
+        selectedValue = selectedValue,
+        enabled = enabled,
+        compact = true,
+        scrollable = false,
+        minTabWidth = 0.dp,
+        colors = colors,
+        height = height,
+        modifier = modifier,
+        onSelectionChange = onSelectionChange,
     )
-    val targetHeight = height ?: 36.dp
-    val cornerRadius = 8.dp
-    val tabColors = resolveAppMiuixSegmentedColors(colors)
-    val nonGlassMiuix = isMiuixNonGlassEnabled()
-    val inactiveItemBackground = if (shouldUseOpaqueMiuixTabBackdrop(nonGlassMiuix, LocalImmersiveTopChromeActive.current)) {
-        AppSurfaceTokens.groupedListContainer()
-    } else tabColors.backgroundColor
-    val inactiveContentColor = resolveAppMiuixTabContentColor(
-        nonGlassMiuix = nonGlassMiuix,
-        inactiveContentColor = tabColors.contentColor,
-        readableContentColor = tabColors.contentColor,
-    )
-    val selectedIndex = resolveAppSegmentedSelectionIndex(options, selectedValue)
-    val currentPosition = indicatorPositionProvider?.invoke()
-    val outlineColor = MiuixTheme.colorScheme.outline
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (!enabled) Modifier.semantics { disabled() } else Modifier),
-        horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        options.forEachIndexed { index, option ->
-            val fraction = if (currentPosition != null) {
-                (currentPosition - index).absoluteValue.coerceIn(0f, 1f)
-            } else {
-                if (index == selectedIndex) 0f else 1f
-            }
-            val isSelected = fraction < 0.5f
-
-            val itemBackground = if (currentPosition != null) {
-                lerp(
-                    tabColors.selectedBackgroundColor,
-                    inactiveItemBackground,
-                    fraction
-                )
-            } else {
-                when {
-                    isSelected -> tabColors.selectedBackgroundColor
-                    else -> inactiveItemBackground
-                }
-            }
-
-            val contentColor = if (currentPosition != null) {
-                lerp(
-                    tabColors.selectedContentColor,
-                    inactiveContentColor,
-                    fraction
-                )
-            } else {
-                if (isSelected) {
-                    tabColors.selectedContentColor
-                } else {
-                    inactiveContentColor
-                }
-            }
-
-            val shadowAlpha = if (!isDark) {
-                ((1f - fraction) * 0.08f).coerceAtLeast(0f)
-            } else 0f
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = targetHeight.coerceAtLeast(28.dp))
-                    .then(
-                        if (shadowAlpha > 0.005f) {
-                            Modifier.dropShadow(
-                                shape = RoundedCornerShape(cornerRadius),
-                                shadow = Shadow(radius = 3.dp, color = Color.Black, alpha = shadowAlpha)
-                            )
-                        } else Modifier
-                    )
-                    .adaptiveSquircleBackground(
-                        color = itemBackground,
-                        cornerRadius = cornerRadius,
-                    )
-                    .squircleBorder(
-                        width = { if (isSelected) 0.dp else 1.dp },
-                        color = { outlineColor },
-                        cornerRadius = cornerRadius,
-                    )
-                    .clickable(
-                        enabled = enabled,
-                        role = Role.RadioButton,
-                        onClick = { onSelectionChange(option.value) },
-                    )
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                AppText(
-                    text = option.label,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    fontSize = labelFontSize,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = contentColor,
-                )
-            }
-        }
-    }
 }
 
 @Composable
@@ -435,7 +323,6 @@ private fun <T> AppMiuixContentSizedNonGlassTabs(
     onSelectionChange: (T) -> Unit,
 ) {
     val tabColors = resolveAppMiuixSegmentedColors(colors)
-    val outlineColor = MiuixTheme.colorScheme.outline
     val inactiveItemBackground = if (shouldUseOpaqueMiuixTabBackdrop(true, LocalImmersiveTopChromeActive.current)) {
         AppSurfaceTokens.groupedListContainer()
     } else Color.Transparent
@@ -509,11 +396,6 @@ private fun <T> AppMiuixContentSizedNonGlassTabs(
                         .height(height)
                         .adaptiveSquircleBackground(
                             color = if (selected) tabColors.selectedBackgroundColor else inactiveItemBackground,
-                            cornerRadius = 8.dp,
-                        )
-                        .squircleBorder(
-                            width = { if (selected) 0.dp else 1.dp },
-                            color = { outlineColor },
                             cornerRadius = 8.dp,
                         )
                         .selectable(

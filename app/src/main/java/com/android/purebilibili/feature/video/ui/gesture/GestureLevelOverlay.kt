@@ -94,6 +94,7 @@ import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.blur.Backdrop
 import com.android.purebilibili.feature.video.ui.overlay.playerControlGlassSurface
+import com.android.purebilibili.feature.home.components.resolveBottomBarDarkTheme
 
 /**
  * Theme-native volume / brightness feedback:
@@ -117,6 +118,8 @@ fun BoxScope.GestureLevelOverlayHost(
     val reduceMotion = rememberSystemReduceMotion()
     val brightnessColor = colorResource(R.color.player_brightness_accent)
     val colorScheme = MaterialTheme.colorScheme
+    val glassDarkTheme = resolveBottomBarDarkTheme(colorScheme.background)
+    val glassContentColor = colorScheme.onSurface
     val miuixColorScheme = MiuixTheme.colorScheme
     val spec = remember(style, kind, percent, colorScheme, miuixColorScheme, brightnessColor) {
         resolveGestureLevelOverlaySpec(
@@ -197,7 +200,7 @@ fun BoxScope.GestureLevelOverlayHost(
                     .heightIn(min = 44.dp)
                     .playerControlGlassSurface(
                         glassBackdrop,
-                        containerColor = Color.White.copy(alpha = 0.12f),
+                        darkTheme = glassDarkTheme,
                     )
                     // Feedback taps must not toggle the player controls underneath.
                     .pointerInput(Unit) { detectTapGestures(onTap = {}) }
@@ -209,9 +212,10 @@ fun BoxScope.GestureLevelOverlayHost(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                AppIcon(imageVector = icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                AppIcon(imageVector = icon, contentDescription = null, tint = glassContentColor, modifier = Modifier.size(20.dp))
                 GlassGestureLevelRail(
                     fillColor = spec.fillColor,
+                    contentColor = glassContentColor,
                     progress = { percent.coerceIn(0f, 1f) },
                     modifier = Modifier
                         .weight(1f)
@@ -223,7 +227,7 @@ fun BoxScope.GestureLevelOverlayHost(
                 )
                 AppText(
                     text = "$percentInt",
-                    color = Color.White,
+                    color = glassContentColor,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.End,
                     maxLines = 1,
@@ -262,6 +266,7 @@ fun BoxScope.GestureLevelOverlayHost(
 @Composable
 private fun GlassGestureLevelRail(
     fillColor: Color,
+    contentColor: Color,
     progress: () -> Float,
     modifier: Modifier = Modifier,
 ) {
@@ -275,7 +280,7 @@ private fun GlassGestureLevelRail(
         val end = Offset(size.width - edgeInset - thumbWidth / 2f, centerY)
         val thumbCenter = start + (end - start) * progress().coerceIn(0f, 1f)
         val trackHeight = 4.dp.toPx()
-        drawLine(Color.White.copy(alpha = 0.28f), start, end, trackHeight, StrokeCap.Round)
+        drawLine(contentColor.copy(alpha = 0.28f), start, end, trackHeight, StrokeCap.Round)
         drawLine(fillColor, start, thumbCenter, trackHeight, StrokeCap.Round)
         drawRoundRect(
             color = Color.White.copy(alpha = 0.92f),
