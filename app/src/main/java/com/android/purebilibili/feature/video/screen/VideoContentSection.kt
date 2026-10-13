@@ -2125,6 +2125,7 @@ private fun VideoHeaderContent(
                 pages = info.pages,
                 coverUrl = info.pic,
                 currentPageIndex = currentPageIndex,
+                isPlaying = isVideoPlaying,
                 onPageSelect = onPageSelect
             )
         }

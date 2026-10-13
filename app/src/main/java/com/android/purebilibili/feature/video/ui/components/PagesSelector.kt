@@ -4,6 +4,10 @@ import com.android.purebilibili.core.ui.AppContentColors
 
 import com.android.purebilibili.core.ui.components.appSearchElasticPress
 import android.content.res.Configuration
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -28,13 +32,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
-import com.android.purebilibili.R
 import com.android.purebilibili.core.ui.AppSurfaceTokens
+import kotlin.math.PI
+import kotlin.math.sin
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -74,6 +81,7 @@ fun PagesSelector(
     blockParentVerticalScroll: Boolean = false,
     onDismissRequest: (() -> Unit)? = null,
     coverUrl: String = "",
+    isPlaying: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     if (pages.isEmpty()) return
@@ -175,7 +183,7 @@ fun PagesSelector(
                 }
             }
         } else {
-            //  PiliPlus 同款标题行：视频选集 + 正在播放：<当前分P> + 共N集
+            //  标题行：视频选集 + 正在播放：<当前分P> + 共N集
             val currentPage = pages.getOrNull(currentPageIndex) ?: pages.first()
             Row(
                 modifier = Modifier
@@ -255,6 +263,7 @@ fun PagesSelector(
             PagesHorizontalPreviewRow(
                 pages = pages,
                 currentPageIndex = currentPageIndex,
+                isPlaying = isPlaying,
                 onPageSelect = onPageSelect,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -339,15 +348,59 @@ fun PagesSelector(
     }
 }
 
+/** 正在播放指示：三根竖条随播放节奏起伏，未播放时保持静止波形。 */
+@Composable
+private fun PlayingEqualizerIcon(
+    playing: Boolean,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val phase = remember { Animatable(0f) }
+    LaunchedEffect(playing) {
+        if (!playing) {
+            phase.snapTo(0f)
+            return@LaunchedEffect
+        }
+        while (true) {
+            phase.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 900, easing = LinearEasing),
+            )
+            phase.snapTo(0f)
+        }
+    }
+    Canvas(modifier = modifier) {
+        val barCount = 3
+        val gap = size.width * 0.22f
+        val barWidth = (size.width - gap * (barCount - 1)) / barCount
+        val currentPhase = phase.value
+        repeat(barCount) { index ->
+            val ratio = if (playing) {
+                0.28f + 0.72f * sin((currentPhase + index * 0.24f) * PI.toFloat())
+            } else {
+                IdleEqualizerRatios[index]
+            }
+            val barHeight = (size.height * ratio).coerceAtLeast(1f)
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(index * (barWidth + gap), (size.height - barHeight) / 2f),
+                size = Size(barWidth, barHeight),
+                cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+            )
+        }
+    }
+}
+
 /**
- *  PiliPlus 同款“视频选集”横向卡片行：
- * 固定 150dp 卡片宽、10dp 间距、35dp 行高，当前分 P 在卡片内额外显示播放波形图标，
- * 并使用强调色文字，其余分 P 使用主文字色；当前分 P 变化时横向滚动到对应卡片。
+ *  横向分集卡片行：固定 150dp 卡片宽、10dp 间距、35dp 行高，
+ * 当前分 P 在卡片内额外显示播放波形图标并使用强调色文字，其余分 P 使用主文字色；
+ * 当前分 P 变化时横向滚动到对应卡片。
  */
 @Composable
 private fun PagesHorizontalPreviewRow(
     pages: List<Page>,
     currentPageIndex: Int,
+    isPlaying: Boolean,
     onPageSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -359,8 +412,7 @@ private fun PagesHorizontalPreviewRow(
     var hasPositioned by remember(pages) { mutableStateOf(false) }
 
     LaunchedEffect(currentIndex, pages.size) {
-        // 与 PiliPlus 的 targetOffset = index * itemWidth - itemWidth / 2 对齐：
-        // 当前卡片左边缘停在视口左侧半张卡片宽度处，首帧不做动画，之后平滑滚动。
+        // 定位当前项：其左边缘停在视口左侧半张卡片宽度处，首帧不做动画，之后平滑滚动。
         val halfItemPx = with(density) { PagesPreviewItemWidth.toPx() / 2f }
         if (hasPositioned) {
             listState.animateScrollToItem(currentIndex)
@@ -392,11 +444,10 @@ private fun PagesHorizontalPreviewRow(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (isCurrent) {
-                    AppIcon(
-                        imageVector = ImageVector.vectorResource(R.drawable.ms_graphic_eq_24),
-                        contentDescription = "正在播放",
-                        tint = AppContentColors.accent(),
-                        modifier = Modifier.size(12.dp),
+                    PlayingEqualizerIcon(
+                        playing = isPlaying,
+                        color = AppContentColors.accent(),
+                        modifier = Modifier.size(PagePreviewEqualizerSize),
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                 }
@@ -417,6 +468,10 @@ private val PagesPreviewItemWidth = 150.dp
 private val PagesPreviewItemSpacing = 10.dp
 private val PagesPreviewRowHeight = 35.dp
 private val PagesPreviewItemCorner = 6.dp
+private val PagePreviewEqualizerSize = 12.dp
+
+/** 未播放时保持的静止波形高度比例。 */
+private val IdleEqualizerRatios = floatArrayOf(0.45f, 0.9f, 0.6f)
 
 @Composable
 private fun PagesSelectorFilterBar(
