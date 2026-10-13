@@ -6,14 +6,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.android.purebilibili.core.ui.components.AppNativeSegmentedControl
 import com.android.purebilibili.core.ui.components.AppSegmentOption
-import com.android.purebilibili.core.ui.components.AppSegmentedChrome
 import com.android.purebilibili.core.ui.components.resolveAppLiquidSegmentedControlSpec
-import com.android.purebilibili.core.ui.components.resolveAppSegmentedChrome
 import com.android.purebilibili.core.ui.components.resolveAppSegmentedSelectionIndex
-import com.android.purebilibili.core.ui.rememberAppSegmentedControlPolicy
 import com.android.purebilibili.feature.home.components.BOTTOM_BAR_LIQUID_SEGMENTED_CONTROL_HEIGHT_DP
 import com.android.purebilibili.feature.home.components.BOTTOM_BAR_LIQUID_SEGMENTED_CONTROL_INDICATOR_HEIGHT_DP
 import com.android.purebilibili.feature.home.components.BottomBarLiquidSegmentedControl
@@ -34,40 +29,24 @@ internal fun <T> AppSegmentedControl(
     onSelectionChange: (T) -> Unit,
 ) {
     if (options.isEmpty()) return
-    val policy = rememberAppSegmentedControlPolicy()
-    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
-    when (
-        resolveAppSegmentedChrome(
-            usesMaterialFallback = policy.usesMaterialFallback,
-            nativeLiquidGlassEnabled = liquidGlassEnabled,
-        )
-    ) {
-        AppSegmentedChrome.NATIVE -> AppNativeSegmentedControl(
-            options = options,
-            selectedValue = selectedValue,
-            modifier = modifier,
-            enabled = enabled,
-            onSelectionChange = onSelectionChange,
-        )
-        AppSegmentedChrome.LIQUID -> AppLiquidSegmentedControlHost(
-            options = options,
-            selectedValue = selectedValue,
-            modifier = modifier,
-            enabled = enabled,
-            height = height,
-            indicatorHeight = indicatorHeight,
-            labelFontSize = labelFontSize,
-            tapPressRefractionEnabled = tapPressRefractionEnabled,
-            dragSelectionEnabled = dragSelectionEnabled,
-            containerColorOverride = containerColorOverride,
-            indicatorIdleSurfaceColorOverride = indicatorIdleSurfaceColorOverride,
-            onSelectionChange = onSelectionChange,
-        )
-    }
+    AppSegmentedControlHost(
+        options = options,
+        selectedValue = selectedValue,
+        modifier = modifier,
+        enabled = enabled,
+        height = height,
+        indicatorHeight = indicatorHeight,
+        labelFontSize = labelFontSize,
+        tapPressRefractionEnabled = tapPressRefractionEnabled,
+        dragSelectionEnabled = dragSelectionEnabled,
+        containerColorOverride = containerColorOverride,
+        indicatorIdleSurfaceColorOverride = indicatorIdleSurfaceColorOverride,
+        onSelectionChange = onSelectionChange,
+    )
 }
 
 @Composable
-private fun <T> AppLiquidSegmentedControlHost(
+private fun <T> AppSegmentedControlHost(
     options: List<AppSegmentOption<T>>,
     selectedValue: T,
     modifier: Modifier,
@@ -109,6 +88,7 @@ private fun <T> AppLiquidSegmentedControlHost(
         modifier = modifier,
         enabled = enabled,
         itemWidth = null,
+        nativeSegmentedControl = true,
         height = resolvedHeight,
         indicatorHeight = resolvedIndicatorHeight,
         labelFontSize = resolvedLabelFontSize,

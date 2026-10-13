@@ -2055,8 +2055,8 @@ fun CommonListScreen(
                                 onSelectionChange = onHistoryFilterSelected,
                                 enabled = !isHistoryBatchMode,
                                 scrollable = historyFilterChrome.itemWidthDp != null,
-                                // Liquid mode has no fixed item width. Preserve the shared beta.21
-                                // default instead of turning "unspecified" into an explicit 0.dp.
+                                // Keep the shared measured-width default when no explicit slot
+                                // width was requested; 0.dp would override that contract.
                                 minTabWidth = historyFilterChrome.itemWidthDp?.dp ?: Dp.Unspecified,
                                 height = historyFilterChrome.heightDp.dp,
                                 indicatorHeight = historyFilterChrome.indicatorHeightDp.dp,

@@ -2,6 +2,7 @@ package com.android.purebilibili.core.ui.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -10,7 +11,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import com.android.purebilibili.core.ui.AppChromeSizeTokens
+import com.android.purebilibili.core.ui.LocalAppThemeConfig
 import com.android.purebilibili.feature.home.components.BottomBarMatchedReusableLiquidDock
 import com.android.purebilibili.feature.home.components.resolveFloatingDockGeometryScale
 
@@ -19,11 +21,13 @@ object BiliPaiTopBarIconDecorator : AppTopBarIconDecorator {
     @Composable
     override fun Render(modifier: Modifier, enabled: Boolean, content: @Composable (Modifier) -> Unit) {
         val ownsDrag = remember { mutableStateOf(false) }
+        val glassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
+        val visualSize = AppChromeSizeTokens.TopBarIconVisualSize
         BottomBarMatchedReusableLiquidDock(
             shape = CircleShape,
             modifier = modifier
-                .size(48.dp)
-                .then(if (enabled) Modifier.pointerInput(Unit) {
+                .size(visualSize)
+                .then(if (enabled && glassEnabled) Modifier.pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { ownsDrag.value = true },
                         onDragEnd = { ownsDrag.value = false },
@@ -36,10 +40,10 @@ object BiliPaiTopBarIconDecorator : AppTopBarIconDecorator {
             elasticFeedbackEnabled = enabled,
             allowConsumedDrag = { ownsDrag.value },
             useNeutralLiquidContainer = true,
-            shellLensIntensity = resolveFloatingDockGeometryScale(48f),
+            shellLensIntensity = resolveFloatingDockGeometryScale(visualSize.value),
         ) { glassSurfaceProvided ->
             CompositionLocalProvider(LocalAppIconButtonGlassSurfaceProvided provides glassSurfaceProvided) {
-                Box(Modifier.size(48.dp)) { content(Modifier.matchParentSize()) }
+                Box(Modifier.fillMaxSize()) { content(Modifier.matchParentSize()) }
             }
         }
     }

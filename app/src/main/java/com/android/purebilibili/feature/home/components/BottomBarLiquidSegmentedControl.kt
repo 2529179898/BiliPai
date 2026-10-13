@@ -35,6 +35,10 @@ import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppNativeTabRow
 import com.android.purebilibili.core.ui.components.AppSegmentOption
 import com.android.purebilibili.core.ui.components.MiuixNonGlassTabItemWidthMode
+import com.android.purebilibili.core.ui.components.AppExactTouchTargets
+import com.android.purebilibili.core.ui.components.AppNativeSegmentedControl
+import com.android.purebilibili.core.ui.components.AppTabRowIndicatorPresentation
+import com.android.purebilibili.core.ui.components.rememberMeasuredTabMinWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -407,8 +411,9 @@ fun BottomBarLiquidSegmentedControl(
     preferInlineContentStyle: Boolean = false,
     forceEqualWidth: Boolean = false,
     compactMiuixWhenTwoOptions: Boolean = true,
+    nativeSegmentedControl: Boolean = false,
+    nativeIndicatorPresentation: AppTabRowIndicatorPresentation = AppTabRowIndicatorPresentation.UNDERLINE,
     equalizeMiuixNonGlassItemWidths: Boolean = false,
-    contentSizedMiuixNonGlassItems: Boolean = false,
     // Keep non-glass Miuix tabs as two independent items instead of adding a
     // redundant middle dock behind them.
     drawMiuixNonGlassTrack: Boolean = false,
@@ -425,114 +430,149 @@ fun BottomBarLiquidSegmentedControl(
     externalPagerMotionEffectsEnabled: Boolean = false,
     liquidGlassTuningOverride: LiquidGlassTuning? = null,
     geometryMode: FloatingBottomBarGeometryMode = FloatingBottomBarGeometryMode.Segmented,
-) {
-    if (items.isEmpty()) return
-
+): Unit = AppExactTouchTargets {
+    if (items.isEmpty()) return@AppExactTouchTargets
     val effectiveLabelFontSize = if (labelFontSize.isSpecified) {
         labelFontSize
     } else {
         com.android.purebilibili.core.ui.appTabLabelFontSize()
     }
-
-    val context = LocalContext.current
-    val visualPolicy = rememberAppSemanticVisualPolicy()
-    val homeSettings by SettingsManager
-        .getHomeSettings(context)
-        .map { it as HomeSettings? }
-        .collectAsStateWithLifecycle(
-            // Do not render a provisional chrome: either choice would visibly switch when
-            // DataStore emits the persisted setting.
-            initialValue = null,
-            context = kotlin.coroutines.EmptyCoroutineContext
-        )
-    val resolvedHomeSettings = homeSettings ?: return
-    if (!resolvedHomeSettings.androidNativeLiquidGlassEnabled) {
-        val nativeOptions = remember(items) {
-            items.mapIndexed { index, label -> AppSegmentOption(index, label) }
-        }
-        // Native TabRow owns its scroll viewport and selection alignment. An outer
-        // horizontalScroll measures it with an unbounded width and then scrolls it
-        // again using liquid-dock geometry, clipping neighboring native hit targets.
-        AppNativeTabRow(
-            options = nativeOptions,
-            selectedValue = selectedIndex.coerceIn(0, items.lastIndex),
-            onSelectionChange = onSelected,
-            modifier = modifier,
-            enabled = enabled,
-            scrollable = itemWidth != null,
-            forceEqualWidth = forceEqualWidth,
-            // Short native tabs size from their label while retaining a real 48dp minimum
-            // hit width. The former 72dp liquid-dock default overflowed compact sibling rows.
-            minTabWidth = itemWidth ?: AppChromeSizeTokens.MinimumTouchTarget,
-            compactMiuixWhenTwoOptions = compactMiuixWhenTwoOptions,
-            allowLabelOverflow = allowNativeLabelOverflow,
-            indicatorPositionProvider = indicatorPositionProvider,
-            miuixNonGlassItemWidthMode = if (equalizeMiuixNonGlassItemWidths) {
-                MiuixNonGlassTabItemWidthMode.EQUAL_TO_LONGEST_LABEL
-            } else {
-                MiuixNonGlassTabItemWidthMode.CONTENT
-            },
-            contentSizedMiuixNonGlassItems = contentSizedMiuixNonGlassItems,
-            drawMiuixNonGlassTrack = drawMiuixNonGlassTrack,
-        )
-        return
+    val shellHeight = height.coerceAtLeast(0.dp)
+    val horizontalPadding = containerHorizontalPadding.coerceAtLeast(0.dp)
+    val fixedItemWidth = itemWidth?.coerceAtLeast(0.dp)
+    val shellModifier = if (fixedItemWidth != null) {
+        modifier.width(fixedItemWidth * items.size + horizontalPadding * 2)
+    } else {
+        modifier.fillMaxWidth()
     }
-    val chromeStyle = resolveSegmentedControlChromeStyle(
-        uiStyle = LocalAppUiStyle.current,
-        prefersNativeChrome = visualPolicy.prefersNativeChrome,
-        androidNativeLiquidGlassEnabled = resolvedHomeSettings.androidNativeLiquidGlassEnabled,
-        preferInlineContentStyle = preferInlineContentStyle
-    )
-    if (chromeStyle == SegmentedControlChromeStyle.ANDROID_NATIVE_UNDERLINE) {
-        AndroidNativeUnderlinedSegmentedControl(
+    // Geometry exists even while material preferences load. Sampling and press
+    // bloom are draw-only children and cannot change this layout or hit viewport.
+    BoxWithConstraints(modifier = shellModifier.height(shellHeight)) {
+        val renderedItemWidth = fixedItemWidth ?: if (!constraints.hasBoundedWidth) {
+            rememberMeasuredTabMinWidth(
+                requestedMinWidth = AppChromeSizeTokens.CompactTabMinWidth,
+                labels = items,
+                textStyle = MaterialTheme.typography.labelLarge.copy(
+                    fontSize = effectiveLabelFontSize,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+            )
+        } else {
+            null
+        }
+        val context = LocalContext.current
+        val visualPolicy = rememberAppSemanticVisualPolicy()
+        val homeSettings by SettingsManager
+            .getHomeSettings(context)
+            .map { it as HomeSettings? }
+            .collectAsStateWithLifecycle(
+                initialValue = null,
+                context = kotlin.coroutines.EmptyCoroutineContext,
+            )
+        val resolvedHomeSettings = homeSettings ?: return@BoxWithConstraints
+        if (!resolvedHomeSettings.androidNativeLiquidGlassEnabled) {
+            val nativeOptions = remember(items) {
+                items.mapIndexed { index, label -> AppSegmentOption(index, label) }
+            }
+            val nativeItemWidth = renderedItemWidth ?:
+                (maxWidth - horizontalPadding * 2).coerceAtLeast(0.dp) / items.size
+            val nativeModifier = if (renderedItemWidth == null) Modifier.fillMaxWidth() else Modifier
+            if (nativeSegmentedControl) {
+                AppNativeSegmentedControl(
+                    options = nativeOptions,
+                    selectedValue = selectedIndex.coerceIn(0, items.lastIndex),
+                    onSelectionChange = onSelected,
+                    modifier = nativeModifier,
+                    enabled = enabled,
+                    height = shellHeight,
+                    itemWidth = nativeItemWidth,
+                    labelFontSize = effectiveLabelFontSize,
+                    containerHorizontalPadding = horizontalPadding,
+                    indicatorPositionProvider = indicatorPositionProvider,
+                )
+            } else {
+                AppNativeTabRow(
+                    options = nativeOptions,
+                    selectedValue = selectedIndex.coerceIn(0, items.lastIndex),
+                    onSelectionChange = onSelected,
+                    modifier = nativeModifier,
+                    enabled = enabled,
+                    scrollable = scrollState != null,
+                    forceEqualWidth = forceEqualWidth,
+                    fixedItemWidth = nativeItemWidth,
+                    height = shellHeight,
+                    labelFontSize = effectiveLabelFontSize,
+                    containerHorizontalPadding = horizontalPadding,
+                    compactMiuixWhenTwoOptions = compactMiuixWhenTwoOptions,
+                    allowLabelOverflow = allowNativeLabelOverflow,
+                    indicatorPresentation = nativeIndicatorPresentation,
+                    indicatorPositionProvider = indicatorPositionProvider,
+                    miuixNonGlassItemWidthMode = if (equalizeMiuixNonGlassItemWidths) {
+                        MiuixNonGlassTabItemWidthMode.EQUAL_TO_LONGEST_LABEL
+                    } else {
+                        MiuixNonGlassTabItemWidthMode.CONTENT
+                    },
+                    drawMiuixNonGlassTrack = drawMiuixNonGlassTrack,
+                )
+            }
+            return@BoxWithConstraints
+        }
+        val chromeStyle = resolveSegmentedControlChromeStyle(
+            uiStyle = LocalAppUiStyle.current,
+            prefersNativeChrome = visualPolicy.prefersNativeChrome,
+            androidNativeLiquidGlassEnabled = resolvedHomeSettings.androidNativeLiquidGlassEnabled,
+            preferInlineContentStyle = preferInlineContentStyle,
+        )
+        if (chromeStyle == SegmentedControlChromeStyle.ANDROID_NATIVE_UNDERLINE) {
+            AndroidNativeUnderlinedSegmentedControl(
+                items = items,
+                selectedIndex = selectedIndex,
+                onSelected = onSelected,
+                modifier = Modifier,
+                enabled = enabled,
+                itemWidth = fixedItemWidth,
+                height = shellHeight,
+                labelFontSize = effectiveLabelFontSize,
+                allowLabelOverflow = allowNativeLabelOverflow,
+                selectedTextColorOverride = selectedTextColorOverride,
+                unselectedTextColorOverride = unselectedTextColorOverride,
+                indicatorPositionProvider = indicatorPositionProvider,
+                onIndicatorPositionChanged = onIndicatorPositionChanged,
+            )
+            return@BoxWithConstraints
+        }
+        BottomBarFloatingSegmentedControl(
             items = items,
             selectedIndex = selectedIndex,
             onSelected = onSelected,
-            modifier = modifier,
+            modifier = Modifier,
             enabled = enabled,
-            itemWidth = itemWidth,
-            height = height,
+            itemWidth = renderedItemWidth,
+            height = shellHeight,
+            indicatorHeight = indicatorHeight,
             labelFontSize = effectiveLabelFontSize,
             allowLabelOverflow = allowNativeLabelOverflow,
+            containerHorizontalPadding = horizontalPadding,
+            containerVerticalPadding = containerVerticalPadding,
+            liquidGlassEffectsEnabled = liquidGlassEffectsEnabled,
+            dragSelectionEnabled = dragSelectionEnabled,
+            longPressDragSelectionEnabled = longPressDragSelectionEnabled,
+            tapPressRefractionEnabled = tapPressRefractionEnabled,
+            indicatorIdleSurfaceColorOverride = indicatorIdleSurfaceColorOverride,
+            miuixBackdrop = miuixBackdrop,
+            containerColorOverride = containerColorOverride,
             selectedTextColorOverride = selectedTextColorOverride,
             unselectedTextColorOverride = unselectedTextColorOverride,
             indicatorPositionProvider = indicatorPositionProvider,
-            onIndicatorPositionChanged = onIndicatorPositionChanged
+            onIndicatorPositionChanged = onIndicatorPositionChanged,
+            isScrollInProgressProvider = isScrollInProgressProvider,
+            onIndicatorDragStateChanged = onIndicatorDragStateChanged,
+            externalPagerMotionEffectsEnabled = externalPagerMotionEffectsEnabled,
+            liquidGlassTuningOverride = liquidGlassTuningOverride,
+            geometryMode = geometryMode,
+            scrollState = scrollState,
         )
-        return
     }
-
-    BottomBarFloatingSegmentedControl(
-        items = items,
-        selectedIndex = selectedIndex,
-        onSelected = onSelected,
-        modifier = modifier,
-        enabled = enabled,
-        itemWidth = itemWidth,
-        height = height,
-        indicatorHeight = indicatorHeight,
-        labelFontSize = effectiveLabelFontSize,
-        allowLabelOverflow = allowNativeLabelOverflow,
-        containerHorizontalPadding = containerHorizontalPadding,
-        containerVerticalPadding = containerVerticalPadding,
-        liquidGlassEffectsEnabled = liquidGlassEffectsEnabled,
-        dragSelectionEnabled = dragSelectionEnabled,
-        longPressDragSelectionEnabled = longPressDragSelectionEnabled,
-        tapPressRefractionEnabled = tapPressRefractionEnabled,
-        indicatorIdleSurfaceColorOverride = indicatorIdleSurfaceColorOverride,
-        miuixBackdrop = miuixBackdrop,
-        containerColorOverride = containerColorOverride,
-        selectedTextColorOverride = selectedTextColorOverride,
-        unselectedTextColorOverride = unselectedTextColorOverride,
-        indicatorPositionProvider = indicatorPositionProvider,
-        onIndicatorPositionChanged = onIndicatorPositionChanged,
-        isScrollInProgressProvider = isScrollInProgressProvider,
-        onIndicatorDragStateChanged = onIndicatorDragStateChanged,
-        externalPagerMotionEffectsEnabled = externalPagerMotionEffectsEnabled,
-        liquidGlassTuningOverride = liquidGlassTuningOverride,
-        geometryMode = geometryMode,
-        scrollState = scrollState,
-    )
 }
 
 @Composable

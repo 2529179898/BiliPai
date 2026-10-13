@@ -981,8 +981,7 @@ private fun PopularSubCategorySegmentedControl(
                 AppSpacingTokens.TripleExtraLarge.value
             ).dp,
             labelFontSize = MaterialTheme.typography.labelMedium.fontSize,
-            // MD3 非玻璃下 4 项会触发 size>3 的可滚动启发式而靠左;
-            // 本行是页面级分类,等宽居中(与首页顶 Tab 一致),MIUIX 保持原启发式。
+            // Page-level categories retain equal slots across material changes.
             forceEqualWidth = LocalAppUiStyle.current == AppUiStyle.MATERIAL3,
             // Four-character labels fit the cell but not Tab's extra 16dp text padding.
             allowNativeLabelOverflow = LocalAppUiStyle.current == AppUiStyle.MATERIAL3,
@@ -993,7 +992,6 @@ private fun PopularSubCategorySegmentedControl(
             tapPressRefractionEnabled = true,
             dragSelectionEnabled = labels.size > 1,
             preferInlineContentStyle = true,
-            contentSizedMiuixNonGlassItems = true,
         )
     }
 }

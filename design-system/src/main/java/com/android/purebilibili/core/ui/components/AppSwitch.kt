@@ -18,11 +18,13 @@ fun AppSwitch(
     interactionSource: MutableInteractionSource? = null,
     showThumbIcon: Boolean = true,
 ) {
-    if (useAppLiquidValueControls()) {
-        AppLiquidSwitch(checked, onCheckedChange, modifier, enabled, thumbContent, interactionSource)
-        return
-    }
-    when (LocalAppUiStyle.current) {
+    AppExactTouchTargets {
+        if (useAppLiquidValueControls()) {
+            AppLiquidSwitch(
+                checked, onCheckedChange, modifier, enabled, thumbContent, interactionSource,
+                showThumbIcon,
+            )
+        } else when (LocalAppUiStyle.current) {
         AppUiStyle.MATERIAL3 -> AppMaterial3Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
@@ -38,5 +40,6 @@ fun AppSwitch(
             modifier = modifier,
             enabled = enabled,
         )
+    }
     }
 }

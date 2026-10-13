@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.horizontalScroll
@@ -146,7 +145,7 @@ internal fun BottomBarFloatingSegmentedControl(
         FloatingBottomBarMode.None
     }
     val effectiveHeight = height.coerceAtLeast(0.dp)
-    val effectiveItemWidth = itemWidth?.coerceAtLeast(48.dp)
+    val effectiveItemWidth = itemWidth?.coerceAtLeast(0.dp)
     val horizontalPadding = containerHorizontalPadding.coerceAtLeast(0.dp)
     val verticalPadding = containerVerticalPadding.coerceIn(0.dp, effectiveHeight / 2)
     val contentWidth = effectiveItemWidth?.let { it * itemCount + horizontalPadding * 2 }
@@ -161,19 +160,10 @@ internal fun BottomBarFloatingSegmentedControl(
     val onSelectedState = rememberUpdatedState(onSelected)
     val enabledState = rememberUpdatedState(enabled)
     val onItemReselectedState = rememberUpdatedState(onItemReselected)
-    // Scrollable timeline/live rows are commonly hosted by clipping lazy/list parents. Report
-    // the vertical bloom room as part of this component's layout instead of relying on draw
-    // overflow alone; the 40dp dock remains centered while its refraction can reach outside it.
-    val scaleOverflow = resolveCompactDockScaleOverflowDp(
-        shellHeightDp = effectiveHeight.value,
-        indicatorHeightDp = indicatorHeight.value,
-    ).dp
-    val viewportHeight = effectiveHeight + scaleOverflow * 2
-
+    // The shell owns layout and input. Cross-axis scroll clipping already leaves
+    // drawing room for the lens; press bloom must never enlarge the hit viewport.
     BoxWithConstraints(
-        // Top bars often constrain their child to shell height. Keep the scroll clip's
-        // actual viewport tall enough for the pressed indicator, centered by requiredHeight.
-        modifier = rootModifier.requiredHeight(viewportHeight)
+        modifier = rootModifier.height(effectiveHeight)
     ) {
         val indicatorWidthDp = when {
             effectiveItemWidth != null -> effectiveItemWidth.value
@@ -236,11 +226,11 @@ internal fun BottomBarFloatingSegmentedControl(
             Modifier
                 .horizontalScroll(scrollState)
                 .width(contentWidth)
-                .height(viewportHeight)
+                .height(effectiveHeight)
         } else {
             Modifier
                 .fillMaxWidth()
-                .height(viewportHeight)
+                .height(effectiveHeight)
         }
         FloatingBottomBar(
             selectedIndex = { selectedIndexState.value },

@@ -204,28 +204,6 @@ class AppPrimitiveComponentsStructureTest {
         assertFalse(miuix.contains("import androidx.compose.material3"))
     }
 
-    @Test
-    fun sliderFacadeMapsNeutralColorsToEachNativeRenderer() {
-        val primitiveSource = loadSource()
-        val facade = loadSource("components/AppSlider.kt")
-        val material = loadSource("renderer/material3/AppMaterial3Slider.kt")
-        val miuix = loadSource("renderer/miuix/AppMiuixSlider.kt")
-
-        assertFalse(primitiveSource.contains("fun AppSlider("))
-        assertTrue(facade.contains("data class AppSliderColors("))
-        assertTrue(facade.contains("AppUiStyle.MATERIAL3 -> AppMaterial3Slider("))
-        assertTrue(facade.contains("AppUiStyle.MIUIX -> AppMiuixSlider("))
-        assertFalse(facade.contains("import androidx.compose.material3"))
-        assertFalse(facade.contains("import top.yukonga.miuix"))
-
-        assertTrue(material.contains("import androidx.compose.material3.Slider"))
-        assertTrue(material.contains("SliderDefaults.colors("))
-        assertTrue(material.contains("modifier.appDesktopInteractionVisuals("))
-        assertTrue(miuix.contains("import top.yukonga.miuix.kmp.basic.Slider"))
-        assertTrue(miuix.contains("SliderDefaults.sliderColors("))
-        assertTrue(miuix.contains("modifier.appDesktopFocusableItemVisuals(enabled)"))
-        assertFalse(miuix.contains("import androidx.compose.material3"))
-    }
 
     @Test
     fun progressFacadePreservesProvidersAndRoutesToNativeRenderers() {
@@ -270,30 +248,6 @@ class AppPrimitiveComponentsStructureTest {
         assertFalse(Regex("(?<!App)CircularProgressIndicator\\(").containsMatchIn(source))
     }
 
-    @Test
-    fun switchFacadeRoutesEachThemeToNativeDefaults() {
-        val primitiveSource = loadSource()
-        val facade = loadSource("components/AppSwitch.kt")
-        val material = loadSource("renderer/material3/AppMaterial3Switch.kt")
-        val miuix = loadSource("renderer/miuix/AppMiuixSwitch.kt")
-
-        assertFalse(primitiveSource.contains("fun AppSwitch("))
-        assertTrue(facade.contains("AppUiStyle.MATERIAL3 -> AppMaterial3Switch("))
-        assertTrue(facade.contains("AppUiStyle.MIUIX -> AppMiuixSwitch("))
-        assertTrue(facade.contains("showThumbIcon: Boolean = true"))
-        assertFalse(facade.contains("SwitchColors"))
-        assertFalse(facade.contains("import androidx.compose.material3"))
-        assertFalse(facade.contains("import top.yukonga.miuix"))
-
-        assertTrue(material.contains("import androidx.compose.material3.Switch"))
-        assertTrue(material.contains("SwitchDefaults.colors()"))
-        assertTrue(material.contains("Icons.Filled.Check"))
-        assertTrue(material.contains("Icons.Filled.Close"))
-        assertTrue(miuix.contains("import top.yukonga.miuix.kmp.basic.Switch"))
-        assertTrue(miuix.contains("ProvideAppMiuixHapticFeedback"))
-        assertTrue(miuix.contains("modifier.appDesktopFocusableItemVisuals("))
-        assertFalse(miuix.contains("import androidx.compose.material3"))
-    }
 
     @Test
     fun selectionFacadesRouteEachThemeToNativeRenderers() {

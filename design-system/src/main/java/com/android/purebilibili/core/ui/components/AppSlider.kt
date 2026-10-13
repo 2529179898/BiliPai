@@ -1,6 +1,7 @@
 package com.android.purebilibili.core.ui.components
 
 import android.os.SystemClock
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -71,15 +72,16 @@ fun AppSlider(
         }
         onValueChange(nextValue)
     }
-    if (useAppLiquidValueControls() && value.isFinite() && valueRange.endInclusive > valueRange.start) {
-        AppLiquidSlider(value, onSliderValueChange, modifier, valueRange, steps, onValueChangeFinished, colors, enabled, interactionSource)
-        return
-    }
-    when (LocalAppUiStyle.current) {
+    val geometry = appSliderGeometry(LocalAppUiStyle.current)
+    val sizedModifier = modifier.height(geometry.height)
+    AppExactTouchTargets {
+        if (useAppLiquidValueControls() && value.isFinite() && valueRange.endInclusive > valueRange.start) {
+            AppLiquidSlider(value, onSliderValueChange, sizedModifier, valueRange, steps, onValueChangeFinished, colors, enabled, interactionSource)
+        } else when (LocalAppUiStyle.current) {
         AppUiStyle.MATERIAL3 -> AppMaterial3Slider(
             value = value,
             onValueChange = onSliderValueChange,
-            modifier = modifier,
+            modifier = sizedModifier,
             enabled = enabled,
             valueRange = valueRange,
             steps = steps,
@@ -90,12 +92,13 @@ fun AppSlider(
         AppUiStyle.MIUIX -> AppMiuixSlider(
             value = value,
             onValueChange = onSliderValueChange,
-            modifier = modifier,
+            modifier = sizedModifier,
             enabled = enabled,
             valueRange = valueRange,
             steps = steps,
             onValueChangeFinished = onValueChangeFinished,
             colors = colors,
         )
+    }
     }
 }

@@ -586,11 +586,6 @@ fun FloatingBottomBar(
         )
     }
     val pressedScale = matchedGeometry.pressedScale
-    val scaleOverflowDp = remember(shellHeight, fittedIndicatorHeight, pressedScale) {
-        ((fittedIndicatorHeight.value * pressedScale - shellHeight.value) / 2f)
-            .coerceAtLeast(0f)
-            .dp
-    }
     class DockDragHitTest {
         var dockWindowLeftPx = 0f
         var screenWidthPx = 0f
@@ -921,10 +916,6 @@ fun FloatingBottomBar(
             .trackLiquidGlassAdaptiveReadability(
                 state = adaptiveReadabilityState,
                 enabled = adaptiveReadabilityEnabled,
-            )
-            .floatingDockScaleOverflow(
-                overflow = scaleOverflowDp,
-                shellHeight = shellHeight,
             )
             .then(
                 if (allowOverflow) {

@@ -92,6 +92,7 @@ import com.android.purebilibili.core.ui.components.AppWindowAction
 import com.android.purebilibili.core.ui.components.AppWindowActionMenu
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppIconButton
+import com.android.purebilibili.core.ui.components.LocalAppTopBarIconBackdrop
 import com.android.purebilibili.core.ui.components.AppLinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import com.android.purebilibili.core.ui.components.AppSurface
@@ -492,7 +493,7 @@ fun SpaceScreen(
                 AppTopBar(
                     title = if (pinnedTopChromeScrim > 0.4f) screenTitle else "",
                     navigationIcon = {
-                        SpaceTopChromeGlass(spaceChromeBackdrop, spaceThemeConfig.liquidGlassEnabled) {
+                        CompositionLocalProvider(LocalAppTopBarIconBackdrop provides spaceChromeBackdrop) {
                             AppIconButton(onClick = onBack) {
                                 AppIcon(
                                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
@@ -514,7 +515,7 @@ fun SpaceScreen(
                                 )
                             }
                         }
-                        SpaceTopChromeGlass(spaceChromeBackdrop, spaceThemeConfig.liquidGlassEnabled) {
+                        CompositionLocalProvider(LocalAppTopBarIconBackdrop provides spaceChromeBackdrop) {
                             AppWindowActionMenu(
                                 groups = buildList {
                                     if (showContributionVideoMenuActions) {
@@ -3335,7 +3336,6 @@ private fun SpaceSecondarySwitchRow(
                 // long labels remain fully visible inside the horizontal rail.
                 allowLabelOverflow = true,
                 miuixNonGlassItemWidthMode = MiuixNonGlassTabItemWidthMode.CONTENT,
-                contentSizedMiuixNonGlassItems = true,
                 contentSizedMiuixNonGlassMaxItemWidth = Dp.Infinity,
             )
         }
@@ -5609,24 +5609,3 @@ private fun handleAggregateArchiveClick(
 
 // [重构] 空间页 header 折叠滚动范围约 320dp（具体像素在 SpaceContent 内按 density 换算）
 
-/** Each space header action owns a circular glass surface and one shared elastic transform. */
-@Composable
-private fun SpaceTopChromeGlass(
-    backdrop: top.yukonga.miuix.kmp.blur.Backdrop?,
-    glassEnabled: Boolean,
-    content: @Composable () -> Unit,
-) {
-    if (!glassEnabled) {
-        content()
-        return
-    }
-    com.android.purebilibili.feature.home.components.BottomBarMatchedReusableLiquidDock(
-        shape = CircleShape,
-        backdrop = backdrop,
-        reuseEnabled = true,
-        elasticFeedbackEnabled = true,
-        useNeutralLiquidContainer = true,
-        shellLensIntensity = com.android.purebilibili.feature.home.components.resolveFloatingDockGeometryScale(48f),
-        modifier = Modifier.size(48.dp),
-    ) { _ -> content() }
-}

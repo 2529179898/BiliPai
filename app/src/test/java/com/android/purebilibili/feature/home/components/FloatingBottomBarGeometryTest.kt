@@ -407,46 +407,7 @@ class FloatingBottomBarGeometryTest {
         )
     }
 
-    @Test
-    fun `tight shell-height constraints do not steal rest inset for press overflow`() {
-        val overflowPx = 7
-        assertFalse(
-            shouldReserveFloatingDockScaleOverflow(
-                incomingMaxHeightPx = 64,
-                shellHeightPx = 64,
-                overflowPx = overflowPx,
-            )
-        )
-        assertTrue(
-            shouldReserveFloatingDockScaleOverflow(
-                incomingMaxHeightPx = 64 + overflowPx * 2,
-                shellHeightPx = 64,
-                overflowPx = overflowPx,
-            )
-        )
-        assertTrue(
-            shouldReserveFloatingDockScaleOverflow(
-                incomingMaxHeightPx = androidx.compose.ui.unit.Constraints.Infinity,
-                shellHeightPx = 64,
-                overflowPx = overflowPx,
-            )
-        )
-    }
 
-    @Test
-    fun `pressed indicator overflow is reserved so compact docks are not clipped`() {
-        val homeOverflow = resolveCompactDockScaleOverflowDp(
-            shellHeightDp = 64f,
-            indicatorHeightDp = 48f,
-        )
-        val compactOverflow = resolveCompactDockScaleOverflowDp(
-            shellHeightDp = 40f,
-            indicatorHeightDp = 30f,
-        )
-        assertEquals((78f - 64f) / 2f, homeOverflow, 0.001f)
-        assertEquals((40f * 78f / 56f - 40f) / 2f, compactOverflow, 0.001f)
-        assertTrue(compactOverflow > 0f)
-    }
 
     @Test
     fun `narrow fitted indicator still grows beyond the dock while dragging`() {

@@ -1,6 +1,7 @@
 package com.android.purebilibili.core.ui.components
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -18,6 +19,32 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+
+/** Keep input and semantics in the control's visible layout bounds, without a hidden hit halo. */
+@Composable
+fun AppExactTouchTargets(content: @Composable () -> Unit) {
+    val viewConfiguration = LocalViewConfiguration.current
+    if (viewConfiguration.minimumTouchTargetSize == DpSize.Zero &&
+        LocalMinimumInteractiveComponentSize.current == 0.dp
+    ) {
+        content()
+        return
+    }
+    val boundedViewConfiguration = remember(viewConfiguration) {
+        object : ViewConfiguration by viewConfiguration {
+            override val minimumTouchTargetSize: DpSize = DpSize.Zero
+        }
+    }
+    CompositionLocalProvider(
+        LocalViewConfiguration provides boundedViewConfiguration,
+        LocalMinimumInteractiveComponentSize provides 0.dp,
+        content = content,
+    )
+}
 
 private class ChromeOverflowEntry(val layer: GraphicsLayer) {
     var coordinates by mutableStateOf<LayoutCoordinates?>(null)

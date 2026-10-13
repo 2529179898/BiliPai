@@ -133,7 +133,7 @@ import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.theme.LocalAppUiStyle
 import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.ui.components.AppSegmentOption
-import com.android.purebilibili.core.ui.renderer.material3.AppTonalPillTabRow
+import com.android.purebilibili.core.ui.components.AppTabRowIndicatorPresentation
 import com.android.purebilibili.core.theme.resolveAccessibleContainerColors
 import com.android.purebilibili.core.theme.resolveFilledSelectionAccentColors
 import com.android.purebilibili.core.ui.AppChromeSizeTokens
@@ -3339,39 +3339,6 @@ private fun SearchResultTypeTabRow(
         val containerHorizontalPaddingPx = with(density) { AppSpacingTokens.ExtraSmall.toPx() }
         val dragFollowEdgePaddingPx = with(density) { 12.dp.toPx() }
 
-        if (!LocalAppThemeConfig.current.liquidGlassEnabled) {
-            // Compact non-glass categories use the active theme colors and label typography.
-            // 液态玻璃开启时保持玻璃胶囊指示器,不进入本分支。
-            AppTonalPillTabRow(
-                options = tabs.mapIndexed { index, type ->
-                    AppSegmentOption(value = type, label = tabLabels[index])
-                },
-                selectedValue = tabs.getOrElse(selectedIndex) { tabs.first() },
-                onSelectionChange = { type ->
-                    tabs.indexOf(type).takeIf { it >= 0 }?.let { index ->
-                        onTabClick(index, type)
-                    }
-                },
-                scrollable = true,
-                height = 40.dp,
-                selectedContainerColor = if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
-                    com.android.purebilibili.core.ui.AppSurfaceTokens.surfaceContainerHigh()
-                } else {
-                    com.android.purebilibili.core.ui.AppSurfaceTokens.primary().copy(alpha = 0.16f)
-                },
-                selectedContentColor = if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
-                    com.android.purebilibili.core.ui.AppSurfaceTokens.onSurfaceContainerHigh()
-                } else {
-                    com.android.purebilibili.core.ui.AppSurfaceTokens.primary()
-                },
-                unselectedContentColor = com.android.purebilibili.core.ui.AppSurfaceTokens.onSurfaceVariantSummary(),
-                labelFontSize = MaterialTheme.typography.labelMedium.fontSize,
-                indicatorPositionProvider = {
-                    pagerState.currentPage + pagerState.currentPageOffsetFraction
-                },
-            )
-            return@BoxWithConstraints
-        }
 
         KeepScrollableTabSelectionVisible(
             scrollState = scrollState,
@@ -3400,6 +3367,7 @@ private fun SearchResultTypeTabRow(
             indicatorHeight = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,
             labelFontSize = MaterialTheme.typography.labelMedium.fontSize,
             allowNativeLabelOverflow = true,
+            nativeIndicatorPresentation = AppTabRowIndicatorPresentation.TONAL_PILL,
             miuixBackdrop = miuixBackdrop,
             liquidGlassEffectsEnabled = true,
             tapPressRefractionEnabled = !useScrollableRail,

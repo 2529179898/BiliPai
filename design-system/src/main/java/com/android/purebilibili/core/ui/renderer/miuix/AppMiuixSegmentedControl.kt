@@ -1,6 +1,16 @@
 package com.android.purebilibili.core.ui.renderer.miuix
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,6 +54,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.isSpecified
 import com.android.purebilibili.core.ui.adaptiveSquircleBackground
 import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import com.android.purebilibili.core.ui.AppSpacingTokens
@@ -64,6 +76,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.resolveMiuixNonGlassContentTabItemWidths
+import com.android.purebilibili.core.ui.components.resolveAppTabSlotGeometry
+import com.android.purebilibili.core.ui.components.resolveElasticTabIndicatorBounds
 
 
 @Composable
@@ -72,10 +86,12 @@ internal fun <T> AppMiuixSegmentedControl(
     selectedValue: T,
     enabled: Boolean,
     colors: AppSegmentedControlColors,
-    preferredCornerRadius: Dp,
     height: Dp? = null,
     modifier: Modifier,
     indicatorPositionProvider: (() -> Float)? = null,
+    itemWidth: Dp? = null,
+    labelFontSize: TextUnit = TextUnit.Unspecified,
+    containerHorizontalPadding: Dp = 0.dp,
     onSelectionChange: (T) -> Unit,
 ) {
     // Compact choices use the same native geometry and transition as other Miuix tabs.
@@ -88,7 +104,11 @@ internal fun <T> AppMiuixSegmentedControl(
         minTabWidth = 0.dp,
         colors = colors,
         height = height,
-        modifier = modifier,
+        modifier = if (itemWidth == null) modifier.fillMaxWidth() else modifier,
+        fixedItemWidth = itemWidth,
+        labelFontSize = labelFontSize,
+        containerHorizontalPadding = containerHorizontalPadding,
+        indicatorPositionProvider = indicatorPositionProvider,
         onSelectionChange = onSelectionChange,
     )
 }
@@ -110,8 +130,34 @@ internal fun <T> AppMiuixTabRow(
     contentSizedNonGlassItems: Boolean = false,
     contentSizedNonGlassMaxItemWidth: Dp = 320.dp,
     drawNonGlassTrack: Boolean = false,
+    fixedItemWidth: Dp? = null,
+    labelFontSize: TextUnit = TextUnit.Unspecified,
+    containerHorizontalPadding: Dp = 0.dp,
     onSelectionChange: (T) -> Unit,
 ) {
+    if (fixedItemWidth != null || labelFontSize.isSpecified || containerHorizontalPadding != 0.dp) {
+        AppMiuixNonGlassTabs(
+            options = options,
+            selectedValue = selectedValue,
+            enabled = enabled,
+            compact = options.size <= 2 && !scrollable,
+            scrollable = scrollable,
+            minTabWidth = minTabWidth,
+            colors = colors,
+            height = height,
+            modifier = modifier,
+            fixedItemWidth = fixedItemWidth,
+            labelFontSize = labelFontSize,
+            containerHorizontalPadding = containerHorizontalPadding,
+            indicatorPositionProvider = indicatorPositionProvider,
+            drawTrack = drawNonGlassTrack,
+            centerContent = centerContent,
+            equalizeScrollableItemWidths = equalizeScrollableItemWidths,
+            contentSizedMaxItemWidth = contentSizedNonGlassMaxItemWidth,
+            onSelectionChange = onSelectionChange,
+        )
+        return
+    }
     if (contentSizedNonGlassItems && scrollable) {
         AppMiuixNonGlassTabs(
             options = options,
@@ -139,7 +185,6 @@ internal fun <T> AppMiuixTabRow(
                 selectedValue = selectedValue,
                 enabled = enabled,
                 colors = colors,
-                preferredCornerRadius = preferredCornerRadius,
                 height = height,
                 modifier = modifier,
                 indicatorPositionProvider = indicatorPositionProvider,
@@ -194,14 +239,14 @@ internal fun <T> AppMiuixTabRow(
         // 一致；scrollable（如时间表/分类）：minTabWidth 兜底保证可读。
         minWidth = if (scrollable) minTabWidth else 0.dp,
         maxWidth = Dp.Infinity,
-        height = geometry.height,
+        height = height ?: geometry.height,
         cornerRadius = geometry.cornerRadius,
         itemSpacing = AppSpacingTokens.Small,
         listState = if (scrollable) scrollState else null,
     )
 }
 
-/** Miuix tabs delegate to the upstream TabRow unless caller-requested content sizing is active. */
+/** Unspecified geometry keeps the upstream Miuix TabRow styling and spacing. */
 @Composable
 private fun <T> AppMiuixNonGlassTabs(
     options: List<AppSegmentOption<T>>,
@@ -218,15 +263,19 @@ private fun <T> AppMiuixNonGlassTabs(
     contentSizedItems: Boolean = false,
     contentSizedMaxItemWidth: Dp = 320.dp,
     drawTrack: Boolean = true,
+    fixedItemWidth: Dp? = null,
+    labelFontSize: TextUnit = TextUnit.Unspecified,
+    containerHorizontalPadding: Dp = 0.dp,
+    indicatorPositionProvider: (() -> Float)? = null,
     onSelectionChange: (T) -> Unit,
 ) {
-    val labels = options.map { it.label }
+    val labels = if (fixedItemWidth != null && height != null) emptyList() else options.map { it.label }
     val selectedIndex = resolveAppSegmentedSelectionIndex(options, selectedValue)
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val tabColors = resolveAppMiuixSegmentedColors(colors)
     val style = MiuixTheme.textStyles.main.copy(
-        fontSize = MiuixTheme.textStyles.body1.fontSize,
+        fontSize = if (labelFontSize.isSpecified) labelFontSize else MiuixTheme.textStyles.body1.fontSize,
         fontWeight = FontWeight.Bold,
     )
     val labelSizes = remember(labels, style, measurer, density) {
@@ -234,6 +283,32 @@ private fun <T> AppMiuixNonGlassTabs(
     }
     val textHeight = with(density) { (labelSizes.maxOfOrNull { it.height } ?: 0).toDp() }
     val geometry = resolveMiuixNonGlassControlGeometry(compact, textHeight)
+    if (fixedItemWidth != null || labelFontSize.isSpecified || containerHorizontalPadding != 0.dp) {
+        AppMiuixSizedTabs(
+            options = options,
+            selectedIndex = selectedIndex,
+            enabled = enabled,
+            scrollable = scrollable,
+            fixedItemWidth = fixedItemWidth,
+            measuredItemWidths = if (fixedItemWidth != null) emptyList() else resolveMiuixNonGlassContentTabItemWidths(
+                labelSizes.map { with(density) { it.width.toDp() } },
+                if (scrollable) maxOf(minTabWidth, TabRowDefaults.TabRowMinWidth) else minTabWidth,
+                contentSizedMaxItemWidth,
+            ),
+            equalizeItemWidths = equalizeScrollableItemWidths,
+            colors = colors,
+            height = height ?: geometry.height,
+            cornerRadius = geometry.cornerRadius,
+            labelFontSize = style.fontSize,
+            containerHorizontalPadding = containerHorizontalPadding,
+            indicatorPositionProvider = indicatorPositionProvider,
+            modifier = modifier,
+            drawTrack = drawTrack,
+            centerContent = centerContent,
+            onSelectionChange = onSelectionChange,
+        )
+        return
+    }
     if (contentSizedItems && scrollable) {
         AppMiuixContentSizedNonGlassTabs(
             options = options,
@@ -426,6 +501,131 @@ private fun <T> AppMiuixContentSizedNonGlassTabs(
                         softWrap = false,
                         overflow = TextOverflow.Visible,
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun <T> AppMiuixSizedTabs(
+    options: List<AppSegmentOption<T>>,
+    selectedIndex: Int,
+    enabled: Boolean,
+    scrollable: Boolean,
+    fixedItemWidth: Dp?,
+    measuredItemWidths: List<Dp>,
+    equalizeItemWidths: Boolean,
+    colors: AppSegmentedControlColors,
+    height: Dp,
+    cornerRadius: Dp,
+    labelFontSize: TextUnit,
+    containerHorizontalPadding: Dp,
+    indicatorPositionProvider: (() -> Float)?,
+    modifier: Modifier,
+    drawTrack: Boolean,
+    centerContent: Boolean,
+    onSelectionChange: (T) -> Unit,
+) {
+    val tabColors = resolveAppMiuixSegmentedColors(colors)
+    val density = LocalDensity.current
+    val scrollState = rememberScrollState()
+    val motionEnabled = com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current
+    val animatedPosition by animateFloatAsState(
+        targetValue = selectedIndex.toFloat(),
+        animationSpec = if (!motionEnabled || indicatorPositionProvider != null) snap() else spring(),
+        label = "miuixTabPosition",
+    )
+    val position = indicatorPositionProvider?.invoke() ?: animatedPosition
+    val inactiveBackground = if (shouldUseOpaqueMiuixTabBackdrop(true, LocalImmersiveTopChromeActive.current)) {
+        AppSurfaceTokens.groupedListContainer()
+    } else Color.Transparent
+    BoxWithConstraints(
+        modifier = modifier
+            .then(if (fixedItemWidth != null) {
+                Modifier.width(fixedItemWidth * options.size + containerHorizontalPadding * 2)
+            } else Modifier.fillMaxWidth())
+            .height(height),
+        contentAlignment = if (centerContent) Alignment.Center else Alignment.CenterStart,
+    ) {
+        val geometry = fixedItemWidth?.let {
+            resolveAppTabSlotGeometry(options.size, it, containerHorizontalPadding, maxWidth, scrollable)
+        }
+        val padding = geometry?.horizontalPadding ?: minOf(containerHorizontalPadding, maxWidth / 2)
+        val gap = if (fixedItemWidth != null) 0.dp else AppSpacingTokens.Small
+        val widths = if (geometry != null) List(options.size) { geometry.itemWidth } else if (!scrollable) {
+            List(options.size) { ((maxWidth - padding * 2 - gap * (options.size - 1)) / options.size).coerceAtLeast(0.dp) }
+        } else if (equalizeItemWidths) {
+            List(options.size) { measuredItemWidths.maxOrNull() ?: 0.dp }
+        } else measuredItemWidths
+        val lefts = remember(widths, padding, gap) {
+            var left = padding
+            widths.map { width -> left.also { left += width + gap } }
+        }
+        val contentWidth = widths.fold(padding * 2 + gap * (options.size - 1)) { total, width -> total + width }
+        val viewportWidth = minOf(contentWidth, maxWidth)
+        LaunchedEffect(selectedIndex, widths, viewportWidth, scrollState.maxValue, motionEnabled, density, scrollable) {
+            if (scrollable) {
+                val left = with(density) { lefts[selectedIndex].roundToPx() }
+                val right = left + with(density) { widths[selectedIndex].roundToPx() }
+                val viewport = with(density) { viewportWidth.roundToPx() }
+                val target = when {
+                    left < scrollState.value -> left
+                    right > scrollState.value + viewport -> right - viewport
+                    else -> scrollState.value
+                }.coerceIn(0, scrollState.maxValue)
+                if (motionEnabled) scrollState.animateScrollTo(target) else scrollState.scrollTo(target)
+            }
+        }
+        val bounds = resolveElasticTabIndicatorBounds(
+            position = position,
+            tabLeftsDp = lefts.map { it.value },
+            tabWidthsDp = widths.map { it.value },
+            contentWidthsDp = widths.map { it.value },
+            matchContentSize = false,
+        )
+        Box(
+            modifier = Modifier.width(viewportWidth).height(height).squircleClip(cornerRadius)
+                .background(if (drawTrack) tabColors.backgroundColor else Color.Transparent)
+                .horizontalScroll(scrollState, enabled = scrollable)
+                .selectableGroup()
+                .semantics { collectionInfo = CollectionInfo(1, options.size) },
+        ) {
+            Row(
+                modifier = Modifier.height(height).padding(horizontal = padding),
+                horizontalArrangement = Arrangement.spacedBy(gap),
+            ) {
+                widths.forEach { width ->
+                    Box(Modifier.width(width).height(height).adaptiveSquircleBackground(inactiveBackground, cornerRadius))
+                }
+            }
+            Box(
+                Modifier.offset(x = bounds.leftDp.dp).width(bounds.widthDp.dp).height(height)
+                    .adaptiveSquircleBackground(tabColors.selectedBackgroundColor, cornerRadius),
+            )
+            Row(
+                modifier = Modifier.height(height).padding(horizontal = padding),
+                horizontalArrangement = Arrangement.spacedBy(gap),
+            ) {
+                options.forEachIndexed { index, option ->
+                    val selected = index == selectedIndex
+                    Box(
+                        modifier = Modifier.width(widths[index]).height(height).squircleClip(cornerRadius)
+                            .selectable(selected, enabled = enabled, role = Role.Tab) { onSelectionChange(option.value) }
+                            .semantics { collectionItemInfo = CollectionItemInfo(0, 1, index, 1) }
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        AppText(
+                            text = option.label,
+                            color = if (selected) tabColors.selectedContentColor else tabColors.contentColor,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = labelFontSize,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }

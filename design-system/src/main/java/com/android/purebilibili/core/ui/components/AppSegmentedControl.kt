@@ -7,6 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.isSpecified
 import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import com.android.purebilibili.core.ui.AppSpacingTokens
 import com.android.purebilibili.core.ui.AppSurfaceTokens
@@ -117,6 +119,29 @@ fun resolveCompactMiuixTabRowWidth(
     scrollable: Boolean,
 ): Dp = if (optionCount == 2 && !scrollable) minTabWidth * 2 else viewportWidth
 
+
+internal data class AppTabSlotGeometry(
+    val containerWidth: Dp,
+    val itemWidth: Dp,
+    val horizontalPadding: Dp,
+)
+
+/** Fixed slots shrink only when a non-scrollable viewport cannot contain them. */
+internal fun resolveAppTabSlotGeometry(
+    itemCount: Int,
+    fixedItemWidth: Dp,
+    containerHorizontalPadding: Dp,
+    maxWidth: Dp,
+    scrollable: Boolean,
+): AppTabSlotGeometry {
+    if (itemCount == 0) return AppTabSlotGeometry(0.dp, 0.dp, 0.dp)
+    val width = minOf(fixedItemWidth * itemCount + containerHorizontalPadding * 2, maxWidth)
+    val padding = minOf(containerHorizontalPadding, width / 2)
+    val slot = if (scrollable) fixedItemWidth else {
+        minOf(fixedItemWidth, ((width - padding * 2) / itemCount).coerceAtLeast(0.dp))
+    }
+    return AppTabSlotGeometry(width, slot, padding)
+}
 internal fun resolveMeasuredTabMinWidth(
     requestedMinWidth: Dp,
     labelWidths: List<Dp>,
@@ -312,6 +337,10 @@ fun <T> AppNativeSegmentedControl(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     indicatorPositionProvider: (() -> Float)? = null,
+    height: Dp? = null,
+    itemWidth: Dp? = null,
+    labelFontSize: TextUnit = TextUnit.Unspecified,
+    containerHorizontalPadding: Dp = 0.dp,
     onSelectionChange: (T) -> Unit,
 ) {
     if (options.isEmpty()) return
@@ -342,6 +371,7 @@ fun <T> AppNativeSegmentedControl(
         miuixSurfaceContainerHigh = trackColor,
         miuixOnSurfaceVariantSummary = inactiveTextColor,
     )
+    AppExactTouchTargets {
     when (resolveAppSegmentedRenderer(policy.usesNativeTabRow)) {
         AppSegmentedRenderer.MATERIAL3 -> AppMaterial3SegmentedControl(
             options = options,
@@ -349,6 +379,10 @@ fun <T> AppNativeSegmentedControl(
             enabled = enabled,
             colors = colors,
             modifier = modifier,
+            height = height,
+            itemWidth = itemWidth,
+            labelFontSize = labelFontSize,
+            containerHorizontalPadding = containerHorizontalPadding,
             onSelectionChange = onSelectionChange,
         )
         AppSegmentedRenderer.MIUIX -> AppMiuixSegmentedControl(
@@ -356,11 +390,15 @@ fun <T> AppNativeSegmentedControl(
             selectedValue = selectedValue,
             enabled = enabled,
             colors = colors,
-            preferredCornerRadius = policy.preferredCornerRadius,
             modifier = modifier,
             indicatorPositionProvider = indicatorPositionProvider,
+            height = height,
+            itemWidth = itemWidth,
+            labelFontSize = labelFontSize,
+            containerHorizontalPadding = containerHorizontalPadding,
             onSelectionChange = onSelectionChange,
         )
+    }
     }
 }
 
@@ -381,13 +419,15 @@ fun <T> AppNativeTabRow(
     minTabWidth: Dp = 72.dp,
     compactMiuixWhenTwoOptions: Boolean = true,
     height: Dp? = null,
+    fixedItemWidth: Dp? = null,
+    labelFontSize: TextUnit = TextUnit.Unspecified,
+    containerHorizontalPadding: Dp = 0.dp,
     allowLabelOverflow: Boolean = false,
     forceMaterial3: Boolean = false,
     indicatorPresentation: AppTabRowIndicatorPresentation = AppTabRowIndicatorPresentation.UNDERLINE,
     indicatorPositionProvider: (() -> Float)? = null,
     miuixNonGlassItemWidthMode: MiuixNonGlassTabItemWidthMode =
         MiuixNonGlassTabItemWidthMode.CONTENT,
-    contentSizedMiuixNonGlassItems: Boolean = false,
     contentSizedMiuixNonGlassMaxItemWidth: Dp = 320.dp,
     // Miuix non-glass tabs keep their individual item surfaces, without adding
     // an extra full-width dock behind the items. Callers that intentionally own
@@ -396,7 +436,7 @@ fun <T> AppNativeTabRow(
     onSelectionChange: (T) -> Unit,
 ) {
     if (options.isEmpty()) return
-    val labelStyle = if (isMiuixNonGlassEnabled()) {
+    val defaultLabelStyle = if (isMiuixNonGlassEnabled()) {
         top.yukonga.miuix.kmp.theme.MiuixTheme.textStyles.main.copy(
             fontSize = top.yukonga.miuix.kmp.theme.MiuixTheme.textStyles.body1.fontSize,
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -404,18 +444,19 @@ fun <T> AppNativeTabRow(
     } else {
         MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
     }
-    val labelContentMinWidth = rememberMeasuredTabMinWidth(
+    val labelStyle = if (labelFontSize.isSpecified) defaultLabelStyle.copy(fontSize = labelFontSize) else defaultLabelStyle
+    val labelContentMinWidth = fixedItemWidth ?: rememberMeasuredTabMinWidth(
         requestedMinWidth = AppChromeSizeTokens.MinimumTouchTarget,
         labels = options.map { it.label },
         textStyle = labelStyle,
     )
     val nonGlassMiuix = isMiuixNonGlassEnabled()
-    val resolvedLabelContentMinWidth = if (nonGlassMiuix) {
+    val resolvedLabelContentMinWidth = fixedItemWidth ?: if (nonGlassMiuix) {
         labelContentMinWidth
     } else {
         resolveLiquidGlassLabelContentMinWidth(options.map { it.label })
     }
-    val readableMinTabWidth = if (nonGlassMiuix) {
+    val readableMinTabWidth = fixedItemWidth ?: if (nonGlassMiuix) {
         maxOf(minTabWidth, labelContentMinWidth)
     } else {
         resolveLiquidGlassTabMinWidth(minTabWidth, options.map { it.label }, allowLabelOverflow)
@@ -426,9 +467,11 @@ fun <T> AppNativeTabRow(
         isMiuixNonGlass = com.android.purebilibili.core.ui.isMiuixNonGlassEnabled(),
         optionCount = options.size,
     )
-    val effectiveScrollable = !forceEqualWidth &&
-        (equalizeMiuixNonGlassItems || scrollable || options.size > 3 ||
-            (readableMinTabWidth > minTabWidth && options.size > 2))
+    val effectiveScrollable = if (fixedItemWidth != null) scrollable && !forceEqualWidth else {
+        !forceEqualWidth &&
+            (equalizeMiuixNonGlassItems || scrollable || options.size > 3 ||
+                (readableMinTabWidth > minTabWidth && options.size > 2))
+    }
     // Ordinary Miuix rails own each item's surface and hit target. Upstream TabRow
     // uses one moving background with cached equal-width geometry instead.
     val useContentSizedMiuixItems = nonGlassMiuix &&
@@ -466,6 +509,7 @@ fun <T> AppNativeTabRow(
     } else {
         compactItemWidth
     }
+    AppExactTouchTargets {
     when (if (forceMaterial3) AppSegmentedRenderer.MATERIAL3 else resolveAppSegmentedRenderer(policy.usesNativeTabRow)) {
         AppSegmentedRenderer.MATERIAL3 -> AppMaterial3TabRow(
             options = options,
@@ -479,6 +523,10 @@ fun <T> AppNativeTabRow(
             allowLabelOverflow = allowLabelOverflow,
             indicatorPresentation = indicatorPresentation,
             indicatorPositionProvider = indicatorPositionProvider,
+            height = height,
+            fixedItemWidth = fixedItemWidth,
+            labelFontSize = labelFontSize,
+            containerHorizontalPadding = containerHorizontalPadding,
             modifier = modifier,
             onSelectionChange = onSelectionChange,
         )
@@ -497,7 +545,10 @@ fun <T> AppNativeTabRow(
             colors = colors,
             preferredCornerRadius = policy.preferredCornerRadius,
             height = height,
-            modifier = if (shouldUseCompactMiuixTabRow(options.size, effectiveScrollable, compactMiuixWhenTwoOptions)) {
+            fixedItemWidth = fixedItemWidth,
+            labelFontSize = labelFontSize,
+            containerHorizontalPadding = containerHorizontalPadding,
+            modifier = if (fixedItemWidth == null && shouldUseCompactMiuixTabRow(options.size, effectiveScrollable, compactMiuixWhenTwoOptions)) {
                 modifier.width(compactItemWidth * options.size)
             } else {
                 modifier
@@ -510,5 +561,6 @@ fun <T> AppNativeTabRow(
             drawNonGlassTrack = drawMiuixNonGlassTrack,
             onSelectionChange = onSelectionChange,
         )
+    }
     }
 }
