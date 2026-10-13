@@ -79,7 +79,7 @@ class VideoInteractionStatusCacheTest {
     @Test
     fun operationExpiryAndReleaseDoNotRestoreStaleVersion() {
         var now = 0L
-        val cache = VideoInteractionStatusCache(ttlMs = 100L, nowMs = { now })
+        val cache = VideoInteractionStatusCache(ttlMs = 100L, pendingTtlMs = 100L, nowMs = { now })
         val version = cache.beginOperation("a", "like:1")
         now = 100L
         assertFalse(cache.publish("a", "like:1", true, version))
@@ -134,7 +134,7 @@ class VideoInteractionStatusCacheTest {
     @Test
     fun valueExpiryDoesNotExpireNewerPendingOperation() {
         var now = 0L
-        val cache = VideoInteractionStatusCache(ttlMs = 100L, nowMs = { now })
+        val cache = VideoInteractionStatusCache(ttlMs = 100L, pendingTtlMs = 100L, nowMs = { now })
         val query = requireNotNull(cache.queryVersion("a", "like:1"))
         assertTrue(cache.publish("a", "like:1", false, query, query = true))
         now = 90L
@@ -153,7 +153,7 @@ class VideoInteractionStatusCacheTest {
     @Test
     fun pendingOperationHasItsOwnExpiryAndFailureDoesNotReviveValue() {
         var now = 0L
-        val cache = VideoInteractionStatusCache(ttlMs = 100L, nowMs = { now })
+        val cache = VideoInteractionStatusCache(ttlMs = 100L, pendingTtlMs = 100L, nowMs = { now })
         val initial = requireNotNull(cache.queryVersion("a", "follow:1"))
         assertTrue(cache.publish("a", "follow:1", true, initial, query = true))
         now = 90L

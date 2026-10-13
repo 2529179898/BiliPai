@@ -99,7 +99,14 @@ data class FollowStateChange(
  */
 internal class VideoInteractionStatusCache(
     private val capacity: Int = 256,
-    private val ttlMs: Long = 60_000L,
+    /**
+     * 已知结果的保鲜期。详情页首帧只依赖这份缓存预填点赞/关注状态，
+     * 原先 60s 太短，冷启动或稍后重进都会退化成"状态未知"。
+     * 真实状态仍由后台请求校正，长保鲜期只影响首帧默认值。
+     */
+    private val ttlMs: Long = 30 * 60_000L,
+    /** 进行中操作的兜底失效时间：操作卡死时不能长期挡住后续查询与回填。 */
+    private val pendingTtlMs: Long = 60_000L,
     private val nowMs: () -> Long = { System.nanoTime() / 1_000_000L }
 ) {
     private data class Entry(
@@ -115,7 +122,7 @@ internal class VideoInteractionStatusCache(
     private val values = LinkedHashMap<String, Entry>()
 
     init {
-        require(capacity > 0 && ttlMs > 0)
+        require(capacity > 0 && ttlMs > 0 && pendingTtlMs > 0)
     }
 
     @Synchronized
@@ -129,8 +136,16 @@ internal class VideoInteractionStatusCache(
         val cached = values[key]
         val entry = when {
             cached == null -> Entry(null, ++sequence, now)
-            cached.pending && cached.operationStartedAt?.let { now - it in 0 until ttlMs } == true ->
-                if (now - cached.createdAt in 0 until ttlMs) cached else cached.copy(value = null)
+            // 进行中的操作按 pendingTtlMs 判定新鲜度，与值的保鲜期解耦：
+            // 延长值保鲜期不能让一个卡死的操作长期挡住后续查询与回填。
+            cached.pending -> {
+                val operationFresh = cached.operationStartedAt?.let { now - it in 0 until pendingTtlMs } == true
+                when {
+                    !operationFresh -> Entry(null, ++sequence, now)
+                    now - cached.createdAt in 0 until pendingTtlMs -> cached
+                    else -> cached.copy(value = null)
+                }
+            }
             now - cached.createdAt !in 0 until ttlMs -> Entry(null, ++sequence, now)
             else -> cached
         }
