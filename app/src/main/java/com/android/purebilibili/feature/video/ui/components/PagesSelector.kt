@@ -4,9 +4,13 @@ import com.android.purebilibili.core.ui.AppContentColors
 
 import com.android.purebilibili.core.ui.components.appSearchElasticPress
 import android.content.res.Configuration
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -17,9 +21,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import com.android.purebilibili.R
+import com.android.purebilibili.core.ui.AppSurfaceTokens
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -107,26 +122,82 @@ fun PagesSelector(
             .fillMaxWidth()
             .padding(vertical = 8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AppText(
-                text = "选集",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            AppText(
-                text = "(${pages.size})",
-                style = MaterialTheme.typography.bodySmall,
-                color = AppContentColors.secondaryText()
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            if (showExpandAction) {
+        if (forceGridMode) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AppText(
+                    text = "选集",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                AppText(
+                    text = "(${pages.size})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppContentColors.secondaryText()
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (showExpandAction) {
+                    Row(
+                        modifier = Modifier
+                            .clip(AppShapes.container(ContainerLevel.Pill))
+                            .clickable { showExpandedSheet = true }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AppText(
+                            text = "展开",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = AppContentColors.accent()
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        AppIcon(
+                            imageVector = Icons.Outlined.ExpandMore,
+                            contentDescription = "展开选集",
+                            tint = AppContentColors.accent(),
+                            modifier = Modifier.width(16.dp)
+                        )
+                    }
+                }
+                if (onDismissRequest != null) {
+                    AppIconButton(onClick = onDismissRequest) {
+                        AppIcon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "关闭选集面板",
+                            tint = AppContentColors.secondaryText()
+                        )
+                    }
+                }
+            }
+        } else {
+            //  PiliPlus 同款标题行：视频选集 + 正在播放：<当前分P> + 共N集
+            val currentPage = pages.getOrNull(currentPageIndex) ?: pages.first()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AppText(
+                    text = "视频选集",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppContentColors.primaryText()
+                )
+                AppText(
+                    text = " 正在播放：${currentPage.part.ifBlank { "第${currentPage.page}P" }}",
+                    fontSize = 12.sp,
+                    color = AppContentColors.secondaryText(),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
                 Row(
                     modifier = Modifier
                         .clip(AppShapes.container(ContainerLevel.Pill))
@@ -135,26 +206,19 @@ fun PagesSelector(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AppText(
-                        text = "展开",
-                        style = MaterialTheme.typography.labelLarge,
+                        text = "共${pages.size}集",
+                        fontSize = 13.sp,
                         color = AppContentColors.accent()
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    AppIcon(
-                        imageVector = Icons.Outlined.ExpandMore,
-                        contentDescription = "展开选集",
-                        tint = AppContentColors.accent(),
-                        modifier = Modifier.width(16.dp)
-                    )
                 }
-            }
-            if (onDismissRequest != null) {
-                AppIconButton(onClick = onDismissRequest) {
-                    AppIcon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = "关闭选集面板",
-                        tint = AppContentColors.secondaryText()
-                    )
+                if (onDismissRequest != null) {
+                    AppIconButton(onClick = onDismissRequest) {
+                        AppIcon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "关闭选集面板",
+                            tint = AppContentColors.secondaryText()
+                        )
+                    }
                 }
             }
         }
@@ -186,32 +250,13 @@ fun PagesSelector(
                 modifier = Modifier.fillMaxWidth().heightIn(max = layoutPolicy.maxGridHeightDp.dp),
             )
         } else {
-            val currentPage = pages.getOrNull(currentPageIndex) ?: pages.first()
-            val duration = if (currentPage.duration > 0L) {
-                com.android.purebilibili.core.util.FormatUtils.formatDuration(
-                    currentPage.duration.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-                )
-            } else ""
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showExpandedSheet = true }
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AppText(
-                    text = "P${currentPage.page} · ${currentPage.part.ifBlank { "第${currentPage.page}P" }}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = AppContentColors.accent(),
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (duration.isNotBlank()) {
-                    Spacer(Modifier.width(12.dp))
-                    AppText(duration, style = MaterialTheme.typography.labelMedium, color = AppContentColors.secondaryText())
-                }
-            }
+            Spacer(modifier = Modifier.height(6.dp))
+            PagesHorizontalPreviewRow(
+                pages = pages,
+                currentPageIndex = currentPageIndex,
+                onPageSelect = onPageSelect,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
 
     }
@@ -292,6 +337,85 @@ fun PagesSelector(
         }
     }
 }
+
+/**
+ *  PiliPlus 同款“视频选集”横向卡片行：
+ * 固定 150dp 卡片宽、10dp 间距、35dp 行高，当前分 P 在卡片内额外显示播放波形图标，
+ * 并使用强调色文字，其余分 P 使用主文字色；当前分 P 变化时横向滚动到对应卡片。
+ */
+@Composable
+private fun PagesHorizontalPreviewRow(
+    pages: List<Page>,
+    currentPageIndex: Int,
+    onPageSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (pages.isEmpty()) return
+
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val currentIndex = currentPageIndex.coerceIn(0, pages.lastIndex)
+    var hasPositioned by remember(pages) { mutableStateOf(false) }
+
+    LaunchedEffect(currentIndex, pages.size) {
+        // 与 PiliPlus 的 targetOffset = index * itemWidth - itemWidth / 2 对齐：
+        // 当前卡片左边缘停在视口左侧半张卡片宽度处，首帧不做动画，之后平滑滚动。
+        val halfItemPx = with(density) { PagesPreviewItemWidth.toPx() / 2f }
+        if (hasPositioned) {
+            listState.animateScrollToItem(currentIndex)
+            listState.animateScrollBy(-halfItemPx)
+        } else {
+            listState.scrollToItem(currentIndex)
+            listState.scrollBy(-halfItemPx)
+            hasPositioned = true
+        }
+    }
+
+    LazyRow(
+        state = listState,
+        modifier = modifier.height(PagesPreviewRowHeight),
+        horizontalArrangement = Arrangement.spacedBy(PagesPreviewItemSpacing),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+    ) {
+        items(pages.size) { index ->
+            val page = pages[index]
+            val isCurrent = index == currentIndex
+            Row(
+                modifier = Modifier
+                    .width(PagesPreviewItemWidth)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(PagesPreviewItemCorner))
+                    .background(AppSurfaceTokens.cardContainer())
+                    .clickable { onPageSelect(index) }
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (isCurrent) {
+                    AppIcon(
+                        imageVector = ImageVector.vectorResource(R.drawable.ms_graphic_eq_24),
+                        contentDescription = "正在播放",
+                        tint = AppContentColors.accent(),
+                        modifier = Modifier.size(12.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                AppText(
+                    text = page.part.ifBlank { "第${page.page}P" },
+                    fontSize = 13.sp,
+                    color = if (isCurrent) AppContentColors.accent() else AppContentColors.primaryText(),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+private val PagesPreviewItemWidth = 150.dp
+private val PagesPreviewItemSpacing = 10.dp
+private val PagesPreviewRowHeight = 35.dp
+private val PagesPreviewItemCorner = 6.dp
 
 @Composable
 private fun PagesSelectorFilterBar(
