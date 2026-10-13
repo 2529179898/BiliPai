@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -271,8 +273,8 @@ private fun DockedSolidBottomInputBar(
     val inputContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest
     val inputTextColor = resolveBottomInputBarPlaceholderTextColor(
         inputContainerColor = inputContainerColor,
-        onSurfaceColor = MaterialTheme.colorScheme.onSurface,
-        onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
+        onSurfaceColor = AppContentColors.primaryText(),
+        onSurfaceVariantColor = AppContentColors.secondaryText()
     )
 
     AppSurface(
@@ -334,8 +336,8 @@ private fun FloatingLiquidBottomInputBar(
         val shellShape = resolveSharedBottomBarCapsuleShape()
         val inputTextColor = resolveBottomInputBarPlaceholderTextColor(
             inputContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-            onSurfaceColor = MaterialTheme.colorScheme.onSurface,
-            onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
+            onSurfaceColor = AppContentColors.primaryText(),
+            onSurfaceVariantColor = AppContentColors.secondaryText()
         )
         val navigationBarBottomPadding = WindowInsets.navigationBars
             .asPaddingValues()
@@ -564,9 +566,7 @@ private fun BottomInputBarActionButtons(
         IconActionButton(
             icon = if (likeStatusKnown && isLiked) likeFilledIcon else likeIcon,
             label = if (likeStatusKnown) "点赞" else "点赞状态待确认",
-            enabled = likeStatusKnown,
-            tint = if (!likeStatusKnown) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                else if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            tint = if (likeStatusKnown && isLiked) AppContentColors.accent() else AppContentColors.primaryText(),
             onClick = onLikeClick,
             itemSize = itemSize,
             elasticFeedbackEnabled = elasticFeedbackEnabled,
@@ -576,7 +576,7 @@ private fun BottomInputBarActionButtons(
         IconActionButton(
             icon = coinIcon,
             label = "投币",
-            tint = if (isCoined) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            tint = if (isCoined) AppContentColors.accent() else AppContentColors.primaryText(),
             onClick = onCoinClick,
             itemSize = itemSize,
             elasticFeedbackEnabled = elasticFeedbackEnabled,
@@ -586,7 +586,7 @@ private fun BottomInputBarActionButtons(
         IconActionButton(
             icon = favoriteIcon,
             label = "收藏",
-            tint = if (isFavorited) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            tint = if (isFavorited) AppContentColors.accent() else AppContentColors.primaryText(),
             onClick = onFavoriteClick,
             onLongClick = onFavoriteLongClick,
             itemSize = itemSize,
@@ -597,7 +597,7 @@ private fun BottomInputBarActionButtons(
         IconActionButton(
             icon = shareIcon,
             label = "分享",
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = AppContentColors.primaryText(),
             onClick = onShareClick,
             itemSize = itemSize,
             elasticFeedbackEnabled = elasticFeedbackEnabled,

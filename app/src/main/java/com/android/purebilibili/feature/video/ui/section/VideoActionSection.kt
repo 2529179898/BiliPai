@@ -1,5 +1,7 @@
 // File: feature/video/ui/section/VideoActionSection.kt
 package com.android.purebilibili.feature.video.ui.section
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -238,15 +240,13 @@ fun ActionButtonsRow(
                     )
                 } else {
                     TripleProgressActionButton(
-                        icon = Icons.Outlined.Circle,
+                        icon = Icons.Outlined.ThumbUp,
                         text = FormatUtils.formatStat(info.stat.like.toLong()),
                         isActive = false,
-                        activeColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        activeColor = AppContentColors.secondaryText(),
                         progress = 0f,
-                        onClick = {},
+                        onClick = onLikeClick,
                         horizontalPadding = buttonHorizontalPadding,
-                        disableInternalClick = true,
-                        showIcon = false,
                     )
                 }
             }
@@ -409,7 +409,7 @@ private fun TripleProgressActionButton(
     horizontalPadding: Dp = 4.dp
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val inactiveTint = MaterialTheme.colorScheme.onSurfaceVariant
+    val inactiveTint = AppContentColors.secondaryText()
     val iconTint = resolveVideoActionTint(
         isActive = isActive,
         activeColor = activeColor,
@@ -575,7 +575,7 @@ private fun TripleLikeActionButton(
             icon = if (isLiked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
             text = likeCount,
             progress = longPressProgress,
-            progressColor = MaterialTheme.colorScheme.primary,
+            progressColor = AppContentColors.accent(),
             isActive = isLiked
         )
 
@@ -589,7 +589,7 @@ private fun TripleLikeActionButton(
                 icon = AppIcons.BiliCoin,
                 text = coinCount,
                 progress = longPressProgress,
-                progressColor = MaterialTheme.colorScheme.primary,
+                progressColor = AppContentColors.accent(),
                 isActive = hasCoin
             )
         }
@@ -604,7 +604,7 @@ private fun TripleLikeActionButton(
                 icon = if (isFavorited) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                 text = favoriteCount,
                 progress = longPressProgress,
-                progressColor = MaterialTheme.colorScheme.primary,
+                progressColor = AppContentColors.accent(),
                 isActive = isFavorited
             )
         }
@@ -623,7 +623,7 @@ fun TripleProgressIcon(
     isActive: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val inactiveTint = MaterialTheme.colorScheme.onSurfaceVariant
+    val inactiveTint = AppContentColors.secondaryText()
     val iconTint = resolveVideoActionTint(
         isActive = isActive,
         activeColor = progressColor,
@@ -730,7 +730,7 @@ private fun BiliActionButton(
         if (enableActivePulse && isActive) shouldPulse = true
     }
 
-    val inactiveTint = MaterialTheme.colorScheme.onSurfaceVariant
+    val inactiveTint = AppContentColors.secondaryText()
     val iconTint = resolveVideoActionTint(
         isActive = isActive,
         activeColor = activeColor,
@@ -798,7 +798,7 @@ fun ActionButton(
     onClick: () -> Unit = {}
 ) {
     val resolvedIconColor = iconColor.takeOrElse {
-        if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        if (isActive) AppContentColors.accent() else AppContentColors.secondaryText()
     }
     val isDark = com.android.purebilibili.core.ui.isAppInDarkTheme()
 
@@ -857,7 +857,7 @@ fun ActionButton(
         AppText(
             text = text,
             style = MaterialTheme.typography.labelSmall,
-            color = if (isActive) resolvedIconColor else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (isActive) resolvedIconColor else AppContentColors.secondaryText(),
             fontWeight = FontWeight.Normal,
             maxLines = 1
         )

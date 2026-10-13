@@ -15,6 +15,7 @@ import com.android.purebilibili.feature.video.usecase.TripleActionResult
 import com.android.purebilibili.feature.video.usecase.VideoInteractionUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -116,6 +117,7 @@ private val DefaultVideoCoinBalanceLoader = VideoCoinBalanceLoader {
 }
 
 interface VideoEngagementActions {
+    suspend fun queryLikeStatus(aid: Long): Result<Boolean>
     suspend fun toggleFollow(mid: Long, currentlyFollowing: Boolean): Result<Boolean>
     suspend fun toggleLike(aid: Long, currentlyLiked: Boolean, bvid: String): Result<Boolean>
     suspend fun toggleDislike(aid: Long, currentlyDisliked: Boolean, bvid: String): Result<Boolean>
@@ -128,6 +130,9 @@ interface VideoEngagementActions {
 private class DefaultVideoEngagementActions(
     private val useCase: VideoInteractionUseCase = VideoInteractionUseCase()
 ) : VideoEngagementActions {
+    override suspend fun queryLikeStatus(aid: Long) =
+        com.android.purebilibili.data.repository.ActionRepository.queryLikeStatus(aid)
+
     override suspend fun toggleFollow(mid: Long, currentlyFollowing: Boolean) =
         useCase.toggleFollow(mid, currentlyFollowing)
 
@@ -167,6 +172,7 @@ class VideoEngagementViewModel(
     private var tripleCelebrationSequence = 0L
     // 点赞切换排队锁：保证快速连点时每次点击都基于最新状态交替生效
     private val likeToggleMutex = Mutex()
+    private var likeStatusRecoveryJob: Job? = null
     private val followToggleMutex = Mutex()
     private var ownerFollowRequests = 0
     private var boundSession: Any = interactionSession()
@@ -201,6 +207,8 @@ class VideoEngagementViewModel(
             sync(seed)
             return
         }
+        likeStatusRecoveryJob?.cancel()
+        likeStatusRecoveryJob = null
         boundSession = interactionSession()
         ++likeRevision
         ++followRevision
@@ -355,17 +363,30 @@ class VideoEngagementViewModel(
         val targetAid = aid ?: state.subject?.aid ?: return
         val targetBvid = bvid ?: state.subject?.bvid ?: return
         if (targetAid != state.subject?.aid || targetBvid != state.subject?.bvid) return
-        if (!state.likeStatusKnown) {
-            emitMessage("点赞状态尚未确认，请稍后重试")
-            return
-        }
+        if (!state.likeStatusKnown && likeStatusRecoveryJob?.isActive == true) return
         val session = interactionSession()
-        viewModelScope.launch {
+        val likeJob = viewModelScope.launch {
             // 串行化点赞切换：快速连点时排队执行，且每次执行前重读最新
             // isLiked，避免两个在途请求基于同一个过期状态算出相同目标，
             // 导致某次点击"吞掉"（无状态变化、无动画）。
             likeToggleMutex.withLock {
-                if (!isCurrent(state, session) || !_uiState.value.likeStatusKnown) return@withLock
+                if (!isCurrent(state, session)) return@withLock
+                if (!_uiState.value.likeStatusKnown) {
+                    val liked = queryVideoInteractionStatusWithRetry(
+                        isCurrent = { isCurrent(state, session) },
+                        query = { actions.queryLikeStatus(targetAid) },
+                    ).getOrElse {
+                        it.rethrowCancellation()
+                        if (isCurrent(state, session)) emitMessage("点赞状态获取失败，请稍后重试")
+                        return@withLock
+                    }
+                    if (!isCurrent(state, session)) return@withLock
+                    // A deferred seed must not reset a status recovered by this action.
+                    locallyModifiedFields = locallyModifiedFields + VideoEngagementField.LIKE
+                    _uiState.update { current ->
+                        current.copy(isLiked = liked, likeStatusKnown = true)
+                    }
+                }
                 val revision = ++likeRevision
                 val wasLiked = _uiState.value.isLiked
                 actions.toggleLike(targetAid, wasLiked, targetBvid)
@@ -400,6 +421,7 @@ class VideoEngagementViewModel(
                     }
             }
         }
+        if (!state.likeStatusKnown) likeStatusRecoveryJob = likeJob
     }
 
     fun toggleDislike(

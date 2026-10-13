@@ -799,6 +799,61 @@ class VideoDomainViewModelTest {
         assertFalse(viewModel.uiState.value.isTripleSubmitting)
     }
 
+    @Test
+    fun `unknown like queries actual state before toggling`() = runTest(dispatcher) {
+        val actions = FakeEngagementActions(likeStatus = Result.success(true))
+        val viewModel = VideoEngagementViewModel(actions = actions)
+        viewModel.bindSubject(subject("BV1", 1L), VideoEngagementSeed(likeCount = 10))
+        viewModel.toggleLike()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.likeStatusKnown)
+        assertFalse(viewModel.uiState.value.isLiked)
+        assertEquals(9, viewModel.uiState.value.likeCount)
+        assertEquals(1, actions.likeToggleCalls)
+    }
+
+    @Test
+    fun `failed like confirmation never submits a toggle`() = runTest(dispatcher) {
+        val actions = FakeEngagementActions()
+        val viewModel = VideoEngagementViewModel(actions = actions)
+        viewModel.bindSubject(subject("BV1", 1L), VideoEngagementSeed())
+        viewModel.toggleLike()
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.likeStatusKnown)
+        assertEquals(0, actions.likeToggleCalls)
+    }
+
+    @Test
+    fun `late like confirmation cannot act on another video`() = runTest(dispatcher) {
+        val pending = CompletableDeferred<Result<Boolean>>()
+        val actions = FakeEngagementActions(pendingLikeStatus = pending)
+        val viewModel = VideoEngagementViewModel(actions = actions)
+        viewModel.bindSubject(subject("BV1", 1L), VideoEngagementSeed())
+        viewModel.toggleLike()
+        runCurrent()
+        viewModel.bindSubject(subject("BV2", 2L), VideoEngagementSeed())
+        pending.complete(Result.success(false))
+        advanceUntilIdle()
+        assertEquals("BV2", viewModel.uiState.value.subject?.bvid)
+        assertFalse(viewModel.uiState.value.likeStatusKnown)
+        assertEquals(0, actions.likeToggleCalls)
+    }
+
+    @Test
+    fun `repeated taps while confirming submit only one like`() = runTest(dispatcher) {
+        val pending = CompletableDeferred<Result<Boolean>>()
+        val actions = FakeEngagementActions(pendingLikeStatus = pending)
+        val viewModel = VideoEngagementViewModel(actions = actions)
+        viewModel.bindSubject(subject("BV1", 1L), VideoEngagementSeed())
+        viewModel.toggleLike()
+        viewModel.toggleLike()
+        runCurrent()
+        pending.complete(Result.success(false))
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isLiked)
+        assertEquals(1, actions.likeToggleCalls)
+    }
+
     private fun subject(bvid: String, generation: Long) = VideoSubjectSnapshot(
         bvid = bvid,
         cid = generation,
@@ -813,9 +868,16 @@ class VideoDomainViewModelTest {
     private class FakeEngagementActions(
         private val pendingLike: CompletableDeferred<Result<Boolean>>? = null,
         private val failCoin: Boolean = false,
+        private val likeStatus: Result<Boolean> = Result.failure(IllegalStateException("offline")),
+        private val pendingLikeStatus: CompletableDeferred<Result<Boolean>>? = null,
         private val followResponses: List<CompletableDeferred<Result<Boolean>>> = emptyList(),
         private val tripleResponses: List<CompletableDeferred<Result<TripleActionResult>>> = emptyList()
     ) : VideoEngagementActions {
+        override suspend fun queryLikeStatus(aid: Long) = pendingLikeStatus?.await() ?: likeStatus
+
+        var likeToggleCalls = 0
+            private set
+
         val followRequests = mutableListOf<Pair<Long, Boolean>>()
         val tripleRequests = mutableListOf<Pair<Long, Int>>()
 
@@ -825,8 +887,10 @@ class VideoDomainViewModelTest {
             return response?.await() ?: Result.success(!currentlyFollowing)
         }
 
-        override suspend fun toggleLike(aid: Long, currentlyLiked: Boolean, bvid: String) =
-            pendingLike?.await() ?: Result.success(!currentlyLiked)
+        override suspend fun toggleLike(aid: Long, currentlyLiked: Boolean, bvid: String): Result<Boolean> {
+            likeToggleCalls++
+            return pendingLike?.await() ?: Result.success(!currentlyLiked)
+        }
 
         override suspend fun toggleDislike(aid: Long, currentlyDisliked: Boolean, bvid: String) =
             Result.success(!currentlyDisliked)

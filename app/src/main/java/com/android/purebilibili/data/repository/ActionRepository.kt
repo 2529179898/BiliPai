@@ -168,6 +168,12 @@ internal class VideoInteractionStatusCache(
     }
 
     @Synchronized
+    fun confirmedOperationValue(account: Any, key: String): Boolean? {
+        read(account, key)
+        return values[key]?.takeIf { it.operation && !it.pending }?.value
+    }
+
+    @Synchronized
     fun finishOperation(account: Any, key: String, version: Long) {
         if (session != account || read(account, key).second != version) return
         values[key]?.let {
@@ -262,7 +268,9 @@ object ActionRepository {
     suspend fun queryLikeStatus(aid: Long): Result<Boolean> {
         val session = interactionSession()
         val version = interactionCache.queryVersion(session, "like:$aid")
-            ?: return Result.failure(IllegalStateException("点赞操作尚未完成"))
+            ?: return interactionCache.confirmedOperationValue(session, "like:$aid")
+                ?.let { Result.success(it) }
+                ?: Result.failure(IllegalStateException("点赞操作尚未完成"))
         return UserActionRepository.liked(aid).rethrowCancellation().mapCatching {
             if (session != interactionSession() || !interactionCache.publish(session, "like:$aid", it, version, query = true)) {
                 throw IllegalStateException("点赞查询已过期")

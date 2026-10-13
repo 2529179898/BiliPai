@@ -5,6 +5,27 @@ import org.junit.Test
 
 class VideoInteractionStatusCacheTest {
     @Test
+    fun completedLikeOperationCanConfirmStatusOnReentry() {
+        val cache = VideoInteractionStatusCache()
+        val version = cache.beginOperation("a", "like:1")
+        assertTrue(cache.publish("a", "like:1", true, version))
+        cache.finishOperation("a", "like:1", version)
+        assertNull(cache.queryVersion("a", "like:1"))
+        assertEquals(true, cache.confirmedOperationValue("a", "like:1"))
+    }
+
+    @Test
+    fun pendingLikeCannotConfirmThePreviousCachedValue() {
+        val cache = VideoInteractionStatusCache()
+        val version = cache.beginOperation("a", "like:1")
+        assertTrue(cache.publish("a", "like:1", false, version))
+        cache.finishOperation("a", "like:1", version)
+        cache.beginOperation("a", "like:1")
+        assertNull(cache.confirmedOperationValue("a", "like:1"))
+        assertNull(cache.confirmedOperationValue("another-account", "like:1"))
+    }
+
+    @Test
     fun expiryInvalidatesValueAndInFlightVersion() {
         var now = 0L
         val cache = VideoInteractionStatusCache(ttlMs = 100L, nowMs = { now })
