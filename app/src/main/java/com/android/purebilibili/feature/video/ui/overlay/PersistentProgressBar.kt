@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,7 +43,7 @@ internal fun PersistentBottomProgressBar(
             modifier = Modifier
                 .fillMaxWidth(progress)
                 .height(2.dp)
-                .background(MaterialTheme.colorScheme.primary)
+                .background(AppContentColors.accent())
         )
     }
 }

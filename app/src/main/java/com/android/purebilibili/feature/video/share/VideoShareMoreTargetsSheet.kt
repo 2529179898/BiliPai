@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.share
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -151,7 +153,7 @@ internal fun VideoShareMoreTargetsSheet(
             AppText(
                 "系统面板的屏幕方向由设备决定",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
             )
             AppButton(onClick = onDismiss, enabled = !openingTarget, modifier = Modifier.fillMaxWidth()) {
                 AppText("取消")

@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.AppSpacingTokens
 
 import android.os.SystemClock
@@ -337,7 +339,7 @@ private fun ColumnScope.MiuixSideBarSkinItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val primaryColor = MaterialTheme.colorScheme.primary
+    val primaryColor = AppContentColors.accent()
     val unselectedColor = AppSurfaceTokens.onSurface().copy(alpha = 0.6f)
     val iconColor = if (selected) primaryColor else unselectedColor
     Column(
@@ -456,7 +458,7 @@ private fun FrostedSideBarContent(
                 brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        AppContentColors.primaryText().copy(alpha = 0.1f)
                     )
                 )
             )
@@ -479,8 +481,8 @@ private fun FrostedSideBarContent(
                 val isSelected = item == currentItem
                 val itemLabel = resolveBottomNavItemLabel(item, itemLabels)
 
-                val primaryColor = MaterialTheme.colorScheme.primary
-                val unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                val primaryColor = AppContentColors.accent()
+                val unselectedColor = AppContentColors.primaryText().copy(alpha = 0.6f)
                 val skinIconPath = uiSkinDecoration?.iconPathFor(item, selected = isSelected)
                 val selectionTransform = rememberNavigationSelectionTransform(
                     selected = isSelected,
@@ -590,7 +592,7 @@ private fun FrostedSideBarContent(
             if (onAccountSwitchClick != null) {
                 SideBarAccountSwitchButton(
                     onClick = onAccountSwitchClick,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    tint = AppContentColors.secondaryText().copy(alpha = 0.7f),
                 )
                 Spacer(modifier = Modifier.height(AppSpacingTokens.Large))
             }
@@ -610,7 +612,7 @@ private fun FrostedSideBarContent(
                     AppIcon(
                         Icons.Outlined.ViewSidebar,
                         contentDescription = sidebarLabel,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        tint = AppContentColors.secondaryText().copy(alpha = 0.7f),
                         modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro)
                     )
                 }

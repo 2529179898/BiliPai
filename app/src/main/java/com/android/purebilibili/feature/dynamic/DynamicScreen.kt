@@ -1,6 +1,8 @@
 // 文件路径: feature/dynamic/DynamicScreen.kt
 package com.android.purebilibili.feature.dynamic
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.os.Build
 import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.FeedVerticalStaggeredGrid
@@ -1730,7 +1732,7 @@ private fun DynamicList(
                     "没有更多了",
                     modifier = Modifier.fillMaxWidth().padding(AppSpacingTokens.Large),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                    color = AppContentColors.secondaryText().copy(0.5f),
                     fontSize = MaterialTheme.typography.labelMedium.fontSize
                 )
             }
@@ -1808,7 +1810,7 @@ private fun DynamicEmptyState(
                 imageVector = rememberAppDynamicIcon(),
                 contentDescription = null,
                 modifier = Modifier.size(AppSpacingTokens.DoubleExtraLarge),
-                tint = MaterialTheme.colorScheme.primary,
+                tint = AppContentColors.accent(),
             )
         }
         Spacer(modifier = Modifier.height(AppSpacingTokens.Large))
@@ -1914,14 +1916,14 @@ private fun HorizontalUserList(
                                     rememberAppVisibilityOffIcon()
                                 },
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = AppContentColors.secondaryText()
                             )
                         }
                         Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
                         AppText(
                             text = if (showHiddenUsers) "隐藏中" else "显示隐藏",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             maxLines = 1
                         )
                     }
@@ -1960,13 +1962,13 @@ private fun HorizontalUserList(
                                         when {
                                             isSelected -> Modifier.border(
                                                 AppSpacingTokens.Micro,
-                                                MaterialTheme.colorScheme.primary,
+                                                AppContentColors.accent(),
                                                 CircleShape
                                             )
                                             // 有新动态的 UP：主题色圆环提示，比单独的小红点更显眼
                                             hasUpdate -> Modifier.border(
                                                 2.dp,
-                                                MaterialTheme.colorScheme.primary,
+                                                AppContentColors.accent(),
                                                 CircleShape
                                             )
                                             else -> Modifier
@@ -1991,7 +1993,7 @@ private fun HorizontalUserList(
                                         .align(Alignment.TopEnd)
                                         .size(AppSpacingTokens.Small)
                                         .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primary)
+                                        .background(AppContentColors.accent())
                                 )
                             }
                         }
@@ -2003,9 +2005,9 @@ private fun HorizontalUserList(
                             displayName,
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isSelected)
-                                MaterialTheme.colorScheme.primary
+                                AppContentColors.accent()
                             else
-                                MaterialTheme.colorScheme.onSurfaceVariant,
+                                AppContentColors.secondaryText(),
                             maxLines = 2,
                             minLines = 2,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -2079,7 +2081,7 @@ private fun ErrorOverlay(
             modifier = modifier,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            AppText(error.orEmpty(), color = MaterialTheme.colorScheme.error)
+            AppText(error.orEmpty(), color = AppContentColors.error())
             Spacer(modifier = Modifier.height(AppSpacingTokens.Large))
             if (error?.contains("未登录") == true) {
                 AppPrimaryButton(text = "去登录", onClick = onLoginClick)

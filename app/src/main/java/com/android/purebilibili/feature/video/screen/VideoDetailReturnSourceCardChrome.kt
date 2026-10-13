@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -760,7 +762,7 @@ private fun BoxScope.LandingCoverChrome(
                     .align(Alignment.BottomStart)
                     .fillMaxWidth(presentation.historyProgressFraction.coerceIn(0f, 1f))
                     .height(2.dp)
-                    .background(MaterialTheme.colorScheme.primary),
+                    .background(AppContentColors.accent()),
             )
         }
     }
@@ -932,7 +934,7 @@ private fun BoxScope.LandingInfoContent(
     if (model.infoPresentation.showOverflowMenu) {
         AppText(
             text = "⋮",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
@@ -955,7 +957,7 @@ private fun LandingInfoTexts(
         text = model.title,
         modifier = Modifier.fillMaxWidth(),
         style = contentTypography.title,
-        color = MaterialTheme.colorScheme.onSurface,
+        color = AppContentColors.primaryText(),
         fontWeight = FontWeight.Medium,
         maxLines = if (sourceLayout == VideoCardSourceLayout.SIDE_BY_SIDE) {
             2
@@ -1044,7 +1046,7 @@ private fun LandingPublishMetadata(
         text = text,
         modifier = modifier,
         style = feedContentTypography().statistic,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = AppContentColors.secondaryText(),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
@@ -1066,7 +1068,7 @@ private fun LandingOwnerMetadata(
             AppText(
                 text = model.ownerName,
                 style = contentTypography.author,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
@@ -1076,7 +1078,7 @@ private fun LandingOwnerMetadata(
             AppText(
                 text = "已关注",
                 style = contentTypography.coverBadge,
-                color = MaterialTheme.colorScheme.primary,
+                color = AppContentColors.accent(),
                 maxLines = 1,
             )
         }

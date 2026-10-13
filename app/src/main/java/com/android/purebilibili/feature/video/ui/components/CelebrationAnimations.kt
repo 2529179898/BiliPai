@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -92,7 +94,7 @@ fun TripleSuccessAnimation(
         )
         AppText(
             text = "三连完成！",
-            color = MaterialTheme.colorScheme.primary,
+            color = AppContentColors.accent(),
             fontWeight = FontWeight.Bold
         )
     }
@@ -137,7 +139,7 @@ fun CoinSuccessAnimation(
         AppIcon(
             imageVector = AppIcons.BiliCoin,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 1f - progress * 0.12f),
+            tint = AppContentColors.accent().copy(alpha = 1f - progress * 0.12f),
             modifier = Modifier
                 .size(if (coinCount >= 2) 32.dp else 28.dp)
                 .graphicsLayer {

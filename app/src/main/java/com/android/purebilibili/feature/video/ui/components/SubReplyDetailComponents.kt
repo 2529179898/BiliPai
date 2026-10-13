@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 import coil3.request.transformations
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
@@ -1580,7 +1582,7 @@ private fun SubReplyDetailItem(
                             AppIcon(
                                 imageVector = Icons.Filled.ThumbDown,
                                 contentDescription = if (isHated) "取消点踩" else "点踩评论",
-                                tint = if (isHated) MaterialTheme.colorScheme.error else appearance.actionTint,
+                                tint = if (isHated) AppContentColors.error() else appearance.actionTint,
                                 modifier = Modifier.size(16.dp)
                             )
                         }

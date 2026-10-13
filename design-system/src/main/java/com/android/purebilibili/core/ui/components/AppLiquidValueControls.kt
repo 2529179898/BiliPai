@@ -6,6 +6,8 @@
  */
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -358,7 +360,7 @@ internal fun AppLiquidSwitch(
     val latestLtr by rememberUpdatedState(isLtr)
     val track = rememberLayerBackdrop()
     val active = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidControlsUseThemeColor) {
-        MaterialTheme.colorScheme.primary
+        AppContentColors.accent()
     } else colorResource(R.color.liquid_switch_active)
     val inactive = colorResource(R.color.liquid_value_inactive)
     val background = AppSurfaceTokens.background()
@@ -436,7 +438,7 @@ internal fun AppLiquidSlider(
     }
     val active = colors?.activeTrackColor ?: if (
         com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidControlsUseThemeColor
-    ) MaterialTheme.colorScheme.primary else colorResource(R.color.liquid_slider_active)
+    ) AppContentColors.accent() else colorResource(R.color.liquid_slider_active)
     val inactive = colors?.inactiveTrackColor ?: colorResource(R.color.liquid_value_inactive)
     fun update(progress: Float, fromPointer: Boolean = false) {
         val bounded = progress.coerceIn(0f, 1f)

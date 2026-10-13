@@ -1,5 +1,7 @@
 // 文件路径: feature/dynamic/components/ForwardedContent.kt
 package com.android.purebilibili.feature.dynamic.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.rememberAppWarningIcon
@@ -122,7 +124,7 @@ fun ForwardedContent(
             }
         }
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -148,7 +150,7 @@ fun ForwardedContent(
                     "@${author.name}",
                     fontSize = MaterialTheme.typography.labelMedium.fontSize,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary, // 主题自适应颜色
+                    color = AppContentColors.accent(), // 主题自适应颜色
                     modifier = Modifier.clickable(enabled = origAuthorClickMid != null) {
                         origAuthorClickMid?.let(onUserClick)
                     }
@@ -157,7 +159,7 @@ fun ForwardedContent(
                 AppText(
                     authorTimeText,
                     fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                    color = AppContentColors.secondaryText().copy(0.5f)
                 )
             }
             Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
@@ -198,7 +200,7 @@ fun ForwardedContent(
                 text = forwardedTitle,
                 fontSize = MaterialTheme.typography.bodyMedium.fontSize,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(bottom = AppSpacingTokens.ExtraSmall)
@@ -222,17 +224,17 @@ fun ForwardedContent(
                     rememberAppWarningIcon(),
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = AppContentColors.secondaryText()
                 )
                 Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
                 AppText(
                     text = tips,
                     fontSize = MaterialTheme.typography.bodySmall.fontSize,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
-        
+
         // 原文字内容 - 使用 RichTextContent 支持表情；点空白文字打开原动态
         val preferredDesc = resolvePreferredDynamicDesc(
             primary = visibleDynamicDesc,
@@ -267,7 +269,7 @@ fun ForwardedContent(
                 Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
             }
         }
-        
+
         // 原视频
         content?.major?.archive?.let { archive ->
             val playableBvid = resolveArchivePlayableBvid(archive)
@@ -290,7 +292,7 @@ fun ForwardedContent(
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
         }
-        
+
         // 原图片（与主卡一致：列表预览最多 9 张，避免拼大图被裁成 2×2）
         content?.major?.draw?.let { draw ->
             DrawGridV2(
@@ -305,7 +307,7 @@ fun ForwardedContent(
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
         }
-        
+
         //  [新增] 原 Opus 图文动态（正文已在上方 preferredDesc 渲染，这里只补图）
         content?.major?.opus?.let { opus ->
             // 显示图片

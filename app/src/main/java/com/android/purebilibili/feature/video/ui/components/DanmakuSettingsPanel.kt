@@ -1,5 +1,7 @@
 // File: feature/video/ui/components/DanmakuSettingsPanel.kt
 package com.android.purebilibili.feature.video.ui.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.AppAlertDialog
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -295,13 +297,13 @@ internal fun shouldDismissDanmakuSettingsPanelFromBackdropGesture(
 
 /**
  * Danmaku Settings Panel
- * 
+ *
  * A modern, visually appealing panel for configuring danmaku settings:
  * - Opacity
  * - Font scale
  * - Speed
  * - Display area
- * 
+ *
  * Requirement Reference: AC2.4 - Reusable DanmakuSettingsPanel
  */
 enum class DanmakuSliderParameter {
@@ -623,7 +625,7 @@ fun DanmakuSettingsPanel(
                                         imageVector = Icons.Outlined.FormatListBulleted,
                                         contentDescription = null,
                                         modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.primary
+                                        tint = AppContentColors.accent()
                                     )
                                     Spacer(modifier = Modifier.width(12.dp))
                                      AppText(
@@ -1000,7 +1002,7 @@ fun DanmakuSettingsPanel(
                             }
                         }
                     }
-                
+
                     if (showSectionBasic) {
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -1050,7 +1052,7 @@ fun DanmakuSettingsPanel(
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
-                            
+
                             AppSwitch(
                                 checked = mergeDuplicates,
                                 onCheckedChange = onMergeDuplicatesChange,
@@ -1129,14 +1131,14 @@ fun DanmakuSettingsPanel(
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
-    
+
                                 AppSwitch(
                                     checked = smartOcclusion,
                                     onCheckedChange = onSmartOcclusionChange,
                                 )
                             }
                         }
-    
+
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
@@ -1161,7 +1163,7 @@ fun DanmakuSettingsPanel(
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             Spacer(modifier = Modifier.height(12.dp))
-    
+
                             DanmakuFilterSwitchRow(
                                 label = "滚动弹幕",
                                 checked = allowScroll,
@@ -1295,7 +1297,7 @@ fun DanmakuSettingsPanel(
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedTextColor = panelColors.titleColor,
                                         unfocusedTextColor = panelColors.titleColor,
-                                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                        focusedBorderColor = AppContentColors.accent(),
                                         unfocusedBorderColor = panelColors.fieldBorderColor,
                                         focusedContainerColor = panelColors.fieldBackgroundColor,
                                         unfocusedContainerColor = panelColors.fieldBackgroundColor
@@ -1443,7 +1445,7 @@ private fun DanmakuBlockManagerDialog(
             title = { AppText("导入屏蔽规则") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    result.errorMessage?.let { AppText(it, color = MaterialTheme.colorScheme.error) }
+                    result.errorMessage?.let { AppText(it, color = AppContentColors.error()) }
                     if (result.errorMessage == null) {
                         AppText(
                             "关键词 ${sections.keywordRules.size} 条 · 正则 ${sections.regexRules.size} 条 · UID ${sections.userHashRules.size} 条"
@@ -1451,7 +1453,7 @@ private fun DanmakuBlockManagerDialog(
                         if (result.invalidEntries.isNotEmpty()) {
                             AppText(
                                 "无效规则 ${result.invalidEntries.size} 条，将跳过",
-                                color = MaterialTheme.colorScheme.error
+                                color = AppContentColors.error()
                             )
                         }
                         if (result.skippedDisabledCount > 0) {
@@ -1566,7 +1568,7 @@ private fun DanmakuBlockManagerDialog(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = panelColors.titleColor,
                         unfocusedTextColor = panelColors.titleColor,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedBorderColor = AppContentColors.accent(),
                         unfocusedBorderColor = panelColors.fieldBorderColor,
                         focusedContainerColor = panelColors.fieldBackgroundColor,
                         unfocusedContainerColor = panelColors.fieldBackgroundColor
@@ -1773,7 +1775,7 @@ private fun PortraitDanmakuDisplayAreaModeSelector(
                             .clip(AppShapes.container(ContainerLevel.Card))
                             .then(
                                 if (isSelected) {
-                                    Modifier.background(MaterialTheme.colorScheme.primary)
+                                    Modifier.background(AppContentColors.accent())
                                 } else {
                                     Modifier
                                         .background(colors.fieldBackgroundColor)
@@ -1791,7 +1793,7 @@ private fun PortraitDanmakuDisplayAreaModeSelector(
                         AppText(
                             text = mode.label,
                             color = if (isSelected) {
-                                MaterialTheme.colorScheme.onPrimary
+                                AppContentColors.onAccent()
                             } else {
                                 colors.titleColor
                             },
@@ -1868,8 +1870,8 @@ private fun DanmakuAreaSelector(
                                         Modifier.background(
                                             brush = Brush.verticalGradient(
                                                 colors = listOf(
-                                                    MaterialTheme.colorScheme.primary,
-                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                                                    AppContentColors.accent(),
+                                                    AppContentColors.accent().copy(alpha = 0.8f)
                                                 )
                                             )
                                         )
@@ -1892,7 +1894,7 @@ private fun DanmakuAreaSelector(
                                 AppText(
                                     text = option.label,
                                     color = if (isSelected) {
-                                        MaterialTheme.colorScheme.onPrimary
+                                        AppContentColors.onAccent()
                                     } else {
                                         colors.titleColor
                                     },
@@ -1905,7 +1907,7 @@ private fun DanmakuAreaSelector(
                                 AppText(
                                     text = option.subLabel,
                                     color = if (isSelected) {
-                                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                        AppContentColors.onAccent().copy(alpha = 0.8f)
                                     } else {
                                         colors.supportingColor
                                     },
@@ -1955,7 +1957,7 @@ private fun DanmakuSliderItem(
             ((localValue - valueRange.start) / total).coerceIn(0f, 1f)
         }
     }
-    
+
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -2007,7 +2009,7 @@ private fun DanmakuSliderItem(
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(if (fullscreenStyle) 10.dp else 12.dp))
 
         Box(

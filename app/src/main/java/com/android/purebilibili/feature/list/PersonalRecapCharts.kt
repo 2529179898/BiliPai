@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.list
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -63,7 +65,7 @@ internal fun PersonalRecapActivityChart(
         personalRecapActivityBuckets(videoStats?.watchTimestampsMs.orEmpty(), startMs, bucketCount)
     }
     val maxCount = maxOf(reads.maxOrNull() ?: 0, watches.maxOrNull() ?: 0, 1)
-    val readColor = MaterialTheme.colorScheme.primary
+    val readColor = AppContentColors.accent()
     val watchColor = MaterialTheme.colorScheme.tertiary
     val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -112,12 +114,12 @@ internal fun PersonalRecapActivityChart(
             AppText(
                 if (window == PersonalRecapWindow.TODAY) "0 时" else dateFormat.format(Instant.ofEpochMilli(startMs)),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
             )
             AppText(
                 if (window == PersonalRecapWindow.TODAY) "24 时" else dateFormat.format(Instant.ofEpochMilli(nowMs)),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
             )
         }
     }
@@ -131,7 +133,7 @@ internal fun PersonalRecapProgress(
     modifier: Modifier = Modifier,
 ) {
     val progress = fraction.coerceIn(0f, 1f)
-    val fillColor = MaterialTheme.colorScheme.primary
+    val fillColor = AppContentColors.accent()
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -153,6 +155,6 @@ internal fun PersonalRecapProgress(
                 drawRoundRect(fillColor, size = Size(size.width * progress, size.height), cornerRadius = radius)
             }
         }
-        AppText(detail, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppText(detail, style = MaterialTheme.typography.labelSmall, color = AppContentColors.secondaryText())
     }
 }

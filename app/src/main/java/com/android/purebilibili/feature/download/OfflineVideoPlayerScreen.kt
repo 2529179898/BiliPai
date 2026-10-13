@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.download
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.feature.video.ui.overlay.NextWatchOverlay
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -811,7 +813,7 @@ fun OfflineVideoPlayerScreen(
                             if (deltaSeconds != 0L) {
                                 AppText(
                                     text = "($sign${deltaSeconds}s)",
-                                    color = if (deltaSeconds > 0) Color.Green else Color.Red,
+                                    color = com.android.purebilibili.core.ui.MediaContrastPalette.Foreground,
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -869,7 +871,7 @@ fun OfflineVideoPlayerScreen(
                 ) {
                     AppText(
                         text = seekFeedbackText ?: "",
-                        color = if (seekFeedbackText?.startsWith("+") == true) Color.Green else Color.Red,
+                        color = com.android.purebilibili.core.ui.MediaContrastPalette.Foreground,
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -1275,7 +1277,7 @@ private fun OfflineProgressBar(
     }
 
     val displayProgress = if (isDragging) tempProgress else progress
-    val primaryColor = MaterialTheme.colorScheme.primary
+    val primaryColor = AppContentColors.accent()
 
     Box(
         modifier = Modifier

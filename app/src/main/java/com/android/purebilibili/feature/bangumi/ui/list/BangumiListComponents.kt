@@ -1,5 +1,7 @@
 // 文件路径: feature/bangumi/ui/list/BangumiListComponents.kt
 package com.android.purebilibili.feature.bangumi.ui.list
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppText
 
 import androidx.compose.foundation.background
@@ -23,7 +25,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.android.purebilibili.core.theme.iOSYellow
 import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.data.model.response.BangumiItem
 import com.android.purebilibili.data.model.response.BangumiSearchItem
@@ -59,7 +60,7 @@ fun BangumiCard(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            
+
             // 渐变遮罩
             Box(
                 modifier = Modifier
@@ -71,7 +72,7 @@ fun BangumiCard(
                         )
                     )
             )
-            
+
             // 角标（会员专享等）
             if (item.badge.isNotEmpty()) {
                 BangumiBadge(
@@ -81,7 +82,7 @@ fun BangumiCard(
                         .padding(4.dp)
                 )
             }
-            
+
             // 底部信息
             Column(
                 modifier = Modifier
@@ -92,12 +93,12 @@ fun BangumiCard(
                 if (item.score.isNotEmpty() && item.score != "0") {
                     AppText(
                         text = item.score,
-                        color = iOSYellow,
+                        color = AppContentColors.rating(),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                
+
                 // 更新状态
                 item.newEp?.indexShow?.let { indexShow ->
                     AppText(
@@ -108,7 +109,7 @@ fun BangumiCard(
                 }
             }
         }
-        
+
         // 标题
         AppText(
             text = item.title,
@@ -151,7 +152,7 @@ fun BangumiSearchCard(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            
+
             // 角标
             item.badges?.firstOrNull()?.let { badge ->
                 BangumiBadge(
@@ -162,7 +163,7 @@ fun BangumiSearchCard(
                 )
             }
         }
-        
+
         // 信息
         Column(
             modifier = Modifier.weight(1f),
@@ -176,41 +177,41 @@ fun BangumiSearchCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            
+
             // 类型
             if (item.seasonTypeName.isNotEmpty()) {
                 AppText(
                     text = item.seasonTypeName,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
-            
+
             // 评分
             item.mediaScore?.let { score ->
                 if (score.score > 0) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AppText(
                             text = String.format("%.1f", score.score),
-                            color = iOSYellow,
+                            color = AppContentColors.rating(),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )
                         AppText(
                             text = " · ${score.userCount}人评分",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
                 }
             }
-            
+
             // 集数
             if (item.indexShow.isNotEmpty()) {
                 AppText(
                     text = item.indexShow,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -244,7 +245,7 @@ fun BangumiSearchCardGrid(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -255,7 +256,7 @@ fun BangumiSearchCardGrid(
                         )
                     )
             )
-            
+
             // 角标
             item.badges?.firstOrNull()?.let { badge ->
                 BangumiBadge(
@@ -265,7 +266,7 @@ fun BangumiSearchCardGrid(
                         .padding(4.dp)
                 )
             }
-            
+
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -276,13 +277,13 @@ fun BangumiSearchCardGrid(
                     if (score.score > 0) {
                         AppText(
                             text = String.format("%.1f", score.score),
-                            color = iOSYellow,
+                            color = AppContentColors.rating(),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
-                
+
                 // 集数
                 if (item.indexShow.isNotEmpty()) {
                     AppText(
@@ -293,7 +294,7 @@ fun BangumiSearchCardGrid(
                 }
             }
         }
-        
+
         // 标题 (移除高亮标签)
         AppText(
             text = item.title.replace(Regex("<[^>]+>"), ""),
@@ -329,7 +330,7 @@ fun BangumiSearchCardGrid(
 fun BangumiBadge(
     text: String,
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.primary
+    containerColor: Color = AppContentColors.accent()
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val badgeColors = remember(
@@ -372,7 +373,7 @@ fun BangumiGrid(
     contentPadding: PaddingValues = PaddingValues(12.dp)
 ) {
     val gridState = rememberLazyGridState()
-    
+
     // 加载更多检测
     LaunchedEffect(gridState) {
         snapshotFlow {
@@ -385,7 +386,7 @@ fun BangumiGrid(
             }
         }
     }
-    
+
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 100.dp),
         state = gridState,
@@ -400,7 +401,7 @@ fun BangumiGrid(
                 onClick = { onItemClick(item) }
             )
         }
-        
+
         // 加载更多指示器
         if (hasMore) {
             item(span = { GridItemSpan(maxLineSpan) }) {

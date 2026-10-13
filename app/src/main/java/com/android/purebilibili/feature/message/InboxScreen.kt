@@ -1,5 +1,7 @@
 // 私信收件箱页面
 package com.android.purebilibili.feature.message
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.animation.jiggleOnDissolve
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -191,7 +193,7 @@ fun InboxScreen(
                                 ) {
                                     AppText(
                                         text = "暂无私信",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = AppContentColors.secondaryText()
                                     )
                                 }
                             }
@@ -385,7 +387,7 @@ private fun MessageCenterTopShortcutRow(
             AppText(
                 text = "消息分类",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 modifier = Modifier.padding(bottom = 10.dp)
             )
 
@@ -461,14 +463,14 @@ private fun MessageCenterShortcutCard(
                         modifier = Modifier
                             .padding(start = 8.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.primary,
+                                color = AppContentColors.accent(),
                                 shape = AppShapes.container(ContainerLevel.Pill)
                             )
                             .padding(horizontal = 7.dp, vertical = 2.dp)
                     ) {
                         AppText(
                             text = if (item.unreadCount > 99) "99+" else item.unreadCount.toString(),
-                            color = MaterialTheme.colorScheme.onPrimary,
+                            color = AppContentColors.onAccent(),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -481,7 +483,7 @@ private fun MessageCenterShortcutCard(
             AppText(
                 text = if (item.unreadCount > 0) "${item.unreadCount} 条" else "查看",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 textAlign = TextAlign.Start
             )
         }
@@ -504,7 +506,7 @@ private fun MessageSessionCategoryRow(
         AppText(
             text = "私信会话",
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
         )
 
@@ -573,7 +575,7 @@ private fun MessageUnreadBadge(
         modifier = modifier
             .defaultMinSize(minWidth = 16.dp, minHeight = 16.dp)
             .background(
-                color = MaterialTheme.colorScheme.primary,
+                color = AppContentColors.accent(),
                 shape = AppShapes.container(ContainerLevel.Chip)
             )
             .padding(horizontal = 4.dp, vertical = 1.dp),
@@ -581,7 +583,7 @@ private fun MessageUnreadBadge(
     ) {
         AppText(
             text = text,
-            color = MaterialTheme.colorScheme.onPrimary,
+            color = AppContentColors.onAccent(),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold
         )
@@ -761,10 +763,10 @@ fun SessionListItem(
                     AppText(
                         text = "置顶",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppContentColors.accent(),
                         modifier = Modifier
                             .background(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                AppContentColors.accent().copy(alpha = 0.1f),
                                 AppShapes.container(ContainerLevel.Tag)
                             )
                             .padding(horizontal = AppSpacingTokens.ExtraSmall, vertical = 1.dp)
@@ -790,7 +792,7 @@ fun SessionListItem(
                     msgType = session.last_msg?.msg_type ?: 1
                 ),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -802,7 +804,7 @@ fun SessionListItem(
             AppText(
                 text = formatTime(session.last_msg?.timestamp ?: 0),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
 
             Box {
@@ -814,7 +816,7 @@ fun SessionListItem(
                         Icons.Default.MoreVert,
                         contentDescription = "更多",
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = AppContentColors.secondaryText()
                     )
                 }
 
@@ -864,10 +866,10 @@ private fun MessageSmallFlag(text: String) {
     AppText(
         text = text,
         style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.primary,
+        color = AppContentColors.accent(),
         modifier = Modifier
             .background(
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                AppContentColors.accent().copy(alpha = 0.1f),
                 AppShapes.container(ContainerLevel.Tag)
             )
             .padding(horizontal = AppSpacingTokens.ExtraSmall, vertical = 1.dp)

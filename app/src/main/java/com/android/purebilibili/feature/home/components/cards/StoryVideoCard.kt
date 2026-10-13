@@ -1,6 +1,8 @@
 // 文件路径: feature/home/components/cards/StoryVideoCard.kt
 package com.android.purebilibili.feature.home.components.cards
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -84,7 +86,7 @@ import kotlin.math.roundToInt
 
 /**
  *  故事卡片 - 影院海报风格
- * 
+ *
  * 特点：
  * - 封面比例由首页卡片样式统一配置
  * - 大圆角 (24dp)
@@ -134,7 +136,7 @@ internal fun StoryVideoCard(
         },
     )
     val haptic = rememberHapticFeedback()
-    
+
     val isLongPressEnabled = com.android.purebilibili.core.ui.LocalVideoCardLongPressEnabled.current
     val cardCornerRadius = AppShapes.containerCornerDp(ContainerLevel.ProminentCard)
     val cardShape = AppShapes.container(ContainerLevel.ProminentCard)
@@ -177,10 +179,10 @@ internal fun StoryVideoCard(
         }
     }
     val emphasizePublishTime = false
-    
+
     //  [新增] 长按删除菜单状态
     var showDismissMenu by remember { mutableStateOf(false) }
-    
+
     //  获取屏幕尺寸用于计算归一化坐标
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
@@ -190,7 +192,7 @@ internal fun StoryVideoCard(
     val effectiveSharedElementSourceRoute = remember(sharedElementSourceRoute, localSharedElementSourceRoute) {
         sharedElementSourceRoute ?: localSharedElementSourceRoute
     }
-    
+
     //  记录卡片位置
     var cardBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var coverBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
@@ -229,7 +231,7 @@ internal fun StoryVideoCard(
         }
         onClick(video.bvid, 0)
     }
-    
+
     //  尝试获取共享元素作用域
     val sharedTransitionScope = LocalSharedTransitionScope.current
     val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
@@ -278,7 +280,7 @@ internal fun StoryVideoCard(
             adaptiveInfo = transitionAdaptiveInfo,
         )
     }
-    
+
     val cardShellShape = cardShape
     val enterAnimationEnabledAtMount = remember(video.bvid) {
         resolveHomeCardEnterAnimationEnabledAtMount(
@@ -407,7 +409,7 @@ internal fun StoryVideoCard(
                     )
                 }
             }
-            
+
             //  时长标签 (保留在封面上)
             if (showDurationOnCover) {
                 AppText(
@@ -426,7 +428,7 @@ internal fun StoryVideoCard(
             }
             }
         }
-        
+
         Column(
             modifier = Modifier.videoCardShellReturnChromeAlpha(
                 enabled = useCardShellSharedBounds,
@@ -437,10 +439,10 @@ internal fun StoryVideoCard(
             )
         ) {
         Spacer(modifier = Modifier.weight(1f))
-        
+
         AppText(
             text = video.title,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             style = contentTypography.title,
             minLines = titleMinLines,
             maxLines = videoCardTitleMaxLines(titleMaxLines),
@@ -449,7 +451,7 @@ internal fun StoryVideoCard(
         )
 
         Spacer(modifier = Modifier.height(if (compactMetadata) AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro else AppSpacingTokens.Small))
-        
+
         Column(
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -471,7 +473,7 @@ internal fun StoryVideoCard(
                     if (publishTimeRowText.isNotBlank()) {
                         AppText(
                             text = publishTimeRowText,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                            color = AppContentColors.secondaryText(),
                             style = contentTypography.statistic,
                             overflow = TextOverflow.Visible,
                         )
@@ -510,10 +512,10 @@ internal fun StoryVideoCard(
                     }
                 } else null,
                 nameStyle = contentTypography.author.copy(fontWeight = FontWeight.Medium),
-                nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                metaColor = MaterialTheme.colorScheme.primary,
-                badgeTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                badgeBackgroundColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f),
+                nameColor = AppContentColors.secondaryText(),
+                metaColor = AppContentColors.accent(),
+                badgeTextColor = AppContentColors.secondaryText().copy(alpha = 0.85f),
+                badgeBackgroundColor = AppContentColors.secondaryText().copy(alpha = 0.12f),
                 showUpBadge = showUpBadge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -527,7 +529,7 @@ internal fun StoryVideoCard(
                     durationText = "",
                     publishTimeText = publishTimeRowText,
                     emphasizePublishTime = emphasizePublishTime,
-                    publishTimeColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    publishTimeColor = AppContentColors.secondaryText().copy(alpha = 0.72f),
                     topSpacing = if (compactMetadata) AppSpacingTokens.ExtraSmall else AppSpacingTokens.Small
                 )
             }
@@ -535,18 +537,18 @@ internal fun StoryVideoCard(
         }
         }
     }
-    
+
     //  [新增] 长按删除菜单
     AppDropdownMenu(
         expanded = showDismissMenu,
         onDismissRequest = { showDismissMenu = false }
     ) {
         AppDropdownMenuItem(
-            text = { 
+            text = {
                 AppText(
                     "🚫 不感兴趣",
-                    color = MaterialTheme.colorScheme.onSurface
-                ) 
+                    color = AppContentColors.primaryText()
+                )
             },
             onClick = {
                 showDismissMenu = false

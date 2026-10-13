@@ -1,5 +1,9 @@
 package com.android.purebilibili.feature.live
 
+import com.android.purebilibili.core.ui.AppSurfaceTokens
+
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.widget.Toast
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
@@ -186,7 +190,7 @@ private fun LiveFavoriteTagsPanel(
         Row(verticalAlignment = Alignment.CenterVertically) {
             AppText("我的常用标签", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.width(8.dp))
-            AppText(if (isEditing) "长按拖动排序，点击移除" else "点击进入标签", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AppText(if (isEditing) "长按拖动排序，点击移除" else "点击进入标签", style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
             favoriteTags.forEach { tag ->

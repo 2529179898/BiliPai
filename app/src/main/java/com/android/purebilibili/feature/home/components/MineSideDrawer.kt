@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.home.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
@@ -31,10 +33,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.android.purebilibili.core.theme.iOSBlue
-import com.android.purebilibili.core.theme.iOSGreen
-import com.android.purebilibili.core.theme.iOSPink
-import com.android.purebilibili.core.theme.iOSYellow
 import com.android.purebilibili.core.ui.rememberAppBookmarkIcon
 import com.android.purebilibili.core.ui.rememberAppChevronForwardIcon
 import com.android.purebilibili.core.ui.rememberAppDownloadIcon
@@ -112,7 +110,7 @@ fun MineSideDrawer(
             bottomOverlayHeightDp = bottomOverlayHeight.value.toInt()
         ).dp
     }
-    
+
     // 辅助函数：关闭侧边栏并执行回调
     fun closeAndRun(action: () -> Unit) {
         scope.launch {
@@ -120,7 +118,7 @@ fun MineSideDrawer(
             action()
         }
     }
-    
+
     // 检测深色模式
     val isDark = com.android.purebilibili.core.ui.isAppInDarkTheme()
 
@@ -316,9 +314,9 @@ fun MineSideDrawer(
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                     )
-                    
+
                     Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))
-                    
+
                     // 用户名 + 等级 / 大会员（与个人空间同一行：LV + 主题色软胶囊）
                     Column(modifier = Modifier.weight(1f)) {
                         AppText(
@@ -351,7 +349,7 @@ fun MineSideDrawer(
                             }
                         }
                     }
-                    
+
                     // 右箭头
                     AppIcon(
                         imageVector = chevronForwardIcon,
@@ -375,17 +373,17 @@ fun MineSideDrawer(
                         icon = accountSwitchIcon,
                         title = "切换账号",
                         onClick = { closeAndRun(onAccountSwitchClick) },
-                        iconTint = iOSBlue,
+                        iconTint = AppContentColors.secondaryText(),
                         textColor = activeContentColor,
                         valueColor = secondaryContentColor,
                         chevronTint = chevronColor
                     )
                 }
             }
-            
+
             // 分割线样式
             val dividerThickness = AppSpacingTokens.Micro / 4
-            
+
             // 组间分割线 (全宽带padding)
             AppHorizontalDivider(
                 modifier = Modifier.padding(
@@ -412,7 +410,7 @@ fun MineSideDrawer(
                         icon = downloadIcon,
                         title = "离线缓存",
                         onClick = { closeAndRun(onDownloadClick) },
-                        iconTint = MaterialTheme.colorScheme.primary,
+                        iconTint = AppContentColors.accent(),
                         textColor = activeContentColor,
                         valueColor = secondaryContentColor,
                         chevronTint = chevronColor
@@ -422,7 +420,7 @@ fun MineSideDrawer(
                         icon = historyIcon,
                         title = "历史记录",
                         onClick = { closeAndRun(onHistoryClick) },
-                        iconTint = iOSBlue,
+                        iconTint = AppContentColors.secondaryText(),
                         textColor = activeContentColor,
                         valueColor = secondaryContentColor,
                         chevronTint = chevronColor
@@ -432,7 +430,7 @@ fun MineSideDrawer(
                         icon = tvIcon,
                         title = "番剧影视",
                         onClick = { closeAndRun(onBangumiClick) },
-                        iconTint = iOSPink,
+                        iconTint = AppContentColors.secondaryText(),
                         textColor = activeContentColor,
                         valueColor = secondaryContentColor,
                         chevronTint = chevronColor
@@ -442,7 +440,7 @@ fun MineSideDrawer(
                         icon = bookmarkIcon,
                         title = "我的收藏",
                         onClick = { closeAndRun(onFavoriteClick) },
-                        iconTint = iOSYellow,
+                        iconTint = AppContentColors.secondaryText(),
                         textColor = activeContentColor,
                         valueColor = secondaryContentColor,
                         chevronTint = chevronColor
@@ -452,7 +450,7 @@ fun MineSideDrawer(
                         icon = likeIcon,
                         title = "我的点赞",
                         onClick = { closeAndRun(onLikedVideosClick) },
-                        iconTint = iOSPink,
+                        iconTint = AppContentColors.secondaryText(),
                         textColor = activeContentColor,
                         valueColor = secondaryContentColor,
                         chevronTint = chevronColor
@@ -462,7 +460,7 @@ fun MineSideDrawer(
                         icon = watchLaterIcon,
                         title = "稍后再看",
                         onClick = { closeAndRun(onWatchLaterClick) },
-                        iconTint = iOSGreen,
+                        iconTint = AppContentColors.secondaryText(),
                         textColor = activeContentColor,
                         valueColor = secondaryContentColor,
                         chevronTint = chevronColor
@@ -472,14 +470,14 @@ fun MineSideDrawer(
                         icon = inboxIcon,
                         title = "消息中心",
                         onClick = { closeAndRun(onInboxClick) },
-                        iconTint = iOSPink,
+                        iconTint = AppContentColors.secondaryText(),
                         textColor = activeContentColor,
                         valueColor = secondaryContentColor,
                         chevronTint = chevronColor
                     )
                 }
             }
-            
+
             // 组间分割线
             AppHorizontalDivider(
                 modifier = Modifier.padding(
@@ -489,7 +487,7 @@ fun MineSideDrawer(
                 thickness = dividerThickness,
                 color = dividerColor
             )
-            
+
             // 3. 退出登录按钮
             if (user.isLogin) {
                 AppSurface(
@@ -511,7 +509,7 @@ fun MineSideDrawer(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(footerSpacerHeight))
         }
         }

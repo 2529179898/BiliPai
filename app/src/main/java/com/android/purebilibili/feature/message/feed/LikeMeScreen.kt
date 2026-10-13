@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.message.feed
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -381,21 +383,21 @@ private fun LikeMeCard(
                     AppText(
                         text = formatMessageFeedTime(item.likeTime),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     AppText(
                         text = if (item.noticeState == 1) "接收通知" else "不再通知",
                         modifier = Modifier.clickable(onClick = onToggleNotice),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = AppContentColors.accent()
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     AppText(
                         text = "删除",
                         modifier = Modifier.clickable(onClick = onRemove),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = AppContentColors.accent()
                     )
                 }
             }

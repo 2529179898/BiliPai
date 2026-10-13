@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -517,7 +519,7 @@ private fun AttentionCommandTripleButton(
             pressed = false
         }
     }
-    val activeColor = MaterialTheme.colorScheme.primary
+    val activeColor = AppContentColors.accent()
     val inactiveColor = if (statusKnown) Color.White else Color.White.copy(alpha = 0.38f)
     val completed = statusKnown && isLiked && isCoined && isFavorited
     val interactionDescription = remember(statusKnown, isLiked, isCoined, isFavorited, isSubmitting) {

@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.settings
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
@@ -17,11 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.purebilibili.R
-import com.android.purebilibili.core.theme.iOSBlue
-import com.android.purebilibili.core.theme.iOSGreen
-import com.android.purebilibili.core.theme.iOSOrange
-import com.android.purebilibili.core.theme.iOSPink
-import com.android.purebilibili.core.theme.iOSTeal
 import com.android.purebilibili.core.ui.AppSpacingTokens
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.AppSurfaceTokens
@@ -54,87 +51,88 @@ fun TipsSettingsScreen(
         extraBottomPadding = 32.dp
     )
 
-    val basicTips = remember {
+    val rememberedSecondaryTextColor = AppContentColors.secondaryText()
+    val basicTips = remember(rememberedSecondaryTextColor) {
         listOf(
             TipEntry(
                 iconResId = R.drawable.ms_draw_fill_24,
-                iconTint = iOSBlue,
+                iconTint = rememberedSecondaryTextColor,
                 title = "1. 浏览评论时缩小视频",
                 content = "在“全屏与手势”中设置“浏览时缩小视频”，可选择适用的视频方向或仅在暂停时缩小。"
             ),
             TipEntry(
                 iconResId = R.drawable.ms_keyboard_arrow_up_24,
-                iconTint = iOSTeal,
+                iconTint = rememberedSecondaryTextColor,
                 title = "2. 快速回到顶部",
                 content = "首页刷太深时，双击底栏「首页」图标，或双击顶部频道标题，可快速回到列表顶部。"
             ),
             TipEntry(
                 iconResId = R.drawable.ms_touch_app_fill_24,
-                iconTint = iOSOrange,
+                iconTint = rememberedSecondaryTextColor,
                 title = "3. 封面长按有快捷操作",
                 content = "长按视频卡片可快速预览，并直接执行「稍后再看」等常用动作。"
             ),
             TipEntry(
                 iconResId = R.drawable.ms_find_in_page_24,
-                iconTint = iOSGreen,
+                iconTint = rememberedSecondaryTextColor,
                 title = "4. 搜索不只搜视频",
                 content = "搜索页可切换「视频 / UP主 / 番剧 / 直播」，还能按分区、排序、时长做精确筛选。"
             )
         )
     }
 
-    val hiddenTips = remember {
+    val hiddenTips = remember(rememberedSecondaryTextColor) {
         listOf(
             TipEntry(
                 iconResId = R.drawable.ms_skip_next_fill_24,
-                iconTint = iOSPink,
+                iconTint = rememberedSecondaryTextColor,
                 title = "5. 关闭自动连播，结尾更安静",
                 content = "关闭“自动播放下一个”可停止分 P 或合集连播。收藏夹等列表的连播方式需单独设置。"
             ),
             TipEntry(
                 iconResId = R.drawable.ms_cameraswitch_fill_24,
-                iconTint = iOSBlue,
+                iconTint = rememberedSecondaryTextColor,
                 title = "6. 自动横竖屏更省手",
                 content = "开启「自动横竖屏切换」后，跟随手机方向自动进出全屏，单手看片更顺。"
             ),
             TipEntry(
                 iconResId = R.drawable.ms_picture_in_picture_fill_24,
-                iconTint = iOSTeal,
+                iconTint = rememberedSecondaryTextColor,
                 title = "7. 离开视频页后继续观看",
                 content = "先开启“后台播放”，再选择离开视频页后的播放方式。应用内小窗用于应用内，画中画用于桌面；画中画需系统授权。"
             ),
             TipEntry(
                 iconResId = R.drawable.ms_thumb_up_fill_24,
-                iconTint = iOSOrange,
+                iconTint = rememberedSecondaryTextColor,
                 title = "8. 双击点赞可按喜好开关",
                 content = "若你容易误触，可在播放设置关闭「双击点赞」；喜欢快操作就保持开启。"
             )
         )
     }
 
-    val advancedTips = remember {
+    val advancedTips = remember(rememberedSecondaryTextColor) {
         listOf(
             TipEntry(
                 iconResId = R.drawable.ms_flare_24,
-                iconTint = iOSBlue,
+                iconTint = rememberedSecondaryTextColor,
                 title = "9. 空降助手能跳过片头广告",
                 content = "在设置开启「空降助手」后，可自动跳过赞助/片头片尾；也可改成仅提示不自动跳过。"
             ),
             TipEntry(
                 iconResId = R.drawable.ms_label_fill_24,
-                iconTint = iOSPink,
+                iconTint = rememberedSecondaryTextColor,
                 title = "10. 版本号连点有彩蛋",
                 content = "在设置页连续点按版本号，可打开彩蛋提示。"
             ),
             TipEntry(
                 iconResId = R.drawable.ms_card_giftcard_fill_24,
-                iconTint = iOSOrange,
+                iconTint = rememberedSecondaryTextColor,
                 title = "11. 趣味彩蛋可随时关闭",
                 content = "关闭“趣味彩蛋”后，不再显示刷新、点赞等操作的趣味提示。"
             ),
             TipEntry(
                 iconResId = R.drawable.ms_link_24,
-                iconTint = iOSTeal,
+                iconTint = rememberedSecondaryTextColor,
                 title = "12. 链接默认打开可一步到位",
                 content = "在设置中配置「默认打开链接」后，点到 B 站链接可更稳定地直达应用内页面。"
             )
@@ -244,13 +242,13 @@ private fun TipItem(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
             AppText(
                 text = content,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
         }
     }

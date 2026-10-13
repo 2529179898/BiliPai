@@ -1,6 +1,8 @@
 // 文件路径: feature/partition/PartitionScreen.kt
 package com.android.purebilibili.feature.partition
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.os.Build
 import com.android.purebilibili.core.util.animateScrollToTop
 import com.android.purebilibili.core.ui.components.AppIcon
@@ -908,7 +910,7 @@ private fun PartitionSideRailMovingIndicator(
                         .width(PartitionSideRailMd3UnderlineWidth)
                         .height(PartitionSideRailMd3UnderlineHeight)
                         .clip(RoundedCornerShape(percent = 50))
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(AppContentColors.accent()),
                 )
             }
         }
@@ -1007,8 +1009,8 @@ private fun PartitionSideRailItem(
     contentColorOverride: Color? = null,
     modifier: Modifier = Modifier,
 ) {
-    val selectedColor = MaterialTheme.colorScheme.primary
-    val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val selectedColor = AppContentColors.accent()
+    val unselectedColor = AppContentColors.secondaryText()
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val clampedSelectionProgress = selectionProgress.coerceIn(0f, 1f)
@@ -1042,7 +1044,7 @@ private fun PartitionSideRailItem(
                     selectedColor,
                     clampedSelectionProgress
                 )
-                pressed -> MaterialTheme.colorScheme.onSurface
+                pressed -> AppContentColors.primaryText()
                 else -> unselectedColor
             }
             if (showIcon) {
@@ -1188,7 +1190,7 @@ private fun PartitionVideoList(
                 AppText(
                     text = state.error,
                     modifier = Modifier.align(Alignment.Center),
-                    color = MaterialTheme.colorScheme.error
+                    color = AppContentColors.error()
                 )
             }
         }

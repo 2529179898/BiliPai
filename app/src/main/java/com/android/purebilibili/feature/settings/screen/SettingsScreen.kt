@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.settings
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -118,7 +120,7 @@ fun SettingsScreen(
         navigationTransitionRunning = navigationTransitionRunning,
     )
     val versionClickThreshold = EasterEggs.VERSION_EASTER_EGG_THRESHOLD
-    
+
     // State Collection
     val state by viewModel.state.collectAsStateWithLifecycle()
     val privacyModeEnabled by SettingsManager.getPrivacyModeEnabled(context).collectAsStateWithLifecycle(initialValue = false)
@@ -173,7 +175,7 @@ fun SettingsScreen(
     val dynamicFeedLayoutMode by SettingsManager
         .getDynamicFeedLayoutMode(context)
         .collectAsStateWithLifecycle(initialValue = com.android.purebilibili.core.store.SettingsManager.DynamicFeedLayoutMode.WATERFALL)
-    
+
     // Local UI State
     var showCacheDialog by remember { mutableStateOf(false) }
     var showCacheAnimation by remember { mutableStateOf(false) }
@@ -205,7 +207,7 @@ fun SettingsScreen(
     var changelogCheckResult by remember { mutableStateOf<AppUpdateCheckResult?>(null) }
     val currentReleaseEvidence = state.currentReleaseEvidence
     val installedApkSha256 = state.installedApkSha256
-    
+
     // [新增] 黑名单页面状态
     var showBlockedList by remember { mutableStateOf(false) }
     // [新增] 发评反诈页面状态
@@ -317,7 +319,7 @@ fun SettingsScreen(
     }
     val onDownloadPathAction = { showPathDialog = true }
     val onImageSavePathAction = { showImageSavePathDialog = true }
-    
+
     // Logic Callbacks
     val onSearchSuggestionsChange: (Boolean) -> Unit = { enabled ->
         scope.launch { SettingsManager.setSearchSuggestionsEnabled(context, enabled) }
@@ -356,7 +358,7 @@ fun SettingsScreen(
     val onAppUpdateChannelChange: (SettingsManager.AppUpdateChannel) -> Unit = { channel ->
         scope.launch { SettingsManager.setAppUpdateChannel(context, channel) }
     }
-    
+
     val onVersionClickAction: () -> Unit = {
         versionClickCount++
         val message = EasterEggs.getVersionClickMessage(
@@ -378,7 +380,7 @@ fun SettingsScreen(
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     val onExportLogsAction: () -> Unit = { showLogExportDialog = true }
     val onTelegramClick: () -> Unit = { uriHandler.openUri(OFFICIAL_TELEGRAM_CHANNEL_URL) }
     val onTelegramGroupClick: () -> Unit = { uriHandler.openUri(OFFICIAL_TELEGRAM_GROUP_URL) }
@@ -573,27 +575,27 @@ fun SettingsScreen(
             onDismiss = { showCacheDialog = false }
         )
     }
-    
+
     if (showPathDialog) {
         com.android.purebilibili.core.ui.AppAlertDialog(
             onDismissRequest = { showPathDialog = false },
-            title = { AppText("下载位置", color = MaterialTheme.colorScheme.onSurface) },
-            text = { 
+            title = { AppText("下载位置", color = AppContentColors.primaryText()) },
+            text = {
                 Column {
-                    AppText("默认位置（应用私有目录）：", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    AppText(defaultPath.substringAfterLast("Android/"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                    AppText("默认位置（应用私有目录）：", style = MaterialTheme.typography.labelMedium, color = AppContentColors.secondaryText())
+                    AppText(defaultPath.substringAfterLast("Android/"), style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
                     Spacer(modifier = Modifier.height(8.dp))
                     AppText(
                         "可选：通过系统文件夹授权设置导出目录（无需“管理所有文件”权限）",
                         style = MaterialTheme.typography.bodySmall,
-                        color = com.android.purebilibili.core.theme.iOSOrange
+                        color = AppContentColors.warning()
                     )
                     if (!downloadExportTreeUri.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         AppText(
                             "当前导出目录：已设置",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }
@@ -604,7 +606,7 @@ fun SettingsScreen(
                     downloadFolderPicker.launch(null)
                 }) { AppText("选择导出目录") }
             },
-            dismissButton = { 
+            dismissButton = {
                 com.android.purebilibili.core.ui.AppDialogAction(onClick = {
                     scope.launch {
                         SettingsManager.setDownloadPath(context, null)
@@ -619,26 +621,26 @@ fun SettingsScreen(
     if (showImageSavePathDialog) {
         com.android.purebilibili.core.ui.AppAlertDialog(
             onDismissRequest = { showImageSavePathDialog = false },
-            title = { AppText("图片保存位置", color = MaterialTheme.colorScheme.onSurface) },
+            title = { AppText("图片保存位置", color = AppContentColors.primaryText()) },
             text = {
                 Column {
                     AppText(
                         "默认保存到系统相册的 BiliPai 文件夹。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     AppText(
                         "可通过系统文件夹授权选择动态图片、头像和评论图片的保存目录。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = com.android.purebilibili.core.theme.iOSOrange
+                        color = AppContentColors.warning()
                     )
                     if (!imageSaveTreeUri.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         AppText(
                             "当前图片目录：已选择",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }
@@ -660,7 +662,7 @@ fun SettingsScreen(
             }
         )
     }
-    
+
     if (showEasterEggDialog) {
         com.android.purebilibili.core.ui.AppAlertDialog(
             onDismissRequest = { showEasterEggDialog = false; versionClickCount = 0 },
@@ -955,7 +957,7 @@ internal fun resolveCacheClearFailureMessage(error: Throwable?): String {
 internal fun SettingsCategoryHeader(title: String) {
     AppText(
         text = title,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.86f),
+        color = AppContentColors.secondaryText(),
         style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.Medium,
         modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = AppSpacingTokens.Small)
@@ -1288,17 +1290,17 @@ fun DonateDialog(onDismiss: () -> Unit) {
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 AppText(
                     "感谢您的支持！",
                     color = Color.White.copy(alpha = 0.9f),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 AppText(
                     "点击二维码或关闭按钮退出",
                     color = Color.White.copy(alpha = 0.6f),

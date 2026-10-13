@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.plugin.js
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -376,7 +378,7 @@ private fun PluginContent(
             AppText(
                 text = installed.manifest.description.ifBlank { "${installed.manifest.id} · v${installed.manifest.version}" },
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
         }
         if (inDetailView) {
@@ -389,7 +391,7 @@ private fun PluginContent(
                     AppText(
                         text = detailStack.last().title,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     )
                 }
             }
@@ -459,7 +461,7 @@ private fun PluginContent(
                 AppText(
                     text = message,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error
+                    color = AppContentColors.error()
                 )
             }
         }
@@ -620,14 +622,14 @@ private fun BiliPaiJsPosterCard(
                 AppText(
                     text = item.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 1
                 )
                 if (item.description.isNotBlank()) {
                     AppText(
                         text = item.description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 1
                     )
                 }
@@ -671,7 +673,7 @@ private fun BiliPaiJsParamOptionChips(
         AppText(
             text = param.title,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         Row(
             modifier = Modifier
@@ -773,14 +775,14 @@ private fun BiliPaiJsMediaItemRow(
                 AppText(
                     text = item.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
                 if (item.description.isNotBlank()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     AppText(
                         text = item.description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 2
                     )
                 }
@@ -789,7 +791,7 @@ private fun BiliPaiJsMediaItemRow(
                     AppText(
                         text = "线路 ${streams.size} 条",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = AppContentColors.accent()
                     )
                 }
             }
@@ -797,7 +799,7 @@ private fun BiliPaiJsMediaItemRow(
                 AppText(
                     text = label,
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = AppContentColors.accent()
                 )
             }
         }
@@ -831,7 +833,7 @@ private fun PluginMediaImagePlaceholder(
                 PluginMediaImageState.LOADING -> title.take(2).ifBlank { "TV" }
             },
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
     }
 }
@@ -851,7 +853,7 @@ private fun EmptyState(
         AppText(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
     }
 }

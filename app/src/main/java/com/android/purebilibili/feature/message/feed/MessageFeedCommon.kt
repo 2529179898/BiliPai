@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.message.feed
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -217,7 +219,7 @@ internal fun MessageFeedEmpty(
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        AppText(text = text, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppText(text = text, color = AppContentColors.secondaryText())
     }
 }
 
@@ -232,7 +234,7 @@ internal fun MessageFeedError(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        AppText(text = text, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppText(text = text, color = AppContentColors.secondaryText())
         AppButton(onClick = onRetry, modifier = Modifier.padding(top = 8.dp)) {
             AppText("重试")
         }
@@ -270,7 +272,7 @@ internal fun MessageFeedSectionHeader(text: String) {
         text = text,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
         style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
+        color = AppContentColors.accent(),
         fontWeight = FontWeight.SemiBold
     )
 }

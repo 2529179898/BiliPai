@@ -1,5 +1,7 @@
 // 文件路径: feature/dynamic/components/ActionButton.kt
 package com.android.purebilibili.feature.dynamic.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.appElasticPress
 import com.android.purebilibili.core.ui.components.AppText
@@ -47,7 +49,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.basic.Button as MiuixButton
 /**
  *  iOS 风格操作按钮 - 现代化胶囊设计
- * 
+ *
  * @param icon 图标
  * @param count 数量
  * @param label 标签（点赞/评论/转发）
@@ -61,14 +63,14 @@ fun ActionButton(
     isActive: Boolean = false,
     enabled: Boolean = true,
     onClick: () -> Unit = {},
-    activeColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f),
+    activeColor: Color = AppContentColors.secondaryText().copy(0.6f),
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val isLike = label == "点赞"
     val isForward = label == "转发"
     val isComment = label == "评论"
-    
+
     // Ordinary actions remain neutral; confirmed likes use the active theme accent.
     val miuix = LocalAppUiStyle.current == AppUiStyle.MIUIX
     val neutralContentColor = if (miuix) MiuixTheme.colorScheme.onSecondaryVariant
@@ -82,7 +84,7 @@ fun ActionButton(
     val miuixButtonColors = MiuixButtonDefaults.buttonColors(
         contentColor = buttonColor,
     )
-    
+
     val interactionSource = remember { MutableInteractionSource() }
 
     //  优雅的图标 - 根据状态切换填充/描边

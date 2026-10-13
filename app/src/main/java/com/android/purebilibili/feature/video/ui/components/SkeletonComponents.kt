@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -379,7 +381,7 @@ private fun rememberVideoSkeletonBlockColor(): Color {
         VIDEO_SKELETON_LIGHT_MIN_ALPHA +
             (VIDEO_SKELETON_LIGHT_MAX_ALPHA - VIDEO_SKELETON_LIGHT_MIN_ALPHA) * pulse
     }
-    return MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)
+    return AppContentColors.primaryText().copy(alpha = alpha)
 }
 
 private const val VIDEO_SKELETON_PULSE_DURATION_MILLIS = 2_000

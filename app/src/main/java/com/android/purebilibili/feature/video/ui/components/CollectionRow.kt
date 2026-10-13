@@ -1,5 +1,7 @@
 // 文件路径: feature/video/ui/components/CollectionRow.kt
 package com.android.purebilibili.feature.video.ui.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -62,10 +64,10 @@ fun CollectionRow(
     )
     val currentPosition = if (currentIndex >= 0) currentIndex + 1 else 0
     val totalCount = allEpisodes.size.takeIf { it > 0 } ?: ugcSeason.ep_count
-    val accentColor = if (immersive) Color.White else MaterialTheme.colorScheme.primary
-    val titleColor = if (immersive) Color.White.copy(alpha = 0.94f) else MaterialTheme.colorScheme.onSurface
-    val secondaryColor = if (immersive) Color.White.copy(alpha = 0.78f) else MaterialTheme.colorScheme.onSurfaceVariant
-    
+    val accentColor = if (immersive) Color.White else AppContentColors.accent()
+    val titleColor = if (immersive) Color.White.copy(alpha = 0.94f) else AppContentColors.primaryText()
+    val secondaryColor = if (immersive) Color.White.copy(alpha = 0.78f) else AppContentColors.secondaryText()
+
     AppSurface(
         modifier = modifier
             .padding(horizontal = if (immersive) 0.dp else 8.dp)

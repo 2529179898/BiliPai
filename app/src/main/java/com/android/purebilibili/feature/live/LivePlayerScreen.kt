@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.ui.graphics.Color
 
 import com.android.purebilibili.core.ui.components.AppDurationPicker
@@ -201,7 +203,7 @@ fun LivePlayerScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
     val liveKeyboardFocusRequester = remember { FocusRequester() }
-    
+
     // Shared Element Transition Scopes
     val sharedTransitionScope = LocalSharedTransitionScope.current
     val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
@@ -209,7 +211,7 @@ fun LivePlayerScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val palette = rememberLiveChromePalette()
     val roomColorTokens = resolveLiveBiliPaiRoomColorTokens()
-    
+
     // 状态
     var showQualityMenu by remember { mutableStateOf(false) }
     var showVideoFitMenu by remember { mutableStateOf(false) }
@@ -294,10 +296,10 @@ fun LivePlayerScreen(
             ""
         }
     }
-    
+
     // Haze blur 状态 (用于侧边栏实时模糊)
     val hazeState = com.android.purebilibili.core.ui.blur.rememberRecoverableHazeState()
-    
+
     // 直播布局只看当前可用窗口，分屏/自由窗口不会沿用物理平板布局。
     val isTablet = windowSizeClass.isTablet
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -420,7 +422,7 @@ fun LivePlayerScreen(
             formatLiveDuration(roomInfo.liveStartTime)
         ).filter { it.isNotBlank() }.joinToString(" · ")
     }
-    
+
     // 强制横屏切换
     fun toggleFullscreen() {
         if (isFullscreen) isInteractionPanelVisible = false
@@ -572,7 +574,7 @@ fun LivePlayerScreen(
             }
         }
     }
-    
+
     // 清屏时先恢复入口，普通竖屏仍保留系统预测性返回。
     LocalNavigationBackHandler(enabled = isFullscreen || portraitPresentation.clearScreen) {
         if (portraitPresentation.clearScreen) isPortraitClearScreen = false
@@ -595,7 +597,7 @@ fun LivePlayerScreen(
         val sessData = com.android.purebilibili.core.store.TokenManager.sessDataCache ?: ""
         val buvid3 = com.android.purebilibili.core.store.TokenManager.buvid3Cache ?: ""
         val cookies = "SESSDATA=$sessData; buvid3=$buvid3"
-        
+
         DefaultHttpDataSource.Factory()
             .setDefaultRequestProperties(mapOf(
                 "Referer" to "https://live.bilibili.com/$roomId",
@@ -659,7 +661,7 @@ fun LivePlayerScreen(
             Toast.makeText(context, "定时关闭已执行", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     // 📺 [新增] 将播放器注册到 MiniPlayerManager
     val liveCover = liveCoverForUi
     val liveTitle = liveRoomTitle
@@ -672,9 +674,9 @@ fun LivePlayerScreen(
             externalPlayer = exoPlayer
         )
     }
-    
+
     // ... (播放监听与 URL 管理保持不变)
-    
+
     // 播放状态监听
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
@@ -753,7 +755,7 @@ fun LivePlayerScreen(
         exoPlayer.addListener(listener)
         onDispose { exoPlayer.removeListener(listener) }
     }
-    
+
     // 播放 URL 管理
     LaunchedEffect(siteId, roomId) {
         val savedQuality = if (com.android.purebilibili.core.util.NetworkUtils.isWifi(context)) {
@@ -799,7 +801,7 @@ fun LivePlayerScreen(
             exoPlayer.clearMediaItems()
         }
     }
-    
+
     // 生命周期管理
     val currentIsLiveAudioOnly by rememberUpdatedState(isLiveAudioOnly)
     DisposableEffect(lifecycleOwner) {
@@ -886,7 +888,7 @@ fun LivePlayerScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        
+
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             playerViewRef = null
@@ -902,12 +904,12 @@ fun LivePlayerScreen(
             viewModel.pauseLiveHeartbeat()
         }
     }
-    
+
     // 横屏时隐藏系统栏
     LaunchedEffect(isLandscape, liveLayoutMode) {
         val window = activity?.window ?: return@LaunchedEffect
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
-        
+
         if (
             liveLayoutMode == LiveRoomLayoutMode.LandscapeOverlay ||
             (liveLayoutMode == LiveRoomLayoutMode.PortraitVerticalOverlay && isFullscreen)
@@ -1046,7 +1048,7 @@ fun LivePlayerScreen(
                     modifier = viewportModifier
                 )
             }
-            
+
             // Danmaku Overlay (Only render if enabled)
             val successState = uiState as? LivePlayerState.Success
             val showLiveDanmakuOverlay =
@@ -1076,7 +1078,7 @@ fun LivePlayerScreen(
                         )
                 )
             }
-            
+
             // Custom Controls
             if (liveLayoutMode == LiveRoomLayoutMode.LandscapeOverlay ||
                 liveLayoutMode == LiveRoomLayoutMode.LandscapeSplit
@@ -1242,7 +1244,7 @@ fun LivePlayerScreen(
                     )
                 }
             }
-            
+
             // Loading/Error Indicator
             if (uiState is LivePlayerState.Loading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { AdaptiveLoadingIndicator() }
@@ -1260,7 +1262,7 @@ fun LivePlayerScreen(
             }
         }
     }
-    
+
     val chatContent: @Composable (Boolean, Boolean) -> Unit = { isOverlay, showHeader ->
         LiveChatSection(
             messages = chatHistory,
@@ -1712,7 +1714,7 @@ fun LivePlayerScreen(
             }
         }
     }
-    
+
     // 画质菜单（BiliPai 同款底部选择 + 原生 chip 分发）
     if (showVoteSheet) {
         AppModalBottomSheet(onDismissRequest = { showVoteSheet = false }) {
@@ -2186,7 +2188,7 @@ private fun LiveRedPocketChip(
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
         backgroundColor = MaterialTheme.colorScheme.surface,
         fallbackContentColors = listOf(
-            MaterialTheme.colorScheme.onSurface,
+            AppContentColors.primaryText(),
             MaterialTheme.colorScheme.onBackground,
         ),
     )
@@ -2530,7 +2532,7 @@ private fun LiveDanmakuSettingsDialog(
                 )
                 AppText(
                     "仅对真竖屏直播生效；放大画面填满视窗时会裁去部分边缘。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 LiveSettingSwitchRow(
@@ -2541,7 +2543,7 @@ private fun LiveDanmakuSettingsDialog(
                 if (keyboardControlsEnabled) {
                     AppText(
                         "Space/K 播放暂停 · F 全屏 · D 弹幕 · M 静音 · 方向键音量 · Q 点赞 · S 截图",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -2589,12 +2591,12 @@ private fun LiveDanmakuStyleSliderRow(
         ) {
             AppText(
                 text = label,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.bodyMedium
             )
             AppText(
                 text = valueText,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -2774,7 +2776,7 @@ private fun LiveInfoLine(
     Row(verticalAlignment = Alignment.Top) {
         AppText(
             text = label,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             modifier = Modifier.width(
                 AppSpacingTokens.TripleExtraLarge + AppSpacingTokens.ExtraLarge
             )
@@ -2812,7 +2814,7 @@ private fun LiveShutdownTimerDialog(
                     ?.let { ((it - System.currentTimeMillis()) / 60_000L).coerceAtLeast(0L) }
                     ?.let { "剩余约${it}分钟" }
                 if (remainingText != null) {
-                    AppText(remainingText, color = MaterialTheme.colorScheme.primary)
+                    AppText(remainingText, color = AppContentColors.accent())
                 }
                 listOf(15L, 30L, 60L).forEach { minutes ->
                     AppSurface(

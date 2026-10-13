@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.plugin
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -177,7 +179,7 @@ class Anime4KPlugin : Plugin {
             AppText(
                 text = "HDR、杜比视界、小窗和后台播放会自动使用原始视频输出。",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             if (configSnapshot.algorithm == VideoEnhancementAlgorithm.ANIME4K) {
                 AppText("CNN 模型", style = MaterialTheme.typography.titleSmall)

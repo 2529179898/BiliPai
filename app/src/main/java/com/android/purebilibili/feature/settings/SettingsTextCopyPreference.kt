@@ -1,12 +1,13 @@
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.purebilibili.core.store.SettingsManager
-import com.android.purebilibili.core.theme.iOSOrange
 import com.android.purebilibili.core.ui.components.AppSwitchPreference
 import kotlinx.coroutines.launch
 
@@ -23,7 +24,7 @@ internal fun SettingsTextCopyPreference() {
             subtitle = "点按正文文字即可复制",
             checked = enabled,
             onCheckedChange = { scope.launch { SettingsManager.setGlobalTextTapCopyEnabled(context, it) } },
-            iconTint = iOSOrange,
+            iconTint = AppContentColors.secondaryText(),
         )
     }
 }

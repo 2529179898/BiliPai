@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.audio.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -390,7 +392,7 @@ internal fun Music3DCoverFlow(
             val playingItem = queue[validCurrentIndex]
             val pillContainerColor = AppSurfaceTokens.surfaceContainer()
             val pillBorderColor = MaterialTheme.colorScheme.outlineVariant
-            val pillContentColor = MaterialTheme.colorScheme.onSurface
+            val pillContentColor = AppContentColors.primaryText()
 
             AppSurface(
                 shape = CircleShape,

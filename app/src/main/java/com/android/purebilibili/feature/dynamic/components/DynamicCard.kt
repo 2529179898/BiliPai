@@ -1,6 +1,8 @@
 // 文件路径: feature/dynamic/components/DynamicCard.kt
 package com.android.purebilibili.feature.dynamic.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 
@@ -341,7 +343,7 @@ fun DynamicCardV2(
                         onDeleteClick?.invoke(action)
                     }
                 ) {
-                    AppText(action.confirmText, color = MaterialTheme.colorScheme.error)
+                    AppText(action.confirmText, color = AppContentColors.error())
                 }
             },
             dismissButton = {
@@ -363,7 +365,7 @@ fun DynamicCardV2(
                         pendingBlockAuthor = null
                         onManageAction(action)
                     },
-                ) { AppText("屏蔽", color = MaterialTheme.colorScheme.error) }
+                ) { AppText("屏蔽", color = AppContentColors.error()) }
             },
             dismissButton = {
                 AppDialogAction(onClick = { pendingBlockAuthor = null }) { AppText("取消") }
@@ -403,15 +405,15 @@ fun DynamicCardV2(
                             rememberAppCommentIcon(),
                             contentDescription = null,
                             modifier = Modifier.size(AppSpacingTokens.Large),
-                            tint = MaterialTheme.colorScheme.onSurface
+                            tint = AppContentColors.primaryText()
                         )
                         Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
                         AppText(
                             if (selectionEnabled) "停止评论精选" else "开启评论精选",
                             color = if (selection?.can_modify == true) {
-                                MaterialTheme.colorScheme.onSurface
+                                AppContentColors.primaryText()
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                                AppContentColors.secondaryText().copy(0.5f)
                             }
                         )
                     }
@@ -436,15 +438,15 @@ fun DynamicCardV2(
                             rememberAppVisibilityOffIcon(),
                             contentDescription = null,
                             modifier = Modifier.size(AppSpacingTokens.Large),
-                            tint = MaterialTheme.colorScheme.onSurface
+                            tint = AppContentColors.primaryText()
                         )
                         Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
                         AppText(
                             if (replyEnabled) "关闭评论" else "恢复评论",
                             color = if (reply?.can_modify == true) {
-                                MaterialTheme.colorScheme.onSurface
+                                AppContentColors.primaryText()
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                                AppContentColors.secondaryText().copy(0.5f)
                             }
                         )
                     }
@@ -487,7 +489,7 @@ fun DynamicCardV2(
                 }
         ) {
         val context = LocalContext.current
-        
+
         //  用户头部（头像 + 名称 + 时间 + 更多）
         if (author != null) {
             val authorClickMid = remember(item) { resolveDynamicAuthorClickMid(item) }
@@ -525,9 +527,9 @@ fun DynamicCardV2(
                             onAuthorHeaderClick()
                         },
                 )
-                
+
                 Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))
-                
+
                 Column(modifier = Modifier.weight(1f)) {
                     AppText(
                         author.name,
@@ -536,7 +538,7 @@ fun DynamicCardV2(
                         color = resolveUpNameColor(
                             vipStatus = author.vip?.status ?: 0,
                             vipType = author.vip?.type ?: 0,
-                            onSurface = MaterialTheme.colorScheme.onSurface,
+                            onSurface = AppContentColors.primaryText(),
                             secondary = MaterialTheme.colorScheme.secondary,
                         ),
                         modifier = Modifier.clickable(enabled = authorClickMid != null || (ugcSeason != null && ugcSeason.id > 0L && onCollectionClick != null)) {
@@ -547,13 +549,13 @@ fun DynamicCardV2(
                         AppText(
                             authorTimeText,
                             fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f)
+                            color = AppContentColors.secondaryText().copy(0.6f)
                         )
                         if (author.pub_action.isNotBlank()) {
                             AppText(
                                 " · ${author.pub_action}",
                                 fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f)
+                                color = AppContentColors.secondaryText().copy(0.6f)
                             )
                         }
                         // 粉丝装扮牌（作者行时间旁的小徽章）
@@ -569,7 +571,7 @@ fun DynamicCardV2(
                         }
                     }
                 }
-                
+
                 //  置顶标（module_tag：B 站固定返回 "置顶"，对齐 BiliPai 作者区头部样式）
                 if (shouldShowDynamicPinnedTag(item.modules.module_tag)) {
                     Box(
@@ -577,7 +579,7 @@ fun DynamicCardV2(
                             .padding(start = AppSpacingTokens.ExtraSmall)
                             .border(
                                 width = AppSurfaceTokens.OutlineWidth,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = AppContentColors.accent(),
                                 shape = AppShapes.container(ContainerLevel.Tag)
                             )
                             .padding(
@@ -588,11 +590,11 @@ fun DynamicCardV2(
                         AppText(
                             item.modules.module_tag?.text.orEmpty(),
                             fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                            color = MaterialTheme.colorScheme.primary
+                            color = AppContentColors.accent()
                         )
                     }
                 }
-                
+
                 val moreIcon = rememberAppMoreIcon()
                 val linkIcon = rememberAppLinkIcon()
                 val shareIcon = rememberAppShareIcon()
@@ -603,7 +605,7 @@ fun DynamicCardV2(
                 val visibilityOnIcon = rememberAppVisibilityOnIcon()
                 val commentIcon = rememberAppCommentIcon()
                 val warningIcon = rememberAppWarningIcon()
-                val errorTint = MaterialTheme.colorScheme.error
+                val errorTint = AppContentColors.error()
                 AppWindowActionMenu(
                     groups = listOf(
                         buildList {
@@ -833,22 +835,22 @@ fun DynamicCardV2(
                     AppIcon(
                         moreIcon,
                         contentDescription = "更多",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                        tint = AppContentColors.secondaryText().copy(0.5f)
                     )
                 }
             }
             Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
         }
-        
+
         //  风险提示条（module_dispute：如“视频内含有危险行为，请勿模仿”，点击打开 jump_url）
         item.modules.module_dispute?.let { dispute ->
             if (shouldShowDynamicDispute(dispute)) {
                 val disputeColors = resolveAccessibleContainerColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    contentColor = AppContentColors.secondaryText(),
                     backgroundColor = MaterialTheme.colorScheme.surface,
                     fallbackContentColors = listOf(
-                        MaterialTheme.colorScheme.onSurface,
+                        AppContentColors.primaryText(),
                         MaterialTheme.colorScheme.onBackground,
                     ),
                 )
@@ -928,7 +930,7 @@ fun DynamicCardV2(
                 text = dynamicCardTitle,
                 fontSize = MaterialTheme.typography.titleMedium.fontSize,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 maxLines = if (isDetail) Int.MAX_VALUE else 3,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(bottom = AppSpacingTokens.Small)
@@ -952,17 +954,17 @@ fun DynamicCardV2(
                     rememberAppWarningIcon(),
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = AppContentColors.secondaryText()
                 )
                 Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
                 AppText(
                     text = tips,
                     fontSize = MaterialTheme.typography.bodySmall.fontSize,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
-        
+
         //  动态内容文字（支持@高亮 / 表情）；优先可渲染表情的 desc 或 opus summary
         val visibleOpusSummaryDescForBody = remember(opus?.summary, renderableOpusPics) {
             val currentOpus = opus ?: return@remember null
@@ -1023,7 +1025,7 @@ fun DynamicCardV2(
                             AppText(
                                 text = "展开更多",
                                 fontSize = MaterialTheme.typography.bodySmall.fontSize,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = AppContentColors.accent(),
                                 modifier = Modifier
                                     .padding(top = AppSpacingTokens.ExtraSmall)
                                     .clip(AppShapes.container(ContainerLevel.Chip))
@@ -1035,7 +1037,7 @@ fun DynamicCardV2(
                 }
             }
         }
-        
+
         //  互动条：UP 主觉得很赞 / 相关评论提示
         val interactionItems = resolveVisibleDynamicInteractionItems(
             items = item.modules.module_interaction?.items.orEmpty(),
@@ -1070,7 +1072,7 @@ fun DynamicCardV2(
                             },
                             contentDescription = null,
                             modifier = Modifier.size(13.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = AppContentColors.secondaryText()
                         )
                         Spacer(modifier = Modifier.width(AppSpacingTokens.ExtraSmall))
                         RichTextContent(
@@ -1118,7 +1120,7 @@ fun DynamicCardV2(
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
         }
-        
+
         //  图片类型动态（支持GIF + 点击预览）。详情若已拉到完整 opus 正文，不再叠一层九宫格预览。
         content?.major?.draw?.takeIf {
             shouldRenderDynamicDrawGrid(
@@ -1141,7 +1143,7 @@ fun DynamicCardV2(
                     body = visibleDynamicDesc?.text.orEmpty()
                 )
             }
-            
+
             DrawGridV2(
                 items = renderableDrawItems,
                 gifImageLoader = gifImageLoader,
@@ -1155,7 +1157,7 @@ fun DynamicCardV2(
                 }
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
-            
+
             // 全屏图片预览
             if (selectedImageIndex >= 0) {
                 ImagePreviewDialog(
@@ -1186,7 +1188,7 @@ fun DynamicCardV2(
                 )
             }
         }
-        
+
         //  [新增] Opus 图文动态 (新版格式)
         content?.major?.opus?.let { opus ->
             var selectedImageIndex by remember { mutableIntStateOf(-1) }
@@ -1212,9 +1214,9 @@ fun DynamicCardV2(
                     body = body
                 )
             }
-            
+
             // 正文与标题已在上方统一渲染；此处按需渲染正文内容块与图片列表
-            
+
             // 显示图片 (转换为 DrawItem 格式复用现有组件)
             if (hasFullOpusDetailContent) {
                 val expandOpusDetailImages = shouldExpandDynamicOpusDetailImages(detailImageLayout)
@@ -1300,7 +1302,7 @@ fun DynamicCardV2(
                                 AppText(
                                     text = blockText,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = AppContentColors.primaryText(),
                                     textAlign = resolveOpusTextAlign(block.alignment),
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1317,7 +1319,7 @@ fun DynamicCardV2(
                                     else -> MaterialTheme.typography.titleLarge
                                 },
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = AppContentColors.primaryText(),
                                 textAlign = resolveOpusTextAlign(block.alignment),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1338,7 +1340,7 @@ fun DynamicCardV2(
                                 AppText(
                                     text = block.text,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = AppContentColors.secondaryText(),
                                     textAlign = resolveOpusTextAlign(block.alignment),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
@@ -1350,7 +1352,7 @@ fun DynamicCardV2(
                                     if (block.ordered) "${index + 1}. $listItem" else "• $listItem"
                                 }.joinToString("\n"),
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = AppContentColors.primaryText(),
                                 textAlign = resolveOpusTextAlign(block.alignment),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1372,7 +1374,7 @@ fun DynamicCardV2(
                                     text = block.text,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontFamily = FontFamily.Monospace,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = AppContentColors.primaryText(),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
@@ -1711,7 +1713,7 @@ fun DynamicCardV2(
                 }
             }
         }
-        
+
         //  [新增] 合集/剧集动态
         content?.major?.ugc_season?.let { season ->
             val seasonArchive = resolveUgcSeasonArchiveFallback(season)
@@ -1733,14 +1735,14 @@ fun DynamicCardV2(
                 Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
             } else {
                 AppText(
-                     "合集：${season.title}", 
+                     "合集：${season.title}",
                      fontWeight = FontWeight.Bold,
-                     color = MaterialTheme.colorScheme.primary
+                     color = AppContentColors.accent()
                 )
                  Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
             }
         }
-        
+
         //  直播推荐动态
         content?.major?.live_rcmd?.let { liveRcmd ->
             LiveCard(
@@ -1874,7 +1876,7 @@ fun DynamicCardV2(
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
         }
-        
+
         //  转发动态 - 嵌套显示原始内容
         if (type == DynamicType.FORWARD && item.orig != null) {
             val checkedItemOrig = requireNotNull(item.orig)
@@ -1895,7 +1897,7 @@ fun DynamicCardV2(
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
         }
-        
+
         additionalLinkCard?.let { linkCard ->
             DynamicLinkCardSlot(
                 card = linkCard,
@@ -1925,7 +1927,7 @@ fun DynamicCardV2(
                 onClick = { onRepostClick(item.id_str) },
                 modifier = Modifier.weight(actionButtonWeight)
             )
-            
+
             // 评论按钮
             ActionButton(
                 count = statModule.comment.count,
@@ -1938,7 +1940,7 @@ fun DynamicCardV2(
                 },
                 modifier = Modifier.weight(actionButtonWeight)
             )
-            
+
             // 点赞按钮
             ActionButton(
                 count = statModule.like.count,
@@ -1994,14 +1996,14 @@ fun DynamicCardV2(
                     AppText(
                         foldStatement,
                         fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                     Spacer(modifier = Modifier.width(AppSpacingTokens.ExtraSmall))
                     AppIcon(
                         rememberAppChevronDownIcon(),
                         contentDescription = null,
                         modifier = Modifier.size(AppSpacingTokens.Small + AppSpacingTokens.ExtraSmall),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = AppContentColors.secondaryText()
                     )
                 }
             }
@@ -2141,7 +2143,7 @@ internal fun DynamicNativeLinkCard(
             overlineContent = {
                 AppText(
                     text = kindLabel,
-                    color = MaterialTheme.colorScheme.primary
+                    color = AppContentColors.accent()
                 )
             },
             headlineContent = {
@@ -2158,7 +2160,7 @@ internal fun DynamicNativeLinkCard(
                         text = supportingText,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
             },
@@ -2180,8 +2182,8 @@ internal fun DynamicNativeLinkCard(
                 {
                     AppText(
                         text = label,
-                        color = if (actionEnabled) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (actionEnabled) AppContentColors.accent()
+                        else AppContentColors.secondaryText(),
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier
                             .heightIn(min = AppChromeSizeTokens.MinimumTouchTarget)
@@ -2225,13 +2227,13 @@ internal fun DynamicTopicLabel(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(AppSpacingTokens.ExtraSmall))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+                    .background(AppContentColors.accent().copy(alpha = 0.18f))
                     .padding(horizontal = AppSpacingTokens.Micro),
                 contentAlignment = Alignment.Center,
             ) {
                 AppText(
                     text = "#",
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     fontSize = MaterialTheme.typography.titleMedium.fontSize,
                     fontWeight = FontWeight.Bold,
                 )
@@ -2239,7 +2241,7 @@ internal fun DynamicTopicLabel(
             Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
             AppText(
                 text = topicName,
-                color = MaterialTheme.colorScheme.primary,
+                color = AppContentColors.accent(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -2300,8 +2302,8 @@ fun RichTextContent(
     LaunchedEffect(emoteCatalogSessionKey) {
         catalogEmoteMap = DynamicEmoteCatalog.ensureLoaded()
     }
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val textColor = MaterialTheme.colorScheme.onSurface
+    val primaryColor = AppContentColors.accent()
+    val textColor = AppContentColors.primaryText()
     // 原生链接分发：BasicText 在 Text 内部处理 LinkAnnotation 点击，不再依赖
     // 外层 pointerInput 查表，与划选/卡片长按不再竞争。每次组合重建 dispatch
     // 闭包以捕获最新回调，并作为 remember key 同步重建富文本。
@@ -2674,14 +2676,14 @@ fun DynamicCardCompact(
     val author = item.modules.module_author
     val content = item.modules.module_dynamic
     val stat = item.modules.module_stat
-    
+
     // 获取内容预览文本
-    val previewText = content?.desc?.text?.take(50) 
-        ?: content?.major?.archive?.title 
+    val previewText = content?.desc?.text?.take(50)
+        ?: content?.major?.archive?.title
         ?: "动态"
-    
+
     val authorClickMid = remember(item) { resolveDynamicAuthorClickMid(item) }
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2709,10 +2711,10 @@ fun DynamicCardCompact(
                         authorClickMid?.let(onUserClick)
                     },
             )
-            
+
             Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))
         }
-        
+
         // 内容区
         Column(modifier = Modifier.weight(1f)) {
             // 用户名 + 时间
@@ -2721,7 +2723,7 @@ fun DynamicCardCompact(
                     author?.name ?: "",
                     fontWeight = FontWeight.Medium,
                     fontSize = MaterialTheme.typography.labelMedium.fontSize,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 1
                 )
                 Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
@@ -2733,22 +2735,22 @@ fun DynamicCardCompact(
                         )
                     }.orEmpty(),
                     fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                    color = AppContentColors.secondaryText().copy(0.5f)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
-            
+
             // 内容预览
             AppText(
                 previewText,
                 fontSize = MaterialTheme.typography.labelMedium.fontSize,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
         }
-        
+
         // 封面缩略图（如果有视频）
         content?.major?.archive?.let { archive ->
             Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))

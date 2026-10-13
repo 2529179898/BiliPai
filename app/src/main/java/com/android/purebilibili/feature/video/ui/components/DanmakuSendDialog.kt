@@ -1,6 +1,8 @@
 // 文件路径: feature/video/ui/components/DanmakuSendDialog.kt
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.components.AppColorPicker
 import androidx.compose.ui.graphics.toArgb
 import com.android.purebilibili.core.ui.AppAlertDialog
@@ -230,7 +232,7 @@ private fun DanmakuSendDialogContent(
             AppText(
                 text = "发送弹幕",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
 
             AppIconButton(
@@ -240,7 +242,7 @@ private fun DanmakuSendDialogContent(
                 AppIcon(
                     imageVector = Icons.Outlined.Close,
                     contentDescription = "关闭",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = AppContentColors.secondaryText(),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -273,9 +275,9 @@ private fun DanmakuSendDialogContent(
             text = "${text.length}/100",
             style = MaterialTheme.typography.labelSmall,
             color = if (text.length > 90) {
-                MaterialTheme.colorScheme.error
+                AppContentColors.error()
             } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
+                AppContentColors.secondaryText()
             },
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.End
@@ -294,7 +296,7 @@ private fun DanmakuSendDialogContent(
             AppText(
                 text = "颜色",
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
 
             DanmakuColorOptions(
@@ -328,12 +330,12 @@ private fun DanmakuSendDialogContent(
                 AppText(
                     text = "内嵌关注按钮",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
                 AppText(
                     text = "发送一个视频内嵌关注按钮",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -350,7 +352,7 @@ private fun DanmakuSendDialogContent(
                 AppText(
                     text = "位置",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -378,7 +380,7 @@ private fun DanmakuSendDialogContent(
                 AppText(
                     text = "大小",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -424,7 +426,7 @@ private fun DanmakuSendDialogContent(
                 AppCircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = AppContentColors.onAccent()
                 )
             } else {
                 AppText(
@@ -473,7 +475,7 @@ internal fun DanmakuCustomColorPickerDialog(
                 AppText(
                     text = "#%06X".format(pickerRgb),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         },

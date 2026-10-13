@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.settings
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -320,12 +322,12 @@ fun OpenSourceLicensesScreen(
                     AppText(
                         text = "本应用使用了以下开源组件，感谢所有开源贡献者！",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                     )
                     AppText(
                         text = "说明：该列表按当前工程依赖、投屏/测试模块以及明确参考实现整理，可能不包含全部传递依赖或完整法律清单。",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppContentColors.accent(),
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
@@ -375,13 +377,13 @@ fun LicenseCard(
                     text = library.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
                 if (library.description.isNotEmpty()) {
                     AppText(
                         text = library.description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }
@@ -404,7 +406,7 @@ fun LicenseCard(
                     AppText(
                         text = "GitHub/链接",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppContentColors.accent(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -412,7 +414,7 @@ fun LicenseCard(
                 AppText(
                     text = library.url,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp)
@@ -421,7 +423,7 @@ fun LicenseCard(
             AppIcon(
                 com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_keyboard_arrow_right_24),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                tint = AppContentColors.secondaryText().copy(alpha = 0.5f),
                 modifier = Modifier.size(20.dp)
             )
         }

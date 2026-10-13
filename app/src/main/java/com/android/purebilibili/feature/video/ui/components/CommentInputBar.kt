@@ -1,5 +1,7 @@
 // 文件路径: feature/video/ui/components/CommentInputBar.kt
 package com.android.purebilibili.feature.video.ui.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
@@ -62,7 +64,7 @@ fun CommentInputBar(
     val clearIcon = rememberAppClearIcon()
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    
+
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surface)) {
         // 回复提示条
         AnimatedVisibility(
@@ -80,7 +82,7 @@ fun CommentInputBar(
                 AppText(
                     text = "回复 @${replyToName ?: ""}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 AppIconButton(onClick = onCancelReply) {
@@ -88,17 +90,17 @@ fun CommentInputBar(
                         imageVector = clearIcon,
                         contentDescription = "取消回复",
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                     )
                 }
             }
         }
-        
+
         AppHorizontalDivider(
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
             thickness = 0.5.dp
         )
-        
+
         // 输入栏
         Row(
             modifier = Modifier
@@ -114,13 +116,13 @@ fun CommentInputBar(
                 AppIcon(
                     imageVector = Icons.Outlined.SentimentSatisfied,
                     contentDescription = "表情",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = AppContentColors.secondaryText(),
                     modifier = Modifier.size(22.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(4.dp))
-            
+
             // 输入框
             Box(
                 modifier = Modifier
@@ -137,7 +139,7 @@ fun CommentInputBar(
                     AppText(
                         text = if (replyToName != null) "回复 @$replyToName" else "发一条友善的评论",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        color = AppContentColors.secondaryText()
                     )
                 }
                 BasicTextField(
@@ -147,9 +149,9 @@ fun CommentInputBar(
                         .fillMaxWidth()
                         .focusRequester(focusRequester),
                     textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     ),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    cursorBrush = SolidColor(AppContentColors.accent()),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(
@@ -162,9 +164,9 @@ fun CommentInputBar(
                     )
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(8.dp))
-            
+
             // 发送按钮
             val canSend = value.isNotBlank() && !isSending
             Box(
@@ -172,7 +174,7 @@ fun CommentInputBar(
                     .size(36.dp)
                     .clip(CircleShape)
                     .background(
-                        if (canSend) MaterialTheme.colorScheme.primary
+                        if (canSend) AppContentColors.accent()
                         else MaterialTheme.colorScheme.surfaceVariant
                     )
                     .clickable(enabled = canSend) {
@@ -185,14 +187,14 @@ fun CommentInputBar(
                     AppCircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = AppContentColors.onAccent()
                     )
                 } else {
                     AppIcon(
                         imageVector = Icons.Outlined.Send,
                         contentDescription = "发送",
-                        tint = if (canSend) MaterialTheme.colorScheme.onPrimary 
-                               else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        tint = if (canSend) AppContentColors.onAccent()
+                               else AppContentColors.secondaryText().copy(alpha = 0.5f),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -239,13 +241,13 @@ fun CommentContextMenu(
         )
         if (onDelete != null) {
             AppDropdownMenuItem(
-                text = { AppText("删除", color = MaterialTheme.colorScheme.error) },
+                text = { AppText("删除", color = AppContentColors.error()) },
                 onClick = {
                     onDelete()
                     onDismiss()
                 },
                 leadingIcon = {
-                    AppIcon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error)
+                    AppIcon(Icons.Outlined.Delete, contentDescription = null, modifier = Modifier.size(18.dp), tint = AppContentColors.error())
                 }
             )
         }
@@ -272,7 +274,7 @@ fun ReportReasonDialog(
     onReport: (Int) -> Unit
 ) {
     if (!visible) return
-    
+
     val reasons = listOf(
         1 to "垃圾广告",
         2 to "色情",
@@ -283,7 +285,7 @@ fun ReportReasonDialog(
         8 to "内容不相关",
         0 to "其他"
     )
-    
+
     AppAlertDialog(
         onDismissRequest = onDismiss,
         title = { AppText("举报原因", fontWeight = FontWeight.Bold) },
@@ -297,7 +299,7 @@ fun ReportReasonDialog(
                         AppText(
                             text = label,
                             modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                     }
                 }

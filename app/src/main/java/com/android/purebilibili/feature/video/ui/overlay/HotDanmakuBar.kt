@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -205,7 +207,7 @@ fun HotDanmakuBar(
                                 AppIcon(
                                     imageVector = if (liked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                     contentDescription = if (liked) "取消点赞" else "点赞弹幕",
-                                    tint = if (liked) Color(0xFFFF6699) else Color.White,
+                                    tint = if (liked) AppContentColors.accent() else Color.White,
                                     modifier = Modifier.size(18.dp),
                                 )
                             }

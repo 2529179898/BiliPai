@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.video.ui.overlay
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
 import androidx.compose.foundation.background
@@ -178,7 +180,7 @@ private fun PlaybackOrderSheetContent(
         AppText(
             text = "选择播放顺序",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             modifier = Modifier.padding(vertical = layoutSpec.titleVerticalPaddingDp.dp),
         )
 
@@ -201,14 +203,14 @@ private fun PlaybackOrderSheetContent(
                 AppText(
                     text = behavior.label,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     modifier = Modifier.weight(1f),
                 )
                 if (currentBehavior == behavior) {
                     AppIcon(
                         imageVector = Icons.Outlined.Check,
                         contentDescription = "已选择",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = AppContentColors.accent(),
                         modifier = Modifier.size(22.dp),
                     )
                 } else {

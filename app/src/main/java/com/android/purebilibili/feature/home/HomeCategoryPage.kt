@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.components.AppButton
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -638,12 +640,12 @@ internal fun HomeCategoryPageContent(
                     AppText(
                         text = "直播首页已独立",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                     )
                     AppText(
                         text = "与底栏「直播」相同，支持分区、排序与下拉刷新",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                     )
                     AppTextButton(onClick = onOpenLiveHome) {
                         AppText("打开直播首页")
@@ -876,7 +878,7 @@ internal fun HomeCategoryPageContent(
                 }
             }
         }
-        
+
         // Spacer
         item(span = StaggeredGridItemSpan.FullLine) {
             Box(modifier = Modifier.fillMaxWidth().height(AppSpacingTokens.Large + AppSpacingTokens.ExtraSmall))
@@ -1095,7 +1097,7 @@ private fun TodayWatchPlanCard(
                 AppText(
                     text = "今日推荐单",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     modifier = Modifier.weight(1f)
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Micro)) {
@@ -1129,13 +1131,13 @@ private fun TodayWatchPlanCard(
                 AppText(
                     text = "已收起推荐单。展开后恢复自动更新；也可以直接点“刷新”换一批。",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
                 if (!error.isNullOrBlank()) {
                     AppText(
                         text = error,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = AppContentColors.error()
                     )
                 }
                 return@cardBody
@@ -1156,7 +1158,7 @@ private fun TodayWatchPlanCard(
             AppText(
                 text = "点开后会自动从推荐单移除；想换一批可点右上角“刷新”。",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
 
             if (isLoading) {
@@ -1176,7 +1178,7 @@ private fun TodayWatchPlanCard(
                 AppText(
                     text = error,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = AppContentColors.error()
                 )
             }
 
@@ -1198,7 +1200,7 @@ private fun TodayWatchPlanCard(
                             "当前按你的观看习惯与模式偏好生成"
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
             }
@@ -1230,9 +1232,9 @@ private fun TodayWatchPlanCard(
                                 text = "${index + 1}. ${up.name}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = if (clickable) {
-                                    MaterialTheme.colorScheme.primary
+                                    AppContentColors.accent()
                                 } else {
-                                    MaterialTheme.colorScheme.onSurface
+                                    AppContentColors.primaryText()
                                 },
                                 modifier = Modifier
                                     .clickable(enabled = clickable) { onUpClick(up.mid) }
@@ -1274,7 +1276,7 @@ private fun TodayWatchPlanCard(
                                 AppText(
                                     text = "${index + 1}.",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = AppContentColors.accent()
                                 )
                                 if (showUpAvatars && video.owner.face.isNotBlank()) {
                                     AsyncImage(
@@ -1296,7 +1298,7 @@ private fun TodayWatchPlanCard(
                                         AppText(
                                             text = video.owner.name.take(1).ifBlank { "UP" },
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = AppContentColors.accent()
                                         )
                                     }
                                 }
@@ -1309,14 +1311,14 @@ private fun TodayWatchPlanCard(
                                         style = MaterialTheme.typography.bodySmall,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = AppContentColors.primaryText()
                                     )
                                     UpBadgeName(
                                         name = video.owner.name,
                                         nameStyle = MaterialTheme.typography.labelSmall,
-                                        nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        badgeTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                                        badgeBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                        nameColor = AppContentColors.secondaryText(),
+                                        badgeTextColor = AppContentColors.secondaryText().copy(alpha = 0.85f),
+                                        badgeBorderColor = AppContentColors.secondaryText().copy(alpha = 0.35f),
                                         showUpBadge = showUpBadges,
                                         modifier = Modifier.fillMaxWidth()
                                     )
@@ -1327,7 +1329,7 @@ private fun TodayWatchPlanCard(
                                             style = MaterialTheme.typography.labelSmall,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+                                            color = AppContentColors.accent().copy(alpha = 0.85f)
                                         )
                                     }
                                 }

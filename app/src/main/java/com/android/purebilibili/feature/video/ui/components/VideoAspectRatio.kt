@@ -1,5 +1,7 @@
 // 文件路径: feature/video/ui/components/VideoAspectRatio.kt
 package com.android.purebilibili.feature.video.ui.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -22,7 +24,7 @@ import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.ContainerLevel
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
-//  已改用 MaterialTheme.colorScheme.primary
+//  已改用 AppContentColors.accent()
 
 /**
  * 视频比例枚举
@@ -57,7 +59,7 @@ enum class VideoAspectRatio(
         playerResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
     ),
     STRETCH("拉伸", AspectRatioFrameLayout.RESIZE_MODE_FILL);
-    
+
     companion object {
         fun fromResizeMode(mode: Int): VideoAspectRatio {
             return entries.find { it.resizeMode == mode } ?: FIT

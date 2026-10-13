@@ -1,6 +1,8 @@
 // 文件路径: feature/plugin/SponsorBlockPlugin.kt
 package com.android.purebilibili.feature.plugin
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
@@ -159,11 +161,11 @@ internal fun resolveSponsorBlockAboutItemModel(): SponsorBlockAboutItemModel {
 
 /**
  *  空降助手插件
- * 
+ *
  * 基于 SponsorBlock 数据库自动跳过视频中的广告、赞助、片头片尾等片段。
  */
 class SponsorBlockPlugin : PlayerPluginApi {
-    
+
     override val id = SPONSOR_BLOCK_PLUGIN_ID
     override val name = "空降助手"
     override val description = "自动跳过视频中的广告、赞助、片头片尾等片段"
@@ -182,23 +184,23 @@ class SponsorBlockPlugin : PlayerPluginApi {
             PluginCapability.NETWORK
         )
     )
-    
+
     // 当前视频的跳过片段
     private var segments: List<SponsorSegment> = emptyList()
     private var progressMarkers: List<SponsorProgressMarker> = emptyList()
     private var nextSegmentIndex: Int = 0
     private var activeSegment: SponsorSegment? = null
-    
+
     // 已跳过的片段 UUID（防止重复跳过）
     private val skippedIds = mutableSetOf<String>()
-    
+
     // 配置
     private var config: SponsorBlockConfig = SponsorBlockConfig().normalized()
-    
+
     override suspend fun onEnable() {
         Logger.d(TAG, " 空降助手已启用")
     }
-    
+
     override suspend fun onDisable() {
         segments = emptyList()
         progressMarkers = emptyList()
@@ -207,7 +209,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
         activeSegment = null
         Logger.d(TAG, "🔴 空降助手已禁用")
     }
-    
+
     override suspend fun onVideoLoad(bvid: String, cid: Long) {
         // 重置状态
         segments = emptyList()
@@ -217,10 +219,10 @@ class SponsorBlockPlugin : PlayerPluginApi {
         activeSegment = null
         lastPositionMs = 0
         lastAutoSkipTime = 0
-        
+
         //  [修复] 加载配置
         loadConfigSuspend()
-        
+
         // Failures must reach the owning ViewModel so it can retry this video.
         val loadedSegments = SponsorBlockRepository.loadSegments(
             bvid = bvid,
@@ -239,19 +241,19 @@ class SponsorBlockPlugin : PlayerPluginApi {
             "Loaded ${segments.size} SponsorBlock segments for $bvid/$cid, autoSkip=${config.autoSkip}"
         )
     }
-    
+
     // 记录上次播放位置，用于检测回拉
     private var lastPositionMs: Long = 0
     // 记录上次自动跳过的时间，用于防止跳过后的瞬间回拉误判
     private var lastAutoSkipTime: Long = 0
-    
+
     override suspend fun onPositionUpdate(positionMs: Long): SkipAction? {
         if (segments.isEmpty()) return SkipAction.None
-        
+
         // [修复] 检测用户回拉进度条
         // 增加防抖逻辑：如果是自动跳过后的 3 秒内，不进行回拉检测，且不更新 lastPositionMs（防止被异常值污染）
         val isGracePeriod = System.currentTimeMillis() - lastAutoSkipTime < 3000
-        
+
         if (!isGracePeriod) {
             if (positionMs < lastPositionMs - 2000) {  // 回拉超过2秒
                 val nextSkippedIds =
@@ -274,7 +276,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
                 lastPositionMs = positionMs
             }
         }
-        
+
         while (nextSegmentIndex < segments.size) {
             val candidate = segments[nextSegmentIndex]
             if (candidate.UUID in skippedIds || positionMs > candidate.endTimeMs) {
@@ -298,7 +300,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
             activeSegment = null
             return SkipAction.None
         }
-        
+
         when {
             segment.isMuteType -> {
                 skippedIds.add(segment.UUID)
@@ -388,7 +390,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
             lastAutoSkipTime = 0L
         }
     }
-    
+
     /** 手动跳过时调用，标记片段已跳过 */
     fun markAsSkipped(segmentId: String): SponsorSegment? {
         skippedIds.add(segmentId)
@@ -466,7 +468,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
         val index = segments.indexOfFirst { segment -> positionMs <= segment.endTimeMs }
         return if (index >= 0) index else segments.size
     }
-    
+
     override fun onVideoEnd() {
         segments = emptyList()
         progressMarkers = emptyList()
@@ -499,7 +501,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
             config = config.normalized()
         }
     }
-    
+
     @Composable
     override fun SettingsContent() {
         SponsorBlockSettingsContent(modifier = Modifier.padding(16.dp))
@@ -574,7 +576,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
                 showNotificationToast("通知权限未开启")
             }
         }
-        
+
         // 加载配置
         LaunchedEffect(Unit) {
             loadConfigSuspend()
@@ -592,7 +594,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
             insightRecords = SponsorBlockInsightStore.readRecords(context)
             scheduleSponsorBlockDailySummary(context, config.dailySummaryNotificationEnabled)
         }
-        
+
         Column(
             modifier = modifier
                 .fillMaxWidth()
@@ -664,7 +666,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
                         skipToastEnabled = enabled
                         persistConfig(config.copy(skipToastEnabled = enabled))
                     },
-                    iconTint = if (neutralMiuix) preferenceIconColor else MaterialTheme.colorScheme.primary,
+                    iconTint = if (neutralMiuix) preferenceIconColor else AppContentColors.accent(),
                 )
                 AppSwitchPreference(
                     icon = Icons.Outlined.Notifications,
@@ -675,7 +677,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
                         dailySummaryNotificationEnabled = newValue
                         persistConfig(config.copy(dailySummaryNotificationEnabled = newValue))
                     },
-                    iconTint = if (neutralMiuix) preferenceIconColor else MaterialTheme.colorScheme.primary,
+                    iconTint = if (neutralMiuix) preferenceIconColor else AppContentColors.accent(),
                 )
                 if (dailySummaryNotificationEnabled) {
                     AppOutlinedTextField(
@@ -695,7 +697,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
                     title = "发送测试通知",
                     subtitle = "确认通知权限和展示效果，不写入跳过记录",
                     onClick = { notificationPermission.launchWithPermission { sendTestNotification() } },
-                    iconTint = if (neutralMiuix) preferenceIconColor else MaterialTheme.colorScheme.primary,
+                    iconTint = if (neutralMiuix) preferenceIconColor else AppContentColors.accent(),
                 )
             }
 
@@ -848,7 +850,7 @@ class SponsorBlockPlugin : PlayerPluginApi {
                         communityUserInfo?.let { info ->
                             AppText("${info.userName.ifBlank { "匿名用户" }} · 已贡献 ${info.segmentCount} 段 · 节省 ${info.minutesSaved.toInt()} 分钟")
                         }
-                        AppText("此 ID 仅用于当前服务器上的贡献归属。重新生成后，旧贡献不会迁移。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        AppText("此 ID 仅用于当前服务器上的贡献归属。重新生成后，旧贡献不会迁移。", style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
                         AppTextButton(onClick = { showRegenerateUserIdDialog = true }) { AppText("重新生成 ID") }
                     }
                 },
@@ -920,9 +922,9 @@ private fun SponsorBlockSettingsSection(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        AppText(text = title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        AppText(text = title, style = MaterialTheme.typography.titleMedium, color = AppContentColors.primaryText())
         if (subtitle != null) {
-            AppText(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AppText(text = subtitle, style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
         }
         AppSurface(
             modifier = Modifier.fillMaxWidth(),
@@ -949,8 +951,8 @@ private fun SponsorBlockCategorySettingsSection(
                 shape = AppShapes.container(ContainerLevel.Card),
             ) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AppText(setting.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
-                    AppText(setting.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AppText(setting.title, style = MaterialTheme.typography.titleSmall, color = AppContentColors.primaryText())
+                    AppText(setting.description, style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SponsorBlockSegmentBehavior.entries.forEach { behavior ->
                             AppFilterChip(
@@ -1075,12 +1077,12 @@ private fun SponsorBlockSummaryHeader(summary: SponsorBlockInsightSummary) {
                 text = "跳过统计",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
             AppText(
                 text = "记录只保存在本地",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1149,13 +1151,13 @@ private fun SponsorBlockCompactStatItem(
         AppText(
             text = title,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             maxLines = 1
         )
         AppText(
             text = value,
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -1176,7 +1178,7 @@ private fun SponsorBlockPeriodStats(summary: SponsorBlockInsightSummary) {
         AppText(
             text = "频次对比",
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             fontWeight = FontWeight.Medium
         )
         summary.periodStats.forEach { stat ->
@@ -1188,12 +1190,12 @@ private fun SponsorBlockPeriodStats(summary: SponsorBlockInsightSummary) {
                 AppText(
                     text = stat.label,
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
                 AppText(
                     text = "${stat.skipCount} 次 · ${stat.uniqueVideoCount} 个视频",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -1227,13 +1229,13 @@ private fun SponsorBlockFavoriteRow(title: String, value: String) {
         AppText(
             text = title,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         AppText(
             text = value,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
@@ -1255,7 +1257,7 @@ private fun SponsorBlockRecentSection(
             AppText(
                 text = "最近跳过",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 fontWeight = FontWeight.Medium
             )
             summary.recentRecords.forEach { record ->
@@ -1281,13 +1283,13 @@ private fun SponsorBlockStatTile(
         AppText(
             text = title,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         AppText(
             text = value,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
     }
 }
@@ -1305,7 +1307,7 @@ private fun SponsorBlockEmptyInsight() {
         AppText(
             text = "还没有跳过记录",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
     }
 }
@@ -1353,7 +1355,7 @@ private fun SponsorBlockRecordRow(record: SponsorBlockSkipRecord) {
                 text = record.videoTitle.ifBlank { "未知视频" },
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1376,7 +1378,7 @@ private fun SponsorBlockRecordRow(record: SponsorBlockSkipRecord) {
                 AppText(
                     text = record.upName.ifBlank { "未知 UP" },
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1392,7 +1394,7 @@ private fun SponsorBlockRecordRow(record: SponsorBlockSkipRecord) {
             AppText(
                 text = "${record.progressText}  ·  节省 ${record.savedText}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
         }
     }
@@ -1437,12 +1439,12 @@ private fun SponsorBlockDetailLine(
         AppText(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         AppText(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
     }
 }
@@ -1450,12 +1452,12 @@ private fun SponsorBlockDetailLine(
 @Composable
 private fun sponsorBlockBadgeContainerColor(alpha: Float): Color =
     if (isMiuixNonGlassEnabled()) MaterialTheme.colorScheme.surfaceContainerHighest
-    else MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+    else AppContentColors.accent().copy(alpha = alpha)
 
 @Composable
 private fun sponsorBlockBadgeContentColor(): Color =
-    if (isMiuixNonGlassEnabled()) MaterialTheme.colorScheme.onSurface
-    else MaterialTheme.colorScheme.primary
+    if (isMiuixNonGlassEnabled()) AppContentColors.primaryText()
+    else AppContentColors.accent()
 
 @Composable
 private fun SponsorBlockChip(text: String) {

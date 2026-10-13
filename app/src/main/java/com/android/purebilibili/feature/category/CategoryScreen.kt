@@ -1,5 +1,7 @@
 // 文件路径: feature/category/CategoryScreen.kt
 package com.android.purebilibili.feature.category
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -192,7 +194,7 @@ fun CategoryScreen(
             )
         }
     }
-    
+
     //  [修复] 读取首页设置，保持显示模式一致
     val homeSettings by SettingsManager.getHomeSettings(context).collectAsStateWithLifecycle(initialValue = HomeSettings()
     )
@@ -204,7 +206,7 @@ fun CategoryScreen(
     }
     val showOnlineCount by SettingsManager.getShowOnlineCount(context).collectAsStateWithLifecycle(initialValue = false)
     val displayMode = homeSettings.displayMode
-    
+
     // 📐 [Tablet Adaptation] Calculate adaptive columns
     val windowSizeClass = LocalWindowSizeClass.current
     val deviceUiProfile = remember(windowSizeClass.widthSizeClass) {
@@ -221,7 +223,7 @@ fun CategoryScreen(
     } else {
         windowSizeClass.widthDp
     }
-    
+
     val gridColumns = remember(contentWidth, displayMode) {
         if (windowSizeClass.isExpandedScreen) {
             val minColumnWidth = if (displayMode == 1) 240.dp else 180.dp
@@ -232,12 +234,12 @@ fun CategoryScreen(
             if (displayMode == 1) 1 else 2
         }
     }
-    
+
     // 首次加载
     LaunchedEffect(tid) {
         viewModel.loadCategory(tid)
     }
-    
+
     // 滚动到底部时加载更多
     val shouldLoadMore = remember {
         derivedStateOf {
@@ -245,7 +247,7 @@ fun CategoryScreen(
             lastVisibleItem != null && lastVisibleItem.index >= videos.size - 4
         }
     }
-    
+
     LaunchedEffect(shouldLoadMore.value) {
         if (shouldLoadMore.value && !isLoading) {
             viewModel.loadMore()
@@ -253,7 +255,7 @@ fun CategoryScreen(
     }
 
     val categoryBackdrop = rememberLayerBackdrop()
-    
+
     AppScaffold(
         topBar = {
             AppTopBar(
@@ -287,7 +289,7 @@ fun CategoryScreen(
                 AppText(
                     text = error ?: "加载失败",
                     modifier = Modifier.align(Alignment.Center),
-                    color = MaterialTheme.colorScheme.error
+                    color = AppContentColors.error()
                 )
             } else {
                 // Scaffold body already below topBar.
@@ -368,7 +370,7 @@ fun CategoryScreen(
                                 }
                             }
                         }
-                        
+
                         // 加载更多指示器
                         if (isLoading) {
                             item {

@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.onboarding
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -156,7 +158,7 @@ fun OnboardingScreen(
                     AppIcon(
                         imageVector = Icons.Outlined.Policy,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = AppContentColors.accent(),
                         modifier = Modifier.size(28.dp),
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -164,13 +166,13 @@ fun OnboardingScreen(
                         text = "使用须知",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                     )
                 }
                 AppText(
                     text = userAgreementIntroText(),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
 
                 AppHorizontalDivider()
@@ -196,7 +198,7 @@ fun OnboardingScreen(
                                 AppIcon(
                                     imageVector = clause.icon(),
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = AppContentColors.accent(),
                                     modifier = Modifier.size(20.dp),
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -204,7 +206,7 @@ fun OnboardingScreen(
                                     text = clause.title,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    color = AppContentColors.primaryText(),
                                 )
                             }
                         },
@@ -212,7 +214,7 @@ fun OnboardingScreen(
                             AppText(
                                 text = clause.body,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                             )
                         },
                     )
@@ -224,7 +226,7 @@ fun OnboardingScreen(
                     AppIcon(
                         imageVector = Icons.Outlined.Public,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = AppContentColors.accent(),
                         modifier = Modifier.size(22.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -232,13 +234,13 @@ fun OnboardingScreen(
                         text = "官方渠道",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                     )
                 }
                 AppText(
                     text = "更新与交流请仅通过以下官方渠道。",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
 
                 channels.forEach { channel ->
@@ -251,7 +253,7 @@ fun OnboardingScreen(
                             AppIcon(
                                 imageVector = channel.icon(),
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = AppContentColors.accent(),
                                 modifier = Modifier.size(22.dp),
                             )
                         },
@@ -260,7 +262,7 @@ fun OnboardingScreen(
                                 text = channel.label,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = AppContentColors.accent(),
                             )
                         },
                         trailingContent = {

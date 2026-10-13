@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 
@@ -64,7 +66,7 @@ import coil3.request.ImageRequest
 import coil3.size.Size
 import coil3.transform.Transformation
 import coil3.imageLoader
-//  已改用 MaterialTheme.colorScheme.primary
+//  已改用 AppContentColors.accent()
 import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.core.ui.LocalDetailedCommentTimeEnabled
 import com.android.purebilibili.core.theme.calculateContrastRatio
@@ -1222,13 +1224,13 @@ fun ReplyHeader(count: Int) {
         AppText(
             text = "评论",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
         Spacer(modifier = Modifier.width(8.dp))
         AppText(
             text = FormatUtils.formatStat(count.toLong()),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
     }
 }
@@ -1865,7 +1867,7 @@ fun ReplyItemView(
                             AppIcon(
                                 imageVector = Icons.Filled.ThumbDown,
                                 contentDescription = if (isHated) "取消点踩" else "点踩评论",
-                                tint = if (isHated) MaterialTheme.colorScheme.error else appearance.actionTint,
+                                tint = if (isHated) AppContentColors.error() else appearance.actionTint,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -2073,7 +2075,7 @@ fun ReplyItemView(
                 modifier = Modifier.size(18.dp)
             )
         }
-        
+
         AppHorizontalDivider(
             modifier = Modifier.padding(start = layoutPolicy.dividerStartPaddingDp.dp),
             thickness = 0.5.dp,
@@ -2090,7 +2092,7 @@ fun ReplyItemView(
 internal fun ReplyMessageText(
     text: String,
     fontSize: TextUnit,
-    color: Color = MaterialTheme.colorScheme.onSurface,
+    color: Color = AppContentColors.primaryText(),
     emoteMap: Map<String, String>,
     content: ReplyContent? = null,
     maxLines: Int = Int.MAX_VALUE,
@@ -2165,7 +2167,7 @@ private fun ReplyVideoReferenceText(
     prefix: AnnotatedString? = null,
     copyText: String = text
 ) {
-    val primaryColor = MaterialTheme.colorScheme.primary
+    val primaryColor = AppContentColors.accent()
     val annotatedString = remember(text, url, prefix, primaryColor) {
         buildAnnotatedString {
             if (prefix != null) {
@@ -2259,7 +2261,7 @@ private fun ReplyVideoReferenceText(
 fun RichCommentText(
     text: String,
     fontSize: TextUnit,
-    color: Color = MaterialTheme.colorScheme.onSurface,
+    color: Color = AppContentColors.primaryText(),
     emoteMap: Map<String, String>,
     content: ReplyContent? = null,
     maxLines: Int = Int.MAX_VALUE,
@@ -2274,9 +2276,9 @@ fun RichCommentText(
     onPlainTextClick: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val timestampColor = MaterialTheme.colorScheme.primary
-    val urlColor = MaterialTheme.colorScheme.primary
-    
+    val timestampColor = AppContentColors.accent()
+    val urlColor = AppContentColors.accent()
+
     val renderableEmoteKeys = remember(text, emoteMap) {
         collectRenderableEmoteKeys(text, emoteMap)
     }
@@ -2296,7 +2298,7 @@ fun RichCommentText(
         }
     }
 
-    
+
     val annotatedString = remember(
         text,
         prefix,
@@ -2395,7 +2397,7 @@ fun RichCommentText(
             put(COMMENT_INLINE_VERIFY_ORGANIZATION_BADGE_ID, organizationVerifyInlineContent)
         }
     }
-    
+
     val hasInteractiveAnnotations =
         onTimestampClick != null ||
             onUrlClick != null ||
@@ -2535,7 +2537,7 @@ private fun rememberInlineOfficialVerifyBadgeContent(
 fun EmojiText(
     text: String,
     fontSize: TextUnit,
-    color: Color = MaterialTheme.colorScheme.onSurface,
+    color: Color = AppContentColors.primaryText(),
     emoteMap: Map<String, String>
 ) {
     RichCommentText(
@@ -2703,7 +2705,7 @@ internal fun FanGroupDecorationBadge(
             val textColor = resolveFanGroupLabelTextColor(
                 fanColorHex = visual.fanColorHex,
                 backgroundColor = MaterialTheme.colorScheme.surface,
-                fallbackColor = MaterialTheme.colorScheme.onSurface
+                fallbackColor = AppContentColors.primaryText()
             )
             Column(
                 horizontalAlignment = Alignment.End,
@@ -2789,7 +2791,7 @@ internal fun ReplySpecialLabelChip(text: String) {
     AppText(
         text = text,
         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-        color = MaterialTheme.colorScheme.primary
+        color = AppContentColors.accent()
     )
 }
 
@@ -2936,7 +2938,7 @@ private fun ReplyActionSheetItem(
     AppText(
         text = label,
         style = MaterialTheme.typography.bodyLarge,
-        color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+        color = if (isDestructive) AppContentColors.error() else AppContentColors.primaryText(),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
@@ -2962,7 +2964,7 @@ fun TopTag(modifier: Modifier = Modifier) {
             .clip(AppShapes.container(ContainerLevel.Tag))
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.primary,
+                color = AppContentColors.accent(),
                 shape = AppShapes.container(ContainerLevel.Tag)
             )
             .padding(horizontal = 3.dp, vertical = 2.dp),
@@ -2980,7 +2982,7 @@ fun TopTag(modifier: Modifier = Modifier) {
                 ),
             ),
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
+            color = AppContentColors.accent(),
             maxLines = 1,
             tapToCopyEnabled = false,
         )
@@ -3139,11 +3141,11 @@ fun CommentPictures(
     val thumbnailDecodeSize = remember {
         resolveImageDecodeSize(ImageDecodeTarget.COMMENT_THUMBNAIL)
     }
-    
+
     //  GIF 图片加载器
     val gifImageLoader = context.imageLoader
-    
-    
+
+
     // 根据图片数量选择不同的布局
     when (pictures.size) {
         1 -> {
@@ -3153,7 +3155,7 @@ fun CommentPictures(
             val aspectRatio = resolveCommentSinglePictureAspectRatio(pic)
             var imageRect by remember { mutableStateOf<Rect?>(null) }
             val sourceHidden = isImagePreviewSourceHidden(imageRect)
-            
+
             Box(
                 modifier = Modifier
                     .widthIn(max = 220.dp)  //  [优化] 增大最大宽度
@@ -3199,7 +3201,7 @@ fun CommentPictures(
             val displayItems = pictures.take(9)  //  [优化] 最多显示9张
             // 列数规则下沉 core-data 后委托共享实现
             val columns = resolveCommentPictureGridColumns(displayItems.size)
-            
+
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {  //  [优化] 增加间距 4dp → 6dp
                 displayItems.chunked(columns).forEachIndexed { rowIndex, row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -3207,7 +3209,7 @@ fun CommentPictures(
                             val globalIndex = rowIndex * columns + colIndex
                             var imageRect by remember { mutableStateOf<Rect?>(null) }
                             val sourceHidden = isImagePreviewSourceHidden(imageRect)
-                            
+
                             Box(
                                 modifier = Modifier
                                     .size(85.dp)  //  [优化] 增大尺寸 80dp → 85dp
@@ -3245,7 +3247,7 @@ fun CommentPictures(
                                     imageLoader = gifImageLoader,
                                     decodeSize = thumbnailDecodeSize,
                                 )
-                                
+
                                 //  [新增] 最后一张图片显示多图角标（如 +3）
                                 if (globalIndex == displayItems.size - 1 && totalCount > 9) {
                                     Box(

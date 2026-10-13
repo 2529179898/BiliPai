@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.login
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -118,7 +120,7 @@ fun BiliPaiTransferScanner(
     if (!granted) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
             androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                androidx.compose.material3.Text("需要摄像头权限才能扫描二维码", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                androidx.compose.material3.Text("需要摄像头权限才能扫描二维码", color = AppContentColors.secondaryText())
                 AppTextButton(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
                     androidx.compose.material3.Text("允许使用摄像头")
                 }

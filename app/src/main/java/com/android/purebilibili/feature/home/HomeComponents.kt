@@ -2,6 +2,8 @@
 // 此文件包含对话框和错误状态展示
 // UserState 定义在 HomeViewModel.kt 中
 package com.android.purebilibili.feature.home
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.resolveFilledButtonContainerColor
 import com.android.purebilibili.core.ui.resolveFilledButtonContentColor
 import com.android.purebilibili.core.ui.components.AppText
@@ -39,8 +41,11 @@ fun WelcomeDialog(githubUrl: String, onConfirm: () -> Unit) {
         text = {
             Column {
                 AppText("本应用仅供学习使用。")
-                AppTextButton(onClick = { uriHandler.openUri(githubUrl) }) {
-                    AppText("开源地址: $githubUrl", fontSize = MaterialTheme.typography.labelSmall.fontSize, color = MaterialTheme.colorScheme.primary)
+                AppTextButton(
+                    onClick = { uriHandler.openUri(githubUrl) },
+                    colors = com.android.purebilibili.core.ui.components.AppTextButtonDefaults.primaryColors(),
+                ) {
+                    AppText("开源地址: $githubUrl", fontSize = MaterialTheme.typography.labelSmall.fontSize)
                 }
             }
         },
@@ -64,7 +69,7 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            AppText(text = message, color = MaterialTheme.colorScheme.error)
+            AppText(text = message, color = AppContentColors.error())
             Spacer(modifier = Modifier.height(AppSpacingTokens.Large))
             AppButton(
                 onClick = onRetry,

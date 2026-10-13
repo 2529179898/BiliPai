@@ -1,6 +1,8 @@
 // 文件路径: feature/video/ui/overlay/LandscapeRightSidebar.kt
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -41,7 +43,7 @@ import com.android.purebilibili.feature.video.ui.feedback.likeBurstAnchor
 
 /**
  *  横屏右侧操作栏
- * 
+ *
  * 仿官方 B 站设计，竖向排列的操作按钮：
  * - 分享
  * - 收藏（带数字）
@@ -105,54 +107,54 @@ fun LandscapeRightSidebar(
                 isHighlighted = currentSpeed != 1.0f,
                 onClick = onSpeedClick
             )
-            
+
             //  [官方适配] 比例按钮
             SidebarTextButton(
                 text = currentRatio,
                 isHighlighted = currentRatio != "适应",
                 onClick = onRatioClick
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // 分享按钮
             SidebarActionButton(
                 icon = shareIcon,
                 label = "分享",
                 onClick = onShareClick
             )
-            
+
             // 收藏按钮
             Box(modifier = Modifier.favoriteActionAnchor()) {
                 SidebarActionButton(
                     icon = favoriteIcon,
                     label = FormatUtils.formatStat(favoriteCount),
                     isActive = isFavorited,
-                    activeColor = Color(0xFFFFD700), // 金色
+                    activeColor = AppContentColors.accent(),
                     onClick = onFavoriteClick
                 )
             }
-            
+
             // 投币按钮
             SidebarActionButton(
                 icon = coinIcon,
                 label = if (hasCoin) "已投" else "投币",
                 isActive = hasCoin,
-                activeColor = Color(0xFFFFCA28), // 亮金色
+                activeColor = AppContentColors.accent(),
                 onClick = onCoinClick
             )
-            
+
             // 点赞按钮
             Box(modifier = Modifier.likeBurstAnchor()) {
                 SidebarActionButton(
                     icon = if (isLiked) likeFilledIcon else likeIcon,
                     label = FormatUtils.formatStat(likeCount),
                     isActive = isLiked,
-                    activeColor = MaterialTheme.colorScheme.primary,
+                    activeColor = AppContentColors.accent(),
                     onClick = onLikeClick
                 )
             }
-            
+
             // 更多按钮
             SidebarActionButton(
                 icon = moreIcon,
@@ -179,7 +181,7 @@ private fun SidebarTextButton(
     ) {
         AppText(
             text = text,
-            color = if (isHighlighted) MaterialTheme.colorScheme.primary else Color.White,
+            color = if (isHighlighted) AppContentColors.accent() else Color.White,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Medium,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
@@ -200,13 +202,13 @@ private fun SidebarActionButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    
+
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.85f else 1f,
         animationSpec = spring(dampingRatio = 0.6f),
         label = "scale"
     )
-    
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -229,18 +231,18 @@ private fun SidebarActionButton(
                 AppIcon(
                     imageVector = icon,
                     contentDescription = label,
-                    tint = if (isActive) (if (activeColor == Color.Unspecified) MaterialTheme.colorScheme.primary else activeColor) else Color.White,
+                    tint = if (isActive) (if (activeColor == Color.Unspecified) AppContentColors.accent() else activeColor) else Color.White,
                     modifier = Modifier.size(22.dp)
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(4.dp))
-        
+
         // 标签文字
         AppText(
             text = label,
-            color = if (isActive) (if (activeColor == Color.Unspecified) MaterialTheme.colorScheme.primary else activeColor) else Color.White.copy(alpha = 0.9f),
+            color = if (isActive) (if (activeColor == Color.Unspecified) AppContentColors.accent() else activeColor) else Color.White.copy(alpha = 0.9f),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
             maxLines = 1

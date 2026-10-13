@@ -1,6 +1,8 @@
 // 文件路径: feature/watchlater/WatchLaterScreen.kt
 package com.android.purebilibili.feature.watchlater
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import com.android.purebilibili.core.ui.components.AppFloatingToolbar
@@ -234,7 +236,7 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
     )
     private val tabCache = mutableMapOf<WatchLaterFilter, WatchLaterUiState>()
     private var loadGeneration = 0L
-    
+
     init {
         observeWatchLaterRefresh()
     }
@@ -247,7 +249,7 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-    
+
     fun loadData(showLoading: Boolean = true) = loadPage(reset = true, showLoading = showLoading)
 
     fun loadMore() {
@@ -341,7 +343,7 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
             )
         }
     }
-    
+
     // [新增] 开始消散动画
     fun startVideoDissolve(bvid: String) {
         _uiState.value = _uiState.value.copy(
@@ -959,7 +961,7 @@ fun WatchLaterScreen(
         ) {
             AppText(
                 "移除",
-                color = MaterialTheme.colorScheme.error,
+                color = AppContentColors.error(),
             )
         }
     }
@@ -1101,7 +1103,6 @@ fun WatchLaterScreen(
                                     AppIcon(
                                         imageVector = Icons.Filled.MoreVert,
                                         contentDescription = "更多管理",
-                                        tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
@@ -1109,7 +1110,7 @@ fun WatchLaterScreen(
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        titleContentColor = AppContentColors.primaryText(),
                         scrolledContainerColor = Color.Transparent
                     ),
                     scrollBehavior = scrollBehavior
@@ -1244,7 +1245,7 @@ fun WatchLaterScreen(
                     ) {
                         AppText(
                             text = state.error ?: "未知错误",
-                            color = MaterialTheme.colorScheme.error
+                            color = AppContentColors.error()
                         )
                         Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
                         AppOutlinedButton(onClick = { viewModel.loadData() }) {
@@ -1261,12 +1262,12 @@ fun WatchLaterScreen(
                             rememberAppWatchLaterIcon(),
                             contentDescription = null,
                             modifier = Modifier.size(AppSpacingTokens.TripleExtraLarge + AppSpacingTokens.Large),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            tint = AppContentColors.secondaryText().copy(alpha = 0.5f)
                         )
                         Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
                         AppText(
                             text = if (searchQuery.isBlank()) "稍后再看列表为空" else "未找到相关视频",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }
@@ -1676,7 +1677,7 @@ private fun WatchLaterVideoCard(
                 fontWeight = FontWeight.Medium,
                 maxLines = videoCardTitleMaxLines(),
                 overflow = videoCardTitleOverflow(),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
             )
         },
         overlineContent = item.contentType.takeIf(String::isNotBlank)?.let { badges ->
@@ -1684,7 +1685,7 @@ private fun WatchLaterVideoCard(
                 AppText(
                     badges,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     overflow = TextOverflow.Visible,
                 )
             }
@@ -1701,7 +1702,7 @@ private fun WatchLaterVideoCard(
                 AppText(
                     text = item.owner.name,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     overflow = TextOverflow.Visible,
                 )
                 HorizontalVideoStatRow(
@@ -1730,7 +1731,7 @@ private fun WatchLaterVideoCard(
                 AppLinearProgressIndicator(
                     progress = { progressState.progressFraction },
                     modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     trackColor = Color.Transparent,
                 )
             }

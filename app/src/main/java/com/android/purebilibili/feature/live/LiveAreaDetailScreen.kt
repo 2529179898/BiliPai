@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.pager.rememberPagerState
@@ -226,7 +228,7 @@ private fun LiveAreaRoomPage(
                 }
                 state.rooms.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
                     Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        AppText(state.error ?: "暂无该分区直播", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        AppText(state.error ?: "暂无该分区直播", color = AppContentColors.secondaryText())
                         AppTextButton(onClick = { load(true) }) { AppText("重新加载") }
                     }
                 }

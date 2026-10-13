@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.message.feed
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -222,7 +224,7 @@ fun SystemNoticeScreen(
                                         ClickableText(
                                             text = annotatedContent,
                                             style = MaterialTheme.typography.bodyMedium.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = AppContentColors.secondaryText()
                                             ),
                                             onClick = { offset ->
                                                 annotatedContent
@@ -237,7 +239,7 @@ fun SystemNoticeScreen(
                                             modifier = Modifier
                                                 .align(Alignment.End),
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = AppContentColors.secondaryText()
                                         )
                                     }
                                 }
@@ -262,7 +264,7 @@ fun SystemNoticeScreen(
 
 @Composable
 private fun rememberSystemNoticeAnnotatedContent(content: String): AnnotatedString {
-    val primaryColor = MaterialTheme.colorScheme.primary
+    val primaryColor = AppContentColors.accent()
     return remember(content, primaryColor) {
         buildAnnotatedString {
             parseSystemNoticeContentSegments(content).forEach { segment ->

@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.share
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -71,9 +73,9 @@ internal fun VideoShareToDynamicDialog(
                     isError = error != null,
                     supportingText = {
                         AppText(error ?: "${text.length}/2000", color = if (error != null) {
-                            MaterialTheme.colorScheme.error
+                            AppContentColors.error()
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            AppContentColors.secondaryText()
                         })
                     },
                 )

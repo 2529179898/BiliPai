@@ -109,7 +109,7 @@ class DynamicCommentStructureTest {
         assertTrue(inputComposer.contains("containerColor = Color.Transparent"))
         assertTrue(inputComposer.contains("fieldTextColor.copy(alpha = 0.82f)"))
         assertTrue(inputComposer.contains("focusedTextColor = fieldTextColor"))
-        assertTrue(inputComposer.contains("disabledContentColor = MaterialTheme.colorScheme.onSurface.copy("))
+        assertTrue(inputComposer.contains("disabledContentColor = AppContentColors.primaryText().copy("))
         assertTrue(inputComposer.contains("AppSpacingTokens.TripleExtraLarge + AppSpacingTokens.Small"))
     }
 

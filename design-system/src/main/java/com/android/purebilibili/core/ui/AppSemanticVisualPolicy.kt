@@ -17,9 +17,9 @@ enum class AppSemanticIconFamily {
 
 /**
  * 全局图标呈现样式(用户可切换的两套方案)。
- * - [AUTO]:跟随运行时主题 —— MIUIX 保持现状(设置图标多彩色),仅 MATERIAL3 解析为官方推荐。
- * - [THEME_CONTAINER]:主题色容器 —— 图标置于主题色(secondaryContainer)
- *   圆角容器内,图标用 onSecondaryContainer,对齐官方 Settings 容器图标规范。
+ * - [AUTO]:跟随运行时主题 —— MIUIX 使用中性图标和原生形状，MATERIAL3 解析为官方推荐。
+ * - [THEME_CONTAINER]:主题色容器 —— 图标置于主题色(primaryContainer)
+ *   圆角容器内,图标用 onPrimaryContainer,对齐官方 Settings 容器图标规范。
  * - [MD3_STANDARD]:MD3 官方推荐 —— onSurfaceVariant 单色图标、无容器。
  */
 enum class AppIconStyle {
@@ -29,7 +29,7 @@ enum class AppIconStyle {
 }
 
 /**
- * AUTO 表示"保持现状":MIUIX 预设不引入容器化与单色化(设置图标保持多彩色等既有外观),
+ * AUTO 跟随原生主题的图标形状；两套主题的普通设置图标均使用中性色，
  * 仅 MATERIAL3 预设解析为官方推荐样式。
  */
 fun resolveAppIconStyle(

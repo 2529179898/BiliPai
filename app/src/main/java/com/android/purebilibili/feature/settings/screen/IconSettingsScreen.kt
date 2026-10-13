@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.settings
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -126,7 +128,7 @@ fun IconSettingsScreen(
         .collectAsStateWithLifecycle(initialValue = AppIconAppearance.FOLLOW_SYSTEM)
     val screenTitle = stringResource(R.string.icon_settings_title)
     val backLabel = stringResource(R.string.common_back)
-    
+
     val iconGroups = getIconGroups()
     val bottomContentPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
@@ -170,7 +172,7 @@ fun IconSettingsContent(
         navigationBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
         extraBottomPadding = 24.dp
     )
-    
+
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 100.dp),
         contentPadding = settingsScrollContentPadding(
@@ -203,7 +205,7 @@ fun IconSettingsContent(
                     AppText(
                         text = "图标切换可能需要几秒钟生效，系统可能会短暂卡顿。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
             }
@@ -235,14 +237,14 @@ fun IconSettingsContent(
                     AppText(
                         text = group.title,
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                         modifier = Modifier.padding(top = 16.dp, bottom = 8.dp, start = 4.dp)
                     )
                 }
 
                 items(group.icons, key = { it.key }) { option ->
                     val isSelected = state.appIcon == option.key
-                    
+
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
@@ -276,12 +278,12 @@ fun IconSettingsContent(
                                     .then(
                                         if (isSelected) Modifier.border(
                                             width = 2.dp,
-                                            color = MaterialTheme.colorScheme.primary,
+                                            color = AppContentColors.accent(),
                                             shape = iconShape
                                         ) else Modifier
                                     )
                             )
-                            
+
                             // 选中标记 (右下角悬浮)
                             androidx.compose.animation.AnimatedVisibility(
                                 visible = isSelected,
@@ -294,7 +296,7 @@ fun IconSettingsContent(
                                 AppIcon(
                                     com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_check_circle_fill_24),
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = AppContentColors.accent(),
                                     modifier = Modifier
                                         .size(24.dp)
                                         .background(AppSurfaceTokens.cardContainer(), androidx.compose.foundation.shape.CircleShape)
@@ -302,15 +304,15 @@ fun IconSettingsContent(
                                 )
                             }
                         }
-                        
+
                         Spacer(modifier = Modifier.height(10.dp))
-                        
+
                         AppText(
                             text = option.name,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary 
-                                    else MaterialTheme.colorScheme.onSurface,
+                            color = if (isSelected) AppContentColors.accent()
+                                    else AppContentColors.primaryText(),
                             textAlign = TextAlign.Center,
                             maxLines = 1
                         )

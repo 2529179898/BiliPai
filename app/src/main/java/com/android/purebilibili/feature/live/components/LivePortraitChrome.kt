@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -802,14 +804,14 @@ internal fun LivePortraitMoreSheet(
             item {
                 AppText(
                     text = "直播操作",
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = AppSpacingTokens.Small),
                 )
                 AppText(
                     text = "直播播放与互动设置",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -822,13 +824,13 @@ internal fun LivePortraitMoreSheet(
                     enabled = action.enabled,
                     shape = AppShapes.container(ContainerLevel.Card),
                     color = AppSurfaceTokens.cardContainer(),
-                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    contentColor = AppContentColors.primaryText(),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     AppText(
                         text = action.label,
-                        color = if (action.enabled) MaterialTheme.colorScheme.onSurface
-                            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                        color = if (action.enabled) AppContentColors.primaryText()
+                            else AppContentColors.primaryText().copy(alpha = 0.38f),
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier
                             .heightIn(min = 40.dp)

@@ -81,12 +81,12 @@ fun UserAvatarCornerMarkBadge(
                         .fillMaxSize()
                         .padding(1.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(AppContentColors.accent()),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = "大",
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = AppContentColors.onAccent(),
                         fontSize = (badgeSize.value * 0.58f).sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
@@ -102,7 +102,7 @@ fun UserAvatarCornerMarkBadge(
                     tint = if (mark == UserAvatarCornerMark.Personal) {
                         MaterialTheme.colorScheme.tertiary
                     } else {
-                        MaterialTheme.colorScheme.primary
+                        AppContentColors.accent()
                     },
                     modifier = Modifier.fillMaxSize(),
                 )

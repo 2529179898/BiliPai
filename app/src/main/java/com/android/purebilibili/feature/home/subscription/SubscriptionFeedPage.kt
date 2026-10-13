@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.subscription
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.AnimatedContent
@@ -751,7 +753,7 @@ private fun SubscriptionFeedCard(
                         .filter { it.isNotBlank() }
                         .joinToString(" · "),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1224,7 +1226,7 @@ private fun SubscriptionArticleScreen(
                                             text = listOf(item.sourceTitle, item.author, formatFeedAge(item.publishedEpochSec))
                                                 .filter { it.isNotBlank() }
                                                 .joinToString(" · "),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = AppContentColors.secondaryText(),
                                         )
                                         if (loadingBody) {
                                             FeedBodySkeleton()
@@ -1414,7 +1416,7 @@ private fun FeedInlineText(
     fontScale: Float = 1f,
     onLinkClick: ((String) -> Unit)? = null,
 ) {
-    val linkColor = MaterialTheme.colorScheme.primary
+    val linkColor = AppContentColors.accent()
     val linkInteractionListener = remember(onLinkClick) {
         onLinkClick?.let { handler ->
             androidx.compose.ui.text.LinkInteractionListener { link ->
@@ -1454,7 +1456,7 @@ private fun FeedInlineText(
         text = annotated,
         modifier = modifier,
         style = scaledStyle.copy(lineHeight = scaledStyle.fontSize * 1.55f),
-        color = MaterialTheme.colorScheme.onSurface,
+        color = AppContentColors.primaryText(),
     )
 }
 

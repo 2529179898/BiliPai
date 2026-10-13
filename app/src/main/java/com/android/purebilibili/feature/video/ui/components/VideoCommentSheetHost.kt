@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -999,7 +1001,7 @@ internal fun VideoCommentMainList(
                             ) {
                                 AppText(
                                     text = repliesError,
-                                    color = MaterialTheme.colorScheme.error,
+                                    color = AppContentColors.error(),
                                     style = MaterialTheme.typography.bodySmall,
                                     modifier = Modifier.weight(1f),
                                 )

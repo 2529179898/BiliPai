@@ -1,5 +1,9 @@
 package com.android.purebilibili.feature.audio.bgm
 
+import com.android.purebilibili.core.ui.AppSurfaceTokens
+
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -157,7 +161,7 @@ private fun BgmDetailContent(
                     if (detail.flowAttr?.noShare != true) AppTextButton(onClick = onShare, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { AppText("分享") }
                     AppTextButton(onClick = onWish, enabled = !state.updatingWish && !state.loading, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
                         AppText("${if (detail.wishListen) "已点赞" else "点赞"} ${FormatUtils.formatStat(detail.wishCount.toLong())}",
-                            color = if (detail.wishListen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                            color = if (detail.wishListen) AppContentColors.accent() else AppContentColors.primaryText())
                     }
                 }
             }
@@ -294,7 +298,7 @@ private fun BgmInfoCard(
                 ).joinToString("\n"), style = MaterialTheme.typography.bodyMedium)
             }
             val achievements = (detail.achievement + listOf(detail.musicRank, detail.recreationRank)).filter { it.isNotBlank() }.distinct()
-            if (achievements.isNotEmpty()) AppText(achievements.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            if (achievements.isNotEmpty()) AppText(achievements.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = AppContentColors.accent())
             Row {
                 AppTextButton(onClick = { copy(detail.musicTitle) }, modifier = Modifier.heightIn(min = 48.dp)) { AppText("复制歌名") }
                 if (detail.mvCid > 0 && (detail.mvBvid.isNotBlank() || detail.mvAid > 0)) AppTextButton(onClick = { onVideoClick(detail.mvBvid.ifBlank { "av${detail.mvAid}" }, detail.mvCid, detail.mvCover) }, modifier = Modifier.heightIn(min = 48.dp)) { AppText("看 MV") }

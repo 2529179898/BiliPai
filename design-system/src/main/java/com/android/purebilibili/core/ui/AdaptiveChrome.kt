@@ -258,7 +258,10 @@ fun AdaptiveTopAppBar(
     largeTitle: String = title,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
-    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(),
+    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(
+        navigationIconContentColor = AppSurfaceTokens.onSurface(),
+        actionIconContentColor = AppSurfaceTokens.onSurface(),
+    ),
     style: AdaptiveTopAppBarStyle = AdaptiveTopAppBarStyle.SMALL,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     collapseBehavior: AppTopBarCollapseBehavior? = null,
@@ -271,6 +274,8 @@ fun AdaptiveTopAppBar(
             navigationIcon = {
                 CompositionLocalProvider(
                     com.android.purebilibili.core.ui.components.LocalAppTopBarIconDecorationEnabled provides true,
+                    com.android.purebilibili.core.ui.components.LocalAppActionContentColor provides LocalContentColor.current,
+                    top.yukonga.miuix.kmp.theme.LocalContentColor provides LocalContentColor.current,
                 ) {
                     AppChromeOverflowSlot {
                         Box(Modifier.padding(end = 6.dp)) { navigationIcon() }
@@ -281,6 +286,8 @@ fun AdaptiveTopAppBar(
                 AppChromeOverflowSlot {
                     CompositionLocalProvider(
                         com.android.purebilibili.core.ui.components.LocalAppTopBarIconDecorationEnabled provides true,
+                        com.android.purebilibili.core.ui.components.LocalAppActionContentColor provides LocalContentColor.current,
+                        top.yukonga.miuix.kmp.theme.LocalContentColor provides LocalContentColor.current,
                     ) { Row(verticalAlignment = Alignment.CenterVertically, content = actions) }
                 }
             },
@@ -301,7 +308,10 @@ private fun NativeAdaptiveTopAppBar(
     largeTitle: String = title,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
-    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(),
+    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(
+        navigationIconContentColor = AppSurfaceTokens.onSurface(),
+        actionIconContentColor = AppSurfaceTokens.onSurface(),
+    ),
     style: AdaptiveTopAppBarStyle = AdaptiveTopAppBarStyle.SMALL,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     collapseBehavior: AppTopBarCollapseBehavior? = null,
@@ -562,7 +572,10 @@ fun AppTopBar(
     largeTitle: String = title,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
-    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(),
+    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(
+        navigationIconContentColor = AppSurfaceTokens.onSurface(),
+        actionIconContentColor = AppSurfaceTokens.onSurface(),
+    ),
     style: AppTopBarStyle = AppTopBarStyle.SMALL,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     collapseBehavior: AppTopBarCollapseBehavior? = null,

@@ -1,5 +1,7 @@
 // 文件路径: feature/dynamic/components/DynamicTopBar.kt
 package com.android.purebilibili.feature.dynamic.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppThemeAdaptiveTabRow
 import com.android.purebilibili.core.ui.components.AppSegmentOption
 
@@ -280,7 +282,7 @@ fun DynamicTopBarWithTabs(
                                         imageVector = if (displayMode.isHorizontalUserList())
                                             rememberAppGridLayoutIcon() else rememberAppListLayoutIcon(),
                                         contentDescription = "关注列表位置",
-                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        tint = AppContentColors.primaryText(),
                                         modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro)
                                     )
                                 }
@@ -327,7 +329,7 @@ fun DynamicTopBarWithTabs(
                                                     contentDescription = "发布动态",
                                                     tint = publishSkinDecoration?.iconTint
                                                         ?.takeUnless { it == Color.Unspecified }
-                                                        ?: MaterialTheme.colorScheme.onSurface,
+                                                        ?: AppContentColors.primaryText(),
                                                     modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro)
                                                 )
                                             }
@@ -351,7 +353,7 @@ fun DynamicTopBarWithTabs(
                                 } else {
                                     "折叠顶部操作"
                                 },
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = AppContentColors.primaryText(),
                                 modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro),
                             )
                         }

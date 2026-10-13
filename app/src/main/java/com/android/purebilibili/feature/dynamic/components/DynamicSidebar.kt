@@ -1,6 +1,8 @@
 // 文件路径: feature/dynamic/components/DynamicSidebar.kt
 package com.android.purebilibili.feature.dynamic.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 
 import com.android.purebilibili.core.ui.AppChromeSizeTokens
@@ -173,10 +175,10 @@ fun DynamicSidebar(
         targetValue = resolveDynamicSidebarWidth(isExpanded).value,
         label = "sidebarWidth"
     )
-    
+
     // 模糊状态
     val sidebarHazeState = rememberRecoverableHazeState()
-    
+
     // 读取模糊强度设置
     val blurIntensity = currentUnifiedBlurIntensity()
     val backgroundAlpha = BlurStyles.getBackgroundAlpha(blurIntensity)
@@ -208,7 +210,7 @@ fun DynamicSidebar(
             addAll(restUsers)
         }
     }
-    
+
     var initialEntranceActive by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(400)
@@ -298,15 +300,15 @@ fun DynamicSidebar(
                                     .size(AppSpacingTokens.DoubleExtraLarge + AppSpacingTokens.Small)
                                     .clip(CircleShape)
                                     .background(
-                                        if (showHiddenUsers) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                                        if (showHiddenUsers) AppContentColors.accent().copy(alpha = 0.2f)
+                                        else AppContentColors.primaryText().copy(alpha = 0.05f)
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 AppIcon(
                                     imageVector = if (showHiddenUsers) rememberAppVisibilityOnIcon() else rememberAppVisibilityOffIcon(),
                                     contentDescription = if (showHiddenUsers) "隐藏已隐藏用户" else "显示隐藏用户",
-                                    tint = if (showHiddenUsers) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = if (showHiddenUsers) AppContentColors.accent() else AppContentColors.secondaryText(),
                                     modifier = Modifier.size(AppSpacingTokens.Large + AppSpacingTokens.ExtraSmall)
                                 )
                             }
@@ -337,7 +339,6 @@ fun DynamicSidebar(
                                         stepSize = 0.5.sp,
                                     ),
                                     fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                                    color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.SemiBold,
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
@@ -346,7 +347,6 @@ fun DynamicSidebar(
                                 AppIcon(
                                     imageVector = if (showLiveUsers) rememberAppChevronUpIcon() else rememberAppChevronDownIcon(),
                                     contentDescription = if (showLiveUsers) "收起直播" else "展开直播",
-                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(AppSpacingTokens.Medium)
                                 )
                             }
@@ -378,7 +378,7 @@ fun DynamicSidebar(
                     )
                 }
             }
-            
+
             // 顶部返回按钮区域 - 应用模糊效果
             Box(
                 modifier = Modifier
@@ -403,7 +403,7 @@ fun DynamicSidebar(
                             AppIcon(
                                 imageVector = rememberAppBackIcon(),
                                 contentDescription = "返回",
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = AppContentColors.primaryText(),
                                 modifier = Modifier.size(AppSpacingTokens.ExtraLarge)
                             )
                         }
@@ -411,7 +411,7 @@ fun DynamicSidebar(
                 }
             }
         }
-        
+
         // 右侧边框线 - 极细
         Box(
             modifier = Modifier
@@ -441,24 +441,24 @@ private fun CascadeSidebarItem(
 
     var visible by remember { mutableStateOf(false) }
     val delay = 30 * index  // 每个项目延迟 30ms
-    
+
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(delay.toLong())
         visible = true
     }
-    
+
     val offsetY by animateFloatAsState(
         targetValue = if (visible) 0f else 20f,
         animationSpec = AppMotionTokens.emphasizedSpec(),
         label = "cascadeOffsetY"
     )
-    
+
     val alpha by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = AppMotionTokens.standardSpec(),
         label = "cascadeAlpha"
     )
-    
+
     Box(
         modifier = Modifier
             .graphicsLayer {
@@ -502,10 +502,10 @@ fun SidebarItem(
                 text = icon,
                 fontSize = MaterialTheme.typography.labelMedium.fontSize,
                 fontWeight = FontWeight.Bold,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppContentColors.secondaryText()
             )
         }
-        
+
         if (label != null) {
             Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
             AppText(
@@ -513,7 +513,7 @@ fun SidebarItem(
                 fontSize = MaterialTheme.typography.labelSmall.fontSize,
                 // The label sits outside the selected icon container, so it uses the
                 // accent role rather than the container's paired content role.
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (isSelected) AppContentColors.accent() else AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -573,7 +573,7 @@ fun SidebarUserItem(
                         .size(AppSpacingTokens.DoubleExtraLarge + AppSpacingTokens.Medium)
                         .then(
                             when {
-                                isSelected -> Modifier.border(AppSpacingTokens.Micro, MaterialTheme.colorScheme.primary, CircleShape)
+                                isSelected -> Modifier.border(AppSpacingTokens.Micro, AppContentColors.accent(), CircleShape)
                                 else -> Modifier.border(AppSpacingTokens.Micro / 2, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), CircleShape)
                             }
                         )
@@ -598,7 +598,7 @@ fun SidebarUserItem(
                             .align(Alignment.TopEnd)
                             .size(AppSpacingTokens.Small)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
+                            .background(AppContentColors.accent())
                     )
                 }
             }
@@ -613,7 +613,7 @@ fun SidebarUserItem(
                     text = displayName,
                     fontSize = MaterialTheme.typography.labelSmall.fontSize,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface, // 自适应文字
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else AppContentColors.primaryText(), // 自适应文字
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(horizontal = AppSpacingTokens.Micro)
@@ -627,14 +627,14 @@ fun SidebarUserItem(
             modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainer) // 自适应菜单背景
         ) {
             AppDropdownMenuItem(
-                text = { AppText(if (user.isPinned) "取消置顶" else "置顶", color = MaterialTheme.colorScheme.onSurface) },
+                text = { AppText(if (user.isPinned) "取消置顶" else "置顶", color = AppContentColors.primaryText()) },
                 onClick = {
                     showMenu = false
                     onTogglePin()
                 }
             )
             AppDropdownMenuItem(
-                text = { AppText(if (user.isHidden) "取消隐藏" else "隐藏", color = MaterialTheme.colorScheme.onSurface) },
+                text = { AppText(if (user.isHidden) "取消隐藏" else "隐藏", color = AppContentColors.primaryText()) },
                 onClick = {
                     showMenu = false
                     onToggleHidden()

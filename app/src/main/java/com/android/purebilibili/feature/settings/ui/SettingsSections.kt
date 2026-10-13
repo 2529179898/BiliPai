@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.components.AppIconButton
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -312,18 +314,18 @@ private fun SettingsRootCategoryRow(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
             )
             AppText(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
             )
         }
         AppIcon(
             imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_keyboard_arrow_right_24),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+            tint = AppContentColors.secondaryText().copy(alpha = 0.55f),
             modifier = Modifier.size(14.dp),
         )
     }
@@ -931,7 +933,7 @@ fun ReleaseChannelPinnedCard(
     onTelegramGroupClick: () -> Unit = {},
     onDisclaimerClick: () -> Unit
 ) {
-    val disclaimerTint = rememberAdaptivePreferenceIconTint(iOSBlue)
+    val disclaimerTint = rememberAdaptivePreferenceIconTint(AppContentColors.accent())
     val releaseChannelIcon = rememberAppShareIcon()
     AppCard(
         modifier = Modifier
@@ -955,12 +957,12 @@ fun ReleaseChannelPinnedCard(
                     AppText(
                         text = "官方渠道：GitHub · 频道 · 群组",
                         style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     )
                     AppText(
                         text = "请从官方渠道获取安装包，注意来源安全。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
             }
@@ -1228,13 +1230,13 @@ private fun FeedDynamicTabVisibilityItem(
                 AppText(
                     text = "动态分类",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 AppText(
                     text = "选择动态分类和顺序，至少保留一个。隐藏 UP 分类后，点侧栏用户直接打开主页。",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -1425,7 +1427,7 @@ fun PrivacySection(
             title = "评论检查记录",
             value = "查看已发评论及其显示状态",
             onClick = onCommentFraudHistoryClick,
-            iconTint = com.android.purebilibili.core.theme.iOSPink
+            iconTint = AppContentColors.secondaryText()
         )
     }
 }
@@ -1671,7 +1673,7 @@ private fun DiagnosticsSection(
                         "详细日志仅保存在应用私有目录（最多 256KB），不会自动上传；关闭后会清除详细日志。" +
                         "基础错误与启动诊断另行保留（最多 64KB），崩溃快照单独保存，可在诊断设置中清理。",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
             },
             confirmButton = {
@@ -1735,7 +1737,7 @@ private fun NetworkProxyEditDialog(
                         "作用于应用内的网络请求（接口、登录、RSS、图片等）。视频播放始终直连，避免本地代理端口不可用导致卡顿。"
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
                 AppTextField(
                     value = host,
@@ -1782,7 +1784,7 @@ private fun NetworkProxyEditDialog(
                         AppText(
                             text = "开启后只在访问下方域名时使用代理，其余请求直连",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                         )
                     }
                     AppAdaptiveSwitch(
@@ -1805,7 +1807,7 @@ private fun NetworkProxyEditDialog(
                             AppText(
                                 text = "填写主域名即可，自动匹配其子域；例如 aicu.cc 会同时覆盖 www.aicu.cc",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                             )
                         },
                     )
@@ -1814,7 +1816,7 @@ private fun NetworkProxyEditDialog(
                     AppText(
                         text = "请填写有效的主机与端口（1–65535）",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        color = AppContentColors.error(),
                     )
                 }
             }
@@ -1830,9 +1832,9 @@ private fun NetworkProxyEditDialog(
                 AppText(
                     text = "保存",
                     color = if (canSave) {
-                        MaterialTheme.colorScheme.primary
+                        AppContentColors.accent()
                     } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        AppContentColors.primaryText().copy(alpha = 0.38f)
                     },
                 )
             }
@@ -1885,7 +1887,7 @@ fun AboutSection(
         resolveIconOptionPreviewRes(appIconKey, appIconAppearance)
     }
     var detailDialogContent by remember { mutableStateOf<AppBuildInfoDialogContent?>(null) }
-    val easterEggTint = rememberSettingsEntryTint(AppSemanticAccentRole.TERTIARY, iOSYellow)
+    val easterEggTint = rememberSettingsEntryTint(AppSemanticAccentRole.TERTIARY, AppContentColors.warning())
     val updateSiblingTints = remember { resolveSettingsSiblingIconTints(5, paletteOffset = 3) }
     val licensesVisual = rememberSettingsEntryVisual(SettingsSearchTarget.OPEN_SOURCE_LICENSES)
     val openSourceHomeVisual = rememberSettingsEntryVisual(SettingsSearchTarget.OPEN_SOURCE_HOME)
@@ -1904,11 +1906,11 @@ fun AboutSection(
     val versionProgress = normalizedClickCount.coerceAtMost(safeThreshold).toFloat() / safeThreshold
     val versionIconTint = animateColorAsState(
         targetValue = when {
-            normalizedClickCount >= safeThreshold -> iOSGreen
-            versionProgress >= 0.85f -> iOSOrange
-            versionProgress >= 0.5f -> iOSYellow
-            normalizedClickCount > 0 -> iOSBlue
-            else -> iOSTeal
+            normalizedClickCount >= safeThreshold -> AppContentColors.success()
+            versionProgress >= 0.85f -> AppContentColors.warning()
+            versionProgress >= 0.5f -> AppContentColors.warning()
+            normalizedClickCount > 0 -> AppContentColors.accent()
+            else -> AppContentColors.accent()
         },
         label = "versionIconTint"
     ).value
@@ -1940,13 +1942,13 @@ fun AboutSection(
                     AppText(
                         text = dialogContent.value,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     AppText(
                         text = dialogContent.body,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
             },
@@ -2011,9 +2013,9 @@ fun AboutSection(
                 )
             },
             iconTint = when (verificationLabel) {
-                "已验证" -> iOSGreen
-                "基本可验证" -> iOSBlue
-                else -> iOSOrange
+                "已验证" -> AppContentColors.success()
+                "基本可验证" -> AppContentColors.accent()
+                else -> AppContentColors.warning()
             }
         )
         SettingsAdaptiveDivider()
@@ -2028,7 +2030,7 @@ fun AboutSection(
                     subtitle = buildSourceSubtitle
                 )
             },
-            iconTint = iOSOrange,
+            iconTint = AppContentColors.secondaryText(),
             enableCopy = true,
             onCopyRequest = rememberClipboardCopyHandler(),
         )
@@ -2046,7 +2048,7 @@ fun AboutSection(
                     subtitle = buildFingerprintSubtitle
                 )
             },
-            iconTint = iOSPurple,
+            iconTint = AppContentColors.secondaryText(),
             enableCopy = true,
             onCopyRequest = rememberClipboardCopyHandler(),
         )
@@ -2231,12 +2233,12 @@ private fun AboutProjectOverviewCard(
                     AppText(
                         text = "BiliPai",
                         style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     )
                     AppText(
                         text = "v$versionName",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
             }
@@ -2247,14 +2249,14 @@ private fun AboutProjectOverviewCard(
                         .width(4.dp)
                         .heightIn(min = 76.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.28f))
+                        .background(AppContentColors.accent().copy(alpha = 0.28f))
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 AppText(
                     text = slogan,
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
 
                 )
             }
@@ -2263,7 +2265,7 @@ private fun AboutProjectOverviewCard(
                 text = "贡献者",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             Spacer(modifier = Modifier.height(12.dp))
             FlowRow(
@@ -2319,7 +2321,7 @@ private fun AboutContributorItem(
         AppText(
             text = contributor.name,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis

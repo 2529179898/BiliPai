@@ -2,6 +2,8 @@
 
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.theme.LocalAppUiStyle
 import com.android.purebilibili.core.ui.resolveButtonContentColor
@@ -530,7 +532,12 @@ fun AppButton(
                     defaultPadding = ButtonDefaults.ContentPadding,
                 ),
                 interactionSource = resolvedInteractionSource,
-                content = content,
+                content = {
+                    com.android.purebilibili.core.ui.ProvideAppButtonSlotPalette(
+                        containerColor = if (enabled) containerColor else disabledContainerColor,
+                        enabled = enabled,
+                    ) { content() }
+                },
             )
         }
     }
@@ -599,7 +606,12 @@ fun AppButton(
                     defaultPadding = ButtonDefaults.ContentPadding,
                 ),
                 interactionSource = resolvedInteractionSource,
-                content = content,
+                content = {
+                    com.android.purebilibili.core.ui.ProvideAppButtonSlotPalette(
+                        containerColor = if (enabled) readableMaterialColors.containerColor else readableMaterialColors.disabledContainerColor,
+                        enabled = enabled,
+                    ) { content() }
+                },
             )
         }
     }
@@ -607,16 +619,10 @@ fun AppButton(
 
 /** Secondary actions use the active renderer's own neutral palette. */
 @Composable
-private fun appSecondaryButtonColors(materialColors: ButtonColors): ButtonColors {
-    if (LocalAppUiStyle.current != AppUiStyle.MIUIX) return materialColors
-    val native = MiuixButtonDefaults.buttonColors()
-    return ButtonDefaults.buttonColors(
-        containerColor = native.color,
-        contentColor = native.contentColor,
-        disabledContainerColor = native.disabledColor,
-        disabledContentColor = native.disabledContentColor,
-    )
-}
+private fun appSecondaryButtonColors(materialColors: ButtonColors): ButtonColors = materialColors.copy(
+    contentColor = com.android.purebilibili.core.ui.AppContentColors.neutralAction(),
+    disabledContentColor = com.android.purebilibili.core.ui.AppContentColors.disabled(),
+)
 
 @Composable
 private fun appButtonPadding(materialPadding: PaddingValues): PaddingValues =
@@ -628,7 +634,7 @@ fun AppTextButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     shape: Shape = ButtonDefaults.textShape,
-    colors: androidx.compose.material3.ButtonColors = appSecondaryButtonColors(ButtonDefaults.textButtonColors()),
+    colors: androidx.compose.material3.ButtonColors = AppTextButtonDefaults.colors(),
     contentPadding: PaddingValues = appButtonPadding(AppButtonDefaults.TextButtonContentPadding),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
@@ -664,7 +670,12 @@ fun AppTextButton(
                 colors = readableColors,
                 contentPadding = contentPadding,
                 interactionSource = resolvedInteractionSource,
-                content = content,
+                content = {
+                    com.android.purebilibili.core.ui.ProvideAppButtonSlotPalette(
+                        containerColor = if (enabled) readableColors.containerColor else readableColors.disabledContainerColor,
+                        enabled = enabled,
+                    ) { content() }
+                },
             )
         }
     }
@@ -739,7 +750,7 @@ fun AppOutlinedTextField(
                     backgroundColor = miuixContainerColor
                         ?: MiuixTheme.colorScheme.secondaryContainer,
                     borderColor = if (isError) {
-                        MaterialTheme.colorScheme.error
+                        AppContentColors.error()
                     } else {
                         MiuixTheme.colorScheme.primary
                     },
@@ -925,7 +936,9 @@ fun AppOutlinedButton(
     shape: Shape = ButtonDefaults.outlinedShape,
     colors: ButtonColors = appSecondaryButtonColors(ButtonDefaults.outlinedButtonColors()),
     elevation: androidx.compose.material3.ButtonElevation? = null,
-    border: BorderStroke? = if (LocalAppUiStyle.current == AppUiStyle.MIUIX) null else ButtonDefaults.outlinedButtonBorder(enabled),
+    border: BorderStroke? = if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
+        BorderStroke(1.dp, MiuixTheme.colorScheme.onSurface.copy(alpha = if (enabled) 0.20f else 0.10f))
+    } else ButtonDefaults.outlinedButtonBorder(enabled),
     contentPadding: PaddingValues = appButtonPadding(AppButtonDefaults.ContentPadding),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
@@ -965,7 +978,12 @@ fun AppOutlinedButton(
             border = border,
             contentPadding = contentPadding,
             interactionSource = resolvedInteractionSource,
-            content = content,
+            content = {
+                com.android.purebilibili.core.ui.ProvideAppButtonSlotPalette(
+                    containerColor = if (enabled) readableColors.containerColor else readableColors.disabledContainerColor,
+                    enabled = enabled,
+                ) { content() }
+            },
         )
     }
 }

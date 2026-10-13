@@ -1,6 +1,8 @@
 // 文件路径: feature/home/components/TopBar.kt
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppPressShiftContent
@@ -867,7 +869,7 @@ fun FluidHomeTopBar(
                                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center
                             ) {
-                                AppText("未", fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                AppText("未", fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold, color = AppContentColors.secondaryText())
                             }
                         }
                     }
@@ -901,7 +903,7 @@ fun FluidHomeTopBar(
                             AppIcon(
                                 Icons.Outlined.Search,
                                 null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                                tint = AppContentColors.secondaryText().copy(0.5f),
                                 modifier = Modifier.size(AppSpacingTokens.Large + AppSpacingTokens.Micro)
                             )
                             Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
@@ -909,7 +911,7 @@ fun FluidHomeTopBar(
                                 text = "搜索视频、UP主...",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontSize = MaterialTheme.typography.labelMedium.fontSize,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                color = AppContentColors.secondaryText(),
                                 maxLines = 1
                             )
                         }
@@ -917,7 +919,7 @@ fun FluidHomeTopBar(
                 }
 
                 Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
-                
+
                 //  右侧：设置按钮
                 AppIconButton(
                     onClick = onSettingsClick
@@ -925,7 +927,7 @@ fun FluidHomeTopBar(
                     AppIcon(
                         Icons.Outlined.Settings,
                         contentDescription = "设置",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        tint = AppContentColors.primaryText().copy(alpha = 0.7f),
                         modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro)
                     )
                 }
@@ -1094,7 +1096,7 @@ private fun LightweightHomeTopTabs(
         enabled = adaptiveReadabilityEnabled,
     )
     val adaptiveTopTabContentColor = rememberLiquidGlassAdaptiveContentColor(
-        stableColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        stableColor = AppContentColors.secondaryText(),
         state = adaptiveReadabilityState,
         enabled = adaptiveReadabilityEnabled,
     )
@@ -1706,7 +1708,7 @@ private fun LightweightHomeTopTabs(
             liquidGlassEnabled = shouldUseLiquidGlassIndicator,
         )
         val topTabVisibleContentZIndex = if (useTopTabGlassColorPath) 0f else 2f
-        val topTabThemeColor = MaterialTheme.colorScheme.primary
+        val topTabThemeColor = AppContentColors.accent()
         val stableTopTabExportTintColor = resolveAndroidNativeExportTintColor(
             themeColor = topTabThemeColor,
             darkTheme = isDarkTheme
@@ -2200,7 +2202,7 @@ private fun LightweightHomeTopTabs(
                         AppIcon(
                             resolveTopTabPartitionIcon(topTabIconFamily),
                             contentDescription = "浏览全部分区",
-                            tint = skinPlainContentColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = skinPlainContentColor ?: AppContentColors.secondaryText(),
                             modifier = Modifier.size(actionIconSize)
                         )
                     }
@@ -2552,8 +2554,8 @@ private fun BoxScope.LightweightTopTabMd3Underline(
 ) {
     val indicatorColor = when {
         skinPlainContentColor != null -> resolveHomeSkinTopTabIndicatorColor(skinPlainContentColor)
-        LocalAppUiStyle.current == AppUiStyle.MIUIX -> MaterialTheme.colorScheme.onSurface
-        else -> MaterialTheme.colorScheme.primary
+        LocalAppUiStyle.current == AppUiStyle.MIUIX -> AppContentColors.primaryText()
+        else -> AppContentColors.accent()
     }
     val iconOnlyIndicator = showIcon && !showText
     val nativeIndicatorWidth = if (iconOnlyIndicator) {
@@ -3276,14 +3278,14 @@ fun CategoryTabItem(
      val contentMinHeight = resolveTopTabContentMinHeightDp(normalizedLabelMode).dp
      val contentVerticalPadding = resolveTopTabContentVerticalPaddingDp(normalizedLabelMode).dp
      val iconTextSpacing = resolveTopTabIconTextSpacingDp(normalizedLabelMode).dp
-     
+
      val targetScale = resolveTopTabContentScale(
          selectionFraction = selectionFraction,
          showIcon = showIcon,
          showText = showText,
          presentation = chromePolicy.tabPresentation
      )
-     
+
      // Font weight change still triggers relayout, but it's discrete (only happens at 0.6 threshold)
      // This is acceptable as it doesn't happen every frame.
      val fontWeight = if (selectionFraction > 0.6f) FontWeight.SemiBold else FontWeight.Medium

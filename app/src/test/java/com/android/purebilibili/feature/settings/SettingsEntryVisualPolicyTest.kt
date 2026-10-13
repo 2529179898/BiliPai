@@ -2,8 +2,6 @@ package com.android.purebilibili.feature.settings
 
 import androidx.compose.ui.graphics.Color
 import com.android.purebilibili.R
-import com.android.purebilibili.core.theme.iOSBlue
-import com.android.purebilibili.core.theme.iOSPink
 import com.android.purebilibili.core.ui.AppSemanticAccentPalette
 import com.android.purebilibili.core.ui.AppSemanticVisualPolicy
 import org.junit.Assert.assertEquals
@@ -41,9 +39,11 @@ class SettingsEntryVisualPolicyTest {
     }
 
     @Test
-    fun materialEntries_keepCategoryColors() {
-        assertEquals(iOSPink, resolveSettingsEntryVisual(SettingsSearchTarget.APPEARANCE, materialPolicy).iconTint)
-        assertEquals(iOSBlue, resolveSettingsEntryVisual(SettingsSearchTarget.CLEAR_CACHE, materialPolicy).iconTint)
+    fun materialEntries_shareTheSuppliedNeutralColor() {
+        val neutral = Color(0xFF61666D)
+        SettingsSearchTarget.entries.forEach { target ->
+            assertEquals(neutral, resolveSettingsEntryVisual(target, materialPolicy, neutral).iconTint)
+        }
     }
 
     @Test

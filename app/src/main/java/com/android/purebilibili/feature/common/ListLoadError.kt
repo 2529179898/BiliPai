@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.common
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
@@ -25,7 +27,7 @@ internal fun ListLoadError(
         AppText(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             textAlign = TextAlign.Center,
         )
         AppTextButton(onClick = onRetry) { AppText("重试") }

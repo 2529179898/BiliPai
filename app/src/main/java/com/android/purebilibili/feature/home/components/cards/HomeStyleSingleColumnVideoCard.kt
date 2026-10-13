@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.components.cards
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 
 import com.android.purebilibili.core.ui.MediaContrastPalette
@@ -283,7 +285,7 @@ internal fun HomeStyleSingleColumnVideoCard(
                 style = contentTypography.title,
                 maxLines = videoCardTitleMaxLines(),
                 overflow = videoCardTitleOverflow(),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
             )
 
             UpBadgeName(
@@ -314,16 +316,16 @@ internal fun HomeStyleSingleColumnVideoCard(
                         AppText(
                             text = "已关注",
                             style = contentTypography.coverBadge,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = AppContentColors.accent(),
                         )
                     }
                 } else {
                     null
                 },
                 nameStyle = contentTypography.author,
-                nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                badgeTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                badgeBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                nameColor = AppContentColors.secondaryText(),
+                badgeTextColor = AppContentColors.secondaryText().copy(alpha = 0.85f),
+                badgeBorderColor = AppContentColors.secondaryText().copy(alpha = 0.35f),
                 showUpBadge = showUpBadge,
                 // The info column is a single horizontal-card row; keep the owner on one
                 // measured line so a long name cannot grow past the cover bounds.
@@ -341,7 +343,7 @@ internal fun HomeStyleSingleColumnVideoCard(
                 AppText(
                     text = FormatUtils.formatPublishTime(video.pubdate),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -380,7 +382,7 @@ internal fun HomeStyleSingleColumnVideoCard(
                     ) {
                         AppText(
                             text = "⋮",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )

@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.audio.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -473,7 +475,7 @@ internal fun AudioNowPlayingBar(
                                 overflow = TextOverflow.Clip,
                                 softWrap = false,
                                 color = immersiveContentColor
-                                    ?: MaterialTheme.colorScheme.onSurface,
+                                    ?: AppContentColors.primaryText(),
                                 fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.bodyMedium
                             )
@@ -508,7 +510,7 @@ internal fun AudioNowPlayingBar(
                                         overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = immersiveContentColor?.copy(alpha = 0.72f)
-                                            ?: MaterialTheme.colorScheme.onSurfaceVariant
+                                            ?: AppContentColors.secondaryText()
                                     )
                                 }
                             }
@@ -531,7 +533,7 @@ internal fun AudioNowPlayingBar(
                                 AppIcon(
                                     imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                                     contentDescription = if (state.isPlaying) "暂停" else "播放",
-                                    tint = immersiveContentColor ?: MaterialTheme.colorScheme.onSurface
+                                    tint = immersiveContentColor ?: AppContentColors.primaryText()
                                 )
                             }
                         }
@@ -559,7 +561,7 @@ internal fun AudioNowPlayingBar(
                                 AppIcon(
                                     Icons.Outlined.QueueMusic,
                                     contentDescription = "打开$expandDestinationLabel",
-                                    tint = immersiveContentColor ?: MaterialTheme.colorScheme.onSurface,
+                                    tint = immersiveContentColor ?: AppContentColors.primaryText(),
                                 )
                             }
                         }
@@ -591,7 +593,7 @@ internal fun AudioNowPlayingBar(
                                 AppIcon(
                                     Icons.Filled.Close,
                                     contentDescription = "关闭听视频条",
-                                    tint = immersiveContentColor ?: MaterialTheme.colorScheme.onSurface,
+                                    tint = immersiveContentColor ?: AppContentColors.primaryText(),
                                 )
                             }
                         }

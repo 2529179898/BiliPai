@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.bangumi
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -283,7 +285,7 @@ fun BangumiReviewScreen(
                                                 item.push_time_str.takeIf { it.isNotBlank() },
                                                 (item.score / 2).takeIf { it > 0 }?.let { "$it 分" }
                                             ).joinToString(" · "),
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = AppContentColors.secondaryText()
                                         )
                                     }
                                 },

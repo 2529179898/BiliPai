@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.plugin
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -133,7 +135,7 @@ private fun RestReminderDialog(
     val layoutPolicy = remember(configuration.screenHeightDp) {
         resolveEyeReminderDialogLayoutPolicy(screenHeightDp = configuration.screenHeightDp)
     }
-    val accent = MaterialTheme.colorScheme.primary
+    val accent = AppContentColors.accent()
     AppAlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier
@@ -186,7 +188,7 @@ private fun RestReminderDialog(
                 AppText(
                     text = reminder.message,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(AppSpacingTokens.Small))

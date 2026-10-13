@@ -1,5 +1,7 @@
 // 文件路径: feature/home/HomeScreen.kt
 package com.android.purebilibili.feature.home
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppText
 
 import android.annotation.SuppressLint
@@ -808,7 +810,7 @@ fun HomeScreen(
         }
     }
     val lastFilteredCount by com.android.purebilibili.core.plugin.json.JsonPluginManager.lastFilteredCount.collectAsStateWithLifecycle()
-    
+
     //  当有视频被过滤时显示提示
     LaunchedEffect(lastFilteredCount) {
         if (lastFilteredCount > 0) {
@@ -818,12 +820,12 @@ fun HomeScreen(
             )
         }
     }
-    
+
     //  [埋点] 页面浏览追踪
     LaunchedEffect(Unit) {
         com.android.purebilibili.core.util.AnalyticsHelper.logScreenView("HomeScreen")
     }
-    
+
     //  [埋点] 分类切换追踪
     LaunchedEffect(currentCategory) {
         com.android.purebilibili.core.util.AnalyticsHelper.logCategoryView(
@@ -884,10 +886,10 @@ fun HomeScreen(
     val pullRefreshMotionStyle = pullRefreshProfile.motionStyle
     val pullRefreshIndicatorStyle = pullRefreshProfile.indicatorStyle
 
-    
+
     var showEasterEggDialog by remember { mutableStateOf(false) }
     var refreshDeltaTipText by remember { mutableStateOf<String?>(null) }
-    
+
     //  [彩蛋] 下拉刷新成功后显示趣味提示（仅在开关开启时）
     LaunchedEffect(refreshKey, homeSettings.easterEggEnabled) {
         val message = refreshMessage
@@ -973,22 +975,22 @@ fun HomeScreen(
                 viewModel.markRecommendOldContentDividerRevealed(targetKey)
             }
     }
-    
+
     //  [彩蛋] 关闭确认对话框
     if (showEasterEggDialog) {
         AppAlertDialog(
             onDismissRequest = { showEasterEggDialog = false },
-            title = { 
+            title = {
                 AppText(
-                    "关闭趣味提示？", 
-                    color = MaterialTheme.colorScheme.onSurface
-                ) 
+                    "关闭趣味提示？",
+                    color = AppContentColors.primaryText()
+                )
             },
-            text = { 
+            text = {
                 AppText(
                     "关闭后下拉刷新将不再显示趣味消息。\n\n你可以在「设置」中随时重新开启。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                ) 
+                    color = AppContentColors.secondaryText()
+                )
             },
             confirmButton = {
                 AppTextButton(
@@ -998,17 +1000,17 @@ fun HomeScreen(
                         }
                         showEasterEggDialog = false
                     }
-                ) { AppText("关闭彩蛋", color = MaterialTheme.colorScheme.error) }
+                ) { AppText("关闭彩蛋", color = AppContentColors.error()) }
             },
             dismissButton = {
                 AppTextButton(
                     onClick = { showEasterEggDialog = false }
-                ) { AppText("保留彩蛋", color = MaterialTheme.colorScheme.primary) }
+                ) { AppText("保留彩蛋") }
             },
             containerColor = AppSurfaceTokens.cardContainer()
         )
     }
-    
+
     //  [修复] 确保首页显示时 WindowInsets 配置正确，防止从视频页返回时布局跳动
     val view = androidx.compose.ui.platform.LocalView.current
     SideEffect {
@@ -1209,7 +1211,7 @@ fun HomeScreen(
     }
     val bottomBarItemColors = appNavigationSettings.bottomBarItemColors
 
-    
+
     //  📐 [平板适配] 根据屏幕尺寸和展示模式动态设置网格列数
     // 故事卡片(1)和沉浸模式(2)需要单列全宽，网格(0)使用双列
     val windowSizeClass = com.android.purebilibili.core.util.LocalWindowSizeClass.current
@@ -1314,10 +1316,10 @@ fun HomeScreen(
     } else {
         windowSizeClass.widthDp
     }
-    
+
     // 是否为单列模式 (Story or Cinematic)
     val isSingleColumnMode = displayMode == 1
-    
+
     val gridColumns = remember(
         contentWidth,
         displayMode,
@@ -1363,10 +1365,10 @@ fun HomeScreen(
         )
     }
     val density = LocalDensity.current
-    
-    
+
+
     val tabletUseSidebar = appNavigationSettings.tabletUseSidebar
-    
+
     //  📐 [大屏适配] 平板导航模式：根据用户偏好决定
     // 仅在 Expanded+ 且用户选择了侧边栏时使用侧边导航
     val useSideNavigation = com.android.purebilibili.core.util.shouldUseSidebarNavigationForLayout(
@@ -1377,7 +1379,7 @@ fun HomeScreen(
     val isHomeDrawerEnabled = com.android.purebilibili.core.util.shouldEnableHomeDrawer(
         useSideNavigation = useSideNavigation
     )
-    
+
     //  📱 [切换导航模式] 处理函数
     val onToggleNavigationMode: () -> Unit = {
         coroutineScope.launch {
@@ -1425,7 +1427,7 @@ fun HomeScreen(
         null
     }
     val readyHomeWallpaperBackdrop = homeWallpaperBackdropSource?.takeIf { it.isReady }?.backdrop
-    
+
     if (!view.isInEditMode && shouldApplyHomeSystemBars(isTopLevelActive)) {
         SideEffect {
             val window = (context as? android.app.Activity)?.window ?: return@SideEffect
@@ -1480,7 +1482,7 @@ fun HomeScreen(
     var todayWatchStartupRevealHandled by rememberSaveable { mutableStateOf(false) }
 
     val prefs = remember { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
-    
+
     //  当前选中的导航项
     var currentNavItem by remember { mutableStateOf(BottomNavItem.HOME) }
 
@@ -1520,9 +1522,9 @@ fun HomeScreen(
             BottomNavItem.PLUGINS -> onPluginsClick()
         }
     }
-    
+
     val bottomBarVisibilityMode = appNavigationSettings.bottomBarVisibilityMode
-    
+
     //  [Refactor] 使用全局 CompositionLocal 控制底栏可见性
     val setBottomBarVisible = LocalSetBottomBarVisible.current
     val isGlobalBottomBarVisible = LocalBottomBarVisible.current
@@ -1532,7 +1534,7 @@ fun HomeScreen(
     // App Shell keeps this stable while the bottom bar animates out, so the feed
     // content padding does not shift during tab/detail navigation.
     val homeListBottomPadding = LocalBottomBarContentPadding.current
-    
+
     //  [修复] 跟踪是否正在导航到/从视频页 - 必须在 LaunchedEffect 之前声明
     var isVideoNavigating by remember { mutableStateOf(false) }
     var isHomeContentInteractionRestored by remember { mutableStateOf(true) }
@@ -1549,7 +1551,7 @@ fun HomeScreen(
         isHomeContentInteractionRestored = true
         isVideoNavigating = false
     }
-    
+
     //  [新增] 滚动方向检测逻辑
     LaunchedEffect(
         currentCategory,
@@ -1566,7 +1568,7 @@ fun HomeScreen(
             setBottomBarVisible(isVisible)
             return@LaunchedEffect
         }
-        
+
         // 向下浏览时隐藏模式：监听滚动方向
         val currentGridState = if (currentCategory == HomeCategory.POPULAR) {
             popularGridStates[popularSubCategory]
@@ -1603,7 +1605,7 @@ fun HomeScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var bottomBarVisibleBeforeDrawer by remember { mutableStateOf<Boolean?>(null) }
     var drawerOpenRequested by remember { mutableStateOf(false) }
-    
+
     // 抽屉打开时隐藏全局底栏，避免覆盖侧边栏底部内容
     val isDrawerStateOpenOrOpening = shouldEnableHomeDrawerGestures(
         currentValue = drawerState.currentValue,
@@ -1620,7 +1622,7 @@ fun HomeScreen(
             drawerOpenRequested = false
             return@LaunchedEffect
         }
-        
+
         if (shouldKeepDrawerBottomBarHidden) {
             if (bottomBarVisibleBeforeDrawer == null) {
                 bottomBarVisibleBeforeDrawer = isGlobalBottomBarVisible
@@ -1647,7 +1649,7 @@ fun HomeScreen(
         }
         coroutineScope.launch { drawerState.open() }
     }
-    
+
     // 选中槽位以 Pager 当前页为准，分区页不写入 currentCategory 也能保持高亮正确。
     val displayedTabIndex by remember(pagerState, topTabEntries) {
         derivedStateOf {
@@ -1658,7 +1660,7 @@ fun HomeScreen(
     //  根据滚动距离动态调整 BottomBar 可见性
     //  逻辑优化：使用 nestedScrollConnection 监听滚动
     var isHeaderVisible by rememberSaveable { mutableStateOf(true) }
-    
+
     // Constants
     val topTabStyle = remember(
         isBottomBarFloating,
@@ -1735,7 +1737,7 @@ fun HomeScreen(
                 resolveHomeTabsToContentTighteningDp(appUiStyle, isLiquidGlassEnabled)
         }).coerceAtLeast(AppSpacingTokens.None) +
         legacyTopChromeSafetyGap
-    
+
     // Pixels
     val searchCollapseDistancePx = with(density) { searchCollapseDistanceDp.toPx() }
     val headerCollapseMode = resolveHomeRecommendationHeaderCollapseMode(
@@ -1761,7 +1763,7 @@ fun HomeScreen(
     // [Feature] Bottom Bar Auto-Hide (based on scroll hide mode)
     val isBottomBarAutoHideEnabled = bottomBarVisibilityMode == SettingsManager.BottomBarVisibilityMode.SCROLL_HIDE
     val bottomBarVisibleState = LocalSetBottomBarVisible.current
-    
+
     // [Feature] Global Scroll Offset for Liquid Glass
     val activeGridState = if (currentCategory == HomeCategory.POPULAR) {
         popularGridStates[popularSubCategory]
@@ -2103,7 +2105,7 @@ fun HomeScreen(
                             }
                         }
                         val categoryState by categoryStateFlow.collectAsStateWithLifecycle()
-                        
+
                         //  独立的 PullToRefreshState，避免所有页面共享一个状态导致冲突
                         val pullRefreshState = rememberPullToRefreshState()
                         val pullDistanceFraction = pullRefreshState.distanceFraction
@@ -2151,7 +2153,7 @@ fun HomeScreen(
                                 maxPx * animatedDragOffsetFraction.value
                             }
                         }
-                        
+
                         //  每个页面独立的 GridState
                         //  使用 saveable 记住滚动位置
                         val pageGridState = if (category == HomeCategory.POPULAR) {
@@ -2159,9 +2161,9 @@ fun HomeScreen(
                         } else {
                             gridStates[category] ?: rememberHomeStaggeredGridState()
                         }
-                        
-                        //  把 GridState 提升给父级用于控制 Header? 
-                        
+
+                        //  把 GridState 提升给父级用于控制 Header?
+
                         // Overlay chrome (status + search + tabs); not for Scaffold-padded screens.
                         val homeRefreshIndicatorTopInset = listTopPadding
                         AdaptivePullToRefreshBox(
@@ -2556,7 +2558,7 @@ fun HomeScreen(
             } // Close Box wrapper
                     } // Close LocalHomeMiuixBackdrop provider
         } // Close Scaffold lambda
-        
+
         //  ===== Header Overlay (毛玻璃效果) =====
         //  Header 现在在外层 Box 内、hazeSource 外部，可以正确模糊内层内容
         //  [Restored] Header 始终显示，不再随 Loading/Error 状态隐藏
@@ -2609,7 +2611,7 @@ fun HomeScreen(
             )
         }
 
-        
+
         // Calculate parameters based on scroll
         val topTabsCollapsedForHeader = if (collapseTabsOnScroll) {
             topTabsAutoCollapsedByScroll
@@ -2802,7 +2804,7 @@ fun HomeScreen(
                     AppText(
                         text = refreshDeltaTipText.orEmpty(),
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                         modifier = Modifier.padding(horizontal = AppSpacingTokens.Medium + AppSpacingTokens.Micro, vertical = AppSpacingTokens.Small)
                     )
                 }
@@ -3057,7 +3059,7 @@ fun HomeScreen(
         }
     }
 
-    
+
     //  使用生命周期事件：
     // ON_START: 非视频返回底栏立即恢复
     // ON_STOP: 清理定时器
@@ -3090,11 +3092,11 @@ fun HomeScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    
+
     //  [修复] 使用 rememberSaveable 记住本次会话中是否已处理过弹窗（防止导航后重新显示）
     var consentDialogHandled by rememberSaveable { mutableStateOf(false) }
     var showConsentDialog by remember { mutableStateOf(false) }
-    
+
     // 使用须知确认后再展示崩溃统计同意（避免与门禁叠层）
     val welcomePrefs = remember { context.getSharedPreferences("app_welcome", Context.MODE_PRIVATE) }
     val userAgreementAcked = welcomePrefs.getBoolean(
@@ -3108,17 +3110,17 @@ fun HomeScreen(
             showConsentDialog = true
         }
     }
-    
+
     // 显示弹窗
     if (showConsentDialog) {
         com.android.purebilibili.feature.home.components.CrashTrackingConsentDialog(
-            onDismiss = { 
+            onDismiss = {
                 showConsentDialog = false
                 consentDialogHandled = true  // 标记为已处理
             }
         )
     }
-    
+
     //  滚动方向（简化版 - 不再需要复杂检测，因为标签页只在顶部显示）
     val isScrollingUp = true  // 保留参数兼容性
 
@@ -3146,13 +3148,13 @@ fun HomeScreen(
         // 回前台的安定窗口内暂缓封面预取：这批解码会和用户此刻的首次切页抢主线程。
         // 窗口结束后本效应会以 foregroundSettling = false 重新触发。
         if (foregroundSettling) return@LaunchedEffect
-        
+
         val currentGridState = if (currentCategory == HomeCategory.POPULAR) {
             popularGridStates[popularSubCategory]
         } else {
             gridStates[currentCategory]
         } ?: return@LaunchedEffect
-        
+
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             snapshotFlow {
                 val visibleKeys = currentGridState.layoutInfo.visibleItemsInfo.map { it.key }
@@ -3210,9 +3212,9 @@ fun HomeScreen(
 
 
     //  PullToRefreshBox 自动处理下拉刷新逻辑
-    
+
     //  [已移除] 特殊分类（ANIME, MOVIE等）不再在首页切换，直接导航到独立页面
-    
+
     //  [修复] 如果当前在直播-关注分类且列表为空，返回时先切换到热门，再切换到推荐
     val liveCategoryStateFlow = remember(viewModel) {
         viewModel.getCategoryState(HomeCategory.LIVE)
@@ -3232,9 +3234,9 @@ fun HomeScreen(
     androidx.activity.compose.BackHandler(enabled = isLiveCategoryNotHome) {
         viewModel.switchCategory(HomeCategory.RECOMMEND)
     }
-    
+
 // [Removed] Animation logic moved inside HorizontalPager where the active state exists
-    
+
     // 指示器位置逻辑也移入 graphicsLayer
     Box(
         modifier = Modifier.fillMaxSize()

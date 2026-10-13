@@ -1,6 +1,8 @@
 // 文件路径: feature/search/SearchScreen.kt
 package com.android.purebilibili.feature.search
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.clipRect
 import com.android.purebilibili.core.util.HtmlEntityUtils
@@ -692,7 +694,7 @@ fun SearchScreen(
             widthDp = configuration.screenWidthDp
         )
     }
-    
+
     //  自动聚焦搜索框
     val searchFocusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
 
@@ -761,7 +763,7 @@ fun SearchScreen(
     val inputHeightDp = rememberSearchInputHeightDp(searchChromeSpec.inputHeightDp)
     val topBarHeight = resolveSearchTopBarRowMinHeightDp(inputHeightDp).dp
     val contentTopPadding = statusBarHeight + topBarHeight
-    
+
     //  读取动画设置开关
     val context = LocalContext.current
     val searchHintEnabled by remember(context) {
@@ -1162,7 +1164,7 @@ fun SearchScreen(
         }
         previousShowResults = state.showResults
     }
-    
+
     //  [埋点] 页面浏览追踪
     LaunchedEffect(Unit) {
         com.android.purebilibili.core.util.AnalyticsHelper.logScreenView("SearchScreen")
@@ -1440,7 +1442,7 @@ fun SearchScreen(
                                                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                                     backgroundColor = MaterialTheme.colorScheme.surface,
                                                     fallbackContentColors = listOf(
-                                                        MaterialTheme.colorScheme.onSurface,
+                                                        AppContentColors.primaryText(),
                                                         MaterialTheme.colorScheme.onBackground,
                                                     ),
                                                 )
@@ -1936,7 +1938,7 @@ fun SearchScreen(
 
                                         }
                                     }
-                                    
+
                                     // [新增] 空状态提示 (提示可能被屏蔽)
                                     if (!pageResultState.isSearching && pageResultState.searchResults.isEmpty() && pageResultState.error == null && pageEmptyStateCopy != null) {
                                         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -1956,7 +1958,7 @@ fun SearchScreen(
                                             }
                                         }
                                     }
-                                    
+
                                     //  [新增] 加载更多指示器
                                     if (pagePresentation.footer == SearchResultFooterMode.LOADING || pagePresentation.footer == SearchResultFooterMode.ERROR) {
                                         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -1977,7 +1979,7 @@ fun SearchScreen(
                                             }
                                         }
                                     }
-                                    
+
                                     //  [新增] 已加载全部提示
                                     if (pagePresentation.footer == SearchResultFooterMode.END) {
                                         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -1987,7 +1989,7 @@ fun SearchScreen(
                                                     .fillMaxWidth()
                                                     .padding(16.dp),
                                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                color = AppContentColors.secondaryText(),
                                                 style = MaterialTheme.typography.bodySmall
                                             )
                                         }
@@ -2037,7 +2039,7 @@ fun SearchScreen(
                                             }
                                         }
                                     }
-                                    
+
                                      // [新增] 空状态提示
                                     if (!pageResultState.isSearching && pageResultState.upResults.isEmpty() && pageResultState.error == null && pageEmptyStateCopy != null) {
                                         item {
@@ -2055,7 +2057,7 @@ fun SearchScreen(
                                             }
                                         }
                                     }
-                                    
+
                                     if (pagePresentation.footer == SearchResultFooterMode.LOADING || pagePresentation.footer == SearchResultFooterMode.ERROR) {
                                         item {
                                             Box(
@@ -2190,7 +2192,7 @@ fun SearchScreen(
                                             }
                                         }
                                     }
-                                    
+
                                     // [新增] 空状态提示
                                     if (!pageResultState.isSearching && pageResultState.liveResults.isEmpty() && pageResultState.error == null && pageEmptyStateCopy != null) {
                                         item {
@@ -2586,7 +2588,7 @@ fun SearchScreen(
                         bottom = resultBottomPadding + 12.dp
                     ),
             )
-            
+
             // ---  搜索建议下拉列表 ---
             if (state.suggestions.isNotEmpty() && state.query.isNotEmpty() && !state.showResults) {
                 SearchSuggestionDropdown(
@@ -2830,7 +2832,7 @@ fun SearchTopBar(
                     AppIcon(
                         backIcon,
                         contentDescription = backLabel,
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        tint = AppContentColors.primaryText(),
                         modifier = Modifier.size(chromeSpec.actionIconSizeDp.dp)
                     )
                 }
@@ -2889,7 +2891,7 @@ fun SearchTopBar(
                         AppIcon(
                             imageVector = rememberAppSearchIcon(),
                             contentDescription = stringResource(R.string.common_search),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (canSubmit) 1f else 0.35f),
+                            tint = AppContentColors.secondaryText().copy(alpha = if (canSubmit) 1f else 0.35f),
                             modifier = Modifier.size(chromeSpec.actionIconSizeDp.dp),
                         )
                     }
@@ -2908,7 +2910,7 @@ fun SearchTopBar(
                         AppIcon(
                             imageVector = rememberAppClearIcon(),
                             contentDescription = stringResource(R.string.common_clear),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (query.isNotEmpty()) 1f else 0.35f),
+                            tint = AppContentColors.secondaryText().copy(alpha = if (query.isNotEmpty()) 1f else 0.35f),
                             modifier = Modifier.size(chromeSpec.actionIconSizeDp.dp),
                         )
                     }
@@ -3060,7 +3062,7 @@ fun HistoryChip(
         label = {
             AppText(
                 text = keyword,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 style = MaterialTheme.typography.labelMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -3074,7 +3076,7 @@ fun HistoryChip(
                 AppIcon(
                     clearIcon,
                     contentDescription = deleteLabel,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                    tint = AppContentColors.secondaryText().copy(0.5f),
                     modifier = Modifier.size(14.dp)
                 )
             }
@@ -3099,7 +3101,7 @@ fun QuickCategory(
             .padding(8.dp)
     ) {
         AppText(text = emoji, style = MaterialTheme.typography.headlineSmall)
-        AppText(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+        AppText(text = label, style = MaterialTheme.typography.bodySmall, color = AppContentColors.primaryText())
     }
 }
 
@@ -3134,20 +3136,20 @@ fun SearchDiscoverySection(
                 AppText(
                     title, //  使用动态标题
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
             }
-            
+
             // 刷新按钮
             AppTextButton(onClick = onRefresh) {
                 AppText(
                     "换一换",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
-        
+
         // 动态发现内容
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -3163,7 +3165,7 @@ fun SearchDiscoverySection(
                     AppText(
                         keyword,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
@@ -3205,14 +3207,14 @@ fun SearchHotSection(
                     AppText(
                         "热门搜索",
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     )
                 }
                 AppSurface(
                     onClick = onToggleHotSearch,
                     shape = AppShapes.container(ContainerLevel.Card),
                     color = if (hotSearchEnabled) {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                        AppContentColors.accent().copy(alpha = 0.14f)
                     } else {
                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
                     }
@@ -3220,9 +3222,9 @@ fun SearchHotSection(
                     AppText(
                         text = if (hotSearchEnabled) "热搜开" else "热搜关",
                         color = if (hotSearchEnabled) {
-                            MaterialTheme.colorScheme.primary
+                            AppContentColors.accent()
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            AppContentColors.secondaryText()
                         },
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
@@ -3260,7 +3262,7 @@ fun SearchHotSection(
                                         text = "${globalIndex + 1}",
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                        color = if (isTop3) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        color = if (isTop3) AppContentColors.accent() else AppContentColors.secondaryText().copy(alpha = 0.5f),
                                         modifier = Modifier.width(24.dp)
                                     )
 
@@ -3268,7 +3270,7 @@ fun SearchHotSection(
                                     AppText(
                                         text = hotItem.show_name,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        color = AppContentColors.primaryText(),
                                         maxLines = 1,
                                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
@@ -3437,7 +3439,7 @@ private fun SearchResultTypeTabRow(
 
 @Composable
 private fun rememberSearchHighlightedTitle(video: VideoItem): androidx.compose.ui.text.AnnotatedString? {
-    val highlightColor = MaterialTheme.colorScheme.primary
+    val highlightColor = AppContentColors.accent()
     return remember(video.searchHighlightedTitle, highlightColor) {
         val segments = resolveSearchHighlightedTextSegments(video.searchHighlightedTitle)
         if (segments.none { it.highlighted }) {
@@ -3528,7 +3530,7 @@ fun SearchFilterBar(
         )
     }
     if (filterControls.isEmpty()) return
-    
+
     val miuixNonGlass = isMiuixNonGlassEnabled()
     val filterRowPadding = if (miuixNonGlass) {
         Modifier.padding(horizontal = AppSpacingTokens.Large, vertical = AppSpacingTokens.Small)
@@ -3976,7 +3978,7 @@ fun SearchResultCard(
     val coverUrl = remember(video.bvid) {
         FormatUtils.fixImageUrl(if (video.pic.startsWith("//")) "https:${video.pic}" else video.pic)
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -4002,7 +4004,7 @@ fun SearchResultCard(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            
+
             // 底部渐变
             Box(
                 modifier = Modifier
@@ -4018,22 +4020,22 @@ fun SearchResultCard(
                         )
                     )
             )
-            
+
             VideoCardCoverDurationText(
                 text = FormatUtils.formatDuration(video.duration),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(8.dp),
             )
-            
+
         }
-        
+
         Spacer(
             modifier = Modifier.height(
                 if (useMiuixNonGlassPresentation) AppSpacingTokens.Small else 8.dp
             )
         )
-        
+
         // 标题
         SearchResultText(
             text = video.title,
@@ -4042,7 +4044,7 @@ fun SearchResultCard(
             maxLines = videoCardTitleMaxLines(),
             overflow = videoCardTitleOverflow(),
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             modifier = Modifier.padding(horizontal = 2.dp)
         )
 
@@ -4060,13 +4062,13 @@ fun SearchResultCard(
             },
             modifier = Modifier.padding(horizontal = 2.dp),
         )
-        
+
         Spacer(
             modifier = Modifier.height(
                 if (useMiuixNonGlassPresentation) AppSpacingTokens.ExtraSmall else 6.dp
             )
         )
-        
+
         // UP主 + 发布时间
         FlowRow(
             modifier = Modifier.padding(horizontal = 2.dp),
@@ -4099,20 +4101,20 @@ fun SearchResultCard(
                     }
                 } else null,
                 nameStyle = MaterialTheme.typography.labelSmall,
-                nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                badgeTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                badgeBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                nameColor = AppContentColors.secondaryText(),
+                badgeTextColor = AppContentColors.secondaryText().copy(alpha = 0.85f),
+                badgeBorderColor = AppContentColors.secondaryText().copy(alpha = 0.35f),
                 maxLines = Int.MAX_VALUE,
                 overflow = TextOverflow.Visible,
                 modifier = Modifier.wrapContentWidth()
             )
-            
+
             //  显示发布时间
             if (video.pubdate > 0) {
                 SearchResultText(
                     text = "· ${FormatUtils.formatPublishTime(video.pubdate)}",
                     role = SearchResultTextRole.BADGE,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -4130,10 +4132,10 @@ internal fun UpSearchResultCard(
 ) {
     val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
     val cleanedItem = remember(upItem.mid) { upItem.cleanupFields() }
-    
+
     val sharedTransitionScope = LocalSharedTransitionScope.current
     val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
-    
+
     SearchResultCardSurface(
         appearance = appearance,
         onClick = onClick,
@@ -4190,13 +4192,13 @@ internal fun UpSearchResultCard(
                     )
                 }
             }
-            
+
             Spacer(
                 modifier = Modifier.width(
                     if (useMiuixNonGlassPresentation) AppSpacingTokens.Medium else 10.dp
                 )
             )
-            
+
             // UP主信息
             Column(modifier = Modifier.weight(1f)) {
                 // 名称 + 官方等级标志
@@ -4211,7 +4213,7 @@ internal fun UpSearchResultCard(
                         role = SearchResultTextRole.TITLE,
                         modifier = Modifier.weight(1f, fill = false),
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -4230,7 +4232,7 @@ internal fun UpSearchResultCard(
                     text = "粉丝：${FormatUtils.formatStat(cleanedItem.fans.toLong())}  " +
                         "视频：${cleanedItem.videos}",
                     role = SearchResultTextRole.METADATA,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
 
                 if (verifyBadge != null && verifyBadge.text.isNotBlank()) {
@@ -4242,7 +4244,7 @@ internal fun UpSearchResultCard(
                     SearchResultText(
                         text = verifyBadge.text,
                         role = SearchResultTextRole.METADATA,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -4290,9 +4292,9 @@ internal fun BangumiSearchResultCard(
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentScale = ContentScale.Crop
             )
-            
+
             Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))
-            
+
             // 番剧信息
             Column(modifier = Modifier.weight(1f)) {
                 if (!categoryLabel.isNullOrBlank()) {
@@ -4313,7 +4315,7 @@ internal fun BangumiSearchResultCard(
                     text = item.title,
                     role = SearchResultTextRole.TITLE,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -4324,7 +4326,7 @@ internal fun BangumiSearchResultCard(
                         SearchResultText(
                             text = item.seasonTypeName,
                             role = SearchResultTextRole.METADATA,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = AppContentColors.accent(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
@@ -4335,7 +4337,7 @@ internal fun BangumiSearchResultCard(
                         SearchResultText(
                             text = item.indexShow,
                             role = SearchResultTextRole.METADATA,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -4355,7 +4357,7 @@ internal fun BangumiSearchResultCard(
                             SearchResultText(
                                 text = "${score.userCount}人评分",
                                 role = SearchResultTextRole.BADGE,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                color = AppContentColors.secondaryText()
                             )
                         }
                     }
@@ -4366,7 +4368,7 @@ internal fun BangumiSearchResultCard(
                     SearchResultText(
                         text = item.desc,
                         role = SearchResultTextRole.BODY,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        color = AppContentColors.secondaryText(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -4419,7 +4421,7 @@ internal fun LiveSearchResultCard(
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .padding(AppSpacingTokens.ExtraSmall),
-                        color = MaterialTheme.colorScheme.error,
+                        color = AppContentColors.error(),
                         shape = AppShapes.container(ContainerLevel.Tag)
                     ) {
                         SearchResultText(
@@ -4454,16 +4456,16 @@ internal fun LiveSearchResultCard(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))
-            
+
             // 直播信息
             Column(modifier = Modifier.weight(1f)) {
                 SearchResultText(
                     text = item.title,
                     role = SearchResultTextRole.TITLE,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -4472,7 +4474,7 @@ internal fun LiveSearchResultCard(
                 SearchResultText(
                     text = item.uname,
                     role = SearchResultTextRole.METADATA,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -4486,7 +4488,7 @@ internal fun LiveSearchResultCard(
                     SearchResultText(
                         text = "${item.area_v2_parent_name} · ${item.area_v2_name}",
                         role = SearchResultTextRole.BADGE,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        color = AppContentColors.secondaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -4554,14 +4556,14 @@ private fun SearchNativeMessageState(
         AppText(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
         if (!message.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(8.dp))
             AppText(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
         }
         if (actionLabel != null && onAction != null) {
@@ -4618,7 +4620,7 @@ internal fun LiveUserSearchResultCard(
                         text = cleaned.uname,
                         role = SearchResultTextRole.TITLE,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -4626,7 +4628,7 @@ internal fun LiveUserSearchResultCard(
                     if (cleaned.isLive || cleaned.liveStatus == 1) {
                         Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
                         AppSurface(
-                            color = MaterialTheme.colorScheme.error,
+                            color = AppContentColors.error(),
                             shape = AppShapes.container(ContainerLevel.Tag)
                         ) {
                             SearchResultText(
@@ -4645,7 +4647,7 @@ internal fun LiveUserSearchResultCard(
                 SearchResultText(
                     text = "粉丝 ${FormatUtils.formatStat(cleaned.attentions.toLong())}",
                     role = SearchResultTextRole.METADATA,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -4690,7 +4692,7 @@ internal fun TopicSearchResultCard(
                     text = cleaned.title,
                     role = SearchResultTextRole.TITLE,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -4699,7 +4701,7 @@ internal fun TopicSearchResultCard(
                     SearchResultText(
                         text = cleaned.description,
                         role = SearchResultTextRole.BODY,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -4708,7 +4710,7 @@ internal fun TopicSearchResultCard(
                 SearchResultText(
                     text = "浏览 ${FormatUtils.formatStat(cleaned.view.toLong())}",
                     role = SearchResultTextRole.METADATA,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -4754,7 +4756,7 @@ internal fun PhotoSearchResultCard(
                     text = cleaned.title,
                     role = SearchResultTextRole.TITLE,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -4762,7 +4764,7 @@ internal fun PhotoSearchResultCard(
                 SearchResultText(
                     text = cleaned.uname,
                     role = SearchResultTextRole.METADATA,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -4770,7 +4772,7 @@ internal fun PhotoSearchResultCard(
                 SearchResultText(
                     text = "图片 ${cleaned.count} · 浏览 ${FormatUtils.formatStat(cleaned.view.toLong())} · 喜欢 ${FormatUtils.formatStat(cleaned.like.toLong())}",
                     role = SearchResultTextRole.BADGE,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -4828,7 +4830,7 @@ internal fun ArticleSearchResultCard(
                     text = item.title,
                     role = SearchResultTextRole.TITLE,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -4837,7 +4839,7 @@ internal fun ArticleSearchResultCard(
                     SearchResultText(
                         text = item.description,
                         role = SearchResultTextRole.BODY,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -4857,14 +4859,14 @@ internal fun ArticleSearchResultCard(
                     SearchResultText(
                         text = metaLine,
                         role = SearchResultTextRole.METADATA,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
 
                 SearchResultText(
                     text = "${FormatUtils.formatStat(item.view.toLong())}浏览 · ${FormatUtils.formatStat(item.reply.toLong())}评论 · ${FormatUtils.formatStat(item.like.toLong())}点赞",
                     role = SearchResultTextRole.METADATA,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    color = AppContentColors.secondaryText()
                 )
             }
         }

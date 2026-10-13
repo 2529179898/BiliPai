@@ -1,5 +1,7 @@
 // 文件路径: feature/home/components/HomeHeader.kt
 package com.android.purebilibili.feature.home.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.appElasticPress
 import com.android.purebilibili.core.ui.components.rememberAppElasticPressState
@@ -70,7 +72,6 @@ import coil3.compose.AsyncImage
 import com.android.purebilibili.core.util.HapticType
 import com.android.purebilibili.core.util.rememberHapticFeedback
 import com.android.purebilibili.feature.home.UserState
-import com.android.purebilibili.core.theme.iOSSystemGray
 import com.android.purebilibili.core.store.LiquidGlassStyle
 import dev.chrisbanes.haze.HazeState
 import com.android.purebilibili.core.ui.blur.shouldAllowDirectHazeLiquidGlassFallback
@@ -2337,7 +2338,7 @@ fun HomeHeader(
                             user = user,
                             shape = CircleShape,
                             fallbackBackgroundColor = MaterialTheme.colorScheme.surfaceVariant,
-                            fallbackTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fallbackTextColor = AppContentColors.secondaryText(),
                         )
                     }
                 }
@@ -2736,7 +2737,7 @@ fun HomeHeader(
                                         } else {
                                             headerChromeColors.containerColor
                                         },
-                                        fallbackTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                        fallbackTextColor = AppContentColors.secondaryText()
                                     )
                                 }
                             }

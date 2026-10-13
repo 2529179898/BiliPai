@@ -23,7 +23,7 @@ import top.yukonga.miuix.kmp.basic.ProgressIndicatorDefaults as MiuixProgressInd
  * Preset-aware indeterminate loading indicator.
  *
  * - Material 3: official [LoadingIndicator] (page) or [CircularProgressIndicator] (compact),
- *   colored with [MaterialTheme.colorScheme.primary] so dynamic color applies automatically.
+ *   colored with [AppContentColors.accent()] so dynamic color applies automatically.
  * - Miuix: official Miuix infinite / circular progress indicators with theme primary.
  *
  * Prefer this over bare Material/Miuix progress widgets in feature screens so theme
@@ -108,7 +108,7 @@ fun AdaptiveLoadingIndicator(
 private fun resolveAdaptiveLoadingDefaultColor(visual: AdaptiveLoadingVisual): Color {
     return when (visual) {
         AdaptiveLoadingVisual.MATERIAL3_LOADING_INDICATOR,
-        AdaptiveLoadingVisual.MATERIAL3_CIRCULAR -> MaterialTheme.colorScheme.primary
+        AdaptiveLoadingVisual.MATERIAL3_CIRCULAR -> AppContentColors.accent()
 
         AdaptiveLoadingVisual.MIUIX_INFINITE,
         AdaptiveLoadingVisual.MIUIX_CIRCULAR -> AppSurfaceTokens.primary()

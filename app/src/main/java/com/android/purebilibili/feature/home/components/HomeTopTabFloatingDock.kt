@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.home.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
@@ -223,11 +225,11 @@ internal fun HomeTopTabFloatingDock(
         liquidGlassTuning = liquidGlassTuning,
     )
     val selectedContentColor = resolveReadableBottomBarSkinForeground(
-        preferredColor = MaterialTheme.colorScheme.primary,
+        preferredColor = AppContentColors.accent(),
         backgroundColor = shellColor,
     )
     val unselectedContentColor = resolveReadableBottomBarSkinForeground(
-        preferredColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        preferredColor = AppContentColors.secondaryText(),
         backgroundColor = shellColor,
     )
     BottomBarFloatingSegmentedControl(

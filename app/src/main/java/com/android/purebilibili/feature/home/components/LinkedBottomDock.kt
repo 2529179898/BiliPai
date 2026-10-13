@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloat
@@ -290,8 +292,8 @@ internal fun LinkedBottomDock(
             ?: retainedNowPlayingContent.takeIf { keepSlotComposed }
 
         val shape = resolveSharedBottomBarCapsuleShape()
-        val contentColor = MaterialTheme.colorScheme.onSurface
-        val accentColor = MaterialTheme.colorScheme.primary
+        val contentColor = AppContentColors.primaryText()
+        val accentColor = AppContentColors.accent()
         BoxWithConstraints(
             modifier = modifier.fillMaxWidth().imePadding().navigationBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 8.dp),

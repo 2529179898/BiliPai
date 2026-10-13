@@ -435,6 +435,7 @@ fun LivePlayerControls(
         // 与普通视频共用同一 Host：亮度贴左边缘，音量贴右边缘。
         GestureLevelOverlayHost(
             visible = isGestureVisible,
+            compact = true,
             mode = if (gestureKind == GestureLevelKind.Brightness) {
                 VideoGestureMode.Brightness
             } else {

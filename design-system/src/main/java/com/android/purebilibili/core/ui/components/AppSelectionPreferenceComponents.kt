@@ -1,5 +1,7 @@
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -83,7 +85,7 @@ fun <T> AppSingleChoicePreference(
     icon: ImageVector? = null,
     subtitle: String? = null,
     enabled: Boolean = true,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
+    iconTint: Color = AppContentColors.secondaryText(),
     dialogTitle: String = title,
     presentation: AppSingleChoicePresentation = LocalAppSingleChoicePresentation.current,
 ) {
@@ -171,7 +173,7 @@ fun <T> AppSingleChoicePreference(
                                             AppText(
                                                 text = description,
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = AppContentColors.secondaryText(),
                                             )
                                         }
                                     }
@@ -181,7 +183,7 @@ fun <T> AppSingleChoicePreference(
                                         Icon(
                                             imageVector = Icons.Default.Check,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
+                                            tint = AppContentColors.accent(),
                                         )
                                     }
                                 } else {
@@ -233,8 +235,8 @@ fun <T> AppSingleChoiceDialog(
     val layoutPolicy = remember { resolveAppContentDialogLayoutPolicy(maxWidthDp = 420) }
     // Dialog 使用独立平台窗口；在进入窗口子组合前固定应用主题色，避免其默认色
     // 在“系统深色 + 应用手动浅色”时从窗口配置重新跟随系统。
-    val dialogContentColor = MaterialTheme.colorScheme.onSurface
-    val dialogSecondaryContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val dialogContentColor = AppContentColors.primaryText()
+    val dialogSecondaryContentColor = AppContentColors.secondaryText()
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = resolveAppContentDialogProperties(
@@ -306,7 +308,7 @@ fun AppSliderDialogPreference(
     subtitle: String? = null,
     steps: Int = 0,
     enabled: Boolean = true,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
+    iconTint: Color = AppContentColors.secondaryText(),
     valueFormatter: (Float) -> String = { it.toString() },
     dialogTitle: String = title,
 ) {
@@ -404,13 +406,13 @@ fun AppSliderDialog(
                 AppText(
                     text = title,
                     style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                 )
                 Spacer(modifier = Modifier.height(18.dp))
                 AppText(
                     text = valueFormatter(draftValue),
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
                 Spacer(modifier = Modifier.height(8.dp))

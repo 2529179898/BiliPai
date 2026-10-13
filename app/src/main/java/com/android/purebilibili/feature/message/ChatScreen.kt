@@ -1,5 +1,7 @@
 // 聊天详情页面
 package com.android.purebilibili.feature.message
+
+import com.android.purebilibili.core.ui.AppContentColors
 import android.os.Build
 
 import com.android.purebilibili.core.ui.components.AppIcon
@@ -190,7 +192,7 @@ fun ChatScreen(
             viewModel.sendImageMessage(context, uri)
         }
     }
-    
+
     val latestMessageKey = uiState.messages.lastOrNull()?.let(::chatMessageKey)
     LaunchedEffect(latestMessageKey, uiState.scrollToLatestVersion) {
         val sentMessage = uiState.scrollToLatestVersion > handledScrollVersion
@@ -239,7 +241,7 @@ fun ChatScreen(
         null
     }
     val miniPlayerBottomAvoidance = resolveChatMiniPlayerBottomAvoidance()
-    
+
     ChatWallpaperHost(
         wallpaperBackdrop = chatWallpaperBackdrop,
     ) { wallpaperContent ->
@@ -337,7 +339,7 @@ fun ChatScreen(
                             AppText(
                                 text = "暂无消息",
                                 modifier = Modifier.align(Alignment.Center),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                         }
                         else -> {
@@ -719,11 +721,11 @@ fun ChatInputBar(
             shellLensIntensity = shellLensIntensity,
         ) { liquidChromeActive ->
             val fieldColor = if (liquidChromeActive) Color.Transparent else panelColor
-            val fieldTextColor = MaterialTheme.colorScheme.onSurface
+            val fieldTextColor = AppContentColors.primaryText()
             val placeholderColor = if (liquidChromeActive) {
                 fieldTextColor.copy(alpha = 0.82f)
             } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
+                AppContentColors.secondaryText()
             }
             AppOutlinedTextField(
                 value = text,
@@ -744,7 +746,7 @@ fun ChatInputBar(
                     focusedBorderColor = if (liquidChromeActive) {
                         Color.Transparent
                     } else {
-                        MaterialTheme.colorScheme.primary
+                        AppContentColors.accent()
                     },
                     unfocusedBorderColor = if (liquidChromeActive) {
                         Color.Transparent
@@ -806,9 +808,9 @@ fun ChatInputBar(
                         },
                         contentDescription = if (showSendAction) "发送" else "图片",
                         tint = if (showSendAction) {
-                            MaterialTheme.colorScheme.primary
+                            AppContentColors.accent()
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            AppContentColors.secondaryText()
                         },
                     )
                 }
@@ -831,19 +833,19 @@ fun MessageBubble(
     val bubbleShape = AppShapes.container(ContainerLevel.Card)
     val fallbackContainerColor = resolveMessageBubbleFallbackContainerColor(
         isOwnMessage = isOwnMessage,
-        primary = MaterialTheme.colorScheme.primary,
+        primary = AppContentColors.accent(),
         surfaceVariant = MaterialTheme.colorScheme.surfaceVariant,
     )
     val fallbackContentColor = resolveMessageBubbleFallbackContentColor(
         isOwnMessage = isOwnMessage,
-        onPrimary = MaterialTheme.colorScheme.onPrimary,
-        onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant,
+        onPrimary = AppContentColors.onAccent(),
+        onSurfaceVariant = AppContentColors.secondaryText(),
     )
     val textColor = fallbackContentColor
-    
+
     // BV号正则匹配
     val bvPattern = remember { Regex("BV[a-zA-Z0-9]{10}") }
-    
+
     // 从消息内容中提取BV号
     val detectedBvids = remember(message.content) {
         if (message.msg_type == 1) {
@@ -863,7 +865,7 @@ fun MessageBubble(
     }
     val shouldUseLargeVideoLinkCard = message.msg_type == 1 && linkedVideoPreviews.isNotEmpty()
     val isLargeVideoMessage = message.msg_status != 1 && parsedCard?.kind == MessageCardKind.Video
-    
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isOwnMessage) Alignment.End else Alignment.Start
@@ -874,7 +876,7 @@ fun MessageBubble(
                 text = formatMessageTime(message.timestamp),
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                color = AppContentColors.secondaryText(),
                 textAlign = TextAlign.Center,
             )
         }
@@ -1039,7 +1041,7 @@ fun MessageBubble(
                 }
             }
         }
-        
+
         // 视频链接预览卡片
         linkedVideoPreviews.forEach { (bvid, preview) ->
             Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
@@ -1048,14 +1050,14 @@ fun MessageBubble(
                 onClick = { onVideoClick?.invoke(bvid) }
             )
         }
-        
+
         if (!isLargeVideoMessage) {
             // 时间
             Spacer(modifier = Modifier.height(2.dp))
             AppText(
                 text = formatMessageTime(message.timestamp),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                color = AppContentColors.secondaryText(),
             )
         }
     }
@@ -1074,8 +1076,8 @@ private fun MessageLargeVideoCard(
     val cardCorner = AppShapes.containerCornerDp(ContainerLevel.ProminentCard)
     val contentTypography = feedContentTypography(FeedTitleHierarchy.Standard)
     val glassContentColors = rememberMessageGlassContentColors(
-        defaultOnSurface = MaterialTheme.colorScheme.onSurface,
-        defaultOnSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant,
+        defaultOnSurface = AppContentColors.primaryText(),
+        defaultOnSurfaceVariant = AppContentColors.secondaryText(),
     )
 
     Column(
@@ -1177,8 +1179,8 @@ private fun MessageHorizontalVideoCard(
     val cardShape = AppShapes.container(ContainerLevel.Card)
     val contentTypography = feedContentTypography(FeedTitleHierarchy.Standard)
     val glassContentColors = rememberMessageGlassContentColors(
-        defaultOnSurface = MaterialTheme.colorScheme.onSurface,
-        defaultOnSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant,
+        defaultOnSurface = AppContentColors.primaryText(),
+        defaultOnSurfaceVariant = AppContentColors.secondaryText(),
     )
 
     Box(
@@ -1218,7 +1220,7 @@ private fun MessageHorizontalVideoCard(
                     AppText(
                         text = it,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppContentColors.accent(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -1313,58 +1315,58 @@ fun RichMessageText(
     color: Color,
     style: TextStyle = MaterialTheme.typography.bodyLarge,
     fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
-    linkColor: Color = MaterialTheme.colorScheme.primary,  // 使用主题色
+    linkColor: Color = AppContentColors.accent(),  // 使用主题色
     onLinkClick: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
-    
+
     // 构建表情映射 (text -> EmoteInfo)
     val emoteMap = remember(emoteInfos) {
         emoteInfos.associateBy { it.text }
     }
-    
+
     // 匹配模式
     val emotePattern = remember { "\\[([^\\[\\]]+)\\]".toRegex() }
-    val urlPattern = remember { 
-        "(https?://[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=%]+)".toRegex() 
+    val urlPattern = remember {
+        "(https?://[\\w\\-._~:/?#\\[\\]@!$&'()*+,;=%]+)".toRegex()
     }
-    
+
     // 扫描所有特殊内容 (表情和URL)
     data class ContentMatch(val range: IntRange, val type: String, val value: String)
-    
+
     val allMatches = remember(text) {
         val matches = mutableListOf<ContentMatch>()
-        
+
         // 收集表情
         emotePattern.findAll(text).forEach { match ->
             matches.add(ContentMatch(match.range, "emote", match.value))
         }
-        
+
         // 收集 URL
         urlPattern.findAll(text).forEach { match ->
             matches.add(ContentMatch(match.range, "url", match.value))
         }
-        
+
         // 按位置排序
         matches.sortedBy { it.range.first }
     }
-    
+
     // 如果没有特殊内容，直接显示文本
     if (allMatches.isEmpty()) {
         AppText(text = text, color = color, style = style, fontSize = fontSize)
         return
     }
-    
+
     // 构建 AnnotatedString
     val annotatedString = buildAnnotatedString {
         var lastEnd = 0
-        
+
         allMatches.forEach { match ->
             // 添加前面的普通文本
             if (match.range.first > lastEnd) {
                 append(text.substring(lastEnd, match.range.first))
             }
-            
+
             when (match.type) {
                 "emote" -> {
                     val emote = emoteMap[match.value]
@@ -1386,16 +1388,16 @@ fun RichMessageText(
                     pop()
                 }
             }
-            
+
             lastEnd = match.range.last + 1
         }
-        
+
         // 添加剩余文本
         if (lastEnd < text.length) {
             append(text.substring(lastEnd))
         }
     }
-    
+
     // 构建 InlineContent 映射 (表情图片)
     val inlineContentMap = remember(emoteInfos) {
         emoteInfos.filter { it.url.isNotEmpty() }.associate { emote ->
@@ -1415,10 +1417,10 @@ fun RichMessageText(
             }
         }
     }
-    
+
     // 用于检测点击位置
     var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-    
+
     AppText(
         text = annotatedString,
         color = color,
@@ -1462,7 +1464,7 @@ fun EmoteText(
     color: Color,
     style: TextStyle = MaterialTheme.typography.bodyLarge,
     fontSize: androidx.compose.ui.unit.TextUnit = androidx.compose.ui.unit.TextUnit.Unspecified,
-    linkColor: Color = MaterialTheme.colorScheme.primary,
+    linkColor: Color = AppContentColors.accent(),
     onLinkClick: ((String) -> Unit)? = null
 ) {
     RichMessageText(

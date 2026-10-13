@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.dynamic.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 
@@ -302,14 +304,14 @@ private fun VideoCardLargeCover(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(AppSpacingTokens.Small)
-                    .background(MaterialTheme.colorScheme.primary, AppShapes.container(ContainerLevel.Tag))
+                    .background(AppContentColors.accent(), AppShapes.container(ContainerLevel.Tag))
                     .padding(horizontal = AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro, vertical = AppSpacingTokens.Micro)
             ) {
                 AppText(
                     text = badgeText,
                     fontSize = MaterialTheme.typography.labelSmall.fontSize,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = AppContentColors.onAccent()
                 )
             }
         }
@@ -358,7 +360,7 @@ private fun VideoCardLargeCover(
                 AppIcon(
                     painter = painterResource(R.drawable.ic_pili_tv_play),
                     contentDescription = "播放视频",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = AppContentColors.accent(),
                     modifier = Modifier.size(50.dp),
                 )
             }
@@ -382,7 +384,7 @@ private fun VideoCardLargeInfo(
             fontWeight = FontWeight.Bold,
             maxLines = videoCardTitleMaxLines(),
             overflow = videoCardTitleOverflow(),
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
         Spacer(modifier = Modifier.height(AppSpacingTokens.Micro))
         AppText(
@@ -390,7 +392,7 @@ private fun VideoCardLargeInfo(
             fontSize = MaterialTheme.typography.labelMedium.fontSize,
             maxLines = videoCardTitleMaxLines(),
             overflow = videoCardTitleOverflow(),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             modifier = titleModifier
         )
     } else {
@@ -401,7 +403,7 @@ private fun VideoCardLargeInfo(
             maxLines = videoCardTitleMaxLines(),
             overflow = videoCardTitleOverflow(),
             lineHeight = MaterialTheme.typography.bodyLarge.lineHeight,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             modifier = titleModifier
         )
     }

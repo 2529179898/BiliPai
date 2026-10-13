@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.video.ui.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 import androidx.compose.material3.MaterialTheme
 
@@ -43,11 +45,7 @@ import com.android.purebilibili.core.ui.common.TextSelectionBottomSheet
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.ContainerLevel
 
-// iOS Visual Styles
-private val MenuBackground = Color(0xCC1C1C1E) // Translucent Black
-private val SeparatorColor = Color(0xFF38383A)
-private val DestructiveColor = Color(0xFFFF453A) // System Red
-private val PrimaryColor = Color(0xFF0A84FF) // System Blue
+// Popup surfaces and content follow the active application theme.
 
 internal enum class DanmakuBlockActionTarget {
     KEYWORD,
@@ -238,7 +236,7 @@ private fun RecallConfirmMenu(
         modifier = Modifier
             .width(280.dp)
             .clip(AppShapes.container(ContainerLevel.Dialog))
-            .background(MenuBackground),
+            .background(com.android.purebilibili.core.ui.AppSurfaceTokens.cardContainer()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
@@ -253,13 +251,13 @@ private fun RecallConfirmMenu(
                 AppIcon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "返回",
-                    tint = PrimaryColor,
+                    tint = AppContentColors.neutralAction(),
                     modifier = Modifier.size(24.dp),
                 )
             }
             AppText(
                 text = "确认撤回",
-                color = Color.White,
+                color = AppContentColors.primaryText(),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.align(Alignment.Center)
             )
@@ -275,20 +273,20 @@ private fun RecallConfirmMenu(
         ) {
             AppText(
                 text = "撤回后不可恢复",
-                color = Color.White,
+                color = AppContentColors.primaryText(),
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
             )
             Spacer(modifier = Modifier.height(8.dp))
             AppText(
                 text = "确认撤回这条弹幕？",
-                color = Color.White.copy(alpha = 0.82f),
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(8.dp))
             AppText(
                 text = previewText,
-                color = Color.White.copy(alpha = 0.62f),
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -301,7 +299,7 @@ private fun RecallConfirmMenu(
         MenuItem(
             label = "撤回弹幕",
             icon = Icons.AutoMirrored.Filled.Reply,
-            color = DestructiveColor,
+            color = AppContentColors.error(),
             onClick = onConfirm
         )
     }
@@ -331,7 +329,7 @@ private fun MainMenu(
         modifier = Modifier
             .width(280.dp)
             .clip(AppShapes.container(ContainerLevel.Dialog))
-            .background(MenuBackground)
+            .background(com.android.purebilibili.core.ui.AppSurfaceTokens.cardContainer())
             .padding(vertical = 0.dp), // iOS menus often have no outer padding inside the rounded container
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -344,14 +342,14 @@ private fun MainMenu(
         ) {
             AppText(
                 text = "弹幕内容",
-                color = Color.White.copy(0.5f),
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium)
             )
             Spacer(modifier = Modifier.height(4.dp))
             SelectionContainer {
                 AppText(
                     text = text,
-                    color = Color.White,
+                    color = AppContentColors.primaryText(),
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
@@ -374,9 +372,9 @@ private fun MainMenu(
             enabled = canVote && !voteLoading,
             onClick = onLike
         )
-        
+
         MenuSeparator()
-        
+
         MenuItem(
             label = "复制全部",
             icon = Icons.Filled.ContentCopy,
@@ -420,7 +418,7 @@ private fun MainMenu(
             )
             MenuSeparator()
         }
-        
+
         MenuItem(
             label = "屏蔽发送者",
             icon = Icons.Filled.Block,
@@ -433,7 +431,7 @@ private fun MainMenu(
         MenuItem(
             label = "举报弹幕",
             icon = Icons.Filled.Report,
-            color = DestructiveColor, // Red for Report
+            color = AppContentColors.error(), // Red for Report
             onClick = onReportClick
         )
     }
@@ -448,7 +446,7 @@ private fun ReportReasonMenu(
         modifier = Modifier
             .width(280.dp)
             .clip(AppShapes.container(ContainerLevel.Dialog))
-            .background(MenuBackground),
+            .background(com.android.purebilibili.core.ui.AppSurfaceTokens.cardContainer()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Header with Back
@@ -464,13 +462,13 @@ private fun ReportReasonMenu(
                 AppIcon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "返回",
-                    tint = PrimaryColor,
+                    tint = AppContentColors.neutralAction(),
                     modifier = Modifier.size(24.dp),
                 )
             }
             AppText(
                 text = "举报原因",
-                color = Color.White,
+                color = AppContentColors.primaryText(),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.align(Alignment.Center)
             )
@@ -516,7 +514,7 @@ private fun formatDanmakuTimestampJumpLabel(timeMs: Long): String {
 private fun MenuItem(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
-    color: Color = Color.White,
+    color: Color = AppContentColors.primaryText(),
     centered: Boolean = false,
     enabled: Boolean = true,
     onClick: () -> Unit
@@ -551,7 +549,7 @@ private fun MenuItem(
 @Composable
 private fun MenuSeparator() {
     AppHorizontalDivider(
-        color = SeparatorColor,
+        color = com.android.purebilibili.core.ui.AppSurfaceTokens.divider(),
         thickness = 0.5.dp
     )
 }

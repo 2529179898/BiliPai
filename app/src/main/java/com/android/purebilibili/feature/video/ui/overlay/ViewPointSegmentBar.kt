@@ -1,6 +1,8 @@
 // 文件路径: feature/video/ui/overlay/ViewPointSegmentBar.kt
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -47,7 +49,7 @@ fun ViewPointSegmentBar(
         findViewPointSegmentAt(segments, currentPositionMs)
     }
     val trackColor = Color.White.copy(alpha = 0.24f)
-    val activeColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    val activeColor = AppContentColors.accent().copy(alpha = 0.6f)
     val separatorColor = Color.Black.copy(alpha = 0.55f)
 
     Row(

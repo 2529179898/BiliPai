@@ -1,5 +1,7 @@
 // 文件路径: feature/video/SponsorSkipUI.kt
 package com.android.purebilibili.feature.video.ui.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppFilterChip
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -78,13 +80,13 @@ fun SponsorSkipButton(
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Medium
                     )
-                    
+
                     // 跳过按钮
                     AppSurface(
                         modifier = Modifier
                             .clip(AppShapes.container(ContainerLevel.Chip))
                             .clickable { onSkip() },
-                        color = MaterialTheme.colorScheme.primary
+                        color = AppContentColors.accent()
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -94,12 +96,12 @@ fun SponsorSkipButton(
                             AppIcon(
                                 imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                                 contentDescription = "跳过",
-                                tint = MaterialTheme.colorScheme.onPrimary,
+                                tint = AppContentColors.onAccent(),
                                 modifier = Modifier.size(16.dp)
                             )
                             AppText(
                                 text = "跳过",
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = AppContentColors.onAccent(),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -107,7 +109,7 @@ fun SponsorSkipButton(
                     }
                     AppTextButton(onClick = { onVote(1) }) { AppText("有用", color = MaterialTheme.colorScheme.inverseOnSurface) }
                     AppTextButton(onClick = { onVote(0) }) { AppText("不准确", color = MaterialTheme.colorScheme.inverseOnSurface) }
-                    
+
                     // 关闭按钮
                     AppIconButton(onClick = onDismiss) {
                         AppIcon(
@@ -164,7 +166,7 @@ fun SponsorContributionOverlay(
                         AppText(
                             text = "选择片段类别",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                         )
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -187,7 +189,7 @@ fun SponsorContributionOverlay(
                         AppText(
                             text = "动作类型",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                         )
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -207,7 +209,7 @@ fun SponsorContributionOverlay(
                         AppText(
                             text = "提交将发送类别、时间段、视频标识和社区用户 ID 至 ${state.serverBaseUrl}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                         )
                     }
                     state.message?.let { message ->
@@ -215,9 +217,9 @@ fun SponsorContributionOverlay(
                             text = message,
                             style = MaterialTheme.typography.bodySmall,
                             color = if (state.phase == SponsorContributionPhase.SUCCESS) {
-                                MaterialTheme.colorScheme.primary
+                                AppContentColors.accent()
                             } else {
-                                MaterialTheme.colorScheme.error
+                                AppContentColors.error()
                             },
                         )
                     }

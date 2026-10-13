@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.dynamic
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.AppSpacingTokens
@@ -288,7 +290,7 @@ fun DynamicDetailScreen(
                     ) {
                         AppText(
                             text = state.message,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                         AppButton(onClick = { retryToken++ }) {
                             AppText(retryLabel)

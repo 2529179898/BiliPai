@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.video.share
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
 import android.app.Activity
@@ -97,7 +99,7 @@ internal fun VideoShareSheet(
     var moreShareMedia by remember { mutableStateOf<VideoShareCoverFile?>(null) }
     var shareStyle by remember { mutableStateOf(VideoShareStyle.LINK) }
     val neutralIconBackground = MaterialTheme.colorScheme.surfaceContainerHighest
-    val neutralIconContent = MaterialTheme.colorScheme.onSurface
+    val neutralIconContent = AppContentColors.primaryText()
     val styleOptions = remember {
         listOf(
             AppSegmentOption(VideoShareStyle.LINK, "链接"),
@@ -235,7 +237,7 @@ internal fun VideoShareSheet(
                     "以标题 + 链接分享，方便直接打开"
                 },
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.bodySmall,
             )
 
@@ -356,7 +358,7 @@ internal fun VideoShareSheet(
             ) {
                 AppText(
                     text = "取消",
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium)
                 )
             }
@@ -438,7 +440,7 @@ private fun VideoShareSheetItemView(
         Spacer(modifier = Modifier.height(8.dp))
         AppText(
             text = item.label,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             style = MaterialTheme.typography.labelMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis

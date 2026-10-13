@@ -1,5 +1,7 @@
 // 文件路径: feature/dynamic/components/RepostDialog.kt
 package com.android.purebilibili.feature.dynamic.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -39,7 +41,7 @@ fun RepostDialog(
                     rememberAppShareIcon(),
                     contentDescription = null,
                     modifier = Modifier.size(AppSpacingTokens.ExtraLarge),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = AppContentColors.accent()
                 )
                 Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))
                 AppText(

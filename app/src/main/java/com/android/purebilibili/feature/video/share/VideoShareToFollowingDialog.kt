@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.share
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -137,7 +139,7 @@ internal fun VideoShareToFollowingDialog(
                 AppText(
                     "已加载 ${followings.size}/${total.coerceAtLeast(followings.size)} 人，已选 ${recipients.size} 人",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = listMaxHeight)) {
                     items(visibleUsers, key = FollowingUser::mid) { user ->
