@@ -358,9 +358,7 @@ class VideoDetailReturnCoverPolicyTest {
         assertTrue(chrome.contains("heightPx * inverse.scaleY"))
         assertTrue(chrome.contains("lastClickedNativeCoverOverlayLayer"))
         assertTrue(chrome.contains("shouldDrawNativeCoverOverlay("))
-        // 窗口按「守卫块 + 新增的串行化实参」放宽：守卫块本身已接近 800 字符，
-        // 且 `shouldDrawFlyingReconstructedSourceChrome(...)` 现在多带一个
-        // `detailBodyChromeAlpha` 实参，旧的 500/1000 窗口会把守卫头部切掉。
+        // Include the full multi-line ownership guard before each chrome call.
         val coverChromeGuard = holder
             .substringBefore("VideoDetailReturnCoverChrome(")
             .takeLast(1_000)
@@ -1815,52 +1813,42 @@ class VideoDetailReturnCoverPolicyTest {
     }
 
     @Test
-    fun reconstructedInfoBandIsSerializedBehindTheDetailBody() {
-        // 正文还没让位完成时不画重建板，否则两层会在同一块信息槽里叠画成
-        // 「半透明白板 + 简介/评论鬼影」。
+    fun ordinaryAndPredictiveReturnsKeepTheInfoBandMountedThroughoutHandoff() {
+        for (gesture in listOf(false, true)) {
+            assertTrue(
+                shouldDrawFlyingReconstructedSourceChrome(
+                    phase = VideoCardTransitionBackgroundPhase.RETURNING,
+                    isReturnGestureInProgress = gesture,
+                ),
+            )
+            for (depth in listOf(0.18f, 0.1f, 0.02f)) {
+                val detailAlpha = com.android.purebilibili.core.ui.transition
+                    .resolveVideoCardDetailChromeAlpha(
+                        morphDepthProgress = depth,
+                        phase = VideoCardTransitionBackgroundPhase.RETURNING,
+                        isReturnGestureInProgress = gesture,
+                    )
+                val sourceAlpha = resolveVideoDetailFlyingSourceChromeAlpha(
+                    morphDepthProgress = depth,
+                    phase = VideoCardTransitionBackgroundPhase.RETURNING,
+                    isReturnGestureInProgress = gesture,
+                    sourceLayout = VideoCardSourceLayout.STACKED,
+                )
+                assertEquals(1f, detailAlpha + sourceAlpha, 0.001f)
+                if (depth == 0.1f) assertEquals(0.5f, sourceAlpha, 0.001f)
+            }
+        }
         assertFalse(
             shouldDrawFlyingReconstructedSourceChrome(
-                phase = VideoCardTransitionBackgroundPhase.RETURNING,
+                phase = VideoCardTransitionBackgroundPhase.IDLE,
                 isReturnGestureInProgress = false,
-                detailBodyChromeAlpha = 0.5f,
             ),
         )
         assertTrue(
-            shouldDrawFlyingReconstructedSourceChrome(
-                phase = VideoCardTransitionBackgroundPhase.RETURNING,
-                isReturnGestureInProgress = false,
-                detailBodyChromeAlpha = 0f,
-            ),
-        )
-        // 进场方向不受串行化影响：列表卡已隐藏，重建壳是唯一可见的卡面。
-        assertTrue(
-            shouldDrawFlyingReconstructedSourceChrome(
-                phase = VideoCardTransitionBackgroundPhase.OPENING,
-                isReturnGestureInProgress = false,
-                detailBodyChromeAlpha = 1f,
-            ),
-        )
-        // HELD 稳态（正文全不透明）不画重建板。
-        assertFalse(
             shouldDrawFlyingReconstructedSourceChrome(
                 phase = VideoCardTransitionBackgroundPhase.HELD,
                 isReturnGestureInProgress = false,
-                detailBodyChromeAlpha = 1f,
-            ),
-        )
-        // IDLE 稳态不画；但手势进行中优先参与合成。
-        assertFalse(
-            shouldDrawFlyingReconstructedSourceChrome(
-                phase = VideoCardTransitionBackgroundPhase.IDLE,
-                isReturnGestureInProgress = false,
-                detailBodyChromeAlpha = 0f,
-            ),
-        )
-        assertTrue(
-            shouldDrawFlyingReconstructedSourceChrome(
-                phase = VideoCardTransitionBackgroundPhase.IDLE,
-                isReturnGestureInProgress = true,
-                detailBodyChromeAlpha = 1f,
+                isGestureRestoreInProgress = true,
             ),
         )
     }
