@@ -70,6 +70,43 @@ class DanmakuMergerPolicyTest {
     }
 
     @Test
+    fun merge_anchorsTheInclusiveWindowToTheFirstItem() {
+        val items = listOf(0L, 15_000L, 15_001L).map { time ->
+            DanmakuItem().apply {
+                text = "重复弹幕"
+                showAtTime = time
+            }
+        }
+
+        val (standard, _) = DanmakuMerger.merge(items, intervalMs = 15_000L)
+
+        assertEquals(listOf(0L, 15_001L), standard.map { it.showAtTime })
+        assertEquals(listOf("重复弹幕 x2", "重复弹幕"), standard.map { it.text })
+    }
+
+    @Test
+    fun merge_sumsLikesWithinEachWindowWithoutMutatingTheSource() {
+        val items = listOf(
+            0L to 3L,
+            10_000L to 10L,
+            20_000L to 7L,
+            30_000L to 0L
+        ).map { (time, likes) ->
+            DanmakuItem().apply {
+                text = "相同内容"
+                showAtTime = time
+                likeCount = likes
+            }
+        }
+
+        val (standard, _) = DanmakuMerger.merge(items, intervalMs = 15_000L)
+
+        assertEquals(listOf(0L, 20_000L), standard.map { it.showAtTime })
+        assertEquals(listOf(13L, 7L), standard.map { it.likeCount })
+        assertEquals(listOf(3L, 10L, 7L, 0L), items.map { it.likeCount })
+    }
+
+    @Test
     fun merge_keepsOriginalContentForHotSuppressionWithoutMutatingTheHotSource() {
         val items = List(3) { index ->
             DanmakuItem().apply {

@@ -345,7 +345,7 @@ fun DanmakuSettingsPanel(
     staticDanmakuToScroll: Boolean = false,
     massiveMode: Boolean = false,
     mergeDuplicates: Boolean = true,
-    duplicateMergeWindowMs: Int = 500,
+    duplicateMergeWindowMs: Int = 15_000,
     duplicateMergeCountThreshold: Int = 2,
     allowScroll: Boolean = true,
     allowTop: Boolean = true,
@@ -1045,7 +1045,7 @@ fun DanmakuSettingsPanel(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 AppText(
-                                    text = "减少刷屏干扰，将重复内容合并显示",
+                                    text = "首条锚定窗口，合并并累加点赞",
                                     color = panelColors.supportingColor,
                                     style = MaterialTheme.typography.bodySmall
                                 )
@@ -1069,13 +1069,13 @@ fun DanmakuSettingsPanel(
                                 DanmakuSliderItem(
                                     label = "合并窗口",
                                     value = duplicateMergeWindowMs.toFloat(),
-                                    valueRange = 100f..3000f,
-                                    steps = 28,
+                                    valueRange = 100f..15000f,
+                                    steps = 148,
                                     displayValue = { "${it.roundToInt()}ms" },
                                     onValueChange = { onDuplicateMergeWindowMsChange(it.roundToInt()) },
                                     colors = panelColors,
                                     fullscreenStyle = isFullscreenStyle,
-                                    resetValue = 500f,
+                                    resetValue = 15000f,
                                     tickCount = 6
                                 )
 

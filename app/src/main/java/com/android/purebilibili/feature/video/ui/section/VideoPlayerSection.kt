@@ -759,10 +759,12 @@ private fun VideoPlayerSectionContent(
     val ugcSeason = state.ugcSeason
     val isFollowed = state.isFollowed
     val followStatusKnown = state.followStatusKnown
+    val isFollowSubmitting = state.isFollowSubmitting
     val isLiked = state.isLiked
     val likeStatusKnown = state.likeStatusKnown
     val isCoined = state.isCoined
     val isFavorited = state.isFavorited
+    val isTripleSubmitting = state.isTripleSubmitting
     val hasFavoritePlaylist = state.hasFavoritePlaylist
     val forceCoverOnly = state.forceCoverOnly
     val preserveCurrentFrameOnFullscreenChange = state.preserveCurrentFrameOnFullscreenChange
@@ -814,6 +816,7 @@ private fun VideoPlayerSectionContent(
     val onPlayModeClick = actions.onPlayModeClick
     val onRelatedVideoClick = actions.onRelatedVideoClick
     val onToggleFollow = actions.onToggleFollow
+    val onFollow = actions.onFollow
     val onToggleLike = actions.onToggleLike
     val onDislike = actions.onDislike
     val onCoin = actions.onCoin
@@ -4654,7 +4657,7 @@ private fun VideoPlayerSectionContent(
                     fontScale = danmakuFontScale,
                     items = visibleCommandDanmakuList,
                     player = playerState.player,
-                    onFollowClick = onToggleFollow,
+                    onFollowClick = onFollow,
                     onTripleClick = onTriple,
                     onLinkClick = { item ->
                         val targetBvid = item.linkBvid.ifBlank {
@@ -4768,6 +4771,11 @@ private fun VideoPlayerSectionContent(
                     isFollowing = isFollowed,
                     followStatusKnown = followStatusKnown,
                     likeStatusKnown = likeStatusKnown,
+                    isLiked = isLiked,
+                    isCoined = isCoined,
+                    isFavorited = isFavorited,
+                    isFollowSubmitting = isFollowSubmitting,
+                    isTripleSubmitting = isTripleSubmitting,
                     modifier = Modifier.fillMaxSize()
                 )
                 // 关联视频命令弹幕：跳转前确认

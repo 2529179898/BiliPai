@@ -19,6 +19,7 @@ import com.android.purebilibili.feature.video.subtitle.SubtitleDisplayMode
 import com.android.purebilibili.feature.video.ui.section.VideoPlayerSection
 import com.android.purebilibili.feature.video.ui.section.VideoPlayerSectionActions
 import com.android.purebilibili.feature.video.ui.section.VideoPlayerSectionState
+import com.android.purebilibili.feature.video.viewmodel.VideoEngagementUiState
 import com.android.purebilibili.feature.video.viewmodel.VideoPlaybackUiState
 import kotlin.math.roundToInt
 
@@ -54,11 +55,14 @@ internal data class ContinuousPlayerFullscreenExtras(
     val ugcSeason: com.android.purebilibili.data.model.response.UgcSeason?,
     val isFollowed: Boolean,
     val followStatusKnown: Boolean,
+    val isFollowSubmitting: Boolean,
+    val isTripleSubmitting: Boolean,
     val isLiked: Boolean,
     val likeStatusKnown: Boolean,
     val isCoined: Boolean,
     val isFavorited: Boolean,
     val onToggleFollow: () -> Unit,
+    val onFollow: () -> Unit,
     val onToggleLike: () -> Unit,
     val onDislike: () -> Unit,
     val onCoin: () -> Unit,
@@ -165,6 +169,8 @@ internal fun PortraitInlineVideoPlayerHost(
     isFullscreen: Boolean = false,
     playerState: VideoPlayerState,
     uiState: VideoPlaybackUiState,
+    engagementState: VideoEngagementUiState,
+    engagementActions: VideoDetailEngagementActions,
     isPipMode: Boolean,
     transitionEnabled: Boolean,
     transitionChromeAlphaProvider: () -> Float,
@@ -288,12 +294,14 @@ internal fun PortraitInlineVideoPlayerHost(
                     ?: com.android.purebilibili.feature.video.player.PlayMode.SEQUENTIAL,
                 relatedVideos = fullscreenExtras?.relatedVideos.orEmpty(),
                 ugcSeason = fullscreenExtras?.ugcSeason,
-                isFollowed = fullscreenExtras?.isFollowed ?: successState?.isFollowing ?: false,
-                followStatusKnown = fullscreenExtras?.followStatusKnown ?: (successState?.followStatusKnown == true),
-                isLiked = fullscreenExtras?.isLiked ?: successState?.isLiked ?: false,
-                likeStatusKnown = fullscreenExtras?.likeStatusKnown ?: (successState?.likeStatusKnown == true),
-                isCoined = fullscreenExtras?.isCoined == true,
-                isFavorited = fullscreenExtras?.isFavorited == true,
+                isFollowed = fullscreenExtras?.isFollowed ?: engagementState.isFollowing,
+                followStatusKnown = fullscreenExtras?.followStatusKnown ?: engagementState.followStatusKnown,
+                isFollowSubmitting = fullscreenExtras?.isFollowSubmitting ?: engagementState.isFollowSubmitting,
+                isTripleSubmitting = fullscreenExtras?.isTripleSubmitting ?: engagementState.isTripleSubmitting,
+                isLiked = fullscreenExtras?.isLiked ?: engagementState.isLiked,
+                likeStatusKnown = fullscreenExtras?.likeStatusKnown ?: engagementState.likeStatusKnown,
+                isCoined = fullscreenExtras?.isCoined ?: (engagementState.coinCount > 0),
+                isFavorited = fullscreenExtras?.isFavorited ?: engagementState.isFavorited,
                 hasFavoritePlaylist = fullscreenExtras?.hasFavoritePlaylist == true,
                 forceCoverOnly = forceCoverOnly,
                 preserveCurrentFrameOnFullscreenChange = preserveCurrentFrameOnFullscreenChange,
@@ -356,12 +364,13 @@ internal fun PortraitInlineVideoPlayerHost(
                 onDownloadAudio = fullscreenExtras?.onDownloadAudio
                     ?: { playbackActions.downloadAudio() },
                 onRelatedVideoClick = fullscreenExtras?.onRelatedVideoClick ?: { _, _ -> },
-                onToggleFollow = fullscreenExtras?.onToggleFollow ?: {},
-                onToggleLike = fullscreenExtras?.onToggleLike ?: {},
-                onDislike = fullscreenExtras?.onDislike ?: {},
-                onCoin = fullscreenExtras?.onCoin ?: {},
-                onToggleFavorite = fullscreenExtras?.onToggleFavorite ?: {},
-                onTriple = fullscreenExtras?.onTriple ?: {},
+                onToggleFollow = fullscreenExtras?.onToggleFollow ?: engagementActions.toggleFollow,
+                onFollow = fullscreenExtras?.onFollow ?: engagementActions.followOwner,
+                onToggleLike = fullscreenExtras?.onToggleLike ?: engagementActions.toggleLike,
+                onDislike = fullscreenExtras?.onDislike ?: playbackActions.markVideoNotInterested,
+                onCoin = fullscreenExtras?.onCoin ?: engagementActions.openCoinDialog,
+                onToggleFavorite = fullscreenExtras?.onToggleFavorite ?: engagementActions.toggleFavorite,
+                onTriple = fullscreenExtras?.onTriple ?: engagementActions.doTripleAction,
                 onPageSelect = fullscreenExtras?.onPageSelect ?: {},
                 onFavoritePlaylistClick = fullscreenExtras?.onFavoritePlaylistClick ?: {},
                 onSubtitleDisplayModePreferenceOverrideChange =

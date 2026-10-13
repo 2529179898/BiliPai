@@ -677,6 +677,7 @@ internal fun VideoDetailScreenStateHolder(
     val engagementActions = remember(engagementViewModel, viewModel) {
         VideoDetailEngagementActions(
             toggleFollow = engagementViewModel::toggleFollow,
+            followOwner = engagementViewModel::followOwner,
             toggleFavorite = engagementViewModel::toggleFavorite,
             onFavoriteAction = { isLongPress ->
                 when (
@@ -3500,6 +3501,8 @@ internal fun VideoDetailScreenStateHolder(
             isFullscreen = layout.isFullscreen,
             playerState = playerState,
             uiState = uiState,
+            engagementState = engagementState,
+            engagementActions = engagementActions,
             isPipMode = isPipMode,
             transitionEnabled = detailChildTransitionEnabled,
             transitionChromeAlphaProvider = videoCardDetailChromeAlphaProvider,
@@ -3580,11 +3583,14 @@ internal fun VideoDetailScreenStateHolder(
                 ugcSeason = uiSuccessState?.info?.ugc_season,
                 isFollowed = engagementState.isFollowing,
                 followStatusKnown = engagementState.followStatusKnown,
+                isFollowSubmitting = engagementState.isFollowSubmitting,
+                isTripleSubmitting = engagementState.isTripleSubmitting,
                 isLiked = engagementState.isLiked,
                 likeStatusKnown = engagementState.likeStatusKnown,
                 isCoined = engagementState.coinCount > 0,
                 isFavorited = engagementState.isFavorited,
                 onToggleFollow = engagementViewModel::toggleFollow,
+                onFollow = engagementActions.followOwner,
                 onToggleLike = engagementViewModel::toggleLike,
                 onDislike = viewModel::markVideoNotInterested,
                 onCoin = engagementViewModel::openCoinDialog,
@@ -3788,6 +3794,8 @@ internal fun VideoDetailScreenStateHolder(
                         ugcSeason = (uiState as? VideoPlaybackUiState.Success)?.info?.ugc_season,
                         isFollowed = engagementState.isFollowing,
                         followStatusKnown = engagementState.followStatusKnown,
+                        isFollowSubmitting = engagementState.isFollowSubmitting,
+                        isTripleSubmitting = engagementState.isTripleSubmitting,
                         isLiked = engagementState.isLiked,
                         likeStatusKnown = engagementState.likeStatusKnown,
                         isCoined = engagementState.coinCount > 0,
@@ -3876,6 +3884,7 @@ internal fun VideoDetailScreenStateHolder(
                         onSaveCover = { viewModel.saveCover(context) },
                         onDownloadAudio = { viewModel.downloadAudio(context) },
                         onToggleFollow = { engagementViewModel.toggleFollow() },
+                        onFollow = engagementActions.followOwner,
                         onToggleLike = { engagementViewModel.toggleLike() },
                         onDislike = { viewModel.markVideoNotInterested() },
                         onCoin = { engagementViewModel.openCoinDialog() },

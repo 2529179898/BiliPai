@@ -997,7 +997,7 @@ data class DanmakuSettings(
     val staticDanmakuToScroll: Boolean = false,
     val massiveMode: Boolean = false,
     val mergeDuplicates: Boolean = true,
-    val duplicateMergeWindowMs: Int = 500,
+    val duplicateMergeWindowMs: Int = 15_000,
     val duplicateMergeCountThreshold: Int = 2,
     val allowScroll: Boolean = true,
     val allowTop: Boolean = true,
@@ -4652,7 +4652,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private const val DEFAULT_DANMAKU_LINE_HEIGHT = 1.6f
     private const val DEFAULT_DANMAKU_SCROLL_DURATION_SECONDS = 7.0f
     private const val DEFAULT_DANMAKU_STATIC_DURATION_SECONDS = 4.0f
-    private const val DEFAULT_DANMAKU_DUPLICATE_MERGE_WINDOW_MS = 500
+    private const val DEFAULT_DANMAKU_DUPLICATE_MERGE_WINDOW_MS = 15_000
     private const val DEFAULT_DANMAKU_DUPLICATE_MERGE_COUNT_THRESHOLD = 2
 
     private fun normalizeDanmakuFontWeight(value: Int?): Int {
@@ -4685,7 +4685,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
 
     private fun normalizeDanmakuDuplicateMergeWindowMs(value: Int?): Int {
         val raw = value ?: DEFAULT_DANMAKU_DUPLICATE_MERGE_WINDOW_MS
-        return raw.coerceIn(100, 3000)
+        return raw.coerceIn(100, 15_000)
     }
 
     private fun normalizeDanmakuDuplicateMergeCountThreshold(value: Int?): Int {

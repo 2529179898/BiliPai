@@ -55,7 +55,6 @@ class DanmakuSettingsMappingPolicyTest {
         assertEquals(1.6f, propertyValue<Float>(result, "lineHeight"))
         assertEquals(7.0f, propertyValue<Float>(result, "scrollDurationSeconds"))
         assertEquals(4.0f, propertyValue<Float>(result, "staticDurationSeconds"))
-        assertEquals(500, propertyValue<Int>(result, "duplicateMergeWindowMs"))
         assertEquals(2, propertyValue<Int>(result, "duplicateMergeCountThreshold"))
         assertFalse(propertyValue<Boolean>(result, "scrollFixedVelocity"))
         assertFalse(propertyValue<Boolean>(result, "staticDanmakuToScroll"))
@@ -132,6 +131,21 @@ class DanmakuSettingsMappingPolicyTest {
         val result = mapDanmakuSettingsFromPreferences(prefs, portraitScope)
 
         assertEquals(0.3f, result.fontScale)
+    }
+
+    @Test
+    fun persistedMergeWindow_supportsLongWindowsAndCapsTheUpperBoundary() {
+        val longWindow = mapDanmakuSettingsFromPreferences(
+            mutablePreferencesOf(intPreferencesKey("danmaku_duplicate_merge_window_ms") to 9_000),
+            portraitScope
+        )
+        val oversizedWindow = mapDanmakuSettingsFromPreferences(
+            mutablePreferencesOf(intPreferencesKey("danmaku_duplicate_merge_window_ms") to 20_000),
+            portraitScope
+        )
+
+        assertEquals(9_000, longWindow.duplicateMergeWindowMs)
+        assertEquals(15_000, oversizedWindow.duplicateMergeWindowMs)
     }
 
     @Test
