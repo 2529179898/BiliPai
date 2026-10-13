@@ -47,7 +47,11 @@ internal fun PageCoverList(
     bottomContentPaddingDp: Int = 12,
     onResetFilters: () -> Unit = {},
 ) {
-    val listState = rememberLazyListState()
+    //  首次组合即定位当前分 P：底部面板展开过程中高度未定，初始位置比后续 scrollToItem 更可靠
+    val initialPosition = remember(visiblePageIndices) {
+        visiblePageIndices.indexOf(currentPageIndex).coerceAtLeast(0)
+    }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialPosition)
     val scope = rememberCoroutineScope()
     var descending by rememberSaveable(pages.firstOrNull()?.cid) { mutableStateOf(false) }
     val orderedIndices = remember(visiblePageIndices, descending) {

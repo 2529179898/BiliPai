@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -42,7 +43,10 @@ import androidx.compose.ui.unit.sp
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 import kotlin.math.PI
 import kotlin.math.sin
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Search
@@ -61,6 +65,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -368,7 +373,51 @@ fun PagesSelector(
                 }
 
                 if (showCollection) {
-                    //  合集：多季切换 + 每集封面/标题/时长/发布时间/播放数/弹幕数
+                    //  合集：跳顶/跳底/跳当前 + 倒序 + 多季切换 + 每集封面/标题/时长/发布时间/播放数/弹幕数
+                    var collectionDescending by rememberSaveable { mutableStateOf(false) }
+                    val displayedEpisodes = remember(visibleEpisodes, collectionDescending) {
+                        if (collectionDescending) visibleEpisodes.asReversed() else visibleEpisodes
+                    }
+                    val currentEpisodePosition = remember(displayedEpisodes, currentBvid, currentCid) {
+                        displayedEpisodes.indexOfFirst { isCurrentUgcEpisode(currentBvid, currentCid, it) }
+                    }
+                    //  首次组合即定位当前集；切换季或倒序时重建滚动状态
+                    val collectionListState = remember(activeSectionIndex, collectionDescending) {
+                        LazyListState(firstVisibleItemIndex = currentEpisodePosition.coerceAtLeast(0))
+                    }
+                    val collectionScope = rememberCoroutineScope()
+                    fun scrollToEpisode(index: Int) {
+                        if (index !in displayedEpisodes.indices) return
+                        collectionScope.launch { collectionListState.animateScrollToItem(index) }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        EpisodeListNavigationActions(
+                            onTopClick = { scrollToEpisode(0) },
+                            onBottomClick = { scrollToEpisode(displayedEpisodes.lastIndex) },
+                            onCurrentClick = { scrollToEpisode(currentEpisodePosition) },
+                            hasItems = displayedEpisodes.isNotEmpty(),
+                            hasCurrent = currentEpisodePosition >= 0,
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        AppIconButton(onClick = { collectionDescending = !collectionDescending }) {
+                            AppIcon(
+                                imageVector = if (collectionDescending) {
+                                    Icons.Outlined.ArrowDownward
+                                } else {
+                                    Icons.Outlined.ArrowUpward
+                                },
+                                contentDescription = if (collectionDescending) "倒序，点击切换正序" else "正序，点击切换倒序",
+                                tint = AppContentColors.secondaryText(),
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+
                     if (collectionSections.size > 1) {
                         LazyRow(
                             modifier = Modifier.fillMaxWidth(),
@@ -395,17 +444,18 @@ fun PagesSelector(
 
                     AppLazyColumn(
                         modifier = Modifier.fillMaxWidth().weight(1f),
+                        state = collectionListState,
                         contentPadding = PaddingValues(bottom = gridBottomPaddingDp.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         items(
-                            count = visibleEpisodes.size,
+                            count = displayedEpisodes.size,
                             key = { index ->
-                                val episode = visibleEpisodes[index]
+                                val episode = displayedEpisodes[index]
                                 "$activeSectionIndex-${episode.bvid}-${episode.cid}-${episode.id}"
                             },
                         ) { index ->
-                            val episode = visibleEpisodes[index]
+                            val episode = displayedEpisodes[index]
                             CollectionEpisodeRow(
                                 episode = episode,
                                 isCurrentEpisode = isCurrentUgcEpisode(currentBvid, currentCid, episode),
