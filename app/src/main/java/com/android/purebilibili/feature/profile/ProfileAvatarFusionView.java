@@ -313,6 +313,8 @@ public class ProfileAvatarFusionView extends FrameLayout {
 
         private final Paint blackNodePaint = new Paint();
 
+        private float installedBlur = -1f;
+
         private GPUImpl(float factorMult) {
             this.factorMult = factorMult;
 
@@ -333,7 +335,6 @@ public class ProfileAvatarFusionView extends FrameLayout {
         }
 
         @Override
-        private float installedBlur = -1f;
         public void setBlurIntensity(float blurIntensity) {
             if (installedBlur == blurIntensity) return;
             installedBlur = blurIntensity;
