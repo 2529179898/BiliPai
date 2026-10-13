@@ -16,6 +16,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import com.android.purebilibili.core.ui.components.LocalAppIconButtonGlassSurfaceProvided
 import com.android.purebilibili.core.ui.components.AppIconButtonColors
 import com.android.purebilibili.core.ui.components.AppIconButtonVariant
+import com.android.purebilibili.core.ui.components.LocalAppActionContentColor
 import com.android.purebilibili.core.ui.components.appDesktopFocusableItemVisuals
 import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import androidx.compose.ui.unit.dp
@@ -33,12 +34,13 @@ internal fun AppMiuixIconButton(
     variant: AppIconButtonVariant,
     content: @Composable () -> Unit,
 ) {
+    val neutralContentColor = LocalAppActionContentColor.current.takeOrElse { MiuixLocalContentColor.current }
     val defaultColors = when (variant) {
         AppIconButtonVariant.Standard -> AppIconButtonColors(
             containerColor = Color.Unspecified,
-            contentColor = MiuixLocalContentColor.current,
+            contentColor = neutralContentColor,
             disabledContainerColor = Color.Unspecified,
-            disabledContentColor = MiuixLocalContentColor.current,
+            disabledContentColor = neutralContentColor.copy(alpha = 0.38f),
         )
         AppIconButtonVariant.Filled -> MiuixButtonDefaults.buttonColorsPrimary().let {
             AppIconButtonColors(
@@ -79,6 +81,12 @@ internal fun AppMiuixIconButton(
     CompositionLocalProvider(
         MiuixLocalContentColor provides contentColor,
         androidx.compose.material3.LocalContentColor provides contentColor,
+        com.android.purebilibili.core.ui.LocalAppButtonSlotPalette provides
+            if (LocalAppIconButtonGlassSurfaceProvided.current) null else com.android.purebilibili.core.ui.AppButtonSlotPalette(
+                containerColor = backgroundColor.takeOrElse { Color.Transparent },
+                contentColor = contentColor,
+                enabled = enabled,
+            ),
     ) {
         MiuixIconButton(
             onClick = onClick,

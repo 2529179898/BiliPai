@@ -16,6 +16,13 @@ internal fun AppMaterial3ListItem(
     leadingContent: (@Composable () -> Unit)?,
     trailingContent: (@Composable () -> Unit)?,
 ) = SegmentedListItem(
+    colors = ListItemDefaults.colors(
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        headlineColor = com.android.purebilibili.core.ui.AppContentColors.primaryText(),
+        supportingColor = com.android.purebilibili.core.ui.AppContentColors.secondaryText(),
+        overlineColor = com.android.purebilibili.core.ui.AppContentColors.secondaryText(),
+        trailingIconColor = com.android.purebilibili.core.ui.AppContentColors.secondaryText(),
+    ),
     shapes = ListItemDefaults.segmentedShapes(index = 0, count = 1),
     content = headlineContent,
     modifier = modifier,

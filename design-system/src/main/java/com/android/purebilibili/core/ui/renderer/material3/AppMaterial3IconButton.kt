@@ -11,9 +11,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import com.android.purebilibili.core.ui.components.LocalAppIconButtonGlassSurfaceProvided
 import com.android.purebilibili.core.ui.components.AppIconButtonColors
 import com.android.purebilibili.core.ui.components.AppIconButtonVariant
+import com.android.purebilibili.core.ui.components.LocalAppActionContentColor
 import com.android.purebilibili.core.ui.components.appDesktopInteractionVisuals
 
 @Composable
@@ -32,9 +34,18 @@ internal fun AppMaterial3IconButton(
         AppIconButtonVariant.Standard -> IconButtonDefaults.standardShape
         AppIconButtonVariant.Filled -> IconButtonDefaults.filledShape
     }
+    val neutralContentColor = LocalAppActionContentColor.current.takeOrElse {
+        com.android.purebilibili.core.ui.currentAppContentColor()
+    }
     val defaultColors = when (variant) {
-        AppIconButtonVariant.Standard -> IconButtonDefaults.iconButtonColors()
-        AppIconButtonVariant.Filled -> IconButtonDefaults.filledIconButtonColors()
+        AppIconButtonVariant.Standard -> IconButtonDefaults.iconButtonColors(
+            contentColor = neutralContentColor,
+            disabledContentColor = neutralContentColor.copy(alpha = 0.38f),
+        )
+        AppIconButtonVariant.Filled -> IconButtonDefaults.filledIconButtonColors(
+            containerColor = com.android.purebilibili.core.ui.AppContentColors.accent(),
+            contentColor = com.android.purebilibili.core.ui.AppContentColors.onAccent(),
+        )
     }
     val requestedColors = colors?.let {
         defaultColors.copy(
@@ -68,7 +79,13 @@ internal fun AppMaterial3IconButton(
             colors = nativeColors,
             interactionSource = resolvedInteractionSource,
             shapes = nativeShapes,
-            content = content,
+            content = {
+                com.android.purebilibili.core.ui.ProvideAppButtonSlotPalette(
+                    containerColor = if (enabled) nativeColors.containerColor else nativeColors.disabledContainerColor,
+                    enabled = enabled,
+                    content = content,
+                )
+            },
         )
         AppIconButtonVariant.Filled -> FilledIconButton(
             onClick = onClick,
@@ -77,7 +94,13 @@ internal fun AppMaterial3IconButton(
             shapes = nativeShapes,
             colors = nativeColors,
             interactionSource = resolvedInteractionSource,
-            content = content,
+            content = {
+                com.android.purebilibili.core.ui.ProvideAppButtonSlotPalette(
+                    containerColor = if (enabled) nativeColors.containerColor else nativeColors.disabledContainerColor,
+                    enabled = enabled,
+                    content = content,
+                )
+            },
         )
     }
 }

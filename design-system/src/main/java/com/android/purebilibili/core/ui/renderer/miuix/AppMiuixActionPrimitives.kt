@@ -1,5 +1,7 @@
 package com.android.purebilibili.core.ui.renderer.miuix
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -95,6 +97,12 @@ internal fun AppMiuixButton(
             // Slots can contain Material Text/Icon alongside native Miuix content.
             CompositionLocalProvider(
                 androidx.compose.material3.LocalContentColor provides MiuixLocalContentColor.current,
+                com.android.purebilibili.core.ui.LocalAppButtonSlotPalette provides
+                    com.android.purebilibili.core.ui.AppButtonSlotPalette(
+                        containerColor = if (enabled) colors.color else colors.disabledColor,
+                        contentColor = MiuixLocalContentColor.current,
+                        enabled = enabled,
+                    ),
             ) {
                 content()
             }
@@ -289,7 +297,7 @@ internal fun AppMiuixNavigationDrawerItem(
 ) {
     val itemModifier = if (selected) {
         modifier.squircleBackground(
-            color = MiuixTheme.colorScheme.surfaceContainerHigh,
+            color = MiuixTheme.colorScheme.primaryContainer,
             cornerRadius = MiuixButtonDefaults.CornerRadius,
         )
     } else {
@@ -297,13 +305,23 @@ internal fun AppMiuixNavigationDrawerItem(
     }
     BasicComponent(
         modifier = itemModifier.appDesktopInteractionVisuals(interactionSource),
-        startAction = icon,
+        startAction = icon?.let { action ->
+            {
+                com.android.purebilibili.core.ui.components.ProvideAppActionContentColor(
+                    if (selected) MiuixTheme.colorScheme.onPrimaryContainer else AppContentColors.secondaryText(),
+                    action,
+                )
+            }
+        },
         endActions = badge?.let { slot -> { slot() } },
         onClick = onClick,
         holdDownState = selected,
         interactionSource = interactionSource,
     ) {
-        label()
+        com.android.purebilibili.core.ui.components.ProvideAppActionContentColor(
+            if (selected) MiuixTheme.colorScheme.onPrimaryContainer else AppContentColors.primaryText(),
+            label,
+        )
     }
 }
 

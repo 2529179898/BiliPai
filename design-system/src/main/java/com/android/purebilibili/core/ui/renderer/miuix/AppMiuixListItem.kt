@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.ui.components.ProvideAppActionContentColor
 
 @Composable
 internal fun AppMiuixListItem(
@@ -32,12 +34,12 @@ internal fun AppMiuixListItem(
         Spacer(modifier = Modifier.width(8.dp))
     }
     Column(modifier = Modifier.weight(1f)) {
-        overlineContent?.invoke()
-        headlineContent()
-        supportingContent?.invoke()
+        overlineContent?.let { ProvideAppActionContentColor(AppContentColors.secondaryText(), it) }
+        ProvideAppActionContentColor(AppContentColors.primaryText(), headlineContent)
+        supportingContent?.let { ProvideAppActionContentColor(AppContentColors.secondaryText(), it) }
     }
     if (trailingContent != null) {
         Spacer(modifier = Modifier.width(8.dp))
-        trailingContent()
+        ProvideAppActionContentColor(AppContentColors.secondaryText(), trailingContent)
     }
 }

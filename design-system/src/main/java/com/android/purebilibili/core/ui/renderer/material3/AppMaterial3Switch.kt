@@ -1,5 +1,7 @@
 package com.android.purebilibili.core.ui.renderer.material3
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -36,7 +38,7 @@ internal fun AppMaterial3Switch(
                     imageVector = if (checked) Icons.Filled.Check else Icons.Filled.Close,
                     contentDescription = null,
                     tint = if (checked) {
-                        MaterialTheme.colorScheme.primary
+                        AppContentColors.accent()
                     } else {
                         MaterialTheme.colorScheme.surfaceContainerHighest
                     },
