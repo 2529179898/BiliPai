@@ -85,7 +85,6 @@ import com.android.purebilibili.R
 import com.android.purebilibili.data.model.response.ViewPoint
 import com.android.purebilibili.feature.video.progress.PbpProgressData
 import com.android.purebilibili.feature.video.ui.overlay.HotDanmakuBar
-import com.android.purebilibili.feature.video.ui.overlay.HOT_DANMAKU_BAR_HEIGHT_DP
 import com.android.purebilibili.feature.video.progress.buildPbpRidgeSamples
 import com.android.purebilibili.danmaku.engine.DanmakuRenderView
 
@@ -4807,30 +4806,29 @@ private fun VideoPlayerSectionContent(
                 if (danmakuHotBarEnabled) {
                     val hotBarLikedDanmakuIds by actions.likedDanmakuIds
                         .collectAsStateWithLifecycle()
-                    HotDanmakuBar(
-                        getDanmakuList = { danmakuManager.getLoadedDanmakuList() },
-                        onVisibilityChange = { visible ->
-                            danmakuManager.reserveHotDanmakuBarHeight(
-                                if (visible) HOT_DANMAKU_BAR_HEIGHT_DP * density.density else 0f
-                            )
-                        },
-                        player = playerState.player,
-                        likedDanmakuIds = hotBarLikedDanmakuIds,
-                        onLikeDanmaku = actions.onLikeDanmakuToggle,
-                        isSending = isSendingDanmakuComposer,
-                        onSendSame = { message ->
-                            onSendDanmakuComposer(
-                                message,
-                                16777215,
-                                1,
-                                25,
-                                false,
-                            )
-                        },
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .fillMaxWidth(),
-                    )
+                    val hotBarCid = (uiState as? VideoPlaybackUiState.Success)?.info?.cid ?: 0L
+                    key(danmakuManager, hotBarCid) {
+                        HotDanmakuBar(
+                            getDanmakuList = { danmakuManager.getHotDanmakuList(hotBarCid) },
+                            onPresentationChange = danmakuManager::updateHotDanmakuPresentation,
+                            player = playerState.player,
+                            likedDanmakuIds = hotBarLikedDanmakuIds,
+                            onLikeDanmaku = actions.onLikeDanmakuToggle,
+                            isSending = isSendingDanmakuComposer,
+                            onSendSame = { message ->
+                                onSendDanmakuComposer(
+                                    message,
+                                    16777215,
+                                    1,
+                                    25,
+                                    false,
+                                )
+                            },
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .fillMaxWidth(),
+                        )
+                    }
                 }
             }
             }

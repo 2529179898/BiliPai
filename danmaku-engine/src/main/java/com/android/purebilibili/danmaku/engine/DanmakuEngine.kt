@@ -15,6 +15,13 @@ interface DanmakuEngine : AutoCloseable {
 
     fun updateConfig(config: DanmakuRenderConfig)
 
+    /**
+     * Hides ordinary danmaku matching a selected ID or exact original text.
+     * Active items keep moving; clearing both sets restores their visibility.
+     * This update may be called from any thread and does not replace the timeline.
+     */
+    fun setHiddenDanmaku(ids: Set<Long>, texts: Set<String>)
+
     fun replaceWindow(window: DanmakuWindow, currentPositionMs: Long = 0L)
 
     /**

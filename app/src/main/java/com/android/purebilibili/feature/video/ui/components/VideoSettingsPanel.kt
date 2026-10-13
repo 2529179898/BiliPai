@@ -1413,8 +1413,8 @@ fun VideoSettingsPanel(
             item {
                 VideoSettingsSwitchRow(
                     icon = rememberSettingsSemanticIcon(SettingsIconRole.PROGRESS_PEAK_DANMAKU),
-                    title = "顶部计数弹幕",
-                    subtitle = if (danmakuHotBarEnabled) "顶部居中展示高赞计数弹幕，海量模式不占用普通弹幕轨道" else "已关闭，顶部空间交还普通弹幕",
+                    title = "显示计数弹幕",
+                    subtitle = if (danmakuHotBarEnabled) "按内容长度自动显示 1～3 条完整横幅，均匀排布" else "已关闭，普通弹幕照常显示",
                     checked = danmakuHotBarEnabled,
                     onCheckedChange = { checked ->
                         scope.launch {

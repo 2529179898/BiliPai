@@ -120,6 +120,7 @@ object DanmakuMerger {
         val count = batch.size
         
         val mergedText = base.copy().also { it.duplicateCount = count }
+        mergedText.mergedOriginalText = base.mergedOriginalText ?: base.text
         mergedText.text = if (count >= countThreshold) {
             "${base.text} x$count"
         } else {

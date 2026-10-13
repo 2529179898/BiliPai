@@ -3,6 +3,7 @@ package com.android.purebilibili.feature.video.danmaku
 import com.android.purebilibili.danmaku.engine.DANMAKU_LAYER_SCROLL
 import com.android.purebilibili.danmaku.engine.DanmakuItem
 import kotlin.test.Test
+import kotlin.test.assertNull
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -66,5 +67,30 @@ class DanmakuMergerPolicyTest {
         )
 
         assertEquals(2, standard.size)
+    }
+
+    @Test
+    fun merge_keepsOriginalContentForHotSuppressionWithoutMutatingTheHotSource() {
+        val items = List(3) { index ->
+            DanmakuItem().apply {
+                danmakuId = 10L + index
+                text = "相同内容"
+                showAtTime = index * 100L
+            }
+        }
+        val unrelated = DanmakuItem().apply {
+            danmakuId = 99L
+            text = "其他内容"
+            showAtTime = 150L
+        }
+
+        val (standard, _) = DanmakuMerger.merge(
+            (items + unrelated).sortedBy { it.showAtTime },
+            countThreshold = 2
+        )
+        val merged = standard.first()
+        assertEquals("相同内容", merged.mergedOriginalText)
+        assertEquals("相同内容", items.first().text)
+        assertNull(standard.last().mergedOriginalText)
     }
 }

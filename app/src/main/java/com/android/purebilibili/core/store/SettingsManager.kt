@@ -4720,7 +4720,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         booleanPreferencesKey("danmaku_scroll_fixed_velocity")
     private val KEY_DANMAKU_STATIC_TO_SCROLL =
         booleanPreferencesKey("danmaku_static_to_scroll")
-    private val KEY_HOT_DANMAKU_EXPANDED_MODE = booleanPreferencesKey("hot_danmaku_expanded_mode")
     private val KEY_DANMAKU_MASSIVE_MODE = booleanPreferencesKey("danmaku_massive_mode")
     private val KEY_DANMAKU_ALLOW_SCROLL = booleanPreferencesKey("danmaku_allow_scroll")
     private val KEY_DANMAKU_ALLOW_TOP = booleanPreferencesKey("danmaku_allow_top")
@@ -5014,16 +5013,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             blockRulesRaw = blockRulesRaw,
             blockRules = parseDanmakuBlockRules(blockRulesRaw)
         )
-    }
-
-    /** 计数弹幕扩展模式：最多三条，允许滚动与省略，横竖屏共用。 */
-    fun getHotDanmakuExpandedMode(context: Context): Flow<Boolean> =
-        context.settingsDataStore.data
-            .map { it[KEY_HOT_DANMAKU_EXPANDED_MODE] ?: false }
-            .distinctUntilChanged()
-
-    suspend fun setHotDanmakuExpandedMode(context: Context, enabled: Boolean) {
-        context.settingsDataStore.edit { it[KEY_HOT_DANMAKU_EXPANDED_MODE] = enabled }
     }
 
     fun getDanmakuSettings(
@@ -5725,7 +5714,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                     DEFAULT_DANMAKU_STATIC_DURATION_SECONDS
                 preferences[KEY_DANMAKU_SCROLL_FIXED_VELOCITY] = false
                 preferences[KEY_DANMAKU_STATIC_TO_SCROLL] = false
-                preferences[KEY_HOT_DANMAKU_EXPANDED_MODE] = false
                 preferences[KEY_DANMAKU_MASSIVE_MODE] = false
                 preferences[KEY_DANMAKU_DUPLICATE_MERGE_WINDOW_MS] =
                     DEFAULT_DANMAKU_DUPLICATE_MERGE_WINDOW_MS
@@ -8425,7 +8413,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 KEY_DANMAKU_STATIC_TO_SCROLL,
                 SettingsShareSection.DANMAKU
             ),
-            BooleanShareablePreferenceDefinition(KEY_HOT_DANMAKU_EXPANDED_MODE, SettingsShareSection.DANMAKU),
             BooleanShareablePreferenceDefinition(KEY_DANMAKU_MASSIVE_MODE, SettingsShareSection.DANMAKU),
             BooleanShareablePreferenceDefinition(KEY_DANMAKU_ALLOW_SCROLL, SettingsShareSection.DANMAKU),
             BooleanShareablePreferenceDefinition(KEY_DANMAKU_ALLOW_TOP, SettingsShareSection.DANMAKU),

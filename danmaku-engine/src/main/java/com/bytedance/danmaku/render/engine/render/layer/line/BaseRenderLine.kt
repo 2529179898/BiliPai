@@ -101,21 +101,24 @@ abstract class BaseRenderLine(private val mController: DanmakuController,
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                mCurrentTouchItem = null
                 mDrawingItems.asReversed().forEach { item ->
-                    if (event.x >= item.x && event.x <= item.x + item.width) {
+                    if (item.containsX(event.x)) {
                         mCurrentTouchItem = item
                         return true
                     }
                 }
             }
             MotionEvent.ACTION_UP -> {
-                mCurrentTouchItem?.let { item ->
+                val item = mCurrentTouchItem
+                mCurrentTouchItem = null
+                if (item != null) {
+                    if (!item.isVisible) return false
                     if (touchValidate(event, item)) {
                         handleItemClick(item, event.x, event.y)
                     }
                     return true
                 }
-                mCurrentTouchItem = null
             }
         }
         return false
@@ -125,10 +128,11 @@ abstract class BaseRenderLine(private val mController: DanmakuController,
      * Do not handle click if touch event is out of item area
      */
     private fun touchValidate(event: MotionEvent, item: DrawItem<DanmakuData>): Boolean {
-        return event.x in item.x..item.x + item.width
+        return item.containsX(event.x)
     }
 
     open fun handleItemClick(item: DrawItem<DanmakuData>, upX: Float, upY: Float) {
+        if (!item.isVisible) return
         mController.itemClickListener?.let { listener ->
             item.data?.let { danmaku ->
                 listener.onDanmakuClick(danmaku, mClickPositionRect.apply {
