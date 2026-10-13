@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.video.ui.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.theme.LocalAppUiStyle
 import com.android.purebilibili.core.ui.components.AppIcon
@@ -150,7 +152,7 @@ fun CommentSortHeader(
                         imageVector = Icons.Outlined.Search,
                         contentDescription = "搜索评论",
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                     )
                 }
             }
@@ -224,7 +226,7 @@ fun CommentSortFilterBar(
                     imageVector = Icons.Outlined.Search,
                     contentDescription = "搜索评论",
                     modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = AppContentColors.secondaryText(),
                 )
             }
         }

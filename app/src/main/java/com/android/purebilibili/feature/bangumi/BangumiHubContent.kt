@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.bangumi
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -598,7 +600,7 @@ private fun IndexFilterPanel(
                 AppText(
                     text = group.label,
                     modifier = Modifier.width(56.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                 )
@@ -979,7 +981,7 @@ private fun PosterGridCard(
             AppText(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1013,7 +1015,7 @@ private fun SearchPosterCard(
             AppText(
                 text = item.indexShow,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1082,7 +1084,7 @@ private fun FollowPosterCard(
             AppText(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1115,7 +1117,7 @@ private fun TimelineEpisodeCard(episode: TimelineEpisode, onClick: () -> Unit) {
             AppText(
                 text = updateLabel,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1154,13 +1156,13 @@ private fun FollowInfoCard(
                 if (selected) {
                     AppSurface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppContentColors.accent(),
                         modifier = Modifier.align(Alignment.BottomEnd).padding(5.dp),
                     ) {
                         AppIcon(
                             rememberAppCheckCircleIcon(),
                             contentDescription = "已选择",
-                            tint = MaterialTheme.colorScheme.onPrimary,
+                            tint = AppContentColors.onAccent(),
                             modifier = Modifier.padding(3.dp).size(20.dp),
                         )
                     }
@@ -1172,16 +1174,16 @@ private fun FollowInfoCard(
             ) {
                 AppText(item.title, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 item.newEp?.indexShow?.takeIf { it.isNotBlank() }?.let {
-                    AppText(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AppText(it, style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
                 }
                 item.progress.takeIf { it.isNotBlank() }?.let {
-                    AppText(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    AppText(it, style = MaterialTheme.typography.bodySmall, color = AppContentColors.accent())
                 }
                 item.evaluate.takeIf { it.isNotBlank() }?.let {
                     AppText(
                         it,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -1210,7 +1212,7 @@ private fun SectionHeader(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             AppText(title, style = MaterialTheme.typography.titleMedium)
-            subtitle?.let { AppText(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+            subtitle?.let { AppText(it, color = AppContentColors.secondaryText(), style = MaterialTheme.typography.bodySmall) }
         }
         onRefresh?.let {
             AppIconButton(onClick = it) {

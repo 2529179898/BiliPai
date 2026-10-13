@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -158,13 +160,13 @@ internal fun LiquidGlassAdjustmentPanel(
                 AppText(
                     text = "先选择一个预设，再按需要微调；修改会自动保存并应用到首页",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
             }
             AppText(
                 text = "$modeLabel · $percentage%",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
+                color = AppContentColors.accent(),
                 maxLines = 1,
                 softWrap = false,
             )
@@ -213,7 +215,7 @@ internal fun LiquidGlassAdjustmentPanel(
                 "根据当前显示区域的明暗自动切换文字颜色，复杂背景下更易辨认。"
             },
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
         )
 
         if (previewImageUri == null) {
@@ -237,9 +239,9 @@ internal fun LiquidGlassAdjustmentPanel(
                             .clip(CircleShape)
                             .background(
                                 if (selected) {
-                                    MaterialTheme.colorScheme.primary
+                                    AppContentColors.accent()
                                 } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.32f)
+                                    AppContentColors.secondaryText().copy(alpha = 0.32f)
                                 }
                             )
                     )
@@ -251,7 +253,7 @@ internal fun LiquidGlassAdjustmentPanel(
                 AppText(
                     text = "${selectedArtwork.label} · 左右滑动切换",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
             }
         }
@@ -287,7 +289,7 @@ internal fun LiquidGlassAdjustmentPanel(
                 "这张图片只用于效果预览，不会设为首页背景或分享给别人。"
             },
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
         )
 
         LiquidGlassSavedPresets(modifier = Modifier.fillMaxWidth())
@@ -309,7 +311,7 @@ internal fun LiquidGlassAdjustmentPanel(
                     advancedSettings.preset.label
                 },
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
+                color = AppContentColors.accent(),
             )
         }
         AppSlider(
@@ -346,9 +348,9 @@ internal fun LiquidGlassAdjustmentPanel(
                         FontWeight.Normal
                     },
                     color = if (preset == advancedSettings.preset) {
-                        MaterialTheme.colorScheme.primary
+                        AppContentColors.accent()
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        AppContentColors.secondaryText()
                     },
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
@@ -363,7 +365,7 @@ internal fun LiquidGlassAdjustmentPanel(
                 LiquidGlassAdvancedPreset.CUSTOM -> "自定：已使用下方的高级参数"
             },
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
         )
         AppText(
             text = "导入与分享",
@@ -396,7 +398,7 @@ internal fun LiquidGlassAdjustmentPanel(
         AppText(
             text = "导入前会先确认，只替换液态玻璃参数；分享文件不包含预览图片和其他设置。",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
         )
         if (!alwaysShowAdvanced) AppTextButton(
             onClick = { advancedSettingsExpanded = !advancedSettingsExpanded },
@@ -543,7 +545,7 @@ internal fun LiquidGlassAdjustmentPanel(
             AppText(
                 text = "通透",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
             )
             AppSlider(
                 value = previewProgress,
@@ -561,14 +563,14 @@ internal fun LiquidGlassAdjustmentPanel(
             AppText(
                 text = "磨砂",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
             )
         }
 
         AppText(
             text = "拖动时实时预览，松手后自动保存；中间位置是推荐强度。",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
         )
     }
 }
@@ -740,7 +742,7 @@ private fun LiquidGlassHomeSample(
     }
     val sampleShape = RoundedCornerShape(24.dp)
     val glassColor = MaterialTheme.colorScheme.surfaceContainer
-    val contentColor = MaterialTheme.colorScheme.onSurface
+    val contentColor = AppContentColors.primaryText()
     val adaptiveReadabilityEnabled = readabilityMode == LiquidGlassReadabilityMode.ADAPTIVE
     val topReadabilityState = rememberLiquidGlassAdaptiveReadabilityState(
         enabled = adaptiveReadabilityEnabled,
@@ -933,9 +935,9 @@ private fun LiquidGlassHomeSample(
                 mode = FloatingBottomBarMode.LiquidGlass,
                 colors = FloatingBottomBarColors(
                     containerColor = glassColor,
-                    indicatorColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = AppContentColors.accent(),
                     contentColor = bottomContentColor,
-                    activeContentColor = MaterialTheme.colorScheme.primary,
+                    activeContentColor = AppContentColors.accent(),
                 ),
                 shellHeight = 48.dp,
                 indicatorHeight = 44.dp,
@@ -954,7 +956,7 @@ private fun LiquidGlassHomeSample(
                             ),
                             contentDescription = item.label,
                             tint = if (index == previewSelectedBottomBarIndex) {
-                                MaterialTheme.colorScheme.primary
+                                AppContentColors.accent()
                             } else {
                                 bottomContentColor
                             },
@@ -1050,13 +1052,13 @@ private fun LiquidGlassAdvancedSlider(
                 AppText(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
             }
             AppText(
                 text = valueText,
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
+                color = AppContentColors.accent(),
             )
         }
         AppSlider(

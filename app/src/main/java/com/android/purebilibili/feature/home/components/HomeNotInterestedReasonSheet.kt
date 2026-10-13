@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.home.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
 import com.android.purebilibili.core.ui.AppSpacingTokens
@@ -51,13 +53,13 @@ fun HomeNotInterestedReasonSheet(
             AppText(
                 text = "选择原因后将移除视频并减少相关推荐，直接关闭可取消。",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 modifier = Modifier.padding(horizontal = AppSpacingTokens.Large + AppSpacingTokens.ExtraSmall, vertical = AppSpacingTokens.ExtraSmall)
             )
             AppText(
                 text = video.title,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = AppSpacingTokens.Large + AppSpacingTokens.ExtraSmall, vertical = AppSpacingTokens.ExtraSmall)
@@ -87,7 +89,7 @@ private fun ReasonGroup(
     AppText(
         text = title,
         style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
+        color = AppContentColors.accent(),
         modifier = Modifier.padding(start = AppSpacingTokens.Large + AppSpacingTokens.ExtraSmall, top = AppSpacingTokens.Large, end = AppSpacingTokens.Large + AppSpacingTokens.ExtraSmall, bottom = AppSpacingTokens.ExtraSmall)
     )
     reasons.forEachIndexed { index, reason ->
@@ -108,7 +110,7 @@ private fun ReasonGroup(
             AppText(
                 text = "选择",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
         }
         if (index != reasons.lastIndex) {

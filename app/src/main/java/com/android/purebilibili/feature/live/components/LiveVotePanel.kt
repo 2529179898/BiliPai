@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,11 +41,11 @@ fun LiveVotePanel(snapshot: LiveVoteSnapshot, modifier: Modifier = Modifier) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            AppText("当前暂无投票", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AppText("当前暂无投票", color = AppContentColors.secondaryText())
             AppText(
                 "投票开始后会自动显示，仅提供查看。",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
         }
         return
@@ -77,7 +79,7 @@ private fun LiveVoteCard(vote: LiveVoteInfo) {
                 AppText(
                     if (vote.isActive) "进行中" else vote.resultText.ifBlank { "已结束" },
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (vote.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (vote.isActive) AppContentColors.accent() else AppContentColors.secondaryText()
                 )
             }
             vote.options.forEach { option ->
@@ -96,7 +98,7 @@ private fun LiveVoteCard(vote: LiveVoteInfo) {
                 else -> ""
             }
             if (timing.isNotBlank()) {
-                AppText(timing, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                AppText(timing, style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
             }
         }
     }

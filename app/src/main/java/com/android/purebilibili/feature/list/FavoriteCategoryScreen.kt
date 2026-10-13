@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.list
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.app.Application
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -355,14 +357,14 @@ private fun FavoriteCategoryContent(
                 Modifier.fillMaxSize().padding(top = headerInset),
                 contentAlignment = Alignment.Center,
             ) {
-                AppText("正在加载…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                AppText("正在加载…", color = AppContentColors.secondaryText())
             }
             state.error != null && state.items.isEmpty() -> Column(
                 Modifier.fillMaxSize().padding(top = headerInset),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                AppText(state.error, color = MaterialTheme.colorScheme.error)
+                AppText(state.error, color = AppContentColors.error())
                 AppButton(onClick = onRetry) { AppText("重试") }
             }
             visibleItems.isEmpty() -> Box(
@@ -371,7 +373,7 @@ private fun FavoriteCategoryContent(
             ) {
                 AppText(
                     if (query.isBlank()) "暂无${state.section.label}收藏" else "未找到相关内容",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
             }
             else -> FavoriteCategoryGrid(
@@ -614,7 +616,7 @@ private fun FavoritePgcCard(
                 AppText(
                     item.subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -626,8 +628,8 @@ private fun FavoritePgcCard(
                         AppTextButton(onClick = { onStatusSelected(status) }) {
                             AppText(
                                 status.label,
-                                color = if (status == selectedStatus) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (status == selectedStatus) AppContentColors.accent()
+                                else AppContentColors.secondaryText(),
                             )
                         }
                     }
@@ -652,14 +654,14 @@ private fun FavoriteGenericCategoryCard(
             AppText(item.title, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
         },
         overlineContent = item.badge.takeIf(String::isNotBlank)?.let { badge ->
-            { AppText(badge, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall) }
+            { AppText(badge, color = AppContentColors.accent(), style = MaterialTheme.typography.labelSmall) }
         },
         supportingContent = item.subtitle.takeIf(String::isNotBlank)?.let { subtitle ->
             {
                 AppText(
                     subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )

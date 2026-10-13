@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -141,7 +143,7 @@ fun LiveEmoticonPanel(
             val pkg = packages.getOrNull(page)
             val emotes = pkg?.items.orEmpty()
             if (emotes.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                AppText("当前直播间暂无可用表情", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                AppText("当前直播间暂无可用表情", color = AppContentColors.secondaryText())
             } else {
                 val first = emotes.first()
                 val width = (first.width.coerceAtLeast(80) / 80f * 40f).dp
@@ -260,7 +262,7 @@ fun LiveDmBlockSheet(
                 val landscape = maxWidth > maxHeight
                 val rules: @Composable () -> Unit = {
                     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp)) {
-                        if (!isLoggedIn) AppText("登录后可同步屏蔽设置", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (!isLoggedIn) AppText("登录后可同步屏蔽设置", color = AppContentColors.secondaryText())
                         LiveRuleSection(shieldInfo, isLoggedIn, onSetRule)
                     }
                 }
@@ -392,7 +394,7 @@ private fun LiveKeywordSection(
         AppText("关键词", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         val keywords = shieldInfo?.keywords.orEmpty()
         if (keywords.isEmpty()) {
-            AppText("暂无屏蔽词", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AppText("暂无屏蔽词", color = AppContentColors.secondaryText())
         } else {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
@@ -406,7 +408,7 @@ private fun LiveKeywordSection(
                         label = {
                             AppText(
                                 text = item.keyword,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = AppContentColors.primaryText(),
                                 style = MaterialTheme.typography.labelMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -421,7 +423,7 @@ private fun LiveKeywordSection(
                                 AppIcon(
                                     clearIcon,
                                     contentDescription = "删除屏蔽词",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    tint = AppContentColors.secondaryText().copy(alpha = 0.6f),
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -443,7 +445,7 @@ private fun LiveShieldUserSection(
         AppText("用户", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         val users = shieldInfo?.users.orEmpty()
         if (users.isEmpty()) {
-            AppText("暂无屏蔽用户", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AppText("暂无屏蔽用户", color = AppContentColors.secondaryText())
         } else {
             Column(
                 verticalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
@@ -467,7 +469,7 @@ private fun LiveShieldUserSection(
                             AppIcon(
                                 Icons.Outlined.Block,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = AppContentColors.secondaryText(),
                                 modifier = Modifier.size(18.dp)
                             )
                             AppText(

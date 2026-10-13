@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -118,7 +120,7 @@ fun LiveSendDanmakuSheet(
         ) {
             AppText(
                 text = "发弹幕",
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -192,7 +194,7 @@ fun LiveSendDanmakuSheet(
                                 append(permission.availableModes.take(2).joinToString("、") { it.name })
                             }
                         },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Row(
@@ -238,7 +240,7 @@ private fun DanmakuColorSelector(
     ) {
         AppText(
             text = "弹幕颜色",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             style = MaterialTheme.typography.labelMedium
         )
         // FlowRow：窄屏自动换行，避免 8 个色块横向溢出
@@ -277,7 +279,7 @@ private fun DanmakuColorSelector(
                                     AppSurfaceTokens.OutlineWidth
                                 },
                                 color = if (isSelected) {
-                                    MaterialTheme.colorScheme.primary
+                                    AppContentColors.accent()
                                 } else {
                                     MaterialTheme.colorScheme.outlineVariant
                                 },
@@ -318,7 +320,7 @@ private fun DanmakuModeSelector(
         AppText(
             text = "弹幕模式：${options.single().name}",
             modifier = modifier,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             style = MaterialTheme.typography.labelMedium,
         )
     } else {
@@ -328,7 +330,7 @@ private fun DanmakuModeSelector(
         ) {
             AppText(
                 text = "弹幕模式",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.labelMedium,
             )
             FlowRow(

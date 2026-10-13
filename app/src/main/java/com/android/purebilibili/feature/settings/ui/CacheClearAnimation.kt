@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
@@ -155,19 +157,19 @@ internal fun CacheClearConfirmDialog(
                     text = "存储使用情况",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 AppText(
                     text = selectedCacheSizeSummary,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 AppText(
                     text = resolveCacheClearConfirmationMessage(selectedTargets),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 segments.forEach { segment ->
@@ -281,13 +283,13 @@ private fun CacheClearUsageDonut(
             AppText(
                 text = "BiliPai",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             AppText(
                 text = centerSize,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
         }
     }
@@ -320,18 +322,18 @@ private fun CacheClearCategoryRow(
         Column(modifier = Modifier.weight(1f)) {
             AppText(
                 text = segment.title,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 fontWeight = FontWeight.Medium
             )
             AppText(
                 text = segment.percentLabel,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.bodySmall
             )
         }
         AppText(
             text = formatCacheClearBytes(segment.bytes),
-            color = MaterialTheme.colorScheme.primary,
+            color = AppContentColors.accent(),
             fontWeight = FontWeight.Medium
         )
     }
@@ -477,7 +479,7 @@ fun CacheClearAnimationDialog(
                                 AppText(
                                     text = "${(progressValue * 100).toInt()}%",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = AppContentColors.secondaryText()
                                 )
                             }
                         } else {
@@ -488,7 +490,7 @@ fun CacheClearAnimationDialog(
                         text = if (progress.isComplete) "清理完成" else "正在清理",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     )
                     AppText(
                         text = if (progress.clearedSize.isNotEmpty()) {
@@ -498,13 +500,13 @@ fun CacheClearAnimationDialog(
                             "准备中…"
                         },
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                     if (progress.isComplete) {
                         AppText(
                             text = "即将自动关闭…",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }

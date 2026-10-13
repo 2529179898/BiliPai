@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.plugin
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -153,7 +155,7 @@ private fun SubscriptionFeedSettings(modifier: Modifier = Modifier) {
     ) {
         AppText(
             text = "添加 RSS 或 Atom 地址，在首页集中阅读更新。可批量导入 OPML、地址列表或 RSS 表格。",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             style = MaterialTheme.typography.bodyMedium,
         )
         AppOutlinedTextField(
@@ -259,7 +261,7 @@ private fun SubscriptionFeedSettings(modifier: Modifier = Modifier) {
             ) {
                 AppText(
                     if (selecting) "已选 ${selectedIds.size} / ${feeds.size} 个" else "已添加 ${feeds.size} 个",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
                 AppTextButton(onClick = {
                     selecting = !selecting
@@ -311,16 +313,16 @@ private fun SubscriptionFeedSettings(modifier: Modifier = Modifier) {
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         color = if (feed.enabled) {
-                            MaterialTheme.colorScheme.onSurface
+                            AppContentColors.primaryText()
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            AppContentColors.secondaryText()
                         },
                     )
                     AppText(
                         text = if (feed.group.isBlank()) feed.url else "${feed.group} · ${feed.url}",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.list
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.feature.personal.PersonalMediaCardFrame
 import com.android.purebilibili.feature.personal.rememberPersonalCardVideoTransition
 import coil3.request.crossfade
@@ -269,7 +271,7 @@ internal fun HistoryPersonalCard(
                             AppWindowAction(
                                 label = "删除记录",
                                 icon = Icons.Outlined.DeleteOutline,
-                                iconTint = MaterialTheme.colorScheme.error,
+                                iconTint = AppContentColors.error(),
                                 onClick = onDelete,
                             ),
                         ),
@@ -279,7 +281,7 @@ internal fun HistoryPersonalCard(
                     AppIcon(
                         Icons.Outlined.MoreVert,
                         contentDescription = "历史记录操作",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -388,7 +390,7 @@ internal fun HistoryPersonalCard(
             AppText(
                 text = owner,
                 style = contentTypography.author,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 tapToCopyEnabled = false,
@@ -397,7 +399,7 @@ internal fun HistoryPersonalCard(
                 AppText(
                     text = viewedAt,
                     style = contentTypography.author,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     tapToCopyEnabled = false,
                 )

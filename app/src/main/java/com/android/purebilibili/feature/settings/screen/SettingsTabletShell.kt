@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -112,7 +114,7 @@ fun SettingsTabletShell(
                 AppText(
                     text = "从左侧选择一个分类以查看和修改设置",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
             }
         }
@@ -221,7 +223,7 @@ fun SettingsTabletShell(
                                         AppText(
                                             text = category.subtitle,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = AppContentColors.secondaryText(),
                                             maxLines = 2,
                                         )
                                     }
@@ -274,7 +276,7 @@ fun SettingsTabletShell(
             AppText(
                 text = selectedCategory?.subtitle ?: "选择左侧分类以查看设置",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
             )
         }
     }

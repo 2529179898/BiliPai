@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.verticalScroll
 import android.app.Activity
 import android.app.PictureInPictureParams
@@ -335,7 +337,7 @@ private fun AudioModeInitialState(
             when (state) {
                 is VideoPlaybackUiState.Error -> {
                     AppText("音频加载失败", style = MaterialTheme.typography.headlineSmall)
-                    AppText(state.msg, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AppText(state.msg, color = AppContentColors.secondaryText())
                     if (state.canRetry) {
                         AppTextButton(onClick = onRetry, modifier = Modifier.height(48.dp)) { AppText("重试") }
                     }
@@ -344,7 +346,7 @@ private fun AudioModeInitialState(
                     AdaptiveLoadingIndicator()
                     AppText(title)
                     if (title != "正在加载音频") {
-                        AppText("正在加载音频", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        AppText("正在加载音频", color = AppContentColors.secondaryText())
                     }
                 }
             }
@@ -376,7 +378,7 @@ internal fun AudioModeSleepTimerDialog(
             ) {
                 AppText(
                     text = "选择常用时长，或输入分钟数 / 小时:分钟，例如 90、1:30。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     style = MaterialTheme.typography.bodySmall
                 )
                 Row(
@@ -389,7 +391,7 @@ internal fun AudioModeSleepTimerDialog(
                             onClick = { onSelectPreset(minutes) },
                             shape = AppShapes.container(ContainerLevel.Card),
                             color = if (isSelected) {
-                                MaterialTheme.colorScheme.primary
+                                AppContentColors.accent()
                             } else {
                                 MaterialTheme.colorScheme.surfaceVariant
                             }
@@ -402,9 +404,9 @@ internal fun AudioModeSleepTimerDialog(
                                     text = formatAudioModeSleepTimerButtonLabel(minutes),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = if (isSelected) {
-                                        MaterialTheme.colorScheme.onPrimary
+                                        AppContentColors.onAccent()
                                     } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                        AppContentColors.secondaryText()
                                     }
                                 )
                             }

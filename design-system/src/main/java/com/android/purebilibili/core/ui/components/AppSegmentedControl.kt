@@ -324,13 +324,9 @@ fun <T> AppNativeSegmentedControl(
     } else {
         AppSurfaceTokens.surfaceContainerHigh()
     }
-    val activeCardColor = if (isMiuixNonGlass) {
-        AppSurfaceTokens.surfaceContainerHigh()
-    } else {
-        AppSurfaceTokens.surfaceContainer()
-    }
-    val activeTextColor = AppSurfaceTokens.onSurface()
-    val inactiveTextColor = AppSurfaceTokens.onSurfaceVariantSummary()
+    val activeCardColor = AppSurfaceTokens.primaryContainer()
+    val activeTextColor = AppSurfaceTokens.onPrimaryContainer()
+    val inactiveTextColor = com.android.purebilibili.core.ui.AppContentColors.secondaryText()
     val colors = resolveAppSegmentedControlColors(
         usesMaterialColorTokens = policy.usesMaterialColorTokens,
         materialPrimaryContainer = materialColors.primaryContainer,
@@ -443,13 +439,9 @@ fun <T> AppNativeTabRow(
     } else {
         AppSurfaceTokens.surfaceContainerHigh()
     }
-    val activeCardColor = if (isMiuixNonGlass) {
-        AppSurfaceTokens.surfaceContainerHigh()
-    } else {
-        AppSurfaceTokens.surfaceContainer()
-    }
-    val activeTextColor = AppSurfaceTokens.onSurface()
-    val inactiveTextColor = AppSurfaceTokens.onSurfaceVariantSummary()
+    val activeCardColor = AppSurfaceTokens.primaryContainer()
+    val activeTextColor = AppSurfaceTokens.onPrimaryContainer()
+    val inactiveTextColor = com.android.purebilibili.core.ui.AppContentColors.secondaryText()
     val colors = resolveAppSegmentedControlColors(
         usesMaterialColorTokens = policy.usesMaterialColorTokens,
         materialPrimaryContainer = materialColors.primaryContainer,
