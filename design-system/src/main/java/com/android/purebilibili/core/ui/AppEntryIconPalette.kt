@@ -40,6 +40,12 @@ val AppEntryIconPalette: List<Color> = listOf(
     ThemeColors[17],
 )
 
+/** 按声明顺序取色，供没有偏好分组边界的列表手动分配入口色。 */
+fun resolveAppEntryIconColor(index: Int): Color {
+    require(index >= 0) { "Entry icon index must not be negative" }
+    return AppEntryIconPalette[index.mod(AppEntryIconPalette.size)]
+}
+
 /**
  * 偏好分组内“中性图标请求”的顺序分配器：进入分组时重建，
  * 组内每个入口按声明顺序取得自己的色板颜色。

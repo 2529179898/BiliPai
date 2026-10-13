@@ -83,6 +83,9 @@ import com.android.purebilibili.core.ui.components.AppOutlinedButton
 import com.android.purebilibili.core.ui.components.AppSurface
 import com.android.purebilibili.core.ui.components.AppTextField
 import com.android.purebilibili.core.ui.components.AppTextButton
+import com.android.purebilibili.core.theme.AppUiStyle
+import com.android.purebilibili.core.theme.LocalAppUiStyle
+import com.android.purebilibili.core.ui.resolveAppEntryIconColor
 import com.android.purebilibili.core.ui.components.rememberAdaptivePreferenceIconContentColor
 import com.android.purebilibili.core.ui.components.rememberAdaptivePreferenceIconContainerColor
 import com.android.purebilibili.core.ui.components.rememberAdaptiveSemanticIconTint
@@ -375,10 +378,10 @@ fun PluginsContent(
     var testingPluginId by remember { mutableStateOf<String?>(null) }
     var testResult by remember { mutableStateOf<Triple<Int, Int, List<com.android.purebilibili.data.model.response.VideoItem>>?>(null) }
     var testingSampleVideos by remember { mutableStateOf<List<com.android.purebilibili.data.model.response.VideoItem>>(emptyList()) }
-    val importTint = rememberAdaptivePreferenceIconContainerColor(AppContentColors.accent())
-    val jsImportTint = rememberAdaptivePreferenceIconContainerColor(AppContentColors.accent())
-    val kotlinPackageTint = rememberAdaptivePreferenceIconContainerColor(AppContentColors.accent())
-    val uiSkinTint = rememberAdaptivePreferenceIconContainerColor(MaterialTheme.colorScheme.tertiary)
+    val importTint = rememberAppEntryIconContainerColor(0)
+    val jsImportTint = rememberAppEntryIconContainerColor(1)
+    val kotlinPackageTint = rememberAppEntryIconContainerColor(2)
+    val uiSkinTint = rememberAppEntryIconContainerColor(3)
     val importIconContentColor = rememberAdaptivePreferenceIconContentColor(importTint)
     val jsImportIconContentColor = rememberAdaptivePreferenceIconContentColor(jsImportTint)
     val kotlinPackageIconContentColor = rememberAdaptivePreferenceIconContentColor(kotlinPackageTint)
@@ -589,7 +592,7 @@ fun PluginsContent(
                         plugins.forEachIndexed { index, pluginInfo ->
                             PluginItem(
                                 pluginInfo = pluginInfo,
-                                iconTint = AppContentColors.secondaryText(),
+                                iconTint = rememberPluginEntryIconTint(index),
                                 onToggle = { enabled ->
                                     scope.launch {
                                         dispatchBuiltInPluginToggle(
@@ -848,6 +851,7 @@ fun PluginsContent(
                             installedJsPlugins.forEachIndexed { index, installed ->
                                 InstalledJsPluginItem(
                                     installed = installed,
+                                    index = index,
                                     onToggle = { enabled ->
                                         jsPluginStore.setEnabled(installed.manifest.id, enabled)
                                         installedJsPlugins = jsPluginStore.listInstalledPlugins()
@@ -1217,6 +1221,7 @@ fun PluginsContent(
                                 JsonPluginItem(
                                     loaded = loadedPlugin,
                                     filterCount = filterStats[loadedPlugin.plugin.id] ?: 0,
+                                    index = index,
                                     onToggle = { enabled ->
                                         com.android.purebilibili.core.plugin.json.JsonPluginManager.setEnabled(
                                             loadedPlugin.plugin.id, enabled
@@ -2202,6 +2207,18 @@ private fun InstalledUiSkinItem(
     }
 }
 
+/** 插件列表入口色：Miuix 下按列表顺序取入口彩色，其余主题保持中性内容色。 */
+@Composable
+private fun rememberPluginEntryIconTint(index: Int): Color {
+    if (LocalAppUiStyle.current != AppUiStyle.MIUIX) return AppContentColors.secondaryText()
+    return remember(index) { resolveAppEntryIconColor(index) }
+}
+
+/** 图标底色：Miuix 直接使用入口彩色，其余主题沿用语义解析结果。 */
+@Composable
+private fun rememberAppEntryIconContainerColor(index: Int): Color =
+    rememberAdaptivePreferenceIconContainerColor(rememberPluginEntryIconTint(index))
+
 @Composable
 private fun PluginItem(
     pluginInfo: PluginInfo,
@@ -2425,18 +2442,34 @@ private fun PluginDetailScreen(
 @Composable
 private fun InstalledJsPluginItem(
     installed: InstalledBiliPaiJsPlugin,
+    index: Int,
     onToggle: (Boolean) -> Unit,
     onOpen: () -> Unit,
     onTest: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val iconTint = rememberPluginEntryIconTint(index)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .adaptiveSquircleBackground(iconTint, 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                AppIcon(
+                    imageVector = rememberMaterialSymbol(R.drawable.ms_code_24),
+                    contentDescription = null,
+                    tint = rememberAdaptivePreferenceIconContentColor(iconTint),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 AppText(
                     text = installed.manifest.title,
@@ -2788,6 +2821,7 @@ private fun JsonPluginStatsNotificationSection(
 private fun JsonPluginItem(
     loaded: com.android.purebilibili.core.plugin.json.LoadedJsonPlugin,
     filterCount: Int,
+    index: Int,
     onToggle: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -2797,7 +2831,7 @@ private fun JsonPluginItem(
     val plugin = loaded.plugin
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isExpanded by remember { mutableStateOf(false) }
-    val jsonPluginTint = rememberAdaptivePreferenceIconContainerColor(AppContentColors.accent())
+    val jsonPluginTint = rememberPluginEntryIconTint(index)
     val jsonPluginIconContentColor = rememberAdaptivePreferenceIconContentColor(jsonPluginTint)
 
     Column {
@@ -2805,7 +2839,7 @@ private fun JsonPluginItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { isExpanded = !isExpanded }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 图标
