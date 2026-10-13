@@ -1,5 +1,7 @@
 // 文件路径: feature/video/FullscreenPlayerOverlay.kt
 package com.android.purebilibili.feature.video.ui.overlay
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -210,7 +212,7 @@ internal fun shouldStartFullscreenDragGesture(
 
 /**
  *  全屏播放器覆盖层
- * 
+ *
  * 从小窗展开时直接显示全屏播放器
  * 包含：亮度调节、音量调节、进度滑动等完整功能
  */
@@ -227,20 +229,20 @@ fun FullscreenPlayerOverlay(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateAsState()
     val hostLifecycleStarted = lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
-    
+
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
-    
+
     var showControls by remember { mutableStateOf(true) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    
+
     //  [新增] 弹幕设置面板状态
     var showDanmakuSettings by remember { mutableStateOf(false) }
-    
+
     //  播放速度状态
     var playbackSpeed by remember(player) { mutableFloatStateOf(player?.playbackParameters?.speed ?: 1.0f) }
     var showSpeedMenu by remember { mutableStateOf(false) }
-    
+
     //  视频比例状态
     val fixedFullscreenAspectRatio by SettingsManager
         .getFullscreenAspectRatio(context)
@@ -262,7 +264,7 @@ fun FullscreenPlayerOverlay(
         )
     }
     var showRatioMenu by remember { mutableStateOf(false) }
-    
+
     //  画质选择菜单状态
     var showQualityMenu by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
@@ -358,9 +360,9 @@ fun FullscreenPlayerOverlay(
         .getSeekBackwardSeconds(context)
         .collectAsStateWithLifecycle(initialValue = 10
         )
-    
+
     // 亮度状态
-    var currentBrightness by remember { 
+    var currentBrightness by remember {
         mutableFloatStateOf(
             try {
                 Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS) / 255f
@@ -446,7 +448,7 @@ fun FullscreenPlayerOverlay(
             isVerticalVideo = isVerticalContent
         )
     }
-    
+
     // 进入全屏时设置横屏和沉浸式
     DisposableEffect(lifecycleOwner, player, playerViewRef) {
         val activity = context.findHostActivity() ?: return@DisposableEffect onDispose {}
@@ -462,10 +464,10 @@ fun FullscreenPlayerOverlay(
 
         // 设置横屏
         activity.applyPlayerRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
-        
+
         //  首次进入时应用沉浸式
         AppWindowSystemUiController.enterImmersive(window)
-        
+
         //  [关键修复] 生命周期观察器：返回前台时重新应用沉浸式模式
         val lifecycleObserver = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
@@ -486,22 +488,22 @@ fun FullscreenPlayerOverlay(
             }
         }
         lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
-        
+
         onDispose {
             //  移除生命周期观察器
             lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
-            
+
             activity.applyPlayerRequestedOrientation(
                 resolveFullscreenOverlayExitRequestedOrientation(
                     originalRequestedOrientation = originalOrientation
                 )
             )
-            
+
             AppWindowSystemUiController.restore(window, originalSystemUi)
             if (desktopFullscreenRequested) {
                 AppWindowSystemUiController.requestDesktopFullscreen(activity, enter = false)
             }
-            
+
             // 取消屏幕常亮
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
@@ -520,7 +522,7 @@ fun FullscreenPlayerOverlay(
             }
         }
     }
-    
+
     // 监听播放器状态
     LaunchedEffect(player, showControls, gestureMode, hostLifecycleStarted) {
         if (!shouldPollFullscreenPlayerProgress(
@@ -554,7 +556,7 @@ fun FullscreenPlayerOverlay(
             delay(pollInterval)
         }
     }
-    
+
     // 自动隐藏控制按钮
     LaunchedEffect(showControls, lastInteractionTime, gestureMode, isPlaying) {
         if (
@@ -570,7 +572,7 @@ fun FullscreenPlayerOverlay(
             }
         }
     }
-    
+
     // [问题6修复] 弹幕设置面板打开时禁用手势
     val gesturesEnabled = !showDanmakuSettings && !showSpeedMenu && !showRatioMenu &&
         !showQualityMenu && !showContextMenu
@@ -604,7 +606,7 @@ fun FullscreenPlayerOverlay(
             runCatching { rootFocusRequester.requestFocus() }
         }
     }
-    
+
     // [问题8修复] 状态栏排除区域高度（像素）
     val statusBarExclusionZonePx = with(density) { 40.dp.toPx() }
     val visibleTopControlsHeightPx = with(density) {
@@ -633,7 +635,7 @@ fun FullscreenPlayerOverlay(
             playbackTransitionPositionMs = pendingGestureSeekPositionMs
         )
     }
-    
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -733,9 +735,9 @@ fun FullscreenPlayerOverlay(
                 seekBackwardSeconds
             ) {
                 if (!gesturesEnabled) return@pointerInput
-                
+
                 val screenWidth = size.width.toFloat()
-                
+
                 detectTapGestures(
                     onTap = {
                         showControls = !showControls
@@ -786,11 +788,11 @@ fun FullscreenPlayerOverlay(
                 if (!gesturesEnabled) {
                     return@pointerInput
                 }
-                
+
                 val screenWidth = size.width.toFloat()
                 val screenHeight = size.height.toFloat()
                 var dragGestureActive = false
-                
+
                 detectDragGestures(
                     onDragStart = { offset ->
                         dragGestureActive = shouldStartFullscreenDragGesture(
@@ -806,7 +808,7 @@ fun FullscreenPlayerOverlay(
                             gestureMode = FullscreenGestureMode.None
                             return@detectDragGestures
                         }
-                        
+
                         showControls = true
                         lastInteractionTime = System.currentTimeMillis()
                         dragDelta = 0f
@@ -1027,7 +1029,7 @@ fun FullscreenPlayerOverlay(
                     durationMs = player?.duration ?: 0L
                     retries++
                 }
-                
+
                 danmakuManager.loadDanmaku(
                     currentCid,
                     miniPlayerManager.currentAid,
@@ -1051,7 +1053,7 @@ fun FullscreenPlayerOverlay(
                 player?.let(danmakuManager::detachPlayer)
             }
         }
-        
+
         // 视频播放器
         player?.let { exoPlayer ->
             BoxWithConstraints(
@@ -1149,7 +1151,7 @@ fun FullscreenPlayerOverlay(
                 }
             )
         }
-        
+
         //  Seek 逃生口提示：拖动进度时手指进入顶部角落，松手取消进退
         AnimatedVisibility(
             visible = gestureMode == FullscreenGestureMode.Seek && seekCancelPending,
@@ -1215,7 +1217,7 @@ fun FullscreenPlayerOverlay(
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(end = 8.dp)
                         )
-                        
+
                         //  [新增] 弹幕开关按钮
                         val danmakuActiveColor = Color.White.copy(alpha = 0.96f)
                         val danmakuInactiveColor = Color.White.copy(alpha = 0.74f)
@@ -1235,16 +1237,16 @@ fun FullscreenPlayerOverlay(
                             activeTint = danmakuActiveColor,
                             inactiveTint = danmakuInactiveColor,
                         )
-                        
+
                         //  [新增] 弹幕设置按钮
                         AppIconButton(onClick = { showDanmakuSettings = true }) {
                             AppIcon(Icons.Outlined.Settings, "弹幕设置", tint = Color.White)
                         }
                     }
                 }
-                
+
                 //  [修改] 移除中间大按钮，改为在底部控制栏左侧显示
-                
+
                 // 底部进度条和控制按钮
                 Box(
                     modifier = Modifier
@@ -1275,21 +1277,21 @@ fun FullscreenPlayerOverlay(
                                 AppIcon(
                                     imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                                     contentDescription = if (isPlaying) "暂停" else "播放",
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = AppContentColors.accent(),
                                     modifier = Modifier.size(32.dp)
                                 )
                             }
-                            
+
                             Spacer(modifier = Modifier.width(8.dp))
-                            
+
                             AppText(
                                 FormatUtils.formatDuration((displayedProgressState.current / 1000).toInt()),
                                 color = Color.White,
                                 style = MaterialTheme.typography.labelSmall
                             )
-                            
+
                             var isDragging by remember { mutableStateOf(false) }
-                            
+
                             ThinWigglyProgressBar(
                                 progress = currentProgress,
                                 seekPositionMs = displayedProgressState.current,
@@ -1323,12 +1325,12 @@ fun FullscreenPlayerOverlay(
                                 duration = duration,
                                 modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                             )
-                            
+
                             AppText(FormatUtils.formatDuration((duration / 1000).toInt()), color = Color.White, style = MaterialTheme.typography.labelSmall)
                         }
-                        
+
                         Spacer(modifier = Modifier.height(4.dp))
-                        
+
                         //  底部控制按钮行
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1360,7 +1362,7 @@ fun FullscreenPlayerOverlay(
                 }
             }
         }
-        
+
         //  [新增] 弹幕设置面板
         if (showDanmakuSettings) {
             //  使用本地状态确保滑动条可以更新
@@ -1418,7 +1420,7 @@ fun FullscreenPlayerOverlay(
             var localPortraitDisplayAreaMode by remember(danmakuSettings.portraitDisplayAreaMode) {
                 mutableStateOf(danmakuSettings.portraitDisplayAreaMode)
             }
-            
+
             DanmakuSettingsPanel(
                 isFullscreen = true,
                 onSliderPreview = { parameter, next ->
@@ -1454,12 +1456,12 @@ fun FullscreenPlayerOverlay(
                 smartOcclusion = localSmartOcclusion,
                 fullscreenWidthMode = localFullscreenPanelWidthMode,
                 portraitDisplayAreaMode = localPortraitDisplayAreaMode,
-                onOpacityChange = { 
+                onOpacityChange = {
                     localOpacity = it
                     danmakuManager.opacity = it
                     scope.launch { SettingsManager.setDanmakuOpacity(context, it, danmakuScope) }
                 },
-                onFontScaleChange = { 
+                onFontScaleChange = {
                     localFontScale = it
                     danmakuManager.fontScale = it
                     scope.launch { SettingsManager.setDanmakuFontScale(context, it, danmakuScope) }
@@ -1469,7 +1471,7 @@ fun FullscreenPlayerOverlay(
                     danmakuManager.fontWeight = it
                     scope.launch { SettingsManager.setDanmakuFontWeight(context, it, danmakuScope) }
                 },
-                onSpeedChange = { 
+                onSpeedChange = {
                     localSpeed = it
                     danmakuManager.speedFactor = it
                     scope.launch { SettingsManager.setDanmakuSpeed(context, it, danmakuScope) }
@@ -1582,7 +1584,7 @@ fun FullscreenPlayerOverlay(
                 onDismiss = { showDanmakuSettings = false }
             )
         }
-        
+
         //  播放速度选择菜单
         if (showSpeedMenu) {
             com.android.purebilibili.feature.video.ui.components.SpeedSelectionMenu(
@@ -1600,7 +1602,7 @@ fun FullscreenPlayerOverlay(
                 placement = SpeedSelectionMenuPlacement.RIGHT_SIDE
             )
         }
-        
+
         //  视频比例选择菜单
         if (showRatioMenu) {
             Box(
@@ -1730,7 +1732,7 @@ private fun FullscreenControlButton(
     ) {
         AppText(
             text = text,
-            color = if (isHighlighted) MaterialTheme.colorScheme.primary else Color.White,
+            color = if (isHighlighted) AppContentColors.accent() else Color.White,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (isHighlighted) FontWeight.Bold else FontWeight.Normal,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
