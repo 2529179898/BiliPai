@@ -20,10 +20,12 @@ internal val messageNotificationMutex = Mutex()
 internal data class AccountNotificationState(
     val initialized: Set<String> = emptySet(),
     val dynamicBaseline: String = "",
-    val seenDynamicIds: List<String> = emptyList(),
-    val seenReplyIds: List<Long> = emptyList(),
-    val seenAtIds: List<Long> = emptyList(),
-    val seenLikeIds: List<Long> = emptyList(),
+    // A present empty value means that this UP was scanned successfully but had no dynamics.
+    val dynamicUpBaselines: Map<Long, String> = emptyMap(),
+    // Null means no count baseline yet; old ID fields are ignored when decoding saved state.
+    val replyUnreadCount: Int? = null,
+    val atUnreadCount: Int? = null,
+    val likeUnreadCount: Int? = null,
     val seenSystemCursors: List<Long> = emptyList(),
     val sessionMsgKeys: Map<String, Long> = emptyMap(),
     val liveSessions: Map<Long, Long> = emptyMap(),

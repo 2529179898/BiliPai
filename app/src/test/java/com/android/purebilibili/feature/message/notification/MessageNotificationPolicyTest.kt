@@ -1,14 +1,18 @@
 package com.android.purebilibili.feature.message.notification
 
+import com.android.purebilibili.core.network.grpc.DynamicPersonalFeedPage
 import com.android.purebilibili.data.model.response.ArchiveMajor
 import com.android.purebilibili.data.model.response.DynamicAuthorModule
 import com.android.purebilibili.data.model.response.DynamicContentModule
-import com.android.purebilibili.data.model.response.DynamicFeedData
 import com.android.purebilibili.data.model.response.DynamicItem
 import com.android.purebilibili.data.model.response.DynamicMajor
 import com.android.purebilibili.data.model.response.DynamicModules
+import com.android.purebilibili.data.model.response.DynamicTagModule
 import com.android.purebilibili.data.model.response.FollowedLiveData
 import com.android.purebilibili.data.model.response.FollowedLiveRoom
+import com.android.purebilibili.data.model.response.FollowingUser
+import com.android.purebilibili.data.model.response.FollowingsData
+import com.android.purebilibili.data.model.response.MessageFeedUnreadData
 import com.android.purebilibili.data.model.response.PageInfo
 import com.android.purebilibili.data.model.response.SessionItem
 import com.android.purebilibili.data.model.response.SessionMessage
@@ -31,6 +35,10 @@ class MessageNotificationPolicyTest {
     private val liveOnly = enabled.copy(
         notifyPrivateMessages = false, notifyReplies = false, notifyAtMe = false,
         notifyLikes = false, notifySystemNotices = false, notifyDynamicUpdates = false,
+    )
+    private val interactionsOnly = enabled.copy(
+        notifyPrivateMessages = false, notifySystemNotices = false,
+        notifyDynamicUpdates = false, notifyLiveAlerts = false,
     )
 
     @Test
@@ -73,9 +81,6 @@ class MessageNotificationPolicyTest {
     fun boundedSeenRetainsNewestItemsEvenWithPageOverlap() {
         val seen = mergeNotificationSeen(listOf(1L, 2L, 3L), listOf(6L, 5L, 4L, 3L), 4)
         assertEquals(listOf(3L, 4L, 5L, 6L), seen)
-        assertEquals(emptyList(), diffNewIds(listOf(6L, 5L, 4L, 3L), seen, true))
-        assertEquals(listOf(7L), diffNewIds(listOf(7L, 7L, 6L, 0L), seen, true))
-        assertEquals(emptyList(), diffNewIds(listOf(7L), seen, false))
     }
 
     @Test
@@ -111,80 +116,272 @@ class MessageNotificationPolicyTest {
     fun firstScanSilentlyInitializesEveryCategoryThenUnchangedScanIsSilent() = runTest {
         val source = Source().apply {
             sessions = listOf(SessionItem(talker_id = 9, unread_count = 3, last_msg = SessionMessage(sender_uid = 9, msg_key = 1)))
-            replies = listOf(1L)
-            ats = listOf(2L)
-            likes = listOf(3L)
+            unread = MessageFeedUnreadData(reply = 1, at = 2, like = 3)
             notices = listOf(SystemNoticeItem(cursor = 7, title = "notice"))
-            pages = mapOf("" to DynamicFeedData(items = listOf(dynamic("d1")), update_baseline = "b1"))
+            pages = mapOf((9L to "") to DynamicPersonalFeedPage(items = listOf(dynamic("100"))))
             rooms = mapOf(1 to FollowedLiveData(list = listOf(live(9, 100)), livingNum = 1))
         }
         val poller = MessageNotificationPoller(source)
         val initial = poller.check(enabled, AccountNotificationState(), 1)
         assertEquals(emptyList(), initial.notifications)
-        assertEquals(setOf("dm", "reply", "at", "like", "sysmsg", "dynamic", "live"), initial.state.initialized)
-        assertEquals("b1", initial.state.dynamicBaseline)
+        assertEquals("100", initial.state.dynamicBaseline)
         assertEquals(emptyList(), poller.check(enabled, initial.state, 1).notifications)
     }
 
     @Test
-    fun businessFailureDoesNotInitializeCategoryAndLaterRecoveryIsSilent() = runTest {
-        val source = Source().apply { replyError = IllegalStateException("not logged in") }
+    fun businessFailureDoesNotEstablishUnreadBaselinesAndRecoveryIsSilent() = runTest {
+        val source = Source().apply { unreadError = IllegalStateException("not logged in") }
         val poller = MessageNotificationPoller(source)
         val first = poller.check(enabled, AccountNotificationState(), 1)
-        assertFalse("reply" in first.state.initialized)
+        assertEquals(null, first.state.replyUnreadCount)
+        assertEquals(null, first.state.atUnreadCount)
+        assertEquals(null, first.state.likeUnreadCount)
         assertFalse(first.shouldRetry)
-        source.replyError = null
-        source.replies = listOf(10L)
-        source.ats = listOf(20L)
+        source.unreadError = null
+        source.unread = MessageFeedUnreadData(reply = 10, at = 20)
         val next = poller.check(enabled, first.state, 1)
-        assertEquals(listOf("at"), next.notifications.map { it.key })
-        assertTrue("reply" in next.state.initialized)
+        assertEquals(emptyList(), next.notifications)
+        assertEquals(10, next.state.replyUnreadCount)
+        assertEquals(20, next.state.atUnreadCount)
     }
 
     @Test
-    fun dynamicNoUpdatesNeverFetchesFeedOrAdvancesBaseline() = runTest {
+    fun unreadCountsRebaselineLegacyStateThenNotifyOnlyIncreasesAndResetAfterReads() = runTest {
+        val source = Source().apply { unread = MessageFeedUnreadData(reply = 5, at = 2, like = 1) }
+        val poller = MessageNotificationPoller(source)
+        val legacy = AccountNotificationState(initialized = setOf("reply", "at", "like"))
+        val initial = poller.check(interactionsOnly, legacy, 1)
+        assertEquals(emptyList(), initial.notifications)
+        assertEquals(emptyList(), poller.check(interactionsOnly, initial.state, 1).notifications)
+
+        source.unread = MessageFeedUnreadData(reply = 7, at = 4, like = 3)
+        val increased = poller.check(interactionsOnly, initial.state, 1)
+        assertEquals(listOf("reply", "at", "like"), increased.notifications.map { it.key })
+        assertEquals(listOf(2, 2, 2), increased.notifications.map { it.text.filter(Char::isDigit).toInt() })
+        assertEquals(emptyList(), poller.check(interactionsOnly, increased.state, 1).notifications)
+
+        source.unread = MessageFeedUnreadData(at = 1)
+        val read = poller.check(interactionsOnly, increased.state, 1)
+        assertEquals(emptyList(), read.notifications)
+        source.unread = MessageFeedUnreadData(reply = 1, at = 1)
+        val next = poller.check(interactionsOnly, read.state, 1)
+        assertEquals(listOf("reply"), next.notifications.map { it.key })
+        assertEquals(1, next.notifications.single().text.filter(Char::isDigit).toInt())
+    }
+
+    @Test
+    fun failedUnreadSnapshotPreservesBaselinesWhileSystemNoticesCommit() = runTest {
+        val source = Source().apply {
+            unreadError = IOException("network interrupted")
+            notices = listOf(SystemNoticeItem(cursor = -3, title = "new"))
+        }
+        val settings = interactionsOnly.copy(notifySystemNotices = true)
+        val previous = AccountNotificationState(
+            initialized = setOf("sysmsg"), seenSystemCursors = listOf(8),
+            replyUnreadCount = 5, atUnreadCount = 4, likeUnreadCount = 3,
+        )
+        val poller = MessageNotificationPoller(source)
+        val failed = poller.check(settings, previous, 1)
+        assertEquals(5, failed.state.replyUnreadCount)
+        assertEquals(4, failed.state.atUnreadCount)
+        assertEquals(3, failed.state.likeUnreadCount)
+        assertEquals(listOf("sysmsg"), failed.notifications.map { it.key })
+        assertTrue(failed.shouldRetry)
+
+        source.unreadError = null
+        source.unread = MessageFeedUnreadData(reply = 7, at = 5, like = 4)
+        val recovered = poller.check(settings, failed.state, 1)
+        assertEquals(listOf("reply", "at", "like"), recovered.notifications.map { it.key })
+        assertEquals(listOf(2, 1, 1), recovered.notifications.map { it.text.filter(Char::isDigit).toInt() })
+    }
+
+    @Test
+    fun enablingInteractionCategoriesEstablishesIndependentSilentBaselines() = runTest {
+        val source = Source().apply { unread = MessageFeedUnreadData(reply = 6, at = 3, like = 2) }
+        val poller = MessageNotificationPoller(source)
+        val replyOnly = interactionsOnly.copy(notifyAtMe = false, notifyLikes = false)
+        val first = poller.check(replyOnly, AccountNotificationState(replyUnreadCount = 5), 1)
+        assertEquals(listOf("reply"), first.notifications.map { it.key })
+        assertEquals(null, first.state.atUnreadCount)
+        assertEquals(null, first.state.likeUnreadCount)
+        val enabled = poller.check(interactionsOnly, first.state, 1)
+        assertEquals(emptyList(), enabled.notifications)
+
+        source.unread = MessageFeedUnreadData(reply = 6, at = 4, like = 3)
+        val next = poller.check(interactionsOnly, enabled.state, 1)
+        assertEquals(listOf("at", "like"), next.notifications.map { it.key })
+        assertEquals(listOf(1, 1), next.notifications.map { it.text.filter(Char::isDigit).toInt() })
+    }
+
+    @Test
+    fun dynamicNoUpdatesNeverFetchesPersonalFeedsOrAdvancesBaseline() = runTest {
         val source = Source().apply { updates = 0 }
-        val previous = AccountNotificationState(initialized = setOf("dynamic"), dynamicBaseline = "b0", seenDynamicIds = listOf("d0"))
+        val previous = AccountNotificationState(initialized = setOf("dynamic"),
+            dynamicBaseline = "100", dynamicUpBaselines = mapOf(9L to "100"))
         val result = MessageNotificationPoller(source).check(dynamicOnly, previous, 1)
         assertEquals(previous, result.state)
-        assertEquals(emptyList(), source.feedOffsets)
+        assertEquals(emptyList(), source.feedRequests)
         assertEquals(emptyList(), result.notifications)
     }
 
     @Test
-    fun failedDynamicSecondPageKeepsBaselineAndSeenWhileOtherCategoryCommits() = runTest {
+    fun failedPersonalSecondPageKeepsBaselineWhileOtherCategoryCommits() = runTest {
         val source = Source().apply {
-            replies = listOf(10L)
-            pages = mapOf("" to DynamicFeedData(items = listOf(dynamic("d1")), has_more = true, offset = "next", update_baseline = "b1"))
+            unread = MessageFeedUnreadData(reply = 10)
+            pages = mapOf((9L to "") to DynamicPersonalFeedPage(
+                items = listOf(dynamic("120")), hasMore = true, offset = "next"))
             feedErrorOffset = "next"
         }
-        val previous = AccountNotificationState(initialized = setOf("dynamic", "reply"), dynamicBaseline = "b0", seenDynamicIds = listOf("d0"))
+        val previous = AccountNotificationState(initialized = setOf("dynamic"), dynamicBaseline = "100",
+            dynamicUpBaselines = mapOf(9L to "100"), replyUnreadCount = 0)
         val result = MessageNotificationPoller(source).check(enabled, previous, 1)
-        assertEquals("b0", result.state.dynamicBaseline)
-        assertEquals(listOf("d0"), result.state.seenDynamicIds)
+        assertEquals("100", result.state.dynamicBaseline)
+        assertEquals(mapOf(9L to "100"), result.state.dynamicUpBaselines)
         assertEquals(listOf("reply"), result.notifications.map { it.key })
         assertTrue(result.shouldRetry)
         source.feedErrorOffset = null
-        source.pages = source.pages + ("next" to DynamicFeedData(items = listOf(dynamic("d2")), update_baseline = "wrong-page-baseline"))
+        source.pages = source.pages + ((9L to "next") to DynamicPersonalFeedPage(
+            items = listOf(dynamic("110"), dynamic("100"))))
         val recovered = MessageNotificationPoller(source).check(enabled, result.state, 1)
-        assertEquals("b1", recovered.state.dynamicBaseline)
-        assertEquals(listOf("dynamic:d1", "dynamic:d2"), recovered.notifications.map { it.key })
+        assertEquals("120", recovered.state.dynamicBaseline)
+        assertEquals(listOf("dynamic:120", "dynamic:110"), recovered.notifications.map { it.key })
         assertEquals(emptyList(), MessageNotificationPoller(source).check(enabled, recovered.state, 1).notifications)
     }
 
     @Test
-    fun repeatedDynamicOffsetAndLargeUpdateBatchAreBounded() = runTest {
+    fun repeatedPersonalOffsetPreservesGapAndRecoverySummarizesNewestItems() = runTest {
         val source = Source().apply {
             pages = mapOf(
-                "" to DynamicFeedData(items = (1..8).map { dynamic("d$it") }, has_more = true, offset = "next", update_baseline = "b1"),
-                "next" to DynamicFeedData(items = listOf(dynamic("d9")), has_more = true, offset = "next"),
+                (9L to "") to DynamicPersonalFeedPage(items = (109 downTo 102).map { dynamic("$it") },
+                    hasMore = true, offset = "next"),
+                (9L to "next") to DynamicPersonalFeedPage(items = listOf(dynamic("101")),
+                    hasMore = true, offset = "next"),
             )
         }
-        val previous = AccountNotificationState(initialized = setOf("dynamic"), dynamicBaseline = "b0")
-        val result = MessageNotificationPoller(source).check(dynamicOnly, previous, 1)
-        assertEquals(listOf("", "next"), source.feedOffsets)
-        assertEquals(listOf("dynamic:d1", "dynamic:d2", "dynamic:d3", "dynamic:summary"), result.notifications.map { it.key })
-        assertEquals((1..9).map { "d$it" }.toSet(), result.state.seenDynamicIds.toSet())
+        val previous = AccountNotificationState(initialized = setOf("dynamic"),
+            dynamicBaseline = "100", dynamicUpBaselines = mapOf(9L to "100"))
+        val poller = MessageNotificationPoller(source)
+        val failed = poller.check(dynamicOnly, previous, 1)
+        assertEquals(previous, failed.state)
+        assertEquals(emptyList(), failed.notifications)
+        source.pages = source.pages + ((9L to "next") to DynamicPersonalFeedPage(items = listOf(dynamic("101"))))
+        val recovered = poller.check(dynamicOnly, failed.state, 1)
+        assertEquals(listOf("dynamic:109", "dynamic:108", "dynamic:107", "dynamic:summary"),
+            recovered.notifications.map { it.key })
+        assertEquals(9, recovered.notifications.last().text.filter(Char::isDigit).toInt())
+        assertEquals("109", recovered.state.dynamicUpBaselines[9L])
+    }
+
+    @Test
+    fun newlyFollowedUpEstablishesSilentBaselineEvenWithoutGlobalUpdates() = runTest {
+        val source = Source().apply {
+            updates = 0
+            followingPages = mapOf(1 to FollowingsData(list = listOf(FollowingUser(mid = 9), FollowingUser(mid = 10)), total = 2))
+            pages = mapOf((10L to "") to DynamicPersonalFeedPage(items = listOf(dynamic("50", 10))))
+        }
+        val previous = AccountNotificationState(dynamicBaseline = "100", dynamicUpBaselines = mapOf(9L to "100"))
+        val initial = MessageNotificationPoller(source).check(dynamicOnly, previous, 1)
+        assertEquals(emptyList(), initial.notifications)
+        assertEquals(mapOf(9L to "100", 10L to "50"), initial.state.dynamicUpBaselines)
+        source.updates = 1
+        source.pages = mapOf(
+            (9L to "") to DynamicPersonalFeedPage(items = listOf(dynamic("100"))),
+            (10L to "") to DynamicPersonalFeedPage(items = listOf(dynamic("110", 10))),
+        )
+        val next = MessageNotificationPoller(source).check(dynamicOnly, initial.state, 1)
+        assertEquals(listOf("dynamic:110"), next.notifications.map { it.key })
+    }
+
+    @Test
+    fun oneUpFailureDoesNotDiscardOtherUpsOrAdvanceGlobalProbePastTheFailure() = runTest {
+        val source = Source().apply {
+            followingPages = mapOf(1 to FollowingsData(list = listOf(FollowingUser(mid = 9), FollowingUser(mid = 10)), total = 2))
+            pages = mapOf((9L to "") to DynamicPersonalFeedPage(items = listOf(dynamic("110"))))
+            feedErrorHost = 10L
+        }
+        val previous = AccountNotificationState(dynamicBaseline = "100",
+            dynamicUpBaselines = mapOf(9L to "100", 10L to "90"))
+        val poller = MessageNotificationPoller(source)
+        val partial = poller.check(dynamicOnly, previous, 1)
+        assertEquals(listOf("dynamic:110"), partial.notifications.map { it.key })
+        assertEquals(mapOf(9L to "110", 10L to "90"), partial.state.dynamicUpBaselines)
+        assertEquals("100", partial.state.dynamicBaseline)
+        assertTrue(partial.shouldRetry)
+        source.feedErrorHost = null
+        source.pages = source.pages + ((10L to "") to DynamicPersonalFeedPage(items = listOf(dynamic("120", 10))))
+        val recovered = poller.check(dynamicOnly, partial.state, 1)
+        assertEquals(listOf("dynamic:120"), recovered.notifications.map { it.key })
+        assertEquals("120", recovered.state.dynamicBaseline)
+    }
+
+    @Test
+    fun followingPaginationIncludesLaterUpsAndIncompleteRefreshNeverPrunesState() = runTest {
+        val source = Source().apply {
+            updates = 0
+            followingPages = mapOf(
+                1 to FollowingsData(list = (9L..58L).map { FollowingUser(mid = it) }, total = 51),
+                2 to FollowingsData(list = listOf(FollowingUser(mid = 59)), total = 51),
+            )
+            pages = (10L..59L).associate { (it to "") to DynamicPersonalFeedPage(items = listOf(dynamic("$it", it))) }
+        }
+        val previous = AccountNotificationState(dynamicBaseline = "100", dynamicUpBaselines = mapOf(9L to "100"))
+        val poller = MessageNotificationPoller(source)
+        val initial = poller.check(dynamicOnly, previous, 1)
+        assertEquals(emptyList(), initial.notifications)
+        source.updates = 1
+        source.pages = source.pages + mapOf(
+            (9L to "") to DynamicPersonalFeedPage(items = listOf(dynamic("100"))),
+            (59L to "") to DynamicPersonalFeedPage(items = listOf(dynamic("110", 59))),
+        )
+        val updated = poller.check(dynamicOnly, initial.state, 1)
+        assertEquals(listOf("dynamic:110"), updated.notifications.map { it.key })
+        source.followingErrorPage = 2
+        val failure = poller.check(dynamicOnly, updated.state, 1)
+        assertEquals(updated.state, failure.state)
+        assertEquals(emptyList(), failure.notifications)
+        assertTrue(failure.shouldRetry)
+    }
+
+    @Test
+    fun oldPinnedCardDoesNotHideNewItemsOnLaterPersonalPages() = runTest {
+        val pinned = dynamic("50").copy(modules = dynamic("50").modules.copy(module_tag = DynamicTagModule("置顶")))
+        val source = Source().apply {
+            pages = mapOf(
+                (9L to "") to DynamicPersonalFeedPage(items = listOf(pinned, dynamic("130")), offset = "next", hasMore = true),
+                (9L to "next") to DynamicPersonalFeedPage(items = listOf(dynamic("120"), dynamic("100"))),
+            )
+        }
+        val result = MessageNotificationPoller(source).check(dynamicOnly,
+            AccountNotificationState(dynamicBaseline = "100", dynamicUpBaselines = mapOf(9L to "100")), 1)
+        assertEquals(listOf("dynamic:130", "dynamic:120"), result.notifications.map { it.key })
+        assertEquals("130", result.state.dynamicUpBaselines[9L])
+    }
+
+    @Test
+    fun newRangeBeyondThreePagesIsCompletedBeforeAdvancingBaseline() = runTest {
+        val source = Source().apply {
+            pages = mapOf(
+                (9L to "") to DynamicPersonalFeedPage(items = listOf(dynamic("140")), offset = "p2", hasMore = true),
+                (9L to "p2") to DynamicPersonalFeedPage(items = listOf(dynamic("130")), offset = "p3", hasMore = true),
+                (9L to "p3") to DynamicPersonalFeedPage(items = listOf(dynamic("120")), offset = "p4", hasMore = true),
+                (9L to "p4") to DynamicPersonalFeedPage(items = listOf(dynamic("110"), dynamic("100"))),
+            )
+        }
+        val result = MessageNotificationPoller(source).check(dynamicOnly,
+            AccountNotificationState(dynamicBaseline = "100", dynamicUpBaselines = mapOf(9L to "100")), 1)
+        assertEquals(4, result.notifications.last().text.filter(Char::isDigit).toInt())
+        assertEquals("140", result.state.dynamicUpBaselines[9L])
+    }
+
+    @Test
+    fun successfullyEmptyPersonalFeedStillNotifiesItsFirstFutureDynamic() = runTest {
+        val source = Source()
+        val poller = MessageNotificationPoller(source)
+        val initial = poller.check(dynamicOnly, AccountNotificationState(), 1)
+        assertEquals("", initial.state.dynamicUpBaselines[9L])
+        source.pages = mapOf((9L to "") to DynamicPersonalFeedPage(items = listOf(dynamic("100"))))
+        val next = poller.check(dynamicOnly, initial.state, 1)
+        assertEquals(listOf("dynamic:100"), next.notifications.map { it.key })
     }
 
     @Test
@@ -216,7 +413,7 @@ class MessageNotificationPolicyTest {
 
     @Test
     fun cancellationAndAccountChangeAbortRatherThanCommitPartialCategories() = runTest {
-        val source = Source().apply { replyError = CancellationException("stop") }
+        val source = Source().apply { unreadError = CancellationException("stop") }
         assertFailsWith<CancellationException> { MessageNotificationPoller(source).check(enabled, AccountNotificationState(), 1) }
         var checks = 0
         val changed = MessageNotificationPoller(Source()) {
@@ -226,21 +423,17 @@ class MessageNotificationPolicyTest {
     }
     @Test
     fun eachMessageCenterSubcategorySwitchGatesOnlyItsOwnCategory() = runTest {
-        // Seed seen state so this is a steady-state scan: every category is already
-        // initialized and has seen the current items. New items therefore arrive only
-        // via diffNewIds / cursor equality, isolating the effect of each switch.
+        // Seed prior snapshots so every enabled category observes new messages.
         val source = Source().apply {
             sessions = listOf(SessionItem(talker_id = 90, unread_count = 1, last_msg = SessionMessage(sender_uid = 90, msg_key = 1)))
-            replies = listOf(91L)
-            ats = listOf(92L)
-            likes = listOf(93L)
+            unread = MessageFeedUnreadData(reply = 91, at = 92, like = 93)
             notices = listOf(SystemNoticeItem(cursor = 99, title = "alert"))
         }
         val baseline = AccountNotificationState(
-            initialized = setOf("dm", "reply", "at", "like", "sysmsg", "dynamic", "live"),
+            initialized = setOf("dm", "sysmsg", "dynamic", "live"),
             sessionMsgKeys = mapOf("90_1" to 999L),
-            seenReplyIds = listOf(1L), seenAtIds = listOf(1L), seenLikeIds = listOf(1L),
-            seenSystemCursors = listOf(1L), seenDynamicIds = listOf("d0"), dynamicBaseline = "b0",
+            replyUnreadCount = 1, atUnreadCount = 1, likeUnreadCount = 1,
+            seenSystemCursors = listOf(1L), dynamicUpBaselines = mapOf(9L to "100"), dynamicBaseline = "100",
         )
         // Master enabled, all five subcategories on: every category reports one new item.
         val allOn = MessageNotificationPoller(source).check(enabled.copy(notifyDynamicUpdates = false, notifyLiveAlerts = false), baseline, 1)
@@ -275,10 +468,11 @@ class MessageNotificationPolicyTest {
         assertEquals(emptyList(), allOff.notifications)
     }
 
-    private fun dynamic(id: String) = DynamicItem(
+    private fun dynamic(id: String, mid: Long = 9L) = DynamicItem(
         id_str = id,
+        type = "DYNAMIC_TYPE_AV",
         modules = DynamicModules(
-            module_author = DynamicAuthorModule(mid = 9, name = "UP", following = true),
+            module_author = DynamicAuthorModule(mid = mid, name = "UP", following = true),
             module_dynamic = DynamicContentModule(major = DynamicMajor(archive = ArchiveMajor(bvid = "BV1xx411c7mD"))),
         ),
     )
@@ -287,27 +481,30 @@ class MessageNotificationPolicyTest {
 
     private class Source : MessageNotificationSource {
         var sessions = emptyList<SessionItem>()
-        var replies = emptyList<Long>()
-        var ats = emptyList<Long>()
-        var likes = emptyList<Long>()
+        var unread = MessageFeedUnreadData()
         var notices = emptyList<SystemNoticeItem>()
-        var replyError: Exception? = null
+        var unreadError: Exception? = null
         var updates = 1
-        var pages = mapOf("" to DynamicFeedData(update_baseline = "b0"))
+        var followingPages = mapOf(1 to FollowingsData(list = listOf(FollowingUser(mid = 9, uname = "UP")), total = 1))
+        var pages = mapOf((9L to "") to DynamicPersonalFeedPage())
         var rooms = emptyMap<Int, FollowedLiveData>()
         var feedErrorOffset: String? = null
+        var feedErrorHost: Long? = null
+        var followingErrorPage: Int? = null
         var liveErrorPage: Int? = null
-        val feedOffsets = mutableListOf<String>()
+        val feedRequests = mutableListOf<Triple<Long, String, Int>>()
         override suspend fun sessions() = sessions
-        override suspend fun replyIds(): List<Long> { replyError?.let { throw it }; return replies }
-        override suspend fun atIds() = ats
-        override suspend fun likeIds() = likes
+        override suspend fun feedUnread(): MessageFeedUnreadData { unreadError?.let { throw it }; return unread }
         override suspend fun systemNotices() = notices
         override suspend fun dynamicUpdateCount(baseline: String) = updates
-        override suspend fun dynamicFeed(baseline: String, offset: String): DynamicFeedData {
-            feedOffsets += offset
-            if (offset == feedErrorOffset) throw IOException("network interrupted")
-            return pages.getValue(offset)
+        override suspend fun followings(selfMid: Long, page: Int): FollowingsData {
+            if (page == followingErrorPage) throw IOException("following list interrupted")
+            return followingPages[page] ?: FollowingsData()
+        }
+        override suspend fun personalDynamicFeed(hostUid: Long, offset: String, page: Int): DynamicPersonalFeedPage {
+            feedRequests += Triple(hostUid, offset, page)
+            if (offset == feedErrorOffset || hostUid == feedErrorHost) throw IOException("network interrupted")
+            return pages.getValue(hostUid to offset)
         }
         override suspend fun followedLive(page: Int): FollowedLiveData {
             if (page == liveErrorPage) throw IOException("network interrupted")
