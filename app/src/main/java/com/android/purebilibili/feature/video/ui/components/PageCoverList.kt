@@ -3,7 +3,6 @@ package com.android.purebilibili.feature.video.ui.components
 import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -20,7 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,6 +28,7 @@ import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppIconButton
 import com.android.purebilibili.core.ui.components.AppLazyColumn
+import com.android.purebilibili.core.ui.components.AppSingleChoiceRow
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.data.model.response.Page
@@ -127,14 +126,19 @@ private fun PageCoverRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    //  分集行沿用应用内统一的封面比例与卡片圆角，选中态交由共享单选行表达
     BoxWithConstraints(modifier = modifier) {
         val coverWidth = (maxWidth * 0.38f).coerceIn(64.dp, 132.dp)
-        Row(
-            modifier = Modifier.fillMaxWidth().clip(AppShapes.container(ContainerLevel.Card)).selectable(selected = selected, role = Role.RadioButton, onClick = onClick).padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        AppSingleChoiceRow(
+            selected = selected,
+            onClick = onClick,
+            shape = AppShapes.container(ContainerLevel.Card),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Box(
-                modifier = Modifier.width(coverWidth).aspectRatio(16f / 9f)
+                modifier = Modifier
+                    .width(coverWidth)
+                    .aspectRatio(16f / 9f)
                     .clip(AppShapes.container(ContainerLevel.Chip))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             ) {
@@ -160,13 +164,13 @@ private fun PageCoverRow(
                     )
                 }
             }
-            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 AppText(
                     text = page.part.ifBlank { "第${page.page}P" },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                     color = if (selected) AppContentColors.accent() else AppContentColors.primaryText(),
+                    minLines = 2,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )

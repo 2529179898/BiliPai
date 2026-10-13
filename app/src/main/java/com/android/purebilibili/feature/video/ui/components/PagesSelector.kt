@@ -189,8 +189,9 @@ fun PagesSelector(
                     fontWeight = FontWeight.SemiBold,
                     color = AppContentColors.primaryText()
                 )
+                Spacer(modifier = Modifier.width(8.dp))
                 AppText(
-                    text = " 正在播放：${currentPage.part.ifBlank { "第${currentPage.page}P" }}",
+                    text = "正在播放：${currentPage.part.ifBlank { "第${currentPage.page}P" }}",
                     fontSize = 12.sp,
                     color = AppContentColors.secondaryText(),
                     maxLines = 1,

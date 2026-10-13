@@ -18,7 +18,7 @@ class ThemeNativeSelectionStructureTest {
             "feature/watchlater/WatchLaterScreen.kt",
             "feature/video/screen/TabletVideoLayout.kt",
             "feature/live/LivePlayerScreen.kt",
-            "feature/video/ui/components/PagesSelector.kt",
+            "feature/video/ui/components/PageCoverList.kt",
         )
 
         targets.forEach { relativePath ->
