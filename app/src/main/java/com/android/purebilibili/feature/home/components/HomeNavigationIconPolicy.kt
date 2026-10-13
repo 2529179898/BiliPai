@@ -91,16 +91,17 @@ internal fun resolveMiuixPreferredHomeNavigationIcon(
     return resolveMiuixHomeNavigationIcon(role, selected)
 }
 
-/**
- * Miuix Home and Recent remain visually solid even at Light weight. Their idle layer uses the
- * thin local outline while the selected layer uses a filled glyph, allowing the moving indicator
- * to crossfade real interior fill without leaving an idle black solid icon behind.
- */
+/** Bottom navigation keeps one outline silhouette; theme tint and the indicator express selection. */
 @Composable
+@Suppress("UNUSED_PARAMETER")
 internal fun resolveMiuixBottomNavigationIcon(
     item: BottomNavItem,
     selected: Boolean,
-): ImageVector = resolveMiuixPreferredHomeNavigationIcon(item.name, selected)
+): ImageVector = if (item == BottomNavItem.LIVE) {
+    ImageVector.vectorResource(R.drawable.ic_home_nav_live)
+} else {
+    resolveMiuixPreferredHomeNavigationIcon(item.name, selected = false)
+}
 
 @Composable
 private fun resolveMiuixHomeNavigationIcon(
