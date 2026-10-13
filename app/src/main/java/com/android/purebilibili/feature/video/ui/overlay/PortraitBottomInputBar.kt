@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -75,14 +77,21 @@ fun PortraitBottomInputBar(
                     .padding(horizontal = layoutPolicy.inputHorizontalPaddingDp.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                AppText(
-                    text = "发弹幕...",
-                    color = Color.White,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSendIcon(
+                        size = 20.dp,
+                        tint = Color.White,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    AppText(
+                        text = "发弹幕...",
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
-        
+
         Spacer(modifier = Modifier.width(layoutPolicy.afterInputSpacingDp.dp))
 
         Row(
@@ -131,7 +140,7 @@ private fun PortraitInputIconButton(
                 .fillMaxSize()
                 .clip(CircleShape)
                 .background(
-                    if (selected && !LocalPlayerControlGlassEnabled.current) MaterialTheme.colorScheme.primary.copy(alpha = 0.24f) else Color.Transparent
+                    if (selected && !LocalPlayerControlGlassEnabled.current) AppContentColors.accent().copy(alpha = 0.24f) else Color.Transparent
                 )
                 .clickable { onClick() },
             contentAlignment = Alignment.Center
