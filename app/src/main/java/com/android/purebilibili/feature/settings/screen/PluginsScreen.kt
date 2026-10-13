@@ -2463,7 +2463,7 @@ private fun InstalledJsPluginItem(
                 contentAlignment = Alignment.Center
             ) {
                 AppIcon(
-                    imageVector = rememberMaterialSymbol(R.drawable.ms_code_24),
+                    imageVector = rememberMaterialSymbol(R.drawable.ms_data_object_fill_24),
                     contentDescription = null,
                     tint = rememberAdaptivePreferenceIconContentColor(iconTint),
                     modifier = Modifier.size(20.dp)
