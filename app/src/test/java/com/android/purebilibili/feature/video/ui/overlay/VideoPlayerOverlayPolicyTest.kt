@@ -315,6 +315,41 @@ class VideoPlayerOverlayPolicyTest {
     }
 
     @Test
+    fun bufferingIndicatorHidesUntilFirstFrameIsRendered() {
+        // 进场时 playWhenReady=true 且 STATE_BUFFERING，但首帧未到：
+        // 此时必须由封面承担加载表达，不能再叠转圈。
+        assertFalse(
+            shouldShowBufferingIndicator(
+                isBuffering = true,
+                isQualitySwitching = false,
+                playWhenReady = true,
+                hasRenderedFirstFrame = false,
+            )
+        )
+        assertTrue(
+            shouldShowBufferingIndicator(
+                isBuffering = true,
+                isQualitySwitching = false,
+                playWhenReady = true,
+                hasRenderedFirstFrame = true,
+            )
+        )
+    }
+
+    @Test
+    fun bufferingIndicatorHidesDuringTransitionOverlaySuppression() {
+        assertFalse(
+            shouldShowBufferingIndicator(
+                isBuffering = true,
+                isQualitySwitching = false,
+                playWhenReady = true,
+                hasRenderedFirstFrame = true,
+                suppressTransientOverlays = true,
+            )
+        )
+    }
+
+    @Test
     fun centerLoadingUiState_prefersQualitySwitchReasonAndShowsBandwidth() {
         val state = resolveCenterLoadingUiState(
             isBuffering = true,

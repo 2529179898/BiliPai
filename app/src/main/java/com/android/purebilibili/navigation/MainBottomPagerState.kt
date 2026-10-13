@@ -47,7 +47,7 @@ internal class MainBottomPagerState(
 
     /**
      * MainPagerState 目标页切换：
-     * - 先更新 [selectedPage]（底栏指示器跟目标页）；
+     * - 先更新 [selectedPage]（底栏指示器跟目标页），并让目标页先完成一次组合；
      * - 再在 Pager 的 UserInput mutation 中逐帧滚动到目标，避免反向切页被旧状态取消。
      */
     fun switchToPage(targetIndex: Int) {
@@ -65,6 +65,9 @@ internal class MainBottomPagerState(
         navJob = coroutineScope.launch {
             val myJob = coroutineContext.job
             try {
+                // 目标页此刻已成为转场参与者并开始组合。先让出一帧把它挂载 / 测量的成本
+                // 付掉，动画再启动，避免动画首帧与冷组合抢同一帧预算而掉帧。
+                awaitPagerTargetPagePrewarm()
                 animatePagerSelection(pagerState, safeTargetIndex)
             } finally {
                 if (navJob == myJob) {

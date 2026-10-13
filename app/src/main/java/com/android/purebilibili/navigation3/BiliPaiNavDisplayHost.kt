@@ -85,6 +85,7 @@ import com.android.purebilibili.navigation3.predictiveback.resolveMiuixVideoCard
 import com.android.purebilibili.navigation3.predictiveback.MiuixVideoCardTransitionProgress
 import com.android.purebilibili.navigation3.predictiveback.shouldUseMiuixPredictiveBackProgress
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import top.yukonga.miuix.kmp.nav.core.NavBackStack
 import top.yukonga.miuix.kmp.nav.core.NavCornerClipMode
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
@@ -379,6 +380,33 @@ internal fun BiliPaiNavDisplayHost(
         )
         onDispose { videoCardClock.bindNavigationDriver(null) }
     }
+    // 卡片转场唯一逐帧驱动：详情 entry 的 transformEntry 会在同一帧挂多层 graphicsLayer，
+    // 每层都读 visualDepth 且该函数会推进状态机。这里每帧只在这里打一次帧序号，
+    // 让同帧内的重复读取走帧内记忆（见 MiuixVideoCardTransitionProgress.visualDepthMemoized），
+    // 避免状态机同帧被推进多次。
+    //
+    // 只在**会动**的相位打拍：OPENING / RETURNING 才有逐帧插值。HELD 是稳态（用户正在看
+    // 详情），此时不持有帧回调，避免长时间播放期间空转。帧序号跨帧单调递增，因此每次进入
+    // 活动相位都从新序号开始，不会命中上一段的缓存。
+    LaunchedEffect(cardMorphAvailable, videoCardTransitionProgress, videoCardClock) {
+        if (!cardMorphAvailable) return@LaunchedEffect
+        snapshotFlow {
+            when (videoCardClock.phase) {
+                VideoCardTransitionBackgroundPhase.OPENING,
+                VideoCardTransitionBackgroundPhase.RETURNING,
+                -> true
+                // HELD 稳态一般不需要逐帧，但预测返回手势/取消恢复期间仍会逐帧变化，
+                // 此时也要打拍，才能让同帧多层读走同一份采样。
+                else -> videoCardTransitionProgress.isGestureInProgress() ||
+                    videoCardClock.gestureRestoreInProgress
+            }
+        }.collectLatest { active ->
+            if (!active) return@collectLatest
+            while (true) {
+                withFrameNanos { videoCardTransitionProgress.advanceTransitionFrame() }
+            }
+        }
+    }
     var previousStack by remember { mutableStateOf(stackSnapshot) }
     LaunchedEffect(stackSnapshot, cardMorphAvailable) {
         val previous = previousStack
@@ -564,13 +592,15 @@ internal fun BiliPaiNavDisplayHost(
         isVideoDetailOnStack = isCardMorphDestinationNavKey(currentKey),
         isReturningToVideoDetail = isCardMorphDestinationNavKey(currentBackTarget),
     )
+    // 只以真正会改变「被捕获数据」的值作为键。provider 一律是上面已 remember 的稳定引用，
+    // 把它们放进键里会让任意一次重组都重建整个 state —— 下游模糊/缩放/圆角/scrim effect
+    // 全部换新实例，本帧参数不连续，视觉上就是「闪一下」。state 只捕获引用，读值发生在
+    // 下游 draw/graphicsLayer，因此不需要随 provider 重建。
     val transitionBackgroundState = remember(
         sourceMetadata.sourceKey,
         sourceMetadata.sourceRoute,
         sourceMetadata.sourceCornerDp,
         sourceMetadata.sourceBounds,
-        videoCardProgressProvider,
-        videoCardExposureProvider,
         videoCardSnapshotHandle,
         transitionMotionTier,
         isLightBackground,
@@ -617,6 +647,7 @@ internal fun BiliPaiNavDisplayHost(
         videoCardLayoutHeightProvider,
         sourceMetadata.sourceBounds,
         sourceMetadata.sourceCoverBounds,
+        sourceMetadata.sourceInfoBounds,
         sourceMetadata.sourceLayout,
         sourceMetadata.sourceChromeSnapshot,
     ) {
@@ -629,6 +660,7 @@ internal fun BiliPaiNavDisplayHost(
             layoutHeightProvider = videoCardLayoutHeightProvider,
             sourceBoundsProvider = { sourceMetadata.sourceBounds },
             sourceCoverBoundsProvider = { sourceMetadata.sourceCoverBounds },
+            sourceInfoBoundsProvider = { sourceMetadata.sourceInfoBounds },
             sourceLayout = sourceMetadata.sourceLayout,
             sourceChromeSnapshot = sourceMetadata.sourceChromeSnapshot,
         )

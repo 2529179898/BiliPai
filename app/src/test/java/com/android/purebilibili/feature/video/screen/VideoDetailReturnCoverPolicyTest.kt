@@ -358,15 +358,19 @@ class VideoDetailReturnCoverPolicyTest {
         assertTrue(chrome.contains("heightPx * inverse.scaleY"))
         assertTrue(chrome.contains("lastClickedNativeCoverOverlayLayer"))
         assertTrue(chrome.contains("shouldDrawNativeCoverOverlay("))
+        // 窗口按「守卫块 + 新增的串行化实参」放宽：守卫块本身已接近 800 字符，
+        // 且 `shouldDrawFlyingReconstructedSourceChrome(...)` 现在多带一个
+        // `detailBodyChromeAlpha` 实参，旧的 500/1000 窗口会把守卫头部切掉。
         val coverChromeGuard = holder
             .substringBefore("VideoDetailReturnCoverChrome(")
-            .takeLast(500)
-        assertTrue(coverChromeGuard.contains("if (miuixVisualAssetsActive)"))
+            .takeLast(1_000)
+        // 源码里 `if (` 与条件分行，故断言条件标识符本身而非单行字面量。
+        assertTrue(coverChromeGuard.contains("miuixVisualAssetsActive"))
         assertTrue(coverChromeGuard.contains("shouldDrawFlyingReconstructedSourceChrome("))
         assertFalse(coverChromeGuard.contains("lastClickedNativeCardLayer == null"))
         val sourceChromeGuard = holder
             .substringBefore("VideoDetailReturnSourceCardChrome(")
-            .takeLast(1_000)
+            .takeLast(1_400)
         assertTrue(sourceChromeGuard.contains("miuixVisualAssetsActive"))
         assertTrue(sourceChromeGuard.contains("shouldDrawFlyingReconstructedSourceChrome("))
     }
@@ -1527,6 +1531,36 @@ class VideoDetailReturnCoverPolicyTest {
     }
 
     @Test
+    fun `flying entry mounts detail content before morph settles`() {
+        // 进场：Miuix 飞行 entry 的根过渡已接管正文 alpha（父层 graphicsLayer 按 morph 进度
+        // 淡入 + 自上而下裁剪），因此正文必须随 morph 提前挂载。否则数据到达后正文被
+        // AnimatedVisibility 整块隐藏，只剩近白容器背景 → 「进详情页一片白遮罩」。
+        assertTrue(
+            shouldShowVideoDetailContent(
+                isTransitionFinished = false,
+                isLeaving = false,
+                rootTransitionOwnsContentAlpha = true,
+            )
+        )
+        // 无根过渡接管（非 morph 路径）时仍等 settle，避免提前挂载重内容。
+        assertFalse(
+            shouldShowVideoDetailContent(
+                isTransitionFinished = false,
+                isLeaving = false,
+                rootTransitionOwnsContentAlpha = false,
+            )
+        )
+        // 退场语义保持不变：未 finish 不得重新放行。
+        assertFalse(
+            shouldShowVideoDetailContent(
+                isTransitionFinished = false,
+                isLeaving = true,
+                rootTransitionOwnsContentAlpha = true,
+            )
+        )
+    }
+
+    @Test
     fun `explicit force cover still switches detail into returning visual state`() {
         assertTrue(
             shouldUseReturningVideoDetailVisualState(
@@ -1735,5 +1769,115 @@ class VideoDetailReturnCoverPolicyTest {
             com.android.purebilibili.core.ui.transition.resolveVideoSharedCoverCacheKey("BV1"),
             source.cacheKey,
         )
+    }
+
+    @Test
+    fun committedIdleReturnZeroesFlyingChromeInsteadOfInvertingDetailChrome() {
+        // IDLE + 返回已提交时详情 chrome 已返回 0（让位给列表卡）。重建壳若继续沿用
+        // `1f − detailChromeAlpha` 的互补关系，就会得到 1f —— 一块全不透明的信息板
+        // 凭空盖在卡槽上，正是「白色遮罩」。两者必须同时为 0。
+        assertEquals(
+            0f,
+            resolveVideoDetailFlyingSourceChromeAlpha(
+                morphDepthProgress = 1f,
+                phase = VideoCardTransitionBackgroundPhase.IDLE,
+                isReturnGestureInProgress = false,
+                sourceLayout = VideoCardSourceLayout.STACKED,
+                isCommittedCardReturn = true,
+            ),
+            0.001f,
+        )
+        // 未提交的 IDLE 保持原语义：互补路径本身就让位（detailChromeAlpha = 1）。
+        assertEquals(
+            0f,
+            resolveVideoDetailFlyingSourceChromeAlpha(
+                morphDepthProgress = 0f,
+                phase = VideoCardTransitionBackgroundPhase.IDLE,
+                isReturnGestureInProgress = false,
+                sourceLayout = VideoCardSourceLayout.STACKED,
+            ),
+            0.001f,
+        )
+        // 预测返回手势进行中不走这条守卫，仍走互补路径：IDLE 下 depth 被强制为 0，
+        // 手势分支取 `1f − handoff` 得 detailChromeAlpha = 1 ⇒ 重建壳 alpha = 0。
+        // 若守卫不区分手势，手势起点会把重建壳拉满 1f（详情页此刻完全可见）。
+        assertEquals(
+            0f,
+            resolveVideoDetailFlyingSourceChromeAlpha(
+                morphDepthProgress = 0f,
+                phase = VideoCardTransitionBackgroundPhase.IDLE,
+                isReturnGestureInProgress = true,
+                sourceLayout = VideoCardSourceLayout.STACKED,
+                isCommittedCardReturn = true,
+            ),
+            0.001f,
+        )
+    }
+
+    @Test
+    fun reconstructedInfoBandIsSerializedBehindTheDetailBody() {
+        // 正文还没让位完成时不画重建板，否则两层会在同一块信息槽里叠画成
+        // 「半透明白板 + 简介/评论鬼影」。
+        assertFalse(
+            shouldDrawFlyingReconstructedSourceChrome(
+                phase = VideoCardTransitionBackgroundPhase.RETURNING,
+                isReturnGestureInProgress = false,
+                detailBodyChromeAlpha = 0.5f,
+            ),
+        )
+        assertTrue(
+            shouldDrawFlyingReconstructedSourceChrome(
+                phase = VideoCardTransitionBackgroundPhase.RETURNING,
+                isReturnGestureInProgress = false,
+                detailBodyChromeAlpha = 0f,
+            ),
+        )
+        // 进场方向不受串行化影响：列表卡已隐藏，重建壳是唯一可见的卡面。
+        assertTrue(
+            shouldDrawFlyingReconstructedSourceChrome(
+                phase = VideoCardTransitionBackgroundPhase.OPENING,
+                isReturnGestureInProgress = false,
+                detailBodyChromeAlpha = 1f,
+            ),
+        )
+        // HELD 稳态（正文全不透明）不画重建板。
+        assertFalse(
+            shouldDrawFlyingReconstructedSourceChrome(
+                phase = VideoCardTransitionBackgroundPhase.HELD,
+                isReturnGestureInProgress = false,
+                detailBodyChromeAlpha = 1f,
+            ),
+        )
+        // IDLE 稳态不画；但手势进行中优先参与合成。
+        assertFalse(
+            shouldDrawFlyingReconstructedSourceChrome(
+                phase = VideoCardTransitionBackgroundPhase.IDLE,
+                isReturnGestureInProgress = false,
+                detailBodyChromeAlpha = 0f,
+            ),
+        )
+        assertTrue(
+            shouldDrawFlyingReconstructedSourceChrome(
+                phase = VideoCardTransitionBackgroundPhase.IDLE,
+                isReturnGestureInProgress = true,
+                detailBodyChromeAlpha = 1f,
+            ),
+        )
+    }
+
+    @Test
+    fun reconstructedInfoSurfacePaintsAnOpaqueBaseUnderTheTint() {
+        val source = File(
+            "src/main/java/com/android/purebilibili/feature/video/screen/" +
+                "VideoDetailReturnSourceCardChrome.kt"
+        ).readText()
+        val opaqueBase = source.indexOf(".background(baseContainer, shape)")
+        val tintLayer = source.indexOf(".background(surface.containerColor, shape)")
+        // tint 路径下 containerColor 只有 ~0.85 alpha。若只铺这一层，下层详情正文会在
+        // 信息槽里以 ~15% 透出，且 0.85×254 + 0.15×247 ≈ 254 比页面底色 247 更亮 ——
+        // 观感就是一块盖住卡片的白色遮罩。必须先铺不透明 cardContainer。
+        assertTrue(opaqueBase >= 0)
+        assertTrue(tintLayer >= 0)
+        assertTrue(opaqueBase < tintLayer)
     }
 }

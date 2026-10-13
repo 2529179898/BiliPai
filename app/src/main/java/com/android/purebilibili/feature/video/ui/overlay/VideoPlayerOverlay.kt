@@ -348,11 +348,26 @@ internal fun resolveOverlayPlaybackButtonPlayingState(
     return isPlaying || (playWhenReady && (playbackState == Player.STATE_BUFFERING || hasPendingSeekResume))
 }
 
+/**
+ * 缓冲加载圈的显隐判据。
+ *
+ * 进场时播放器刚挂上就是 `STATE_BUFFERING` 且 `playWhenReady=true`，而首帧尚未渲染。
+ * 此时视频槽位由封面/黑底承担加载表达，再叠一层转圈会在首帧到达瞬间闪一次
+ * （`isBuffering` 与 `isFirstFrameRendered` 来自两个 Listener，中间隔着若干帧）。
+ *
+ * 因此除既有条件外，必须同时满足：
+ * - [hasRenderedFirstFrame]：首帧已渲染，转圈只用于表达「已有画面后的再缓冲」。
+ * - [!suppressTransientOverlays]：转场/返回动画期间不合成瞬时 overlay。
+ */
 internal fun shouldShowBufferingIndicator(
     isBuffering: Boolean,
     isQualitySwitching: Boolean,
-    playWhenReady: Boolean
+    playWhenReady: Boolean,
+    hasRenderedFirstFrame: Boolean = true,
+    suppressTransientOverlays: Boolean = false,
 ): Boolean {
+    if (!hasRenderedFirstFrame) return false
+    if (suppressTransientOverlays) return false
     return isBuffering && playWhenReady && !isQualitySwitching
 }
 
@@ -530,6 +545,8 @@ private fun VideoPlayerOverlayContent(
     val realResolution = state.realResolution
     val isQualitySwitching = state.isQualitySwitching
     val isBuffering = state.isBuffering
+    val hasRenderedFirstFrame = state.hasRenderedFirstFrame
+    val suppressTransientOverlaysForTransition = state.suppressTransientOverlaysForTransition
     val onBottomControlsSizeChanged = actions.onBottomControlsSizeChanged
     val isVip = state.isVip
     val sponsorContributionAvailable = state.sponsorContributionAvailable
@@ -1864,10 +1881,14 @@ private fun VideoPlayerOverlayContent(
             visible = shouldShowBufferingIndicator(
                 isBuffering = isBuffering,
                 isQualitySwitching = isQualitySwitching,
-                playWhenReady = player.playWhenReady
+                playWhenReady = player.playWhenReady,
+                hasRenderedFirstFrame = hasRenderedFirstFrame,
+                suppressTransientOverlays = suppressTransientOverlaysForTransition,
             ) && centerLoadingUiState == null,
             modifier = Modifier.align(Alignment.Center),
-            enter = fadeIn(OverlayControlFadeSpec),
+            // 首帧前整段不参与合成，出现时也硬切：淡入会让「已有画面后的再缓冲」
+            // 看起来像又一次进场闪烁。
+            enter = EnterTransition.None,
             exit = fadeOut(OverlayControlFadeSpec)
         ) {
             SkinAwareLoadingIndicator(color = centerLoadingVisualState.indicatorColor)

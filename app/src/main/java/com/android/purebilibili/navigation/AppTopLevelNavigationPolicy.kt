@@ -1,5 +1,7 @@
 package com.android.purebilibili.navigation
 
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import com.android.purebilibili.feature.home.components.BottomNavItem
 import com.android.purebilibili.navigation3.BiliPaiNavKey
 import com.android.purebilibili.navigation3.toLegacyRoute
@@ -31,8 +33,37 @@ internal const val BOTTOM_TAB_RENDER_BUDGET_HOLD_MILLIS = 220L
 internal const val BOTTOM_BAR_MAX_VISIBLE_ITEMS = 5
 // 底栏最多有 5 个栏目；保留其余页的轻量布局槽，内容按各页预加载许可创建。
 internal const val BOTTOM_PAGER_MAX_PRELOAD_DISTANCE = BOTTOM_BAR_MAX_VISIBLE_ITEMS - 1
-internal const val BOTTOM_PAGER_PRELOAD_IDLE_MILLIS = 500L
-internal const val BOTTOM_PAGER_PRELOAD_INTERVAL_MILLIS = 240L
+// 预热只是「挂载组合树」，各页真正的数据与图片加载仍由 isBottomPagerPageActive /
+// LocalPageImageLoadingAllowed 门控。因此可以尽早开始：原来的 500ms 起步 + 240ms 间隔
+// 让 5 个栏目要约 1.5~2s 才全热，正好和用户「一回到前台就连点底栏」的窗口完全重叠。
+// 真正的节流器是调度器里的 awaitFrame()（每帧最多一页），这里的间隔只是一帧的安全余量。
+internal const val BOTTOM_PAGER_PRELOAD_IDLE_MILLIS = 120L
+internal const val BOTTOM_PAGER_PRELOAD_INTERVAL_MILLIS = 16L
+
+/**
+ * 点击底栏后先让出若干帧，让目标页在动画启动前完成首次组合与测量。
+ *
+ * 目标页在 selectedPage 更新后立刻成为转场参与者并开始组合；如果动画与这次冷组合抢
+ * 同一帧预算，首帧就会超时，表现为切页动画掉帧。让出一帧即可把这笔成本提前付掉。
+ * 只让一帧：更多会让底栏指示器的手感明显变迟钝。
+ */
+internal const val BOTTOM_PAGER_TARGET_PREWARM_FRAMES = 1
+
+/**
+ * 已预热栏目集合的跨重建保留策略。
+ *
+ * 进程被系统回收后是冷启动，此时没有可恢复的集合，轻量首帧策略照旧生效；
+ * 而配置变更 / Activity 重建属于「进程仍然是热的」，数据与 ViewModel 都还在内存里，
+ * 重新挂载这些页既便宜又必要——否则重建后第一次点底栏又要冷组合整页 Feed。
+ */
+internal val BottomPagerPreloadedItemsSaver: Saver<Set<BottomNavItem>, Any> =
+    listSaver(
+        save = { items -> items.map { it.name } },
+        restore = { names ->
+            names.mapNotNull { name -> BottomNavItem.entries.firstOrNull { it.name == name } }
+                .toSet()
+        }
+    )
 
 internal fun shouldAllowBottomPagerBackgroundWork(
     isMainHostTop: Boolean,

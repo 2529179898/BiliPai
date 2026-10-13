@@ -10,15 +10,25 @@ import org.junit.Test
 class PureApplicationTrimPolicyTest {
 
     @Test
-    fun `ui hidden should trim image memory cache for lower background footprint`() {
+    fun `ui hidden should leave caches untouched for a fast foreground return`() {
         assertEquals(
-            ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW,
+            null,
             PureApplicationRuntimeConfig.resolveImageMemoryCacheTrimLevel(
                 ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
             )
         )
         assertFalse(
             PureApplicationRuntimeConfig.shouldClearImageMemoryCacheOnTrimLevel(
+                ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+            )
+        )
+        assertFalse(
+            PureApplicationRuntimeConfig.shouldReleaseDerivedCachesOnTrimLevel(
+                ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+            )
+        )
+        assertFalse(
+            PureApplicationRuntimeConfig.shouldReleaseIdleNetworkConnectionsOnTrimLevel(
                 ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
             )
         )
@@ -85,6 +95,40 @@ class PureApplicationTrimPolicyTest {
                 ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE
             )
         )
+    }
+
+    @Test
+    fun `derived caches and idle connections only follow real background pressure`() {
+        listOf(
+            ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE,
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW
+        ).forEach { level ->
+            assertFalse(
+                "level=$level",
+                PureApplicationRuntimeConfig.shouldReleaseDerivedCachesOnTrimLevel(level)
+            )
+            assertFalse(
+                "level=$level",
+                PureApplicationRuntimeConfig.shouldReleaseIdleNetworkConnectionsOnTrimLevel(level)
+            )
+        }
+
+        listOf(
+            ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL,
+            ComponentCallbacks2.TRIM_MEMORY_BACKGROUND,
+            ComponentCallbacks2.TRIM_MEMORY_MODERATE,
+            ComponentCallbacks2.TRIM_MEMORY_COMPLETE
+        ).forEach { level ->
+            assertTrue(
+                "level=$level",
+                PureApplicationRuntimeConfig.shouldReleaseDerivedCachesOnTrimLevel(level)
+            )
+            assertTrue(
+                "level=$level",
+                PureApplicationRuntimeConfig.shouldReleaseIdleNetworkConnectionsOnTrimLevel(level)
+            )
+        }
     }
 
     @Test

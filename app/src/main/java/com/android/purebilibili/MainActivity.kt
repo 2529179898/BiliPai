@@ -2367,7 +2367,9 @@ open class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         if (startupRecoveryRedirected) return
-        AppRuntimeVisualGuardTracker.activateSession(runtimeVisualGuardSession)
+        // 会话级重置：每次页面重新可见都视为新会话，清掉跨会话累积的降级记账，
+        // 避免一次偶发掉帧把后续几十次进入都锁在 Reduced 档位（「越进越卡」）。
+        AppRuntimeVisualGuardTracker.beginSession(runtimeVisualGuardSession)
         val existingJankStats = runtimeJankStats
         if (existingJankStats != null) {
             existingJankStats.isTrackingEnabled = true

@@ -400,8 +400,55 @@ internal class MiuixVideoCardTransitionProgress(
     private var releaseFollowPose = VideoCardFollowPose()
     private var followSettle: NavSettle? = null
 
+    /**
+     * 帧内记忆：详情 entry 的 `transformEntry` 会在同一帧里挂多层 graphicsLayer，
+     * 每层都会读一次 `visualDepth`。而 `visualDepth` 不是纯读函数——它会推进
+     * `gestureStartReturn` / `activeSettle` / `settleRawReturn` / `lastVisualReturn`
+     * 这套状态机。同帧重复调用等于把状态机推进多次，手势与落位判定互相污染，
+     * 且每帧放大成 N 次读取 + N 次 follow pose 分配，直接表现为转场掉帧。
+     *
+     * 这里以「scope 身份 + settle/gesture 身份 + 帧序号」为键做帧内记忆：
+     * - `NavTransitionScope` 与 `NavSettle` 都是每帧稳定（跨帧同引用或状态迁移时换新）
+     *   的对象，用身份比较即可区分「同一帧的同一次采样」与「状态真的变了」。
+     * - [localFrameSequence] 由调用方每帧递增，保证跨帧一定失效，不会把上一帧结果留用。
+     */
+    private var lastDepthScope: NavTransitionScope? = null
+    private var lastDepthSettle: NavSettle? = null
+    private var lastDepthGestureProgress: Float = Float.NaN
+    private var lastDepthFrame: Long = Long.MIN_VALUE
+    private var lastDepthValue: Float = 0f
+
     private fun isCoveredOrRevealedParent(scope: NavTransitionScope): Boolean =
         scope.relativeDepth >= 0f && scope.role != NavRole.Outgoing
+
+    /**
+     * 当前帧序号。由宿主每帧递增（见 `advanceTransitionFrame`）。
+     * 未接入宿主时保持 0，帧内记忆仍生效、跨帧自然失效（键会随 settle/gesture 变化）。
+     */
+    private var localFrameSequence: Long = 0L
+
+    internal fun advanceTransitionFrame() {
+        localFrameSequence += 1L
+    }
+
+    /** 带帧内记忆的 [visualDepth]：同一帧同一 scope 只推进一次状态机。 */
+    fun visualDepthMemoized(scope: NavTransitionScope): Float {
+        if (
+            lastDepthFrame == localFrameSequence &&
+            lastDepthScope === scope &&
+            lastDepthSettle === scope.settle &&
+            lastDepthGestureProgress == (scope.gesture?.progress ?: Float.NaN)
+        ) {
+            return lastDepthValue
+        }
+        val value = visualDepth(scope)
+        lastDepthScope = scope
+        lastDepthSettle = scope.settle
+        lastDepthGestureProgress = scope.gesture?.progress ?: Float.NaN
+        lastDepthFrame = localFrameSequence
+        lastDepthValue = value
+        return value
+    }
 
     /** One mapping for the flying shell, its contents, and the retained source page. */
     fun visualDepth(scope: NavTransitionScope): Float {
@@ -486,7 +533,8 @@ internal class MiuixVideoCardTransitionProgress(
             return null
         }
         val sample = gestureFollow.localSample() ?: return null
-        val morph = visualDepth(scope)
+        // 同帧内复用 transformEntry 已经算过的 depth，避免此处再推进一次状态机。
+        val morph = visualDepthMemoized(scope)
         val settle = scope.settle
         if (settle == null) {
             if (followSequence != sample.sequence) {
@@ -573,7 +621,7 @@ internal class MiuixVideoCardTransitionProgress(
     }
 
     fun depthOr(fallback: Float): Float = topScope
-        ?.let(::visualDepth)
+        ?.let(::visualDepthMemoized)
         ?: fallback.coerceIn(0f, 1f)
 
     // Miuix retains gesture metadata while settling. It is NOT still direct manipulation.
@@ -581,7 +629,7 @@ internal class MiuixVideoCardTransitionProgress(
         !isCoveredOrRevealedParent(it) && it.gesture != null && it.settle == null
     } == true
 
-    fun depthOrNull(): Float? = topScope?.let(::visualDepth)
+    fun depthOrNull(): Float? = topScope?.let(::visualDepthMemoized)
 
     fun releaseVelocity(): Float = topScope?.settle?.releaseVelocity ?: 0f
 
@@ -622,7 +670,8 @@ internal class MiuixVideoCardTransitionProgress(
      */
     fun gestureBackProgress(): Float? = topScope?.let { scope ->
         if (!isCoveredOrRevealedParent(scope) && (scope.gesture != null || scope.settle != null)) {
-            val morph = visualDepth(scope)
+            // 采样同帧已算过的 depth；这是显示路径，不得再推进状态机。
+            val morph = visualDepthMemoized(scope)
             (1f - morph).coerceIn(0f, 1f)
         } else {
             null
@@ -710,7 +759,8 @@ internal fun miuixVideoCardNavTransition(
                     if (depth <= 0f) {
                         val width = scope.layoutSize.width.toFloat().coerceAtLeast(1f)
                         val height = scope.layoutSize.height.toFloat().coerceAtLeast(1f)
-                        val morph = progress.visualDepth(scope)
+                        // 帧内记忆：同一帧多层 graphicsLayer 只推进一次状态机。
+                        val morph = progress.visualDepthMemoized(scope)
                         val pose = progress.followPose(
                             scope, bounds, width, height, 10.dp.toPx(), heroMotionSpec,
                         )
@@ -761,7 +811,8 @@ internal fun miuixVideoCardNavTransition(
                     val height = scope.layoutSize.height.toFloat().coerceAtLeast(1f)
                     val depth = scope.relativeDepth
                     if (depth <= 0f) {
-                        val morph = progress.visualDepth(scope)
+                        // 帧内记忆：同一帧多层 graphicsLayer 只推进一次状态机。
+                        val morph = progress.visualDepthMemoized(scope)
                         val sourceScaleX = (bounds.width / width).coerceIn(0.05f, 1f)
                         val sourceScaleY = (bounds.height / height).coerceIn(0.05f, 1f)
                         val landingScale = resolveVideoHeroLandingScale(
@@ -814,7 +865,8 @@ internal fun miuixVideoCardNavTransition(
                     if (depth <= 0f) {
                         val width = scope.layoutSize.width.toFloat().coerceAtLeast(1f)
                         val height = scope.layoutSize.height.toFloat().coerceAtLeast(1f)
-                        val morph = progress.visualDepth(scope)
+                        // 帧内记忆：同一帧多层 graphicsLayer 只推进一次状态机。
+                        val morph = progress.visualDepthMemoized(scope)
                         val landingScale = resolveVideoHeroLandingScale(
                             depth = morph,
                             autoReturning = !heroMotionSpec.reducedMotion &&

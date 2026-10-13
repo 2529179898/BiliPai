@@ -314,6 +314,55 @@ class VideoPlayerCoverPolicyTest {
     }
 
     @Test
+    fun surfaceViewKeepsOpaqueCoverUntilRevealSettlesEvenAfterFirstFrame() {
+        // SurfaceView 是独立硬件层，graphicsLayer.alpha 对它无效：一旦出帧就是不透明整块。
+        // 若此时按「已有首帧 → 允许叠化」放行，会露出「不透明帧 + 半透明封面」的黑底窗口。
+        assertFalse(canSurfaceParticipateInAlphaCrossfade(usesTextureSurface = false))
+        assertTrue(canSurfaceParticipateInAlphaCrossfade(usesTextureSurface = true))
+        assertTrue(
+            shouldHoldEntryCoverUnderlay(
+                isFirstFrameRendered = true,
+                forceCoverDuringReturnAnimation = false,
+                shouldKeepCoverForManualStart = false,
+                hasStartedSmoothReveal = true,
+                isSurfaceRevealSettling = false,
+                surfaceCanCrossfade = false,
+            )
+        )
+        // TextureView 路径照旧：落定后移除垫底。
+        assertFalse(
+            shouldHoldEntryCoverUnderlay(
+                isFirstFrameRendered = true,
+                forceCoverDuringReturnAnimation = false,
+                shouldKeepCoverForManualStart = false,
+                hasStartedSmoothReveal = true,
+                isSurfaceRevealSettling = false,
+                surfaceCanCrossfade = true,
+            )
+        )
+    }
+
+    @Test
+    fun coverExitFadeMatchesSurfaceRevealDuration() {
+        // 封面淡出必须与 surface 淡入同源同时长：否则中间的「已不透明 surface + 半透明封面」
+        // 窗口就是进场时视频位置「叠一层黑」的来源。
+        val reveal = resolveVideoPlayerRevealMotionSpec()
+        val cover = resolveVideoPlayerCoverMotionSpec(
+            forceCoverDuringReturnAnimation = false,
+            holdEntryCoverUnderlay = false,
+            surfaceRevealDurationMillis = reveal.surfaceRevealDurationMillis,
+        )
+        assertEquals(reveal.surfaceRevealDurationMillis, cover.exitFadeDurationMillis)
+        val reduced = resolveVideoPlayerRevealMotionSpec(reducedMotion = true)
+        val coverReduced = resolveVideoPlayerCoverMotionSpec(
+            forceCoverDuringReturnAnimation = false,
+            holdEntryCoverUnderlay = false,
+            surfaceRevealDurationMillis = reduced.surfaceRevealDurationMillis,
+        )
+        assertEquals(reduced.surfaceRevealDurationMillis, coverReduced.exitFadeDurationMillis)
+    }
+
+    @Test
     fun coverRevealPolish_desaturatesDuringBlend_withoutTouchingLuminance() {
         assertEquals(
             1.0f,

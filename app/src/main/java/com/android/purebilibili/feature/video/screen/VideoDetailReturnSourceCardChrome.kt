@@ -180,7 +180,25 @@ internal fun resolveVideoDetailFlyingSourceChromeAlpha(
     detailContentLoading: Boolean = false,
     isNowPlayingBar: Boolean = false,
     followProgressEnabled: Boolean = true,
+    /**
+     * 卡片返回是否**已提交**（`markReturning` / 用户点返回）。
+     *
+     * 提交后 morph 会走到 `phase == IDLE`，但详情 entry 往往还没被卸载。此时
+     * [resolveVideoCardDetailChromeAlpha] 的 IDLE 守卫已经返回 **0f**（详情 chrome 让位），
+     * 若重建壳继续沿用 `1f − detailChromeAlpha` 的互补关系，就会得到 **1f** —— 一块全不透明的
+     * 信息板凭空盖在卡槽上，正是「白色遮罩」。返回已提交时必须让两者**同时为 0**。
+     */
+    isCommittedCardReturn: Boolean = false,
 ): Float {
+    // IDLE + 返回已提交：morph 已 settle，视觉所有权交回真正的列表卡，重建壳必须退场。
+    // 预测返回手势进行中不算（那时 IDLE 只是手势起点，重建壳仍要参与合成）。
+    if (
+        isCommittedCardReturn &&
+        !isReturnGestureInProgress &&
+        phase == VideoCardTransitionBackgroundPhase.IDLE
+    ) {
+        return 0f
+    }
     if (!followProgressEnabled && morphDepthProgress > 0f &&
         isVideoCardReturnContentYieldActive(phase, isReturnGestureInProgress, morphDepthProgress)
     ) return 0f
@@ -235,6 +253,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
     sourceCoverBounds: Rect?,
     morphDepthProgressProvider: () -> Float,
     modifier: Modifier = Modifier,
+    sourceInfoBounds: Rect? = null,
     sourceLayout: VideoCardSourceLayout? = null,
     info: ViewInfo? = null,
     sourceChromeSnapshot: VideoCardSourceChromeSnapshot? = null,
@@ -245,6 +264,8 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
     isReturnGestureInProgressProvider: () -> Boolean = { true },
     followProgressEnabledProvider: () -> Boolean = { true },
     horizontalMediaHandoffEnabled: Boolean = true,
+    /** 返回是否已提交；IDLE 时重建壳必须与详情 chrome 同时归零。见 [resolveVideoDetailFlyingSourceChromeAlpha]。 */
+    isCommittedCardReturn: Boolean = false,
 ) {
     val model = resolveVideoDetailReturnSourceCardChromeModel(info, sourceChromeSnapshot) ?: return
     val isNowPlayingBar = sourceChromeSnapshot?.isNowPlayingBar == true
@@ -264,6 +285,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
         sourceBounds = sourceBounds,
         sourceCoverBounds = sourceCoverBounds,
         sourceLayout = sourceLayout ?: miuixHost.sourceLayout,
+        sourceInfoBounds = sourceInfoBounds ?: miuixHost.sourceInfoBoundsProvider(),
     )
     if (!layout.canRender) return
 
@@ -299,6 +321,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
             sourceLayout = layout.layout,
             detailContentLoading = detailContentLoading,
             followProgressEnabled = followProgressEnabledProvider(),
+            isCommittedCardReturn = isCommittedCardReturn,
         )
         return resolveVideoDetailHorizontalInfoClipLeftPx(
             viewportWidthPx = viewportWidthPx,
@@ -344,6 +367,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
             detailContentLoading = detailContentLoading,
             isNowPlayingBar = isNowPlayingBar,
             followProgressEnabled = followProgressEnabledProvider(),
+            isCommittedCardReturn = isCommittedCardReturn,
         )
     }
 
@@ -379,6 +403,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
                 detailContentLoading = detailContentLoading,
                 isNowPlayingBar = isNowPlayingBar,
                 followProgressEnabled = followProgressEnabledProvider(),
+                isCommittedCardReturn = isCommittedCardReturn,
             )
         }.drawWithContent {
             val inverse = currentInverseScale()
@@ -441,6 +466,12 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
         drawBorder: Boolean = true,
     ): Modifier {
         return clip(shape)
+            // 先铺一层**不透明** cardContainer，再叠 tint 色。
+            // tint 路径下 containerColor 只有 ~0.85 alpha：单层铺的话，下层详情正文会在
+            // 信息槽里以 ~15% 透出（实测「半透明白板 + 简介/评论鬼影」），并且
+            // 0.85×254 + 0.15×247 ≈ 254，比页面底色 247 更亮 —— 观感就是一块盖住卡片的
+            // 白色遮罩。不透明底把这条混色链彻底切断。
+            .background(baseContainer, shape)
             .background(surface.containerColor, shape)
             .then(
                 if (surface.useTintedSurface && drawBorder) {

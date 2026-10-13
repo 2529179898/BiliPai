@@ -303,7 +303,9 @@ class VideoActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        AppRuntimeVisualGuardTracker.activateSession(runtimeVisualGuardSession)
+        // 会话级重置：独立播放器每次可见都视为新会话，清掉跨会话累积的降级记账；
+        // 否则一次偶发掉帧会让后续进入长期停留在 Reduced 档位（「越进越卡」）。
+        AppRuntimeVisualGuardTracker.beginSession(runtimeVisualGuardSession)
         val existingJankStats = runtimeJankStats
         if (existingJankStats != null) {
             existingJankStats.isTrackingEnabled = true

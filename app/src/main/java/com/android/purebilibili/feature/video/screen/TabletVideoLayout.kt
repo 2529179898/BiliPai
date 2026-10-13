@@ -83,7 +83,7 @@ import com.android.purebilibili.core.store.DanmakuSettings
 import com.android.purebilibili.core.store.DanmakuSettingsScope
 import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
-import com.android.purebilibili.feature.video.danmaku.rememberDanmakuManager
+import com.android.purebilibili.feature.video.danmaku.DanmakuManager
 import com.android.purebilibili.feature.video.usecase.seekPlayerFromUserAction
 import com.android.purebilibili.feature.video.viewmodel.CommentUiState
 import com.android.purebilibili.feature.video.viewmodel.SubReplyUiState
@@ -220,6 +220,8 @@ internal fun TabletVideoLayout(
     viewPoints: List<ViewPoint>,
     pbpProgressData: PbpProgressData? = null,
     bvid: String,
+    /** 详情页共享弹幕会话：不可在本层自行 acquire，否则开关会改到另一个实例。 */
+    danmakuManager: DanmakuManager,
     coverUrl: String = "",
     onBack: () -> Unit,
     onUpClick: (Long) -> Unit,
@@ -293,7 +295,7 @@ internal fun TabletVideoLayout(
         useThreePaneLayout = useThreePaneLayout,
         useTabletopLayout = layoutPolicy.useTabletopLayout,
     )
-    val danmakuChrome = rememberTabletDanmakuChromeState(bvid)
+    val danmakuChrome = rememberTabletDanmakuChromeState(danmakuManager)
     var pendingVideoShare by remember { mutableStateOf<VideoSharePayload?>(null) }
     
     // 🖥️ [修复] 使用 LocalContext 获取 Activity，而非 playerState.context

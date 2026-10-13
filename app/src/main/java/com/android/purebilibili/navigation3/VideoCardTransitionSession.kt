@@ -18,6 +18,12 @@ internal data class VideoCardTransitionSession(
     val sourceKey: String?,
     val cardBounds: Rect?,
     val coverBounds: Rect?,
+    /**
+     * 点击时冻结的**信息面**（标题/统计/UP/日期）矩形，供重建来源卡壳的信息板落位。
+     *
+     * 与 [cardBounds]/[coverBounds] 同一坐标系（Root），因此三者可以互相做相对运算。
+     */
+    val infoBounds: Rect? = null,
     val sourceCornerDp: Int?,
     val cardSourceDirection: BiliPaiNavCardSourceDirection,
     val coverIdentity: String?,
@@ -38,6 +44,7 @@ internal data class VideoCardTransitionSession(
             recordedSourceKey: String?,
             cardBounds: Rect?,
             coverBounds: Rect? = null,
+            infoBounds: Rect? = null,
             sourceCornerDp: Int?,
             cardSourceDirection: BiliPaiNavCardSourceDirection,
             coverIdentity: String?,
@@ -62,6 +69,9 @@ internal data class VideoCardTransitionSession(
                     Rect(it.left, it.top, it.right, it.bottom)
                 },
                 coverBounds = coverBounds?.takeIf { ownsRecordedGeometry }?.let {
+                    Rect(it.left, it.top, it.right, it.bottom)
+                },
+                infoBounds = infoBounds?.takeIf { ownsRecordedGeometry }?.let {
                     Rect(it.left, it.top, it.right, it.bottom)
                 },
                 sourceCornerDp = sourceCornerDp

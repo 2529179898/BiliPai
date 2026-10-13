@@ -43,7 +43,17 @@ object CardPositionManager {
     /** 最后点击卡片的真实封面边界（在 Root 坐标系中）。 */
     var lastClickedCoverBounds: Rect? = null
         private set
-    
+
+    /**
+     * 最后点击卡片的**信息面**（标题/统计/UP/日期那一块）边界（在 Root 坐标系中）。
+     *
+     * 与 [lastClickedCoverBounds] 一样属于「点击时冻结」的快照。重建来源卡壳的信息板
+     * 必须落在这一块上；用「卡底 − 封面底」推导会在卡片测量高度与列表实际信息面不等价
+     * （例如点击瞬间卡片还没量到最终高度）时留下一段没被盖住的近白带。
+     */
+    var lastClickedInfoBounds: Rect? = null
+        private set
+
     /**
      * 最后点击的卡片中心点（归一化坐标 0-1）
      */
@@ -129,6 +139,7 @@ object CardPositionManager {
         lastClickedVideoSourceInstanceId = null
         lastClickedVideoSourceCornerDp = null
         lastClickedCoverBounds = null
+        lastClickedInfoBounds = null
         lastClickedVideoSourceLayout = VideoCardSourceLayout.COVER_ONLY
         lastClickedVideoSourceChromeSnapshot = null
         clearNativeVideoCardLayers()
@@ -172,6 +183,7 @@ object CardPositionManager {
         sourceLayout: VideoCardSourceLayout? = null,
         sourceChromeSnapshot: VideoCardSourceChromeSnapshot? = null,
         sourceInstanceId: Long? = null,
+        infoBounds: Rect? = null,
     ) {
         recordCardPosition(
             bounds = bounds,
@@ -198,6 +210,9 @@ object CardPositionManager {
             coverBounds = lastClickedCoverBounds,
         )
         lastClickedVideoSourceChromeSnapshot = sourceChromeSnapshot
+        lastClickedInfoBounds = infoBounds
+            ?.takeIf { it.width > 1f && it.height > 1f }
+            ?.let { Rect(it.left, it.top, it.right, it.bottom) }
     }
 
     internal fun recordNativeCardLayer(layer: GraphicsLayer?) {
@@ -250,6 +265,7 @@ object CardPositionManager {
     fun clear() {
         lastClickedCardBounds = null
         lastClickedCoverBounds = null
+        lastClickedInfoBounds = null
         lastClickedCardCenter = null
         lastClickedVideoSourceKey = null
         lastClickedVideoSourceInstanceId = null

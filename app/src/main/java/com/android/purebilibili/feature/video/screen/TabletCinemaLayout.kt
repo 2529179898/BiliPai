@@ -1,6 +1,7 @@
 package com.android.purebilibili.feature.video.screen
 
 import com.android.purebilibili.feature.video.ambient.PlayerAmbientLayout
+import com.android.purebilibili.feature.video.danmaku.DanmakuManager
 import com.android.purebilibili.navigation.animatePagerSelection
 
 import android.content.res.Configuration
@@ -182,6 +183,8 @@ internal fun TabletCinemaLayout(
     viewPoints: List<ViewPoint>,
     pbpProgressData: PbpProgressData?,
     bvid: String,
+    /** 详情页共享弹幕会话：不可在本层自行 acquire，否则开关会改到另一个实例。 */
+    danmakuManager: DanmakuManager,
     coverUrl: String = "",
     onBack: () -> Unit,
     onUpClick: (Long) -> Unit,
@@ -226,7 +229,7 @@ internal fun TabletCinemaLayout(
         )
     }
     val success = uiState as? VideoPlaybackUiState.Success
-    val danmakuChrome = rememberTabletDanmakuChromeState(bvid)
+    val danmakuChrome = rememberTabletDanmakuChromeState(danmakuManager)
     var pendingVideoShare by remember { mutableStateOf<VideoSharePayload?>(null) }
     val openVideoShareSheet: () -> Unit = {
         val info = (uiState as? VideoPlaybackUiState.Success)?.info

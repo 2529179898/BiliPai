@@ -58,6 +58,14 @@ internal fun shouldConsumeMiuixTransitionVisualAssets(
 }
 
 /**
+ * 重建板与详情正文「串行化」的阈值。
+ *
+ * 返回方向上两层会在**同一块信息槽**里叠画：正文还没让位完成时画重建板，就会得到
+ * 「半透明白板 + 简介/评论鬼影」的观感。两层必须串行 —— 正文让位到该阈值以下才画重建板。
+ */
+internal const val VIDEO_CARD_SOURCE_CHROME_SERIAL_BODY_ALPHA = 0.02f
+
+/**
  * The flying detail entry is opaque. Cover and info have to be painted on it or the
  * morph is cover-only and list chrome stays behind. Opening and return both need this.
  */
@@ -65,11 +73,25 @@ internal fun shouldDrawFlyingReconstructedSourceChrome(
     phase: VideoCardTransitionBackgroundPhase,
     isReturnGestureInProgress: Boolean,
     isGestureRestoreInProgress: Boolean = false,
+    /**
+     * 详情页正文/覆盖层 chrome 的当前 alpha（[resolveVideoCardDetailChromeAlpha]）。
+     *
+     * 默认 0f = 正文已完全让位，兼容旧调用点；OPENING 方向不受此参数影响。
+     */
+    detailBodyChromeAlpha: Float = 0f,
 ): Boolean {
     if (isReturnGestureInProgress || isGestureRestoreInProgress) return true
-    return phase == VideoCardTransitionBackgroundPhase.OPENING ||
-        phase == VideoCardTransitionBackgroundPhase.RETURNING ||
-        phase == VideoCardTransitionBackgroundPhase.HELD
+    return when (phase) {
+        // 进场方向：列表卡已隐藏，重建壳是唯一可见的卡面，必须画。
+        VideoCardTransitionBackgroundPhase.OPENING -> true
+        // 返回方向（含 HELD 下的预测 seek）：正文尚未让位完成时不画重建板，
+        // 避免两层在同一块信息槽里叠画成「半透明白板 + 正文鬼影」。
+        VideoCardTransitionBackgroundPhase.RETURNING,
+        VideoCardTransitionBackgroundPhase.HELD ->
+            detailBodyChromeAlpha <= VIDEO_CARD_SOURCE_CHROME_SERIAL_BODY_ALPHA
+        // IDLE：morph 已 settle，entry 可能仍在退场，但视觉所有权已交回列表卡。
+        VideoCardTransitionBackgroundPhase.IDLE -> false
+    }
 }
 
 /** Frozen cover overlay pixels are usable only after the list card actually recorded them. */
@@ -599,6 +621,20 @@ internal fun shouldUseVideoDetailRootTransitionProgress(
         !keepLoadedContentForBackPreview
 }
 
+/**
+ * 详情正文是否挂载。
+ *
+ * 进场（Miuix 飞行 entry）时正文的可见度已由父层 `graphicsLayer` 按 morph 进度驱动
+ * （OPENING 段 alpha 走 `SECONDARY_CONTENT_ENTER_START..END`，并叠加自上而下的
+ * `clipRect` 揭示），因此**不必**等整个 morph settle 才挂载：
+ *
+ * 数据一旦到达就应挂载正文，否则正文会被 `AnimatedVisibility` 整块隐藏，
+ * 屏幕上只剩近白的容器背景 —— 这就是「进详情页时一片白遮罩」。
+ * 挂载后由父层 alpha/clip 控制可见度，表现为随 morph 进度渐进揭示，而不是硬切。
+ *
+ * 退场（[isLeaving]）语义保持不变：仍要求 [isTransitionFinished]，
+ * 否则会把「已让位」的正文重新算成可见。
+ */
 internal fun shouldShowVideoDetailContent(
     isTransitionFinished: Boolean,
     isLeaving: Boolean,
@@ -606,6 +642,8 @@ internal fun shouldShowVideoDetailContent(
     keepContentVisibleAfterBackPreview: Boolean = false,
 ): Boolean {
     if (keepContentVisibleAfterBackPreview && !isLeaving) return true
+    // 进场：根过渡已接管 alpha，正文随 morph 提前挂载（可见度由父层 alpha/clip 决定）。
+    if (!isLeaving && rootTransitionOwnsContentAlpha) return true
     return isTransitionFinished && (!isLeaving || rootTransitionOwnsContentAlpha)
 }
 

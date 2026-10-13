@@ -3750,6 +3750,11 @@ private fun VideoPlayerSectionContent(
                 requiresHdrSurfaceOutput = requiresHdrSurface,
             ),
         )
+        // 输出面能否参与 alpha 叠化：SurfaceView 不行（独立硬件层，alpha 无效），
+        // TextureView 可以。供封面垫底与揭开时序在 key 外统一引用。
+        val surfaceCanCrossfade = canSurfaceParticipateInAlphaCrossfade(
+            usesTextureSurface = useTextureSurface,
+        )
         key(isFlippedHorizontal, isFlippedVertical, isPortraitFullscreen, useTextureSurface) {
             val viewportAspectRatio = if (isFullscreen) currentAspectRatio else VideoAspectRatio.FIT
             val playerVideoSize = playerState.player.videoSize
@@ -4170,6 +4175,8 @@ private fun VideoPlayerSectionContent(
         shouldKeepCoverForManualStart = keepCoverForManualStart,
         hasStartedSmoothReveal = hasStartedSmoothReveal,
         isSurfaceRevealSettling = isSurfaceRevealSettling,
+        // SurfaceView 无法叠化：首帧到后必须继续垫封面，否则露出整块黑。
+        surfaceCanCrossfade = surfaceCanCrossfade,
     )
     val showCover = shouldShowCoverImage(
         isFirstFrameRendered = isFirstFrameRendered,
@@ -4177,6 +4184,7 @@ private fun VideoPlayerSectionContent(
         shouldKeepCoverForManualStart = keepCoverForManualStart,
         hasStartedSmoothReveal = hasStartedSmoothReveal,
         isSurfaceRevealSettling = isSurfaceRevealSettling,
+        surfaceCanCrossfade = surfaceCanCrossfade,
     )
     val manualStartPlayButtonLayoutSpec = remember {
         resolveManualStartPlayButtonLayoutSpec()
@@ -4269,10 +4277,16 @@ private fun VideoPlayerSectionContent(
     val suppressCoverFade = forceCoverDuringReturnAnimation ||
         videoSharedTransitionVisualSpec.suppressCoverFade ||
         holdEntryCoverUnderlay
-    val coverMotionSpec = remember(suppressCoverFade, holdEntryCoverUnderlay) {
+    val coverMotionSpec = remember(
+        suppressCoverFade,
+        holdEntryCoverUnderlay,
+        revealMotionSpec.surfaceRevealDurationMillis,
+    ) {
         resolveVideoPlayerCoverMotionSpec(
             forceCoverDuringReturnAnimation = suppressCoverFade,
             holdEntryCoverUnderlay = holdEntryCoverUnderlay,
+            // 封面淡出与 surface 淡入锁死同一条时间轴：避免中间露出 PlayerView 黑底。
+            surfaceRevealDurationMillis = revealMotionSpec.surfaceRevealDurationMillis,
         )
     }
     // 返回强制封面 / 垫底 hold 时硬切；揭开阶段允许淡出，避免「永远盖着封面」。
@@ -5505,6 +5519,8 @@ private fun VideoPlayerSectionContent(
                     //  [新增] 传入清晰度切换状态和会员状态
                     isQualitySwitching = uiState.isQualitySwitching,
                     isBuffering = isBuffering,
+                    hasRenderedFirstFrame = isFirstFrameRendered,
+                    suppressTransientOverlaysForTransition = suppressTransientOverlaysForTransition,
                     isLoggedIn = uiState.isLoggedIn,
                     isVip = uiState.isVip,
                     //  [新增] 弹幕开关和设置

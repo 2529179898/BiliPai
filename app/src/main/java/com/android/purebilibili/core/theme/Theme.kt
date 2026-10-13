@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -588,14 +589,19 @@ private fun rememberSystemWallpaperRefreshToken(
         }
         val wallpaperManager = WallpaperManager.getInstance(context)
         val handler = Handler(Looper.getMainLooper())
-        val settledPaletteRefresh = Runnable {
+        var lastPaletteRefreshAtMs: Long? = null
+        val markPaletteRefreshed = {
+            lastPaletteRefreshAtMs = SystemClock.uptimeMillis()
             token += 1
         }
-        val requestPaletteRefresh = {
-            token += 1
-            // The wallpaper callback can arrive before the framework has finished
-            // applying the new Monet resource overlay. Refresh once more after it
-            // settles so an already-open app picks up the new palette immediately.
+        val settledPaletteRefresh = Runnable {
+            markPaletteRefreshed()
+        }
+        // 只有真实壁纸变更才需要「落定后重读」：OEM 壁纸选择器可能在回调之后才应用新的
+        // 运行时资源覆盖层。ON_RESUME 的兜底刷新不追加这一步，否则每次回前台都会多算一次
+        // 配色方案，让整棵树重新取色。
+        val requestPaletteRefreshFromWallpaperChange = {
+            markPaletteRefreshed()
             handler.removeCallbacks(settledPaletteRefresh)
             handler.postDelayed(
                 settledPaletteRefresh,
@@ -603,21 +609,29 @@ private fun rememberSystemWallpaperRefreshToken(
             )
         }
         val listener = WallpaperManager.OnColorsChangedListener { _, _ ->
-            requestPaletteRefresh()
+            requestPaletteRefreshFromWallpaperChange()
         }
         val wallpaperChangedReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == Intent.ACTION_WALLPAPER_CHANGED) {
-                    requestPaletteRefresh()
+                    requestPaletteRefreshFromWallpaperChange()
                 }
             }
         }
         val lifecycleObserver = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME &&
+                shouldRefreshSystemWallpaperPaletteOnResume(
+                    lastRefreshAtMs = lastPaletteRefreshAtMs,
+                    nowMs = SystemClock.uptimeMillis()
+                )
+            ) {
                 // Some OEM wallpaper pickers update the runtime resource overlay after their
                 // wallpaper callback. Re-read once when returning to the app as a reliable
                 // fallback for callbacks that arrived early or while composition was paused.
-                requestPaletteRefresh()
+                //
+                // 但每次回前台都重算 dynamic color scheme 会让整棵树重新取色，正好和用户
+                // 回前台后的第一次切页抢主线程，因此只在距上次刷新超过阈值时才重读。
+                markPaletteRefreshed()
             }
         }
         wallpaperManager.addOnColorsChangedListener(
@@ -643,6 +657,23 @@ private fun rememberSystemWallpaperRefreshToken(
 }
 
 private const val SYSTEM_WALLPAPER_PALETTE_SETTLE_DELAY_MS = 200L
+
+/**
+ * ON_RESUME 兜底重读系统壁纸配色的最小间隔。
+ *
+ * 重读会重算 dynamic color scheme 并让整棵树重新取色，成本不低。短时间内的多次前后台切换
+ * （看通知、切一下别的应用再回来）不该每次都付这笔钱，因此加一个节流窗口。
+ */
+internal const val SYSTEM_WALLPAPER_PALETTE_RESUME_MIN_INTERVAL_MS = 10_000L
+
+internal fun shouldRefreshSystemWallpaperPaletteOnResume(
+    lastRefreshAtMs: Long?,
+    nowMs: Long,
+    minIntervalMs: Long = SYSTEM_WALLPAPER_PALETTE_RESUME_MIN_INTERVAL_MS,
+): Boolean {
+    val last = lastRefreshAtMs ?: return true
+    return nowMs - last >= minIntervalMs
+}
 
 internal fun createMiuixAlignedColorScheme(
     primaryColor: Color,

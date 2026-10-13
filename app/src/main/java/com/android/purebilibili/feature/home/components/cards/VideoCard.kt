@@ -957,6 +957,10 @@ internal fun ElegantVideoCard(
                     coverDecodeHeightPx = coverRequestSpec?.heightPx ?: 0,
                 ),
                 sourceInstanceId = sharedSourceInstanceId,
+                // 点击时冻结的信息面矩形：重建壳的信息板按它落位，而不是「卡底 − 封面底」。
+                infoBounds = infoLayoutCoordinates.value
+                    ?.takeIf { it.isAttached }
+                    ?.boundsInRoot(),
             )
             // The mounted draw modifier reads this latch directly, so the layer freezes
             // before OPENING can hide the stationary title and statistics.

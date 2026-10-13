@@ -249,6 +249,14 @@ internal fun resolveVideoCardDetailChromeAlpha(
     morphDepthProgress: Float,
     phase: VideoCardTransitionBackgroundPhase,
     isReturnGestureInProgress: Boolean,
+    /**
+     * 卡片返回是否**已提交**（`markReturning` / 用户点返回）。
+     *
+     * 提交后 morph 会走到 `phase == IDLE`，但此时详情 entry 往往还没被卸载
+     * （NavHost 退场动画仍在跑）。若不区分，`else -> 1f` 会把已经让位的详情 chrome
+     * 重新弹成不透明，表现为「飞行壳已落位、详情 chrome 却整块闪现在卡槽」。
+     */
+    isCommittedCardReturn: Boolean = false,
 ): Float {
     val depth = resolveVisualProgress(morphDepthProgress, phase, VideoSharedTransitionDirection.ENTER)
     val handoff = resolveVideoCardContentHandoffProgress(
@@ -270,6 +278,8 @@ internal fun resolveVideoCardDetailChromeAlpha(
                 start = VideoCardTransitionVisualTimeline.DETAIL_CHROME_ENTER_START,
                 end = VideoCardTransitionVisualTimeline.DETAIL_CHROME_ENTER_END,
             )
+        // IDLE 且返回已提交：morph 已 settle，详情页正在退场，chrome 必须保持让位。
+        isCommittedCardReturn && phase == VideoCardTransitionBackgroundPhase.IDLE -> 0f
         else -> 1f
     }
 }
@@ -281,6 +291,12 @@ internal fun resolveVideoCardSecondaryContentVisualFrame(
     motionTier: MotionTier,
     sourceLayout: VideoCardSourceLayout = VideoCardSourceLayout.STACKED,
     followProgressEnabled: Boolean = true,
+    /**
+     * 卡片返回是否**已提交**（`markReturning` / 用户点返回）。见
+     * [resolveVideoCardDetailChromeAlpha] 的同名参数：用于堵住 `phase == IDLE`
+     * 时 `else -> 1f` 把已让位的正文弹回不透明的缺口。
+     */
+    isCommittedCardReturn: Boolean = false,
 ): VideoCardSecondaryContentVisualFrame {
     val depth = resolveVisualProgress(morphDepthProgress, phase, VideoSharedTransitionDirection.ENTER)
     val returning = isVideoCardReturnContentYieldActive(
@@ -305,6 +321,9 @@ internal fun resolveVideoCardSecondaryContentVisualFrame(
                 start = VideoCardTransitionVisualTimeline.SECONDARY_CONTENT_ENTER_START,
                 end = VideoCardTransitionVisualTimeline.SECONDARY_CONTENT_ENTER_END,
             )
+        // IDLE 且返回已提交：morph 已 settle 但详情 entry 可能仍在退场动画里。
+        // 此时正文必须保持让位（0），否则标题/简介/评论会以不透明整块闪现在卡槽。
+        isCommittedCardReturn && phase == VideoCardTransitionBackgroundPhase.IDLE -> 0f
         else -> 1f
     }
     val scale = if (returning && motionTier != MotionTier.Reduced) {

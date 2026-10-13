@@ -1,6 +1,7 @@
 package com.android.purebilibili.feature.video.screen
 
 import com.android.purebilibili.feature.video.ambient.PlayerAmbientLayout
+import com.android.purebilibili.feature.video.danmaku.DanmakuManager
 import android.content.res.Configuration
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope.OverlayClip
@@ -77,6 +78,8 @@ internal fun LargeScreenVideoLayout(
     viewPoints: List<ViewPoint>,
     pbpProgressData: PbpProgressData? = null,
     bvid: String,
+    /** 详情页共享弹幕会话：不可在本层自行 acquire，否则开关会改到另一个实例。 */
+    danmakuManager: DanmakuManager,
     coverUrl: String = "",
     onBack: () -> Unit,
     onUpClick: (Long) -> Unit,
@@ -112,7 +115,7 @@ internal fun LargeScreenVideoLayout(
     playerContent: (@Composable (Modifier) -> Unit)? = null,
 ) {
     val pageColor = AppSurfaceTokens.chromeBackground()
-    val danmakuChrome = rememberTabletDanmakuChromeState(bvid)
+    val danmakuChrome = rememberTabletDanmakuChromeState(danmakuManager)
     val context = LocalContext.current
     val secondaryDefaultTab by SettingsManager
         .getTabletSecondaryDefaultTab(context)

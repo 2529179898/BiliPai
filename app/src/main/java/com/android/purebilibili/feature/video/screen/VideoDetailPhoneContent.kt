@@ -45,7 +45,7 @@ import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.feature.video.share.VideoSharePayload
 import com.android.purebilibili.feature.video.share.VideoShareSheet
 import com.android.purebilibili.feature.video.share.buildVideoSharePayload
-import com.android.purebilibili.feature.video.danmaku.rememberDanmakuManager
+import com.android.purebilibili.feature.video.danmaku.DanmakuManager
 import com.android.purebilibili.feature.video.state.VideoPlayerState
 import com.android.purebilibili.feature.video.ui.components.BottomInputBar
 import com.android.purebilibili.feature.video.ui.components.resolveBottomInputBarContentBottomPadding
@@ -98,6 +98,14 @@ internal fun VideoDetailPhoneSuccessContentLayer(
     showFavoriteFolderDialog: Boolean,
     downloadProgress: Float,
     danmakuEnabledForDetail: Boolean,
+    /**
+     * 详情页共享的弹幕会话。
+     *
+     * 必须由上层（与播放器、Overlay 同一份）传入，不能在正文层自行 acquire：
+     * 自行 acquire 会以不同的 key 再开一个会话，导致此处切换弹幕开关改动的是另一个
+     * manager 实例（功能失效），并在切集时产生额外 acquire/release 与渲染器重建。
+     */
+    danmakuManager: DanmakuManager,
     isQuickReturnLimitedForSharedElements: Boolean,
     transitionEnabled: Boolean,
     sourceRouteForSharedElement: String?,
@@ -120,7 +128,6 @@ internal fun VideoDetailPhoneSuccessContentLayer(
     commentPullToRefreshEnabled: Boolean = true,
 ) {
     val engagementSuccess = success.withEngagementUiState(engagementState)
-    val danmakuManager = rememberDanmakuManager(success.info.bvid)
     var pendingVideoShare by remember { mutableStateOf<VideoSharePayload?>(null) }
     val coveredBlurEffectCache = remember { BlurRenderEffectCache() }
     // Android 16 ART 曾拒绝校验 VideoDetailScreen 中捕获过多状态的匿名 Compose lambda。

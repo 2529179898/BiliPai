@@ -1,7 +1,9 @@
 package com.android.purebilibili.core.ui.transition
 
 import android.os.Build
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
@@ -161,13 +163,18 @@ private class PredictiveBackBlurFrameCache {
     }
 }
 
+@Composable
 internal fun Modifier.predictiveBackBackgroundEffect(
     progressProvider: () -> Float,
     motionTierProvider: () -> MotionTier = { MotionTier.Normal },
     isLightBackgroundProvider: () -> Boolean = { false },
 ): Modifier {
-    val frameCache = PredictiveBackBlurFrameCache()
-    val effectCache = BlurRenderEffectCache()
+    // 缓存必须在 remember 里跨重组存活：此前每次重组都 new 一个，等于每帧重建
+    // BlurEffect（RenderEffect.createBlurEffect 是分配 + 着色器重编译），预测返回手势
+    // 期间逐帧失效正是卡顿来源。与 videoCardTransitionLiveBackgroundEffect 的
+    // 「按量化半径复用」范式对齐，且不改变任何档位策略。
+    val frameCache = remember { PredictiveBackBlurFrameCache() }
+    val effectCache = remember { BlurRenderEffectCache() }
     return graphicsLayer {
         val frame = frameCache.resolve(
             progressProvider(),

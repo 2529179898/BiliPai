@@ -74,12 +74,40 @@ private fun emptyReturnSourceLayout(
     layout = layout,
 )
 
+/**
+ * 重建壳信息板应覆盖的矩形（**相对卡片左上角**），null 表示这份实测数据不可用。
+ *
+ * 优先采用列表卡自己量出来的信息面（`onPlaced` / `boundsInRoot`）。它比「卡底 − 封面底」
+ * 的减法推导可靠：点击瞬间卡片可能还没量到最终高度（或快照来自更紧凑的一帧），减法推导
+ * 会把信息板做短，卡槽下半截就露出列表自己的信息面 —— 观感上就是一块盖不住的白带。
+ */
+private fun resolveVideoDetailReturnInfoBandFromMeasuredBounds(
+    bounds: Rect,
+    coverBounds: Rect,
+    infoBounds: Rect?,
+): Rect? {
+    val measured = infoBounds?.takeIf { it.width > 1f && it.height > 1f } ?: return null
+    // 信息面必须贴在封面下沿、整卡宽度、且不越出卡片；否则视为脏数据，回退减法推导。
+    if (measured.top < coverBounds.bottom - 2f) return null
+    if (measured.width < bounds.width * 0.6f) return null
+    if (measured.bottom > bounds.bottom + 2f) return null
+    val height = measured.height
+    if (height <= 1f) return null
+    return Rect(
+        left = (measured.left - bounds.left).coerceAtLeast(0f),
+        top = (measured.top - bounds.top).coerceAtLeast(0f),
+        right = (measured.right - bounds.left).coerceAtLeast(0f),
+        bottom = (measured.bottom - bounds.top).coerceAtLeast(0f),
+    )
+}
+
 /** Resolves the measured source cover inside the full-width detail entry. */
 internal fun resolveVideoDetailReturnSourceCardLayout(
     viewportWidthPx: Float,
     sourceBounds: Rect?,
     sourceCoverBounds: Rect?,
     sourceLayout: VideoCardSourceLayout? = null,
+    sourceInfoBounds: Rect? = null,
 ): VideoDetailReturnSourceCardLayout {
     val viewportWidth = viewportWidthPx.coerceAtLeast(1f)
     val bounds = sourceBounds?.takeIf { it.width > 1f && it.height > 1f }
@@ -101,7 +129,15 @@ internal fun resolveVideoDetailReturnSourceCardLayout(
             }
             val coverHeight = coverBounds.height.coerceAtLeast(0f)
             val coverOffsetY = (coverBounds.top - bounds.top).coerceAtLeast(0f)
-            val infoHeight = (bounds.bottom - coverBounds.bottom).coerceAtLeast(0f)
+            // 信息板落点：优先用列表卡实测的信息面，回退到「卡底 − 封面底」。
+            val measuredInfoBand = resolveVideoDetailReturnInfoBandFromMeasuredBounds(
+                bounds = bounds,
+                coverBounds = coverBounds,
+                infoBounds = sourceInfoBounds,
+            )
+            val infoTop = measuredInfoBand?.top ?: (coverOffsetY + coverHeight)
+            val infoHeight = measuredInfoBand?.height
+                ?: (bounds.bottom - coverBounds.bottom).coerceAtLeast(0f)
             if (infoHeight <= 1f || coverHeight <= 1f) {
                 return emptyReturnSourceLayout(layout)
             }
@@ -118,7 +154,7 @@ internal fun resolveVideoDetailReturnSourceCardLayout(
                 cardAnchorXInViewportPx = 0f,
                 cardAnchorYInViewportPx = 0f,
                 infoAnchorXInViewportPx = 0f,
-                infoAnchorYInViewportPx = (coverOffsetY + coverHeight) / sourceScale,
+                infoAnchorYInViewportPx = infoTop / sourceScale,
                 layout = layout,
             )
         }

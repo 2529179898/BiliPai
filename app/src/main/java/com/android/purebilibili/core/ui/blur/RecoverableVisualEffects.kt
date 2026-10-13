@@ -42,6 +42,12 @@ internal fun shouldEnableRecoverableHeavyVisualEffects(
     return userEnabled && !isAppInBackground
 }
 
+/**
+ * 回前台时重建 haze state 的 SDK 门槛。
+ *
+ * 只在「回前台」重建：进后台时界面不可见，重建没有收益，还会把一次全屏重录的成本
+ * 推到回前台后的第一帧上。
+ */
 internal fun shouldRecreateRecoverableHazeState(
     sdkInt: Int
 ): Boolean {
@@ -106,9 +112,8 @@ fun rememberRecoverableHazeState(
         val listener = object : BackgroundManager.BackgroundStateListener {
             override fun onEnterBackground() {
                 isAppInBackground = true
-                if (shouldRecreateState) {
-                    recreationKey += 1
-                }
+                // 进后台时不重建：界面不可见，重录全屏 haze source 没有意义，反而会让回前台
+                // 后的第一帧额外承担一次重建成本。blurGate 已经通过 isAppInBackground 关掉了。
             }
 
             override fun onEnterForeground() {

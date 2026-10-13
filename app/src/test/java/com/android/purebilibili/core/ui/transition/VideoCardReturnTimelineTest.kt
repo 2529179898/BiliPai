@@ -644,6 +644,80 @@ class VideoCardReturnTimelineTest {
     }
 
     @Test
+    fun idleAfterCommittedReturnKeepsDetailBodyYielded() {
+        // 壳已落位（phase 回 IDLE）但详情 entry 仍在退场动画里：正文与 chrome 必须保持让位。
+        // 否则 `else -> 1f` 会把标题/简介/评论整块弹回不透明，闪现在卡槽（标题错位）。
+        val body = resolveVideoCardSecondaryContentVisualFrame(
+            morphDepthProgress = 0f,
+            phase = VideoCardTransitionBackgroundPhase.IDLE,
+            isReturnGestureInProgress = false,
+            motionTier = MotionTier.Normal,
+            isCommittedCardReturn = true,
+        )
+        assertEquals(0f, body.alpha, 0.0001f)
+
+        assertEquals(
+            0f,
+            resolveVideoCardDetailChromeAlpha(
+                morphDepthProgress = 0f,
+                phase = VideoCardTransitionBackgroundPhase.IDLE,
+                isReturnGestureInProgress = false,
+                isCommittedCardReturn = true,
+            ),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun idleWithoutCommittedReturnStillShowsDetailBody() {
+        // 详情页稳态（未返回，或预测返回已取消）：IDLE 下正文与 chrome 必须完整可见。
+        val body = resolveVideoCardSecondaryContentVisualFrame(
+            morphDepthProgress = 0f,
+            phase = VideoCardTransitionBackgroundPhase.IDLE,
+            isReturnGestureInProgress = false,
+            motionTier = MotionTier.Normal,
+        )
+        assertEquals(1f, body.alpha, 0.0001f)
+        assertEquals(1f, body.scale, 0.0001f)
+
+        assertEquals(
+            1f,
+            resolveVideoCardDetailChromeAlpha(
+                morphDepthProgress = 0f,
+                phase = VideoCardTransitionBackgroundPhase.IDLE,
+                isReturnGestureInProgress = false,
+            ),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun committedReturnFlagNeverLeaksIntoOpeningWindow() {
+        // 进场窗口不受提交标志影响：仍按 morph 进度淡入。
+        assertEquals(
+            0f,
+            resolveVideoCardSecondaryContentVisualFrame(
+                morphDepthProgress = VideoCardTransitionVisualTimeline.SECONDARY_CONTENT_ENTER_START,
+                phase = VideoCardTransitionBackgroundPhase.OPENING,
+                isReturnGestureInProgress = false,
+                motionTier = MotionTier.Normal,
+                isCommittedCardReturn = true,
+            ).alpha,
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            resolveVideoCardDetailChromeAlpha(
+                morphDepthProgress = VideoCardTransitionVisualTimeline.DETAIL_CHROME_ENTER_END,
+                phase = VideoCardTransitionBackgroundPhase.OPENING,
+                isReturnGestureInProgress = false,
+                isCommittedCardReturn = true,
+            ),
+            0.0001f,
+        )
+    }
+
+    @Test
     fun detailAndSourceChromeSizeHandoffMeetInTheMiddle() {
         val t = 0.5f
         val midDepth = 1f - (

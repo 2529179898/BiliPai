@@ -44,6 +44,14 @@ internal object PureApplicationRuntimeConfig {
         return resolveTrimPlan(level).requestIdlePlaybackRelease
     }
 
+    fun shouldReleaseDerivedCachesOnTrimLevel(level: Int): Boolean {
+        return resolveTrimPlan(level).releaseDerivedCaches
+    }
+
+    fun shouldReleaseIdleNetworkConnectionsOnTrimLevel(level: Int): Boolean {
+        return resolveTrimPlan(level).releaseIdleNetworkConnections
+    }
+
     fun createTelemetryBackgroundStateListener(): BackgroundManager.BackgroundStateListener =
         TelemetryBackgroundStateListener
 

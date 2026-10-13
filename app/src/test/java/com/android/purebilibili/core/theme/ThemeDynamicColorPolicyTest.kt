@@ -9,6 +9,7 @@ import com.android.purebilibili.feature.settings.AppThemeMode
 import com.android.purebilibili.feature.settings.Md3ColorSource
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -148,6 +149,28 @@ class ThemeDynamicColorPolicyTest {
         assertTrue(observer.contains("androidx.lifecycle.Lifecycle.Event.ON_RESUME"))
         assertTrue(observer.contains("wallpaperManager.removeOnColorsChangedListener(listener)"))
         assertTrue(observer.contains("lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)"))
+    }
+
+    @Test
+    fun `resume fallback refresh is throttled so foreground bounces stay cheap`() {
+        // 从未刷新过（例如首次进入前台）时必须刷新一次。
+        assertTrue(
+            shouldRefreshSystemWallpaperPaletteOnResume(lastRefreshAtMs = null, nowMs = 5_000L)
+        )
+        // 距上次刷新不足阈值：跳过。否则每次切回前台都会重算 dynamic color scheme，
+        // 让整棵树重新取色，正好和用户回前台后的第一次切页抢主线程。
+        assertFalse(
+            shouldRefreshSystemWallpaperPaletteOnResume(
+                lastRefreshAtMs = 1_000L,
+                nowMs = 1_000L + SYSTEM_WALLPAPER_PALETTE_RESUME_MIN_INTERVAL_MS - 1
+            )
+        )
+        assertTrue(
+            shouldRefreshSystemWallpaperPaletteOnResume(
+                lastRefreshAtMs = 1_000L,
+                nowMs = 1_000L + SYSTEM_WALLPAPER_PALETTE_RESUME_MIN_INTERVAL_MS
+            )
+        )
     }
 
     @Test

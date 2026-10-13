@@ -35,6 +35,8 @@ import coil3.memory.MemoryCache
 import coil3.request.CachePolicy
 import com.android.purebilibili.core.coroutines.AppScope
 import com.android.purebilibili.core.lifecycle.BackgroundManager
+import com.android.purebilibili.core.lifecycle.BACKGROUND_COVER_COLOR_CACHE_MAX_ENTRIES
+import com.android.purebilibili.core.lifecycle.BACKGROUND_IMAGE_CACHE_MAX_BYTES
 import com.android.purebilibili.core.lifecycle.BACKGROUND_IMAGE_TRIM_DELAY_MS
 import com.android.purebilibili.core.lifecycle.resolveBackgroundImageCacheTrimTargetBytes
 import com.android.purebilibili.core.lifecycle.shouldTrimImageCacheAfterBackgroundDelay
@@ -108,14 +110,19 @@ class PureApplication : Application(), SingletonImageLoader.Factory, ComponentCa
                 backgroundElapsedMs = SystemClock.elapsedRealtime() - enteredBackgroundForImageTrimAtMs,
             )
         ) {
-            // Keep a small warm cache for return-to-home. This never stops playback, clears
-            // a video surface, or discards the current wallpaper palette.
+            // Keep a warm cache for return-to-home: covers must stay decodable without a
+            // disk round-trip, otherwise the first bottom-tab switch after resume competes
+            // with a decode storm. This never stops playback or clears a video surface.
+            // 封面代表色表与壁纸调色板只占几 KB，重建代价却是「解码 + Palette 聚类」，
+            // 因此不在这里清理。
             _imageLoader?.memoryCache?.apply {
                 trimToSize(resolveBackgroundImageCacheTrimTargetBytes(size, BACKGROUND_IMAGE_TRIM_DELAY_MS))
             }
-            com.android.purebilibili.feature.home.components.cards.VideoCardCoverColorStore.trimToSize(16)
-            com.android.purebilibili.feature.home.components.cards.WallpaperPaletteStore.clearCache()
-            Logger.d(PureApplicationRuntimeConfig.TAG, "Sustained background: trimmed image cache to 8 MiB")
+            Logger.d(
+                PureApplicationRuntimeConfig.TAG,
+                "Sustained background: trimmed image cache to " +
+                    "${BACKGROUND_IMAGE_CACHE_MAX_BYTES / (1024 * 1024)} MiB"
+            )
         }
     }
     private val backgroundImageTrimListener = object : BackgroundManager.BackgroundStateListener {
@@ -521,27 +528,22 @@ class PureApplication : Application(), SingletonImageLoader.Factory, ComponentCa
     }
     
     // [后台内存优化] 响应系统内存警告
+    //
+    // 关键取舍：UI_HIDDEN 只代表「用户切到桌面/多任务」，不是内存吃紧。此处不再清理任何缓存
+    // ——后台预算收敛由 backgroundImageTrimListener 统一负责。否则用户切回前台时，封面要重新
+    // 磁盘解码、代表色要重新聚类、请求要重新握手，正好和底栏切页动画抢主线程。
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         if (StartupRecovery.isRecoveryMode) return
         val plan = PureApplicationRuntimeConfig.resolveBackgroundMemoryTrimPlan(level)
         if (plan.imageCacheTrimLevel != null) {
             _imageLoader?.memoryCache?.apply {
-                when {
-                    plan.clearImageMemoryCache || (plan.imageCacheTrimLevel >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) -> clear()
-                    else -> trimToSize(size / 2)
-                }
+                if (plan.clearImageMemoryCache) clear() else trimToSize(size / 2)
             }
-            when {
-                plan.clearImageMemoryCache -> {
-                    Logger.d(PureApplicationRuntimeConfig.TAG, "🚨 trim(level=$level), released image memory cache")
-                }
-                level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> {
-                    Logger.d(PureApplicationRuntimeConfig.TAG, " UI hidden, trimmed image memory cache for background")
-                }
-                else -> {
-                    Logger.d(PureApplicationRuntimeConfig.TAG, " Low memory trim(level=$level), trimmed image memory cache")
-                }
+            if (plan.clearImageMemoryCache) {
+                Logger.d(PureApplicationRuntimeConfig.TAG, "🚨 trim(level=$level), released image memory cache")
+            } else {
+                Logger.d(PureApplicationRuntimeConfig.TAG, " Low memory trim(level=$level), trimmed image memory cache")
             }
         }
         if (plan.notifyPlayerHeavyOptimization) {
@@ -553,31 +555,20 @@ class PureApplication : Application(), SingletonImageLoader.Factory, ComponentCa
                 )
         }
 
-        // 联动清理全局静态与单例缓存，降低后台 PSS
-        // 注意：UI_HIDDEN 仅代表用户切到桌面/多任务（切出 2~3 秒），适度修剪已滑走的封面色（保留 16 条活跃卡片）并清理历史备用壁纸，
-        // 坚决保留当前前台活跃的壁纸调色板，杜绝切回前台高斯模糊与自适应颜色退化。
-        if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
-            com.android.purebilibili.feature.home.components.cards.VideoCardCoverColorStore.trimToSize(16)
-            com.android.purebilibili.feature.home.components.cards.WallpaperPaletteStore.clearCache()
-            com.android.purebilibili.core.cache.PlayUrlCache.clear()
-            com.android.purebilibili.data.repository.VideoRepository.clearVideoDetailCaches()
-            com.android.purebilibili.data.repository.VideoRepository.clearSubtitleCueCache()
-        } else if (level == ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
-            level == ComponentCallbacks2.TRIM_MEMORY_MODERATE ||
-            level == ComponentCallbacks2.TRIM_MEMORY_COMPLETE ||
-            level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL
-        ) {
-            com.android.purebilibili.feature.home.components.cards.VideoCardCoverColorStore.trimToSize(8)
-            com.android.purebilibili.feature.home.components.cards.WallpaperPaletteStore.clearCache()
+        // 联动清理全局静态与单例缓存，降低后台 PSS。仅在系统真的判定本进程已进入后台候选区
+        // （BACKGROUND / MODERATE / COMPLETE）或前台临界（RUNNING_CRITICAL）时执行。
+        // 壁纸调色板与封面代表色表体积可忽略，重建代价却是「解码 + Palette 聚类」，故不清理。
+        if (plan.releaseDerivedCaches) {
+            com.android.purebilibili.feature.home.components.cards.VideoCardCoverColorStore
+                .trimToSize(BACKGROUND_COVER_COLOR_CACHE_MAX_ENTRIES)
             com.android.purebilibili.core.cache.PlayUrlCache.clear()
             com.android.purebilibili.data.repository.VideoRepository.clearVideoDetailCaches()
             com.android.purebilibili.data.repository.VideoRepository.clearSubtitleCueCache()
         }
 
-        // 当 UI 不可见或处于后台内存压力下，且没有活跃的后台音频播放时，释放 OkHttp 空闲连接与 socket 缓冲
-        if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ||
-            level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
-        ) {
+        // 释放 OkHttp 空闲连接与 socket 缓冲；没有活跃的后台音频播放时才做。
+        // 清空连接池会让回前台的所有请求重新走 DNS/TCP/TLS，因此只跟随真实后台压力。
+        if (plan.releaseIdleNetworkConnections) {
             val miniPlayer = com.android.purebilibili.feature.video.player.MiniPlayerManager.getInstanceOrNull()
             val isAudioPlaying = miniPlayer?.let { it.isActive && it.player?.isPlaying == true } ?: false
             if (!isAudioPlaying) {
@@ -601,8 +592,8 @@ class PureApplication : Application(), SingletonImageLoader.Factory, ComponentCa
                     requestIdlePlaybackRelease = plan.requestIdlePlaybackRelease
                 )
         }
-        com.android.purebilibili.feature.home.components.cards.VideoCardCoverColorStore.trimToSize(8)
-        com.android.purebilibili.feature.home.components.cards.WallpaperPaletteStore.clearCache()
+        com.android.purebilibili.feature.home.components.cards.VideoCardCoverColorStore
+            .trimToSize(BACKGROUND_COVER_COLOR_CACHE_MAX_ENTRIES)
         com.android.purebilibili.core.cache.PlayUrlCache.clear()
         com.android.purebilibili.data.repository.VideoRepository.clearVideoDetailCaches()
         com.android.purebilibili.data.repository.VideoRepository.clearSubtitleCueCache()

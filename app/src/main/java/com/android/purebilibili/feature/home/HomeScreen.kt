@@ -3124,6 +3124,9 @@ fun HomeScreen(
 
     //  [性能优化] 图片预加载 - 提前加载即将显示的视频封面
     // 📉 [省流量] 省流量模式下禁用预加载
+    val foregroundSettling by com.android.purebilibili.core.lifecycle.ForegroundSettleBudget
+        .isSettling
+        .collectAsStateWithLifecycle()
     LaunchedEffect(
         currentCategory,
         popularSubCategory,
@@ -3131,6 +3134,7 @@ fun HomeScreen(
         preloadAheadCount,
         homeCoverRequestSpec,
         homeFeedWorkAllowed,
+        foregroundSettling,
         lifecycleOwner,
     ) {
         // 📉 省流量模式下跳过预加载
@@ -3139,6 +3143,9 @@ fun HomeScreen(
         // Restore Pager/scroll anchors before preloading; also pause while the retained
         // source page is covered or its shared transition is still running.
         if (!homeFeedWorkAllowed) return@LaunchedEffect
+        // 回前台的安定窗口内暂缓封面预取：这批解码会和用户此刻的首次切页抢主线程。
+        // 窗口结束后本效应会以 foregroundSettling = false 重新触发。
+        if (foregroundSettling) return@LaunchedEffect
         
         val currentGridState = if (currentCategory == HomeCategory.POPULAR) {
             popularGridStates[popularSubCategory]

@@ -2958,36 +2958,67 @@ object NetworkModule {
         appContext?.let(AccountSessionStore::getPlaybackAccount)
 
     /**
+     * 解析播放账号 + 其客户端缓存键。
+     *
+     * 账号解析要走 SharedPreferences（含账号解析缓存命中时的字符串比较），属于 I/O；
+     * 把它放在 `@Synchronized` 里会让所有取流调用在全局锁上排队。这里在锁**外**完成
+     * 解析，锁内只做键比较与客户端缓存读写。
+     *
+     * 返回 null 表示「使用主账号」（无独立播放账号，或播放账号就是当前主账号）。
+     */
+    private fun resolvePlaybackAccountClientKey(): Pair<StoredAccountSession, String>? {
+        val context = appContext ?: return null
+        val account = AccountSessionStore.getPlaybackAccount(context) ?: return null
+        if (account.mid == TokenManager.midCache) return null
+        val key = "${account.mid}:${account.sessData.hashCode()}:${account.buvid3.hashCode()}"
+        return account to key
+    }
+
+    /**
      * Returns a client scoped to the optional playback account. It never changes
      * the app's primary account or grants entitlements locally: Bilibili still
      * decides access from the selected account's own server-side session.
      */
-    @Synchronized
     fun playbackApi(): BilibiliApi {
-        val context = appContext ?: return api
-        val account = AccountSessionStore.getPlaybackAccount(context) ?: return api
-        if (account.mid == TokenManager.midCache) return api
+        val resolved = resolvePlaybackAccountClientKey() ?: return api
+        return requireNotNull(ensurePlaybackAccountApi(resolved.first, resolved.second))
+    }
 
-        val key = "${account.mid}:${account.sessData.hashCode()}:${account.buvid3.hashCode()}"
-        ensurePlaybackAccountClients(account, key)
-        return requireNotNull(playbackAccountApi)
+    fun playbackBangumiApi(): BangumiApi {
+        val resolved = resolvePlaybackAccountClientKey() ?: return bangumiApi
+        return requireNotNull(ensurePlaybackAccountBangumiApi(resolved.first, resolved.second))
+    }
+
+    /** 锁内只做键比较与缓存读写；账号解析与 Retrofit 构建都在锁外完成。 */
+    @Synchronized
+    private fun ensurePlaybackAccountApi(
+        account: StoredAccountSession,
+        key: String,
+    ): BilibiliApi? {
+        if (playbackAccountKey == key && playbackAccountApi != null && playbackAccountBangumiApi != null) {
+            return playbackAccountApi
+        }
+        buildPlaybackAccountClientsLocked(account, key)
+        return playbackAccountApi
     }
 
     @Synchronized
-    fun playbackBangumiApi(): BangumiApi {
-        val context = appContext ?: return bangumiApi
-        val account = AccountSessionStore.getPlaybackAccount(context) ?: return bangumiApi
-        if (account.mid == TokenManager.midCache) return bangumiApi
-
-        val key = "${account.mid}:${account.sessData.hashCode()}:${account.buvid3.hashCode()}"
-        ensurePlaybackAccountClients(account, key)
-        return requireNotNull(playbackAccountBangumiApi)
+    private fun ensurePlaybackAccountBangumiApi(
+        account: StoredAccountSession,
+        key: String,
+    ): BangumiApi? {
+        if (playbackAccountKey == key && playbackAccountApi != null && playbackAccountBangumiApi != null) {
+            return playbackAccountBangumiApi
+        }
+        buildPlaybackAccountClientsLocked(account, key)
+        return playbackAccountBangumiApi
     }
 
-    private fun ensurePlaybackAccountClients(account: StoredAccountSession, key: String) {
-        if (playbackAccountKey == key && playbackAccountApi != null && playbackAccountBangumiApi != null) {
-            return
-        }
+    /**
+     * 调用方须持有本对象锁。Retrofit 构建本身无 I/O，但会分配若干对象；
+     * 仅在缓存键变化（账号切换）时才执行。
+     */
+    private fun buildPlaybackAccountClientsLocked(account: StoredAccountSession, key: String) {
         val client = okHttpClient.newBuilder()
             .cookieJar(PlaybackAccountCookieJar(account))
             .build()

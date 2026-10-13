@@ -165,4 +165,44 @@ class VideoDetailReturnMediaLayoutTest {
         assertTrue(player.contains("return cached"))
         assertTrue(player.contains("memoFrame = resolved"))
     }
+
+    @Test
+    fun stackedCardPrefersMeasuredInfoBandOverSubtraction() {
+        val layout = resolveVideoDetailReturnSourceCardLayout(
+            viewportWidthPx = 1000f,
+            sourceBounds = Rect(100f, 200f, 500f, 900f),
+            sourceCoverBounds = Rect(100f, 200f, 500f, 640f),
+            sourceLayout = VideoCardSourceLayout.STACKED,
+            sourceInfoBounds = Rect(100f, 640f, 500f, 880f),
+        )
+
+        assertTrue(layout.canRender)
+        // 实测信息面 240px；「卡底 900 − 封面底 640」的减法推导会得到 260px，
+        // 差的这 20px 就是卡槽里没被盖住的那段近白带。
+        assertEquals(240f, layout.infoHeightPx)
+        // infoTop 相对卡片左上角 = 640 − 200 = 440；sourceScale = 400 / 1000 = 0.4。
+        assertEquals(1100f, layout.infoAnchorYInViewportPx, 0.001f)
+    }
+
+    @Test
+    fun stackedCardFallsBackWhenMeasuredInfoBandIsDirty() {
+        // 压在封面里 / 窄于整卡 / 越出卡底：任一脏数据都必须回退减法推导。
+        for (dirty in listOf(
+            Rect(120f, 300f, 300f, 500f),
+            Rect(120f, 640f, 260f, 880f),
+            Rect(100f, 640f, 500f, 1000f),
+        )) {
+            val layout = resolveVideoDetailReturnSourceCardLayout(
+                viewportWidthPx = 1000f,
+                sourceBounds = Rect(100f, 200f, 500f, 900f),
+                sourceCoverBounds = Rect(100f, 200f, 500f, 640f),
+                sourceLayout = VideoCardSourceLayout.STACKED,
+                sourceInfoBounds = dirty,
+            )
+
+            assertTrue(layout.canRender)
+            assertEquals(260f, layout.infoHeightPx)
+            assertEquals(440f / 0.4f, layout.infoAnchorYInViewportPx, 0.001f)
+        }
+    }
 }
