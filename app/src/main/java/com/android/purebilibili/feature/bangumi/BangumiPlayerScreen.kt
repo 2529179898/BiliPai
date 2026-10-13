@@ -1,5 +1,7 @@
 // 文件路径: feature/bangumi/BangumiPlayerScreen.kt
 package com.android.purebilibili.feature.bangumi
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
@@ -110,7 +112,7 @@ import androidx.compose.ui.unit.sp
 
 /**
  * 番剧播放页面
- * 
+ *
  *  [重构] 简化后的主屏幕，播放器组件已拆分到 ui/player/ 目录
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -156,7 +158,7 @@ fun BangumiPlayerScreen(
     val latestDebugEpisodeId by rememberUpdatedState(currentEpisodeIdForDebug)
     val latestDebugCid by rememberUpdatedState(currentCidForDebug)
     val latestPlaybackDebugSnapshot by rememberUpdatedState(playbackDebugSnapshot)
-    
+
     //  空降助手状态
     val sponsorSegment by viewModel.currentSponsorSegment.collectAsStateWithLifecycle()
     val showSponsorSkipButton by viewModel.showSkipButton.collectAsStateWithLifecycle()
@@ -166,7 +168,7 @@ fun BangumiPlayerScreen(
     val autoSkipOpEd by com.android.purebilibili.core.store.SettingsManager
         .getAutoSkipOpEd(context)
         .collectAsStateWithLifecycle(initialValue = false)
-    
+
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val windowSizeClass = LocalWindowSizeClass.current
     val appWindowAdaptiveInfo = LocalAppWindowAdaptiveInfo.current
@@ -364,10 +366,11 @@ fun BangumiPlayerScreen(
         exoPlayer.addListener(errorListener)
         onDispose { exoPlayer.removeListener(errorListener) }
     }
-    
+
     // 附加播放器到 ViewModel 并加载番剧
     // 使用同一个 LaunchedEffect 确保顺序执行，避免竞态条件
     LaunchedEffect(exoPlayer, seasonId, epId, resumePositionMs, isCourse, preferredAid) {
+        miniPlayerManager.beginBangumiPlayback(exoPlayer)
         // 先附加播放器
         viewModel.attachPlayer(exoPlayer)
         // 然后加载番剧
@@ -377,6 +380,17 @@ fun BangumiPlayerScreen(
             resumePositionMs,
             isCourse = isCourse,
             preferredAid = preferredAid
+        )
+    }
+
+    LaunchedEffect(exoPlayer, successState?.currentEpisode?.id, successState?.seasonDetail?.title) {
+        val state = successState ?: return@LaunchedEffect
+        miniPlayerManager.updateBangumiPlaybackMetadata(
+            expectedPlayer = exoPlayer,
+            title = listOf(state.seasonDetail.title, state.currentEpisode.longTitle.ifBlank {
+                state.currentEpisode.title
+            }).filter { it.isNotBlank() }.joinToString(" · "),
+            coverUrl = state.seasonDetail.cover,
         )
     }
 
@@ -413,13 +427,13 @@ fun BangumiPlayerScreen(
             }
         }
     }
-    
+
     // 横竖屏复用当前播放身份的 Session，换集时旧 Session 自动释放。
     val danmakuManager = rememberDanmakuManager("bangumi:$seasonId:$currentEpisodeIdForDebug")
     val activeDanmakuScope = remember(isFullscreen) {
         com.android.purebilibili.core.store.resolveDanmakuSettingsScope(isFullscreen)
     }
-    
+
     // 弹幕开关设置
     val scope = rememberCoroutineScope()  //  用于弹幕开关和设置保存
     val danmakuSettings by com.android.purebilibili.core.store.SettingsManager
@@ -510,10 +524,10 @@ fun BangumiPlayerScreen(
         subtitle = subtitleState,
     )
     val danmakuEnabled = danmakuSettings.enabled && danmakuAllowed
-    
+
     //  倍速状态
     var currentSpeed by remember { mutableFloatStateOf(1.0f) }
-    
+
     //  弹幕设置状态
     val danmakuOpacity = danmakuSettings.opacity
     val danmakuFontScale = danmakuSettings.fontScale
@@ -528,12 +542,12 @@ fun BangumiPlayerScreen(
     val danmakuAllowColorful = danmakuSettings.allowColorful
     val danmakuAllowSpecial = danmakuSettings.allowSpecial
     val danmakuBlockRules = danmakuSettings.blockRules
-    
+
     //  弹幕设置变化时实时应用到 DanmakuManager
     LaunchedEffect(danmakuManager, danmakuSettings) {
         danmakuManager.updateSettings(settings = danmakuSettings)
     }
-    
+
     // 获取当前剧集 cid
     val currentCid = (uiState as? BangumiPlayerState.Success)?.currentEpisode?.cid ?: 0L
     val currentAid = (uiState as? BangumiPlayerState.Success)?.currentEpisode?.aid ?: 0L
@@ -561,14 +575,14 @@ fun BangumiPlayerScreen(
             )
         }
     }
-    
+
     // 加载弹幕 - 在父级组件管理
     //  [修复] 等待播放器 duration 可用后再加载弹幕，启用 Protobuf API
     LaunchedEffect(danmakuManager, currentCid, currentAid, danmakuEnabled, exoPlayer) {
         android.util.Log.d("BangumiPlayer", "🎯 Parent Danmaku LaunchedEffect: cid=$currentCid, aid=$currentAid, enabled=$danmakuEnabled")
         if (currentCid > 0 && danmakuEnabled) {
             danmakuManager.isEnabled = true
-            
+
             //  [修复] 等待播放器准备好并获取 duration (最多等待 5 秒)
             var durationMs = 0L
             var retries = 0
@@ -579,7 +593,7 @@ fun BangumiPlayerScreen(
                     retries++
                 }
             }
-            
+
             android.util.Log.d("BangumiPlayer", "🎯 Loading danmaku for cid=$currentCid, aid=$currentAid, duration=${durationMs}ms (after $retries retries)")
             danmakuManager.loadDanmaku(
                 currentCid,
@@ -591,7 +605,7 @@ fun BangumiPlayerScreen(
             danmakuManager.isEnabled = false
         }
     }
-    
+
     // 绑定 Player
     DisposableEffect(danmakuManager, exoPlayer) {
         danmakuManager.attachPlayer(exoPlayer)
@@ -608,25 +622,26 @@ fun BangumiPlayerScreen(
             PlaybackHandoffRegistry.clearBangumi(seasonId, currentEpisodeIdForDebug)
         }
     }
-    
+
     // 清理播放器 +  屏幕常亮管理
     DisposableEffect(Unit) {
         val window = context.findActivity()?.window
-        
+
         //  [修复] 进入番剧播放页时保持屏幕常亮，防止自动熄屏
         window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        
+
         onDispose {
+            miniPlayerManager.endBangumiPlayback(exoPlayer)
             exoPlayer.release()
             //  恢复默认方向，避免离开播放器后卡在横屏
             context.findActivity()?.applyPlayerRequestedOrientation(
                 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
                 displayContext = displayContext,
             )
-            
+
             //  [修复] 离开番剧播放页时取消屏幕常亮
             window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            
+
             //  [修复] 恢复系统亮度控制，解除亮度锁定
             window?.let { w ->
                 val params = w.attributes
@@ -635,7 +650,7 @@ fun BangumiPlayerScreen(
             }
         }
     }
-    
+
     // 辅助函数：切换屏幕方向
     fun toggleOrientation() {
         val target = resolveBangumiToggleOrientationTarget(
@@ -716,7 +731,7 @@ fun BangumiPlayerScreen(
             }
         }
     }
-    
+
     // 关闭自动旋转时固定在用户选择的模式，避免系统方向设置绕过应用开关。
     LaunchedEffect(hostActivity, sensorAutoRotateEnabled, isTablet, usesInWindowFullscreen, userRequestedFullscreen, isPlayerScreenLocked, isInPipMode) {
         if (!isInPipMode && !sensorAutoRotateEnabled && !isTablet && !usesInWindowFullscreen && !isPlayerScreenLocked) {
@@ -743,10 +758,10 @@ fun BangumiPlayerScreen(
         var lastPortraitAppliedAtMs = 0L
         val orientationEventListener = object : android.view.OrientationEventListener(context) {
             private var lastOrientation = -1
-            
+
             override fun onOrientationChanged(orientation: Int) {
                 if (orientation == ORIENTATION_UNKNOWN) return
-                
+
                 val newOrientation = when (orientation) {
                     in 315..360, in 0..45 -> 0   // Portrait
                     in 46..134 -> 270           // Landscape (reverse)
@@ -754,12 +769,12 @@ fun BangumiPlayerScreen(
                     in 225..314 -> 90           // Landscape
                     else -> lastOrientation
                 }
-                
+
                 if (newOrientation != lastOrientation && lastOrientation != -1) {
                     val isDeviceLandscape = newOrientation == 90 || newOrientation == 270
                     // 横屏时 180° 是翻转到另一侧的中点，不能当成竖屏，否则会先识别再转回去。
                     val isUprightPortrait = newOrientation == 0
-                    
+
                     activity?.let { act ->
                         val now = android.os.SystemClock.elapsedRealtime()
                         if (latestIsLandscape && isUprightPortrait) {
@@ -782,7 +797,7 @@ fun BangumiPlayerScreen(
                 lastOrientation = newOrientation
             }
         }
-        
+
         if (
             !isTablet &&
             !usesInWindowFullscreen &&
@@ -790,7 +805,7 @@ fun BangumiPlayerScreen(
         ) {
             orientationEventListener.enable()
         }
-        
+
         onDispose {
             orientationEventListener.disable()
         }
@@ -801,24 +816,24 @@ fun BangumiPlayerScreen(
             userRequestedFullscreen = false
         }
     }
-    
+
     // 拦截系统返回键
     LocalNavigationBackHandler(enabled = isFullscreen) {
         toggleOrientation()
     }
-    
+
     // 沉浸式状态栏控制
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context.findActivity())?.window ?: return@SideEffect
             val insetsController = WindowCompat.getInsetsController(window, view)
-            
+
             // 顶部是黑色/画面模糊背景，使用白色图标，与普通视频一致。
             insetsController.isAppearanceLightStatusBars = false
             insetsController.isAppearanceLightNavigationBars = false
             if (isFullscreen) {
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
-                insetsController.systemBarsBehavior = 
+                insetsController.systemBarsBehavior =
                     androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 setWindowStatusBarColor(window, Color.Black.toArgb())
                 setWindowNavigationBarColor(window, Color.Black.toArgb())
@@ -851,7 +866,7 @@ fun BangumiPlayerScreen(
             }
         }
     }
-    
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -867,7 +882,7 @@ fun BangumiPlayerScreen(
                 currentEpisodeId = successState?.currentEpisode?.id ?: 0L
             )
         }
-        
+
         //  [修复] 直接渲染 BangumiPlayerView，使用 key() 保持同一实例
         //  移除 movableContentOf，它会导致切换全屏时 Surface 丢失
         @Composable
@@ -1000,6 +1015,7 @@ fun BangumiPlayerScreen(
                                 }
                             },
                             isLiked = successState?.isLiked ?: false,
+                            likeStatusKnown = successState?.likeStatusKnown == true,
                             coinCount = successState?.coinCount ?: 0,
                             onToggleLike = { viewModel.toggleLike() },
                             onCoin = { viewModel.openCoinDialog() },
@@ -1028,7 +1044,7 @@ fun BangumiPlayerScreen(
                 }
             }
         }
-        
+
         // 播放器折叠状态（对齐 PiliPlus 下滑收起播放器）
         val inlinePlayerCollapseState = rememberInlinePortraitPlayerCollapseState("bangumi:$seasonId:$currentEpisodeIdForDebug")
         val portraitPlayerCollapseMode by com.android.purebilibili.core.store.SettingsManager
@@ -1240,7 +1256,7 @@ fun BangumiPlayerScreen(
                     useAmbientHaze = immersiveStatusBarBackdropEnabled,
                     videoBoundsInWindow = { ambientPresentation.videoBoundsInWindow() },
                 )
-                
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1269,7 +1285,7 @@ fun BangumiPlayerScreen(
                         )
                     }
                 }
-                
+
                 // 内容区域
                 supportingContent()
             }
@@ -1389,7 +1405,7 @@ private fun BangumiPlayNoticeOverlay(
                 alpha = 0.25f
             )
         }
-        
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -1419,8 +1435,8 @@ private fun BangumiPlayNoticeOverlay(
             AppButton(
                 onClick = onRetry,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = AppContentColors.accent(),
+                    contentColor = AppContentColors.onAccent()
                 )
             ) {
                 AppText("重试", style = MaterialTheme.typography.labelMedium)

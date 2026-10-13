@@ -1,6 +1,12 @@
 // 文件路径: feature/bangumi/ui/player/BangumiPlayerComponents.kt
 package com.android.purebilibili.feature.bangumi.ui.player
 
+import com.android.purebilibili.core.ui.AppSurfaceTokens
+
+import com.android.purebilibili.core.ui.MediaContrastPalette
+
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.feature.video.ui.overlay.NextWatchOverlay
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -73,6 +79,7 @@ import com.android.purebilibili.feature.video.ui.components.VideoAspectRatio
 import com.android.purebilibili.feature.video.ui.components.resolveVideoViewportLayout
 import com.android.purebilibili.feature.video.ui.components.toAnime4KDisplayScaleMode
 import com.android.purebilibili.feature.video.ui.gesture.GestureLevelOverlayContent
+import com.android.purebilibili.feature.video.ui.gesture.GestureLevelOverlayHost
 import com.android.purebilibili.feature.video.ui.gesture.resolveGestureLevelKind
 import com.android.purebilibili.feature.video.ui.gesture.resolveGestureLevelOverlaySpec
 import com.android.purebilibili.feature.video.ui.gesture.rememberGestureLevelOverlayStyle
@@ -164,6 +171,7 @@ fun BangumiPlayerView(
     onDanmakuDuplicateMergeWindowMsChange: (Int) -> Unit = {},
     onDanmakuDuplicateMergeCountThresholdChange: (Int) -> Unit = {},
     isLiked: Boolean = false,
+    likeStatusKnown: Boolean = false,
     coinCount: Int = 0,
     onToggleLike: () -> Unit = {},
     onCoin: () -> Unit = {},
@@ -188,10 +196,10 @@ fun BangumiPlayerView(
         isFullscreen = isFullscreen,
         statusBarsInsetDp = statusBarsInsetTopDp
     ).dp
-    
+
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
     val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
-    
+
     // 控制层状态
     var showControls by remember { mutableStateOf(true) }
     var isScreenLocked by rememberSaveable { mutableStateOf(false) }
@@ -260,8 +268,28 @@ fun BangumiPlayerView(
     val requiresHdrSurface = com.android.purebilibili.feature.video.ui.section.requiresHdrSurfaceOutput(
         currentQualityId = currentQuality, colorTransfer = videoInputFormat?.colorInfo?.colorTransfer ?: 0,
     )
-    val useTextureSurface = !requiresHdrSurface && (features.isFlippedHorizontal || features.isFlippedVertical)
     val shouldUseAnime4kPipeline = anime4kOutputDecision.shouldUsePipeline
+    val playerPageBackdrop = com.android.purebilibili.feature.video.ui.section.rememberPlayerPageBackdrop()
+    val pageGlassSupported = com.android.purebilibili.feature.video.ui.section.supportsPlayerPageGlass(
+        liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
+        fullscreen = isFullscreen,
+        portraitFullscreen = false,
+        detailInline = !isFullscreen,
+        hdr = requiresHdrSurface,
+        anime4k = shouldUseAnime4kPipeline,
+        audioOnly = features.isAudioOnly,
+        pip = features.isInPipMode,
+    )
+    var hasUsedPageGlassTexture by remember(exoPlayer) { mutableStateOf(false) }
+    LaunchedEffect(pageGlassSupported) {
+        if (pageGlassSupported) hasUsedPageGlassTexture = true
+    }
+    val useTextureSurface = com.android.purebilibili.feature.video.ui.section.shouldUsePlayerPageTexture(
+        glassSupported = pageGlassSupported,
+        retainedGlassTexture = hasUsedPageGlassTexture,
+        hdr = requiresHdrSurface,
+        existingTextureRequest = features.isFlippedHorizontal || features.isFlippedVertical,
+    )
     val shouldRenderAnime4kPipeline = shouldUseAnime4kPipeline &&
         videoSizeState.first > 0 &&
         videoSizeState.second > 0
@@ -343,7 +371,7 @@ fun BangumiPlayerView(
             shouldUseAnime4K = shouldRenderAnime4kPipeline
         )
     }
-    
+
     // 手势状态
     var gestureMode by remember { mutableStateOf(BangumiGestureMode.None) }
     var gestureValue by remember { mutableFloatStateOf(0f) }
@@ -356,7 +384,7 @@ fun BangumiPlayerView(
     var longPressOriginalPlaybackParameters by remember(exoPlayer) {
         mutableStateOf(exoPlayer.playbackParameters)
     }
-    
+
     // 亮度状态
     var currentBrightness by remember {
         mutableFloatStateOf(
@@ -365,13 +393,13 @@ fun BangumiPlayerView(
             } catch (e: Exception) { 0.5f }
         )
     }
-    
+
     // 播放器状态
     var isPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
     var currentProgress by remember { mutableFloatStateOf(0f) }
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(1L) }
-    
+
     // 监听播放器状态
     LaunchedEffect(exoPlayer) {
         while (true) {
@@ -384,7 +412,20 @@ fun BangumiPlayerView(
             kotlinx.coroutines.delay(200)
         }
     }
-    
+
+    val glassCaptureVisibility = androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (showControls || !isPlaying || gestureMode != BangumiGestureMode.None) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween<Float>(
+            com.android.purebilibili.feature.video.ui.overlay.PLAYER_GLASS_VISIBILITY_DURATION_MS,
+            easing = com.android.purebilibili.core.ui.motion.AppMotionEasing.Continuity,
+        ),
+        label = "bangumiPageGlassCapture",
+    )
+    val glassCaptureVisible by remember(glassCaptureVisibility) {
+        derivedStateOf { glassCaptureVisibility.value > 0f }
+    }
+    val capturePlayerPage = pageGlassSupported && glassCaptureVisible
+
     Box(
         modifier = modifier
             .background(Color.Black)
@@ -427,7 +468,7 @@ fun BangumiPlayerView(
                     var dragStartX = 0f
                     var totalDragDistanceX = 0f
                     var totalDragDistanceY = 0f
-                    
+
                     detectDragGestures(
                         onDragStart = { position ->
                             showControls = true
@@ -461,7 +502,7 @@ fun BangumiPlayerView(
                             if (isScreenLocked) return@detectDragGestures
                             totalDragDistanceX += dragAmount.x
                             totalDragDistanceY += dragAmount.y
-                            
+
                             if (gestureMode == BangumiGestureMode.None) {
                                 if (kotlin.math.hypot(totalDragDistanceX, totalDragDistanceY) < minDragThreshold) {
                                     return@detectDragGestures
@@ -495,7 +536,7 @@ fun BangumiPlayerView(
                                     BangumiGestureMode.None
                                 }
                             }
-                            
+
                             when (gestureMode) {
                                 BangumiGestureMode.Brightness -> {
                                     gestureValue = (gestureValue - dragAmount.y / screenHeight).coerceIn(0f, 1f)
@@ -542,6 +583,7 @@ fun BangumiPlayerView(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
+                .then(if (capturePlayerPage) playerPageBackdrop.video.modifier else Modifier)
                 .clipToBounds(),
             contentAlignment = Alignment.Center
         ) {
@@ -657,7 +699,7 @@ fun BangumiPlayerView(
                 )
             }
         }
-        
+
         // 弹幕层 - 使用 DanmakuRenderEngine
         if (features.isAudioOnly) {
             coil3.compose.AsyncImage(
@@ -692,16 +734,27 @@ fun BangumiPlayerView(
                     onRelease = { view -> danmakuManager.detachView(view) },
                     modifier = Modifier
                         .fillMaxSize()
+                        .then(if (capturePlayerPage) playerPageBackdrop.danmaku.modifier else Modifier)
                         .padding(top = danmakuTopInset)
                         .clipToBounds()
                 )
             }
         }
-        
+
         // 手势指示器（横屏：全部，竖屏：仅亮度和音量）
-        val showGestureIndicator = gestureMode != BangumiGestureMode.None && 
+        val showGestureIndicator = gestureMode != BangumiGestureMode.None &&
             (isFullscreen || gestureMode == BangumiGestureMode.Brightness || gestureMode == BangumiGestureMode.Volume)
-        if (showGestureIndicator) {
+        GestureLevelOverlayHost(
+            visible = gestureMode == BangumiGestureMode.Brightness || gestureMode == BangumiGestureMode.Volume,
+            mode = if (gestureMode == BangumiGestureMode.Brightness) VideoGestureMode.Brightness else VideoGestureMode.Volume,
+            percent = if (gestureMode == BangumiGestureMode.Brightness) currentBrightness else gestureValue,
+            compact = !isFullscreen,
+            glassBackdrop = playerPageBackdrop.backdrop.takeIf {
+                capturePlayerPage && playerPageBackdrop.video.isReady &&
+                    playerViewRef?.videoSurfaceView is android.view.TextureView
+            },
+        )
+        if (showGestureIndicator && gestureMode == BangumiGestureMode.Seek) {
             BangumiGestureIndicator(
                 mode = gestureMode,
                 value = when (gestureMode) {
@@ -719,7 +772,7 @@ fun BangumiPlayerView(
                 }
             )
         }
-        
+
         NextWatchOverlay(
             player = exoPlayer,
             mediaKey = "bangumi:$epId:$cid",
@@ -743,8 +796,21 @@ fun BangumiPlayerView(
         )
 
         if (!features.isInPipMode && !features.isAudioOnly) {
-            BangumiSubtitleOverlay(exoPlayer, features.subtitle, showControls, isFullscreen, playerViewRef?.height ?: 0)
+            Box(Modifier.fillMaxSize().then(
+                if (capturePlayerPage) playerPageBackdrop.subtitles.modifier else Modifier,
+            )) {
+                BangumiSubtitleOverlay(exoPlayer, features.subtitle, showControls, isFullscreen, playerViewRef?.height ?: 0)
+            }
         }
+        CompositionLocalProvider(
+            com.android.purebilibili.feature.video.ui.overlay.LocalPlayerLevelGestureActive provides
+                (gestureMode == BangumiGestureMode.Brightness || gestureMode == BangumiGestureMode.Volume),
+            com.android.purebilibili.feature.video.ui.overlay.LocalPlayerPageBackdrop provides
+                playerPageBackdrop.backdrop.takeIf {
+                    capturePlayerPage && playerPageBackdrop.video.isReady &&
+                        playerViewRef?.videoSurfaceView is android.view.TextureView
+                },
+        ) {
         BangumiPlayerOverlayHost(
             player = exoPlayer,
             features = features.copy(
@@ -810,6 +876,7 @@ fun BangumiPlayerView(
             currentPageIndex = currentPageIndex,
             onPageSelect = onPageSelect,
             isLiked = isLiked,
+            likeStatusKnown = likeStatusKnown,
             coinCount = coinCount,
             onToggleLike = onToggleLike,
             onCoin = onCoin,
@@ -858,7 +925,8 @@ fun BangumiPlayerView(
             },
             onShowMessage = onShowMessage
         )
-        
+
+        }
         // 空降助手跳过按钮 (位置调整到进度条上方)
         SponsorSkipButton(
             segment = sponsorSegment,
@@ -953,7 +1021,7 @@ fun BangumiMiniProgressBar(
     var bufferedProgress by remember { mutableFloatStateOf(0f) }
     var isDragging by remember { mutableStateOf(false) }
     var dragProgress by remember { mutableFloatStateOf(0f) }
-    
+
     // 定期更新进度
     LaunchedEffect(player) {
         while (true) {
@@ -964,7 +1032,7 @@ fun BangumiMiniProgressBar(
             kotlinx.coroutines.delay(200)
         }
     }
-    
+
     Box(
         modifier = modifier
             .height(12.dp)
@@ -999,7 +1067,7 @@ fun BangumiMiniProgressBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(3.dp)
-                .background(Color.DarkGray.copy(alpha = 0.5f))
+                .background(MediaContrastPalette.Track)
         ) {
             // 缓冲进度
             Box(
@@ -1013,7 +1081,7 @@ fun BangumiMiniProgressBar(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth((if (isDragging) dragProgress else progress).coerceIn(0f, 1f))
-                    .background(MaterialTheme.colorScheme.primary)
+                    .background(AppContentColors.accent())
             )
         }
     }
@@ -1036,7 +1104,7 @@ fun BangumiQualityMenu(
             else -> null
         }
     }
-    
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1052,63 +1120,63 @@ fun BangumiQualityMenu(
                 .widthIn(min = 200.dp, max = 280.dp)
                 .clip(AppShapes.container(ContainerLevel.Card))
                 .clickable(enabled = false) {},
-            color = Color(0xFF2B2B2B),
+            color = AppSurfaceTokens.cardContainer(),
             shape = AppShapes.container(ContainerLevel.Card),
             tonalElevation = 8.dp
         ) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                 AppText(
                     text = "画质选择",
-                    color = Color.White,
+                    color = AppContentColors.primaryText(),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 )
-                AppHorizontalDivider(color = Color.White.copy(0.1f))
-                
+                AppHorizontalDivider(color = AppSurfaceTokens.divider())
+
                 qualities.forEachIndexed { index, quality ->
                     val qn = qualityIds.getOrNull(index) ?: 0
                     val isSelected = qn == currentQualityId
                     val tag = getQualityTag(qn)
-                    
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onQualitySelected(qn) }
-                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent)
+                            .background(if (isSelected) AppContentColors.accent().copy(alpha = 0.15f) else Color.Transparent)
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AppText(
                             text = quality,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(0.9f),
+                            color = if (isSelected) AppContentColors.link() else AppContentColors.primaryText(),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )
-                        
+
                         if (tag != null) {
                             Spacer(modifier = Modifier.width(8.dp))
                             AppSurface(
-                                color = MaterialTheme.colorScheme.primary,
+                                color = AppContentColors.accent(),
                                 shape = AppShapes.container(ContainerLevel.Tag)
                             ) {
                                 AppText(
                                     text = tag,
-                                    color = Color.White,
+                                    color = AppContentColors.onAccent(),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Medium,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
                         }
-                        
+
                         Spacer(modifier = Modifier.weight(1f))
-                        
+
                         if (isSelected) {
                             AppIcon(
                                 Icons.Outlined.Check,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = AppContentColors.accent(),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -1132,17 +1200,17 @@ fun BangumiSlimProgressBar(
 ) {
     var isDragging by remember { mutableStateOf(false) }
     var tempProgress by remember { mutableFloatStateOf(progress) }
-    val primaryColor = MaterialTheme.colorScheme.primary
-    
+    val primaryColor = AppContentColors.accent()
+
     // 同步外部进度
     LaunchedEffect(progress) {
         if (!isDragging) {
             tempProgress = progress
         }
     }
-    
+
     val displayProgress = if (isDragging) tempProgress else progress
-    
+
     Box(
         modifier = modifier
             .height(48.dp)
@@ -1184,7 +1252,7 @@ fun BangumiSlimProgressBar(
                 .height(3.dp)
                 .background(Color.White.copy(alpha = 0.3f), AppShapes.container(ContainerLevel.Micro))
         )
-        
+
         // 当前进度
         Box(
             modifier = Modifier
@@ -1192,7 +1260,7 @@ fun BangumiSlimProgressBar(
                 .height(3.dp)
                 .background(primaryColor, AppShapes.container(ContainerLevel.Micro))
         )
-        
+
         // 滑块（圆点）- 拖动时放大
         Box(
             modifier = Modifier

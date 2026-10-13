@@ -2172,6 +2172,39 @@ class MiniPlayerManager private constructor(private val context: Context) :
     /**
      * 停止播放并关闭小窗
      */
+    /** Stop listening and transfer system media controls to the incoming bangumi player. */
+    fun beginBangumiPlayback(incomingPlayer: ExoPlayer) {
+        AudioNowPlayingSession.dismiss()
+        AudioNowPlayingSession.publishBarOverlayVisible(false)
+        if (_externalPlayer === incomingPlayer) return
+        _externalPlayer?.let { old ->
+            old.pause()
+            clearExternalPlayerIfMatches(old)
+        }
+        dismiss()
+        currentTitle = ""
+        currentCover = ""
+        currentOwner = ""
+        currentCid = 0L
+        currentAid = 0L
+        _externalPlayer = incomingPlayer
+        incomingPlayer.addListener(playerListener)
+        updateMediaSession(incomingPlayer)
+    }
+
+    fun endBangumiPlayback(expectedPlayer: ExoPlayer) {
+        if (clearExternalPlayerIfMatches(expectedPlayer)) {
+            isPlaying = false
+            releaseMediaSession()
+            clearPlaybackNotificationArtifacts()
+        }
+    }
+
+    fun updateBangumiPlaybackMetadata(expectedPlayer: ExoPlayer, title: String, coverUrl: String) {
+        if (_externalPlayer !== expectedPlayer) return
+        updateMediaMetadata(title = title, artist = "番剧", coverUrl = coverUrl)
+    }
+
     fun dismiss() {
         resetBackgroundOptimizationState()
         Logger.d(TAG) { "Dismissing mini player (isLiveMode=$isLiveMode)" }
