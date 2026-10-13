@@ -407,14 +407,16 @@ internal class MiuixVideoCardTransitionProgress(
      * 这套状态机。同帧重复调用等于把状态机推进多次，手势与落位判定互相污染，
      * 且每帧放大成 N 次读取 + N 次 follow pose 分配，直接表现为转场掉帧。
      *
-     * 这里以「scope 身份 + settle/gesture 身份 + 帧序号」为键做帧内记忆：
+     * 这里以「scope/settle 身份 + 手势进度 + 深度/角色 + 帧序号」为键做帧内记忆：
      * - `NavTransitionScope` 与 `NavSettle` 都是每帧稳定（跨帧同引用或状态迁移时换新）
      *   的对象，用身份比较即可区分「同一帧的同一次采样」与「状态真的变了」。
      * - [localFrameSequence] 由调用方每帧递增，保证跨帧一定失效，不会把上一帧结果留用。
      */
     private var lastDepthScope: NavTransitionScope? = null
     private var lastDepthSettle: NavSettle? = null
-    private var lastDepthGestureProgress: Float = Float.NaN
+    private var lastDepthGestureProgress: Float? = null
+    private var lastDepthRelativeDepth: Float = Float.NaN
+    private var lastDepthRole: NavRole? = null
     private var lastDepthFrame: Long = Long.MIN_VALUE
     private var lastDepthValue: Float = 0f
 
@@ -423,7 +425,7 @@ internal class MiuixVideoCardTransitionProgress(
 
     /**
      * 当前帧序号。由宿主每帧递增（见 `advanceTransitionFrame`）。
-     * 未接入宿主时保持 0，帧内记忆仍生效、跨帧自然失效（键会随 settle/gesture 变化）。
+     * 未接入宿主时保持 0，帧内记忆仍生效、跨帧自然失效（键会随深度、角色或手势变化）。
      */
     private var localFrameSequence: Long = 0L
 
@@ -437,14 +439,18 @@ internal class MiuixVideoCardTransitionProgress(
             lastDepthFrame == localFrameSequence &&
             lastDepthScope === scope &&
             lastDepthSettle === scope.settle &&
-            lastDepthGestureProgress == (scope.gesture?.progress ?: Float.NaN)
+            lastDepthGestureProgress == scope.gesture?.progress &&
+            lastDepthRelativeDepth == scope.relativeDepth &&
+            lastDepthRole == scope.role
         ) {
             return lastDepthValue
         }
         val value = visualDepth(scope)
         lastDepthScope = scope
         lastDepthSettle = scope.settle
-        lastDepthGestureProgress = scope.gesture?.progress ?: Float.NaN
+        lastDepthGestureProgress = scope.gesture?.progress
+        lastDepthRelativeDepth = scope.relativeDepth
+        lastDepthRole = scope.role
         lastDepthFrame = localFrameSequence
         lastDepthValue = value
         return value
@@ -612,6 +618,13 @@ internal class MiuixVideoCardTransitionProgress(
     }
 
     fun clear() {
+        lastDepthScope = null
+        lastDepthSettle = null
+        lastDepthGestureProgress = null
+        lastDepthRelativeDepth = Float.NaN
+        lastDepthRole = null
+        lastDepthFrame = Long.MIN_VALUE
+        lastDepthValue = 0f
         topScope = null
         gestureStartReturn = null
         activeSettle = null

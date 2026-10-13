@@ -110,33 +110,23 @@ internal fun isRecordedNativeCardSource(
 internal fun isNativeVideoCardLayerDrawable(widthPx: Int, heightPx: Int): Boolean =
     widthPx > 1 && heightPx > 1
 
-/**
- * Whether the stationary source card must keep re-recording its display list this frame.
- *
- * Recording is only worth its cost while the card is actually visible in the list:
- * - `Idle` / `Opening`: the card is still on screen or just being covered → keep pixels current.
- * - Any covered/preview/return phase (`SettledHidden`, `BackPreview`, `Returning`, `Restoring`):
- *   the flying overlay owns the card and the list slot is either hidden or drawn from the
- *   frozen layer, so a fresh full recording is pure waste. The frozen layer from click time
- *   is what the return morph replays.
- *
- * This is deliberately exposure-driven and uniform for every device: there is no
- * performance guard or device tier here, matching the project's "no device-tiered blur"
- * convention. `null` exposure (state not wired yet) keeps recording to preserve the
- * previous behavior for non-navigation callers.
- */
+/** Only the covered transition source can reuse frozen pixels; visible related cards keep recording. */
 internal fun shouldRecordNativeVideoCardLayer(
     exposure: VideoCardTransitionExposure?,
-): Boolean = when (exposure) {
-    VideoCardTransitionExposure.SettledHidden,
-    VideoCardTransitionExposure.BackPreview,
-    VideoCardTransitionExposure.Returning,
-    VideoCardTransitionExposure.Restoring,
-    -> false
-    VideoCardTransitionExposure.Idle,
-    VideoCardTransitionExposure.Opening,
-    null,
-    -> true
+    isSharedMorphSourceCard: Boolean,
+): Boolean {
+    if (!isSharedMorphSourceCard) return true
+    return when (exposure) {
+        VideoCardTransitionExposure.SettledHidden,
+        VideoCardTransitionExposure.BackPreview,
+        VideoCardTransitionExposure.Returning,
+        VideoCardTransitionExposure.Restoring,
+        -> false
+        VideoCardTransitionExposure.Idle,
+        VideoCardTransitionExposure.Opening,
+        null,
+        -> true
+    }
 }
 
 /**
@@ -179,17 +169,18 @@ internal fun Modifier.recordNativeVideoCardLayer(
         )
         // Read the latch in draw. Waiting for recomposition after a click can otherwise
         // overwrite the frozen first-click card after OPENING has hidden its info band.
-        if (shouldRecordNativeVideoCardLayer(exposure) && !freezeProvider()) {
+        val isSharedMorphSourceCard = isRecordedNativeCardSource(
+            bvid = bvid,
+            sourceRoute = sourceRoute,
+            activeSourceKey = bgState.sourceKeyProvider(),
+        )
+        if (shouldRecordNativeVideoCardLayer(exposure, isSharedMorphSourceCard) && !freezeProvider()) {
             layer.record {
                 this@drawWithContent.drawContent()
             }
         }
         val hide = shouldHideStationarySourceCard(
-            isSharedMorphSourceCard = isRecordedNativeCardSource(
-                bvid = bvid,
-                sourceRoute = sourceRoute,
-                activeSourceKey = bgState.sourceKeyProvider(),
-            ),
+            isSharedMorphSourceCard = isSharedMorphSourceCard,
             exposure = exposure,
             isCoveredLatch = coverLatch,
         )

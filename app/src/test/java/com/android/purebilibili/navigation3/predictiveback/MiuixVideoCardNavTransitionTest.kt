@@ -28,6 +28,36 @@ import androidx.compose.ui.unit.LayoutDirection
 
 class MiuixVideoCardNavTransitionTest {
     @Test
+    fun ordinaryReturnTracksDepthAndRoleChangesWithinOneFrame() {
+        val scope = object : NavTransitionScope {
+            override var relativeDepth = -.4f
+            override var role = NavRole.Outgoing
+            override val change = NavChange.Pop
+            override val layoutSize = IntSize(1080, 2400)
+            override val layoutDirection = LayoutDirection.Ltr
+            override val density = Density(3f)
+            override val gesture: NavGesture? = null
+            override val settle: NavSettle? = null
+        }
+        val progress = MiuixVideoCardTransitionProgress()
+        progress.bind(scope)
+        assertEquals(.6f, progress.depthOrNull()!!, absoluteTolerance = .001f)
+        assertEquals(.6f, progress.depthOrNull()!!, absoluteTolerance = .001f)
+        scope.relativeDepth = -.8f
+        assertEquals(.2f, progress.depthOrNull()!!, absoluteTolerance = .001f)
+        scope.relativeDepth = 0f
+        assertEquals(1f, progress.depthOrNull())
+        scope.role = NavRole.Top
+        assertEquals(1f, progress.depthOrNull())
+        progress.clear()
+        assertEquals(null, progress.depthOrNull())
+        scope.role = NavRole.Outgoing
+        scope.relativeDepth = -.3f
+        progress.bind(scope)
+        assertEquals(.7f, progress.depthOrNull()!!, absoluteTolerance = .001f)
+    }
+
+    @Test
     fun childPredictiveBackKeepsCoveredVideoFullscreenThroughCommitAndCancel() {
         val scope = object : NavTransitionScope {
             override var relativeDepth = 0f
