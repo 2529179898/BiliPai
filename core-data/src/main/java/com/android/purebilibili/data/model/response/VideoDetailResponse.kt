@@ -169,7 +169,8 @@ data class Page(
     val page: Int = 0,
     val from: String = "",
     val part: String = "",
-    val duration: Long = 0
+    val duration: Long = 0,
+    @SerialName("first_frame") val firstFrame: String = "",
 )
 
 //  视频标签响应

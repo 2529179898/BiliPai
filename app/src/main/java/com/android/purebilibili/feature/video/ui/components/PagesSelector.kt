@@ -1,19 +1,17 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.components.appSearchElasticPress
 import android.content.res.Configuration
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -22,24 +20,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.GridCells
-import com.android.purebilibili.core.ui.components.AppLazyVerticalGrid as LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import com.android.purebilibili.core.ui.AppShapes
-import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.components.AppFilterChip
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppIconButton
 import androidx.compose.material3.MaterialTheme
 import com.android.purebilibili.core.ui.components.AppOutlinedTextField
-import com.android.purebilibili.core.ui.components.AppSurface
-import com.android.purebilibili.core.ui.components.AppSingleChoiceRow
 import com.android.purebilibili.core.ui.components.AppText
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -51,16 +43,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.android.purebilibili.core.ui.AppModalBottomSheet
 import com.android.purebilibili.data.model.response.Page
-import top.yukonga.miuix.kmp.basic.DropdownImpl
-import top.yukonga.miuix.kmp.basic.DropdownItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,36 +57,11 @@ fun PagesSelector(
     onPageSelect: (Int) -> Unit,
     forceGridMode: Boolean = false,
     blockParentVerticalScroll: Boolean = false,
-    onDismissRequest: (() -> Unit)? = null
+    onDismissRequest: (() -> Unit)? = null,
+    coverUrl: String = "",
+    modifier: Modifier = Modifier,
 ) {
     if (pages.isEmpty()) return
-
-    if (forceGridMode && onDismissRequest != null) {
-        PlayerMiuixListPopup(
-            title = "分集（${pages.size}）",
-            onDismissRequest = onDismissRequest,
-            placement = PlayerListPopupPlacement.END,
-        ) {
-            pages.forEachIndexed { index, page ->
-                val selected = index == currentPageIndex
-                DropdownImpl(
-                    item = DropdownItem(
-                        text = "P${page.page}",
-                        summary = page.part.takeIf { it.isNotEmpty() },
-                    ),
-                    optionSize = pages.size,
-                    isSelected = selected,
-                    index = index,
-                    enabled = !selected,
-                    onSelectedIndexChange = {
-                        onPageSelect(index)
-                        onDismissRequest()
-                    },
-                )
-            }
-        }
-        return
-    }
 
     val configuration = LocalConfiguration.current
     val isLandscape = remember(configuration.orientation, configuration.screenWidthDp, configuration.screenHeightDp) {
@@ -119,10 +81,7 @@ fun PagesSelector(
             forceGridMode = forceGridMode
         )
     }
-    val showExpandAction = shouldShowPagesExpandAction(
-        policy = layoutPolicy,
-        pagesCount = pages.size
-    )
+    val showExpandAction = !forceGridMode
     val navigationBarBottomPadding = WindowInsets.navigationBars
         .asPaddingValues()
         .calculateBottomPadding()
@@ -144,7 +103,7 @@ fun PagesSelector(
     var showExpandedSheet by rememberSaveable(pages.size, forceGridMode) { mutableStateOf(false) }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
     ) {
@@ -164,7 +123,7 @@ fun PagesSelector(
             AppText(
                 text = "(${pages.size})",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+                color = AppContentColors.secondaryText()
             )
             Spacer(modifier = Modifier.weight(1f))
             if (showExpandAction) {
@@ -178,13 +137,13 @@ fun PagesSelector(
                     AppText(
                         text = "展开",
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
+                        color = AppContentColors.accent()
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     AppIcon(
                         imageVector = Icons.Outlined.ExpandMore,
                         contentDescription = "展开选集",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = AppContentColors.accent(),
                         modifier = Modifier.width(16.dp)
                     )
                 }
@@ -194,15 +153,15 @@ fun PagesSelector(
                     AppIcon(
                         imageVector = Icons.Outlined.Close,
                         contentDescription = "关闭选集面板",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = AppContentColors.secondaryText()
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        if (forceGridMode) {
+            Spacer(modifier = Modifier.height(12.dp))
 
-        if (layoutPolicy.presentation == PagesSelectorPresentation.InlineGrid) {
             if (pages.size >= 10) {
                 PagesSelectorFilterBar(
                     groups = groups,
@@ -211,45 +170,50 @@ fun PagesSelector(
                     totalCount = pages.size,
                     onGroupSelect = { inlineGroupKey = it },
                     onQueryChange = { inlineQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = layoutPolicy.horizontalPaddingDp.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(Modifier.height(10.dp))
             }
-
-            PagesGrid(
+            PageCoverList(
                 pages = pages,
                 visiblePageIndices = inlineVisibleIndices,
                 currentPageIndex = currentPageIndex,
-                gridColumns = layoutPolicy.gridColumns,
-                horizontalPaddingDp = layoutPolicy.horizontalPaddingDp,
-                maxGridHeightDp = layoutPolicy.maxGridHeightDp,
-                bottomContentPaddingDp = gridBottomPaddingDp,
-                gridItemMinHeightDp = layoutPolicy.gridItemMinHeightDp,
-                emptyMessage = "没有匹配的分集",
+                coverUrl = coverUrl,
                 onPageSelect = onPageSelect,
                 blockParentVerticalScroll = blockParentVerticalScroll,
-                modifier = Modifier.fillMaxWidth()
+                bottomContentPaddingDp = if (forceGridMode) gridBottomPaddingDp else 12,
+                onResetFilters = { inlineQuery = ""; inlineGroupKey = null },
+                modifier = Modifier.fillMaxWidth().heightIn(max = layoutPolicy.maxGridHeightDp.dp),
             )
         } else {
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = layoutPolicy.horizontalPaddingDp.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            val currentPage = pages.getOrNull(currentPageIndex) ?: pages.first()
+            val duration = if (currentPage.duration > 0L) {
+                com.android.purebilibili.core.util.FormatUtils.formatDuration(
+                    currentPage.duration.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                )
+            } else ""
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showExpandedSheet = true }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                items(pages.size, key = { index -> pages[index].cid }) { index ->
-                    val page = pages[index]
-                    PageSelectorItem(
-                        page = page,
-                        index = index,
-                        isSelected = index == currentPageIndex,
-                        modifier = Modifier.width(layoutPolicy.previewItemWidthDp.dp),
-                        onClick = onPageSelect
-                    )
+                AppText(
+                    text = "P${currentPage.page} · ${currentPage.part.ifBlank { "第${currentPage.page}P" }}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppContentColors.accent(),
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (duration.isNotBlank()) {
+                    Spacer(Modifier.width(12.dp))
+                    AppText(duration, style = MaterialTheme.typography.labelMedium, color = AppContentColors.secondaryText())
                 }
             }
         }
+
     }
 
     if (showExpandedSheet) {
@@ -284,14 +248,14 @@ fun PagesSelector(
                         text = "分集(${pages.size})",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     AppIconButton(onClick = { showExpandedSheet = false }) {
                         AppIcon(
                             imageVector = Icons.Outlined.Close,
                             contentDescription = "关闭选集",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = AppContentColors.secondaryText()
                         )
                     }
                 }
@@ -310,29 +274,19 @@ fun PagesSelector(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                PagesGrid(
+                PageCoverList(
                     pages = pages,
                     visiblePageIndices = expandedVisibleIndices,
                     currentPageIndex = currentPageIndex,
-                    gridColumns = resolvePagesSelectorLayoutPolicy(
-                        widthDp = configuration.screenWidthDp,
-                        isLandscape = isLandscape,
-                        pagesCount = pages.size,
-                        forceGridMode = true
-                    ).gridColumns,
-                    horizontalPaddingDp = 16,
-                    maxGridHeightDp = null,
-                    bottomContentPaddingDp = gridBottomPaddingDp,
-                    gridItemMinHeightDp = 68,
-                    emptyMessage = "没有找到匹配分集",
+                    coverUrl = coverUrl,
                     onPageSelect = { index ->
                         onPageSelect(index)
                         showExpandedSheet = false
                     },
                     blockParentVerticalScroll = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
+                    bottomContentPaddingDp = gridBottomPaddingDp,
+                    onResetFilters = { expandedQuery = ""; expandedGroupKey = null },
+                    modifier = Modifier.fillMaxWidth().weight(1f),
                 )
             }
         }
@@ -396,113 +350,6 @@ private fun PagesSelectorFilterBar(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PagesGrid(
-    pages: List<Page>,
-    visiblePageIndices: List<Int>,
-    currentPageIndex: Int,
-    gridColumns: Int,
-    horizontalPaddingDp: Int,
-    maxGridHeightDp: Int?,
-    bottomContentPaddingDp: Int,
-    gridItemMinHeightDp: Int,
-    emptyMessage: String,
-    onPageSelect: (Int) -> Unit,
-    blockParentVerticalScroll: Boolean,
-    modifier: Modifier = Modifier
-) {
-    if (visiblePageIndices.isEmpty()) {
-        Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .height(180.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            AppText(
-                text = emptyMessage,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        return
-    }
-
-    val gridModifier = if (maxGridHeightDp != null) {
-        modifier.heightIn(max = maxGridHeightDp.dp)
-    } else {
-        modifier.fillMaxSize()
-    }
-    val gridState = rememberLazyGridState()
-    val nestedScrollConnection = rememberModalChildScrollConnection()
-
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(gridColumns),
-        state = gridState,
-        modifier = if (blockParentVerticalScroll) {
-            gridModifier.nestedScroll(nestedScrollConnection)
-        } else {
-            gridModifier
-        },
-        contentPadding = PaddingValues(
-            start = horizontalPaddingDp.dp,
-            end = horizontalPaddingDp.dp,
-            bottom = bottomContentPaddingDp.dp
-        ),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(visiblePageIndices.size, key = { itemIndex -> pages[visiblePageIndices[itemIndex]].cid }) { itemIndex ->
-            val index = visiblePageIndices[itemIndex]
-            val page = pages[index]
-            PageSelectorItem(
-                page = page,
-                index = index,
-                isSelected = index == currentPageIndex,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = gridItemMinHeightDp.dp),
-                onClick = onPageSelect
-            )
-        }
-    }
-}
-
-@Composable
-private fun PageSelectorItem(
-    page: Page,
-    index: Int,
-    isSelected: Boolean,
-    modifier: Modifier,
-    onClick: (Int) -> Unit
-) {
-    AppSingleChoiceRow(
-        selected = isSelected,
-        onClick = { onClick(index) },
-        shape = AppShapes.container(ContainerLevel.Card),
-        modifier = modifier
-    ) {
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            AppText(
-                text = "P${page.page}",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            AppText(
-                text = page.part.ifEmpty { "第${page.page}P" },
-                style = MaterialTheme.typography.bodyMedium,
-                minLines = 2,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                color = AppSurfaceTokens.onSurfaceContainerHigh()
-            )
         }
     }
 }
