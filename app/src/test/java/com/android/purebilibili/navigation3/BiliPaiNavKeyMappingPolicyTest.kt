@@ -8,6 +8,17 @@ import kotlin.test.assertNotEquals
 
 class BiliPaiNavKeyMappingPolicyTest {
     @Test
+    fun audioCollectionKeysPreserveSourceAndTitleAcrossRouteRestoration() {
+        for (key in listOf(
+            BiliPaiNavKey.AudioMode(collectionMediaId = 42L, collectionTitle = "默认收藏夹 + 100% & 音乐"),
+            BiliPaiNavKey.AudioMode(collectionSeasonId = 81L, collectionTitle = "专辑"),
+        )) {
+            assertEquals(key, legacyRouteToBiliPaiNavKey(key.toLegacyRoute()))
+            assertEquals(BiliPaiNavEntryContentRole.AUDIO_MODE, resolveBiliPaiNavEntryContentRole(key))
+        }
+    }
+
+    @Test
     fun weeklySeriesKeysPreservePeriodAcrossRouteRestoration() {
         for (key in listOf(BiliPaiNavKey.WeeklySeries(), BiliPaiNavKey.WeeklySeries(133))) {
             assertEquals(key, legacyRouteToBiliPaiNavKey(key.toLegacyRoute()))

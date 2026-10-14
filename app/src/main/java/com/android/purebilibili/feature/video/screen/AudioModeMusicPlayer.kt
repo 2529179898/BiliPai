@@ -422,12 +422,16 @@ internal fun AudioModeMusicPlayer(
         },
         onQueueItemSelected = { index ->
             if (playlist.isNotEmpty()) {
-                PlaylistManager.playAt(index)?.let {
-                    viewModel.loadVideo(
-                        bvid = it.bvid,
-                        cid = it.cid,
-                        autoPlay = resolveAudioModePageSwitchAutoPlay()
-                    )
+                PlaylistManager.playAt(index)?.let { item ->
+                    if (item.bvid == info.bvid && (item.cid == 0L || item.cid == info.cid)) {
+                        if (player != null && !player.isPlaying) player.handleAudioModePlayPause()
+                    } else {
+                        viewModel.loadVideo(
+                            bvid = item.bvid,
+                            cid = item.cid,
+                            autoPlay = resolveAudioModePageSwitchAutoPlay()
+                        )
+                    }
                 }
             } else if (info.pages.size > 1) {
                 info.pages.getOrNull(index)?.let { page ->
@@ -527,6 +531,7 @@ internal fun AudioModeMusicPlayer(
         AppModalBottomSheet(onDismissRequest = { showPageSelector = false }) {
             PagesSelector(
                 pages = info.pages,
+                coverUrl = info.pic,
                 currentPageIndex = info.pages.indexOfFirst { it.cid == info.cid }.coerceAtLeast(0),
                 forceGridMode = true,
                 onDismissRequest = { showPageSelector = false },

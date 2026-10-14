@@ -976,7 +976,7 @@ internal fun resolveSettingsSearchResults(
         SettingsSearchEntry(
             target = item.target,
             title = item.title,
-            subtitle = legacy?.subtitle.orEmpty(),
+            subtitle = settingSearchDescription(item.settingId).ifBlank { legacy?.subtitle.orEmpty() },
             section = item.page.title,
             aliases = legacy?.aliases.orEmpty() + item.aliases + when (item.settingId) {
                 "playback.click_to_play_enabled", "playback.auto_play_enabled",
@@ -1066,3 +1066,17 @@ private fun normalizeSettingsSearchText(value: String): String =
 
 private fun matchesSettingsSearchPinyin(value: String, query: String): Boolean =
     PinyinUtils.matches(text = value.replace(" ", ""), query = query)
+
+/** Show the matching state description instead of every alternate toggle state. */
+internal fun resolveSettingsSearchDescriptionSnippet(description: String, query: String): String {
+    val normalizedQuery = normalizeSettingsSearchText(query)
+    val paragraphs = description.split('；', '\n').filter(String::isNotBlank)
+    val matched = paragraphs.firstOrNull {
+        normalizedQuery.isNotBlank() && normalizeSettingsSearchText(it).contains(normalizedQuery)
+    } ?: paragraphs.firstOrNull().orEmpty()
+    if (matched.length <= 140) return matched
+    val queryIndex = matched.indexOf(query.trim(), ignoreCase = true).coerceAtLeast(0)
+    val start = (queryIndex - 40).coerceAtLeast(0)
+    val end = (start + 140).coerceAtMost(matched.length)
+    return (if (start > 0) "…" else "") + matched.substring(start, end) + if (end < matched.length) "…" else ""
+}

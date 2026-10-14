@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.dynamic.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -30,7 +32,7 @@ import kotlin.math.sin
 fun DynamicUserLiveBadge(
     modifier: Modifier = Modifier
 ) {
-    val color = MaterialTheme.colorScheme.primary
+    val color = AppContentColors.accent()
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(3.dp),

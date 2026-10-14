@@ -109,6 +109,7 @@ fun BoxScope.GestureLevelOverlayHost(
     percent: Float,
     modifier: Modifier = Modifier,
     glassBackdrop: Backdrop? = null,
+    compact: Boolean = false,
 ) {
     val kind = resolveGestureLevelKind(mode) ?: return
     val glass = glassBackdrop != null && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
@@ -196,7 +197,7 @@ fun BoxScope.GestureLevelOverlayHost(
         if (glass) {
             Row(
                 modifier = Modifier
-                    .width(360.dp)
+                    .width(if (compact) 240.dp else 360.dp)
                     .heightIn(min = 44.dp)
                     .playerControlGlassSurface(
                         glassBackdrop,
@@ -210,16 +211,17 @@ fun BoxScope.GestureLevelOverlayHost(
                         stateDescription = "$percentInt%"
                     },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 AppIcon(imageVector = icon, contentDescription = null, tint = glassContentColor, modifier = Modifier.size(20.dp))
                 GlassGestureLevelRail(
                     fillColor = spec.fillColor,
                     contentColor = glassContentColor,
                     progress = { percent.coerceIn(0f, 1f) },
+                    compact = compact,
                     modifier = Modifier
                         .weight(1f)
-                        .height(24.dp)
+                        .height(if (compact) 16.dp else 24.dp)
                         .semantics {
                             contentDescription = resolveGestureLevelLabel(kind)
                             stateDescription = "$percentInt%"
@@ -231,7 +233,7 @@ fun BoxScope.GestureLevelOverlayHost(
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.End,
                     maxLines = 1,
-                    modifier = Modifier.width(36.dp),
+                    modifier = Modifier.width(28.dp),
                 )
             }
         } else when (style) {
@@ -240,7 +242,8 @@ fun BoxScope.GestureLevelOverlayHost(
                 icon = icon,
                 progress = { percent.coerceIn(0f, 1f) },
                 percent = percentInt,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                compact = compact,
             )
             GestureLevelOverlayStyle.Ios -> IosGestureLevelCapsule(
                 spec = spec,
@@ -256,7 +259,7 @@ fun BoxScope.GestureLevelOverlayHost(
                     .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Top))
                     .padding(horizontal = 16.dp)
                     .padding(top = spec.topInsetDp.dp)
-                    .width(200.dp)
+                    .width(if (compact) 160.dp else 200.dp)
             )
         }
     }
@@ -268,18 +271,20 @@ private fun GlassGestureLevelRail(
     fillColor: Color,
     contentColor: Color,
     progress: () -> Float,
+    compact: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Canvas(modifier = modifier) {
+        val scale = if (compact) 2f / 3f else 1f
         // Keep rounded ends inside the rail even at 0/100%, with room for glass optics.
-        val edgeInset = 3.dp.toPx().coerceAtMost(minOf(size.width, size.height) / 2f)
-        val thumbWidth = 36.dp.toPx().coerceAtMost((size.width - edgeInset * 2f).coerceAtLeast(0f))
-        val thumbHeight = 24.dp.toPx().coerceAtMost((size.height - edgeInset * 2f).coerceAtLeast(0f))
+        val edgeInset = (3.dp * scale).toPx().coerceAtMost(minOf(size.width, size.height) / 2f)
+        val thumbWidth = (36.dp * scale).toPx().coerceAtMost((size.width - edgeInset * 2f).coerceAtLeast(0f))
+        val thumbHeight = (24.dp * scale).toPx().coerceAtMost((size.height - edgeInset * 2f).coerceAtLeast(0f))
         val centerY = size.height / 2f
         val start = Offset(edgeInset + thumbWidth / 2f, centerY)
         val end = Offset(size.width - edgeInset - thumbWidth / 2f, centerY)
         val thumbCenter = start + (end - start) * progress().coerceIn(0f, 1f)
-        val trackHeight = 4.dp.toPx()
+        val trackHeight = (4.dp * scale).toPx()
         drawLine(contentColor.copy(alpha = 0.28f), start, end, trackHeight, StrokeCap.Round)
         drawLine(fillColor, start, thumbCenter, trackHeight, StrokeCap.Round)
         drawRoundRect(
@@ -297,14 +302,15 @@ private fun Md3GestureLevelIndicator(
     icon: ImageVector,
     progress: () -> Float,
     percent: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     BoxWithConstraints(
         modifier = modifier.windowInsetsPadding(
             WindowInsets.statusBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Top)
         )
     ) {
-        val panelWidth = (maxWidth.value - 24f).coerceIn(0f, 200f).dp
+        val panelWidth = (maxWidth.value - 24f).coerceIn(0f, if (compact) 168f else 200f).dp
         val panelModifier = Modifier
             .align(Alignment.TopCenter)
             .padding(top = (maxHeight.value * 0.08f).coerceIn(16f, 48f).dp)
@@ -318,7 +324,7 @@ private fun Md3GestureLevelIndicator(
         Row(
             modifier = panelModifier.padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             AppIcon(imageVector = icon, contentDescription = null, tint = spec.iconTint, modifier = Modifier.size(20.dp))
             Md3GestureLevelRail(spec, progress, vertical = false, modifier = Modifier.weight(1f).height(4.dp))

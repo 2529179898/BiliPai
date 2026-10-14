@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.video.ui.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppText
 
 import androidx.compose.foundation.clickable
@@ -98,12 +100,12 @@ fun FavoriteFolderSheet(
                 AppText(
                     text = "可勾选一个或多个收藏夹，将视频收藏到自己的收藏夹",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
             }
-            
+
             if (isLoading) {
                 Box(
                     modifier = Modifier
@@ -120,7 +122,7 @@ fun FavoriteFolderSheet(
                         .height(200.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    AppText("暂无收藏夹", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AppText("暂无收藏夹", color = AppContentColors.secondaryText())
                 }
             } else {
                 LazyColumn(
@@ -149,7 +151,7 @@ fun FavoriteFolderSheet(
                 AppText(
                     text = "已选择 ${selectedFolderIds.size} 个收藏夹",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     modifier = Modifier.weight(1f)
                 )
                 AppButton(
@@ -160,7 +162,7 @@ fun FavoriteFolderSheet(
                         AppCircularProgressIndicator(
                             modifier = Modifier.size(14.dp),
                             strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            color = AppContentColors.onAccent()
                         )
                     } else {
                         AppText("保存")
@@ -213,7 +215,7 @@ fun CreateFolderDialog(
         },
         confirmButton = {
             AppButton(
-                onClick = { 
+                onClick = {
                     if (title.isNotBlank()) {
                         onConfirm(title, intro, isPrivate)
                     }
@@ -248,13 +250,13 @@ fun FavoriteFolderItem(
             AppText(
                 text = folder.title,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
             Spacer(modifier = Modifier.height(2.dp))
             AppText(
                 text = "${folder.media_count}个内容",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
         }
         AppCheckbox(

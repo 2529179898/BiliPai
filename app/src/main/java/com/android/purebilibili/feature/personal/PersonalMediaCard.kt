@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.personal
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -190,7 +192,7 @@ internal fun PersonalCardSelectMask(
                 AppIcon(
                     Icons.Rounded.Check,
                     contentDescription = "已选择",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = AppContentColors.accent(),
                     modifier = Modifier.size(20.dp),
                 )
             }

@@ -1,6 +1,8 @@
 // 文件路径: feature/bangumi/ui/player/BangumiPlayerContent.kt
 package com.android.purebilibili.feature.bangumi.ui.player
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.navigation.animatePagerSelection
 import com.android.purebilibili.core.ui.resolveFilledButtonContainerColor
 import com.android.purebilibili.core.ui.resolveFilledButtonContentColor
@@ -220,7 +222,7 @@ fun BangumiPlayerContent(
                                 AppText(
                                     text = subText,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = AppContentColors.secondaryText(),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -261,7 +263,7 @@ fun BangumiPlayerContent(
                                         AppText(
                                             text = it,
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = AppContentColors.secondaryText()
                                         )
                                     }
                                 }
@@ -276,27 +278,27 @@ fun BangumiPlayerContent(
                     fontWeight = FontWeight.Bold,
                     maxLines = 2
                 )
-                
+
                 if (detail.subtitle.isNotBlank()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     AppText(
                         text = detail.subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 val currentPlayingLabel = listOf(currentEpisode.title, currentEpisode.longTitle)
                     .filter { it.isNotBlank() }
                     .joinToString(" ")
                 AppText(
                     text = "正在播放：$currentPlayingLabel",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -311,15 +313,15 @@ fun BangumiPlayerContent(
                         text = accessLabel,
                         style = MaterialTheme.typography.bodySmall,
                         color = if (currentEpisode.playable || currentEpisode.episodeCanView) {
-                            MaterialTheme.colorScheme.primary
+                            AppContentColors.accent()
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            AppContentColors.secondaryText()
                         }
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 detail.stat?.let { stat ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val statText = if (isCourse) {
@@ -332,13 +334,13 @@ fun BangumiPlayerContent(
                         AppText(
                             text = statText,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }
             }
         }
-        
+
         // 追番/收藏操作
         item {
             Row(
@@ -367,7 +369,7 @@ fun BangumiPlayerContent(
                     colors = if (isFollowing) {
                         ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            contentColor = AppContentColors.secondaryText(),
                         )
                     } else {
                         ButtonDefaults.buttonColors(
@@ -405,7 +407,7 @@ fun BangumiPlayerContent(
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            contentColor = AppContentColors.secondaryText()
                         )
                     ) {
                         AppText("下载当前集")
@@ -415,7 +417,7 @@ fun BangumiPlayerContent(
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            contentColor = AppContentColors.secondaryText()
                         )
                     ) {
                         AppText("分享课程")
@@ -423,7 +425,7 @@ fun BangumiPlayerContent(
                 }
             }
         }
-        
+
         // 剧集选择
         if (!detail.episodes.isNullOrEmpty()) {
             item {
@@ -431,7 +433,7 @@ fun BangumiPlayerContent(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
                 )
-                
+
                 // 选集标题和快速跳转
                 Row(
                     modifier = Modifier
@@ -445,11 +447,11 @@ fun BangumiPlayerContent(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-                    
+
                     // 当集数超过 50 时显示快速跳转
                     if (detail.episodes.orEmpty().size > 50) {
                         var showJumpDialog by remember { mutableStateOf(false) }
-                        
+
                         AppSurface(
                             onClick = { showJumpDialog = true },
                             color = MaterialTheme.colorScheme.surfaceVariant,
@@ -459,10 +461,10 @@ fun BangumiPlayerContent(
                                 text = "跳转",
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                         }
-                        
+
                         // 快速跳转对话框
                         if (showJumpDialog) {
                             EpisodeJumpDialog(
@@ -480,14 +482,14 @@ fun BangumiPlayerContent(
                     }
                 }
             }
-            
+
             // 对于超长剧集，添加范围选择器
             if (detail.episodes.orEmpty().size > 50) {
                 item {
                     val episodesPerPage = 50
                     val totalPages = (detail.episodes.orEmpty().size + episodesPerPage - 1) / episodesPerPage
                     var selectedPage by remember { mutableIntStateOf(0) }
-                    
+
                     // 当前集所在的页
                     val currentEpisodeIndex = detail.episodes.orEmpty().indexOfFirst { it.id == currentEpisode.id }
                     LaunchedEffect(currentEpisodeIndex) {
@@ -495,7 +497,7 @@ fun BangumiPlayerContent(
                             selectedPage = currentEpisodeIndex / episodesPerPage
                         }
                     }
-                    
+
                     // 范围选择器
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 16.dp),
@@ -506,27 +508,27 @@ fun BangumiPlayerContent(
                             val start = page * episodesPerPage + 1
                             val end = minOf((page + 1) * episodesPerPage, detail.episodes.orEmpty().size)
                             val isCurrentPage = page == selectedPage
-                            
+
                             AppSurface(
                                 onClick = { selectedPage = page },
-                                color = if (isCurrentPage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                color = if (isCurrentPage) AppContentColors.accent() else MaterialTheme.colorScheme.surfaceVariant,
                                 shape = AppShapes.container(ContainerLevel.Dialog)
                             ) {
                                 AppText(
                                     text = "$start-$end",
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = if (isCurrentPage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = if (isCurrentPage) AppContentColors.onAccent() else AppContentColors.secondaryText()
                                 )
                             }
                         }
                     }
-                    
+
                     // 当前页的剧集
                     val pageStart = selectedPage * episodesPerPage
                     val pageEnd = minOf(pageStart + episodesPerPage, detail.episodes.orEmpty().size)
                     val pageEpisodes = detail.episodes.orEmpty().subList(pageStart, pageEnd)
-                    
+
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -560,7 +562,7 @@ fun BangumiPlayerContent(
                 }
             }
         }
-        
+
         // 简介
         if (detail.evaluate.isNotEmpty()) {
             item {
@@ -575,7 +577,7 @@ fun BangumiPlayerContent(
                     text = detail.evaluate,
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -646,7 +648,7 @@ fun BangumiPlayerContent(
                         ) {
                             AppText(
                                 text = "当前剧集暂无评论区",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                         }
                     }
@@ -801,7 +803,7 @@ fun EpisodeChipSelectable(
                         text = episode.title.ifEmpty { "第${episode.id}讲" },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) selectedColors.contentColor else MaterialTheme.colorScheme.onSurface,
+                        color = if (isSelected) selectedColors.contentColor else AppContentColors.primaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -841,7 +843,7 @@ fun EpisodeChipSelectable(
                         color = if (isSelected) {
                             selectedColors.contentColor.copy(alpha = 0.8f)
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            AppContentColors.secondaryText()
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -858,7 +860,7 @@ fun EpisodeChipSelectable(
             AppText(
                 text = episode.title.ifEmpty { "第${episode.id}话" },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                color = if (isSelected) selectedColors.contentColor else MaterialTheme.colorScheme.onSurface,
+                color = if (isSelected) selectedColors.contentColor else AppContentColors.primaryText(),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
             )
@@ -877,7 +879,7 @@ fun EpisodeJumpDialog(
 ) {
     var inputText by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    
+
     AppAlertDialog(
         onDismissRequest = onDismiss,
         title = { AppText("跳转到第几集") },
@@ -885,7 +887,7 @@ fun EpisodeJumpDialog(
             Column {
                 AppOutlinedTextField(
                     value = inputText,
-                    onValueChange = { 
+                    onValueChange = {
                         inputText = it.filter { char -> char.isDigit() }
                         errorMessage = null
                     },
@@ -897,7 +899,7 @@ fun EpisodeJumpDialog(
                 if (errorMessage != null) {
                     AppText(
                         text = errorMessage!!,
-                        color = MaterialTheme.colorScheme.error,
+                        color = AppContentColors.error(),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -959,7 +961,7 @@ fun BangumiErrorContent(
             AppText(
                 text = message,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             if (isVipRequired) {
@@ -967,7 +969,7 @@ fun BangumiErrorContent(
                 AppText(
                     text = "开通大会员即可观看",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = AppContentColors.accent()
                 )
             }
             // 登录按钮

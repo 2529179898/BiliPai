@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.motion.folmeExpandEnterTransition
 import com.android.purebilibili.core.ui.motion.folmeExpandExitTransition
 import androidx.compose.animation.AnimatedVisibility
@@ -200,7 +202,7 @@ private fun LandscapeDanmakuComposerContent(
                 AppIcon(
                     imageVector = Icons.Outlined.Close,
                     contentDescription = "关闭",
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.82f),
+                    tint = AppContentColors.primaryText().copy(alpha = 0.82f),
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -241,9 +243,9 @@ private fun LandscapeDanmakuComposerContent(
                     imageVector = Icons.Outlined.Palette,
                     contentDescription = "弹幕样式",
                     tint = if (showStylePanel) {
-                        MaterialTheme.colorScheme.primary
+                        AppContentColors.accent()
                     } else {
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f)
+                        AppContentColors.primaryText().copy(alpha = 0.86f)
                     }
                 )
             }
@@ -271,7 +273,7 @@ private fun LandscapeDanmakuComposerContent(
                     AppCircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = AppContentColors.onAccent()
                     )
                 } else {
                     AppText(
@@ -290,15 +292,15 @@ private fun LandscapeDanmakuComposerContent(
         ) {
             AppText(
                 text = if (showStylePanel) "样式仅作用于本条弹幕" else "回车或点发送即可提交",
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f),
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.labelSmall
             )
             AppText(
                 text = "${text.length}/100",
                 color = if (text.length > 90) {
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.92f)
+                    AppContentColors.error().copy(alpha = 0.92f)
                 } else {
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.62f)
+                    AppContentColors.primaryText().copy(alpha = 0.62f)
                 },
                 style = MaterialTheme.typography.labelSmall
             )
@@ -344,7 +346,7 @@ private fun LandscapeDanmakuComposerContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(AppShapes.container(ContainerLevel.Field))
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                            .background(AppContentColors.primaryText().copy(alpha = 0.08f))
                             .clickable {
                                 attentionCommandChecked = !attentionCommandChecked
                                 onDraftChange(text, attentionCommandChecked)
@@ -360,10 +362,10 @@ private fun LandscapeDanmakuComposerContent(
                             }
                         )
                         Column {
-                            AppText("内嵌关注按钮", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodySmall)
+                            AppText("内嵌关注按钮", color = AppContentColors.primaryText(), style = MaterialTheme.typography.bodySmall)
                             AppText(
                                 "发送视频内嵌关注按钮",
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f),
+                                color = AppContentColors.secondaryText(),
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
@@ -373,7 +375,7 @@ private fun LandscapeDanmakuComposerContent(
                         onClick = { showAdvancedOptions = true },
                         contentPadding = PaddingValues(horizontal = 0.dp)
                     ) {
-                        AppText("更多发送选项", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f), style = MaterialTheme.typography.labelMedium)
+                        AppText("更多发送选项", color = AppContentColors.secondaryText(), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

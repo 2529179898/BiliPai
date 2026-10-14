@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.dynamic.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -88,7 +90,7 @@ fun DynamicReactionSheet(item: DynamicItem, onDismiss: () -> Unit, onUserClick: 
                     AsyncImage(model = user.face, contentDescription = null, modifier = Modifier.size(44.dp).clip(CircleShape))
                     Column {
                         AppText(user.name, style = MaterialTheme.typography.bodyLarge)
-                        AppText(user.action, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        AppText(user.action, color = AppContentColors.secondaryText())
                     }
                 }
             }
@@ -96,12 +98,12 @@ fun DynamicReactionSheet(item: DynamicItem, onDismiss: () -> Unit, onUserClick: 
                 when {
                     loading -> AppText("正在加载…", modifier = Modifier.padding(16.dp))
                     error != null -> Column {
-                        AppText(error.orEmpty(), color = MaterialTheme.colorScheme.error)
+                        AppText(error.orEmpty(), color = AppContentColors.error())
                         AppTextButton(onClick = { scope.launch { load() } }) { AppText("重试") }
                     }
                     loaded && users.isEmpty() -> AppText("暂无赞和转发用户")
-                    hasMore -> AppText("继续滑动加载", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    else -> AppText("已显示全部", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    hasMore -> AppText("继续滑动加载", color = AppContentColors.secondaryText())
+                    else -> AppText("已显示全部", color = AppContentColors.secondaryText())
                 }
             }
         }

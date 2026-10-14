@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.search
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
@@ -198,7 +200,7 @@ fun TopicDetailScreen(
                             ) {
                                 AppText(
                                     text = state.error ?: "话题加载失败",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = AppContentColors.secondaryText()
                                 )
                             }
                         }
@@ -446,13 +448,13 @@ private fun TopicParticipateButton(
                 AppIcon(
                     painter = topicIcon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = AppContentColors.accent(),
                     modifier = Modifier.size(20.dp),
                 )
                 Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
                 AppText(
                     text = "参与话题",
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -498,13 +500,13 @@ internal fun TopicTagCapsule(
         modifier = modifier
             .size(size)
             .clip(AppShapes.container(ContainerLevel.Chip))
-            .background(MaterialTheme.colorScheme.primary),
+            .background(AppContentColors.accent()),
         contentAlignment = Alignment.Center,
     ) {
         AppIcon(
             painter = painterResource(R.drawable.ms_tag_24),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onPrimary,
+            tint = AppContentColors.onAccent(),
             modifier = Modifier.size(iconSize),
         )
     }
@@ -542,7 +544,7 @@ private fun TopicHeaderCard(
                     text = topic?.name.orEmpty().ifBlank { "话题" },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -551,7 +553,7 @@ private fun TopicHeaderCard(
                     AppText(
                         text = topicDescription,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -566,7 +568,7 @@ private fun TopicHeaderCard(
                         }
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+                    color = AppContentColors.secondaryText()
                 )
             }
             if (!creatorFace.isNullOrBlank()) {

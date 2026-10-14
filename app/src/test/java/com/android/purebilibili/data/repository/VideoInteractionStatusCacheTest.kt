@@ -5,6 +5,27 @@ import org.junit.Test
 
 class VideoInteractionStatusCacheTest {
     @Test
+    fun completedLikeOperationCanConfirmStatusOnReentry() {
+        val cache = VideoInteractionStatusCache()
+        val version = cache.beginOperation("a", "like:1")
+        assertTrue(cache.publish("a", "like:1", true, version))
+        cache.finishOperation("a", "like:1", version)
+        assertNull(cache.queryVersion("a", "like:1"))
+        assertEquals(true, cache.confirmedOperationValue("a", "like:1"))
+    }
+
+    @Test
+    fun pendingLikeCannotConfirmThePreviousCachedValue() {
+        val cache = VideoInteractionStatusCache()
+        val version = cache.beginOperation("a", "like:1")
+        assertTrue(cache.publish("a", "like:1", false, version))
+        cache.finishOperation("a", "like:1", version)
+        cache.beginOperation("a", "like:1")
+        assertNull(cache.confirmedOperationValue("a", "like:1"))
+        assertNull(cache.confirmedOperationValue("another-account", "like:1"))
+    }
+
+    @Test
     fun expiryInvalidatesValueAndInFlightVersion() {
         var now = 0L
         val cache = VideoInteractionStatusCache(ttlMs = 100L, nowMs = { now })
@@ -58,7 +79,7 @@ class VideoInteractionStatusCacheTest {
     @Test
     fun operationExpiryAndReleaseDoNotRestoreStaleVersion() {
         var now = 0L
-        val cache = VideoInteractionStatusCache(ttlMs = 100L, nowMs = { now })
+        val cache = VideoInteractionStatusCache(ttlMs = 100L, pendingTtlMs = 100L, nowMs = { now })
         val version = cache.beginOperation("a", "like:1")
         now = 100L
         assertFalse(cache.publish("a", "like:1", true, version))
@@ -113,7 +134,7 @@ class VideoInteractionStatusCacheTest {
     @Test
     fun valueExpiryDoesNotExpireNewerPendingOperation() {
         var now = 0L
-        val cache = VideoInteractionStatusCache(ttlMs = 100L, nowMs = { now })
+        val cache = VideoInteractionStatusCache(ttlMs = 100L, pendingTtlMs = 100L, nowMs = { now })
         val query = requireNotNull(cache.queryVersion("a", "like:1"))
         assertTrue(cache.publish("a", "like:1", false, query, query = true))
         now = 90L
@@ -132,7 +153,7 @@ class VideoInteractionStatusCacheTest {
     @Test
     fun pendingOperationHasItsOwnExpiryAndFailureDoesNotReviveValue() {
         var now = 0L
-        val cache = VideoInteractionStatusCache(ttlMs = 100L, nowMs = { now })
+        val cache = VideoInteractionStatusCache(ttlMs = 100L, pendingTtlMs = 100L, nowMs = { now })
         val initial = requireNotNull(cache.queryVersion("a", "follow:1"))
         assertTrue(cache.publish("a", "follow:1", true, initial, query = true))
         now = 90L

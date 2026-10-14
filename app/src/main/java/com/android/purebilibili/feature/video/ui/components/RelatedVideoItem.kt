@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 
 import android.widget.Toast
@@ -124,7 +126,7 @@ fun RelatedVideosHeader() {
             AppText(
                 text = "\u66f4\u591a\u63a8\u8350",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
         }
     }
@@ -362,7 +364,7 @@ fun RelatedVideoItem(
                     maxLines = videoCardTitleMaxLines(),
                     minLines = 1,
                     overflow = videoCardTitleOverflow(),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(AppSpacingTokens.ExtraSmall)) {
@@ -378,7 +380,7 @@ fun RelatedVideoItem(
                             AppText(
                                 text = publishTime,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = TextOverflow.Ellipsis,
@@ -399,8 +401,8 @@ fun RelatedVideoItem(
                                             fontWeight = FontWeight.Medium,
                                         ),
                                         color = when (followVisualPolicy.relatedBadgeTone) {
-                                            FollowBadgeTone.PRIMARY -> MaterialTheme.colorScheme.primary
-                                            null -> MaterialTheme.colorScheme.onSurfaceVariant
+                                            FollowBadgeTone.PRIMARY -> AppContentColors.accent()
+                                            null -> AppContentColors.secondaryText()
                                         },
                                     )
                                 }
@@ -429,9 +431,9 @@ fun RelatedVideoItem(
                                 null
                             },
                             nameStyle = MaterialTheme.typography.labelMedium,
-                            nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            badgeTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                            badgeBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                            nameColor = AppContentColors.secondaryText(),
+                            badgeTextColor = AppContentColors.secondaryText().copy(alpha = 0.85f),
+                            badgeBorderColor = AppContentColors.secondaryText().copy(alpha = 0.35f),
                             showUpBadge = showUpBadge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -463,7 +465,7 @@ fun RelatedVideoItem(
                         AppIcon(
                             imageVector = Icons.Filled.MoreVert,
                             contentDescription = "更多操作",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppContentColors.secondaryText(),
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -598,7 +600,7 @@ internal fun RelatedVideoGridRow(
                         }
                     }
                 ) {
-                    AppText("屏蔽", color = Color.Red)
+                    AppText("屏蔽", color = AppContentColors.error())
                 }
             },
             dismissButton = {

@@ -1,6 +1,8 @@
 // 文件路径: feature/plugin/BiliPaiFeedFilterPlugin.kt
 package com.android.purebilibili.feature.plugin
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -267,7 +269,7 @@ class BiliPaiFeedFilterPlugin : FeedPlugin {
             AppText(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
             Surface(
                 modifier = Modifier.fillMaxWidth().clip(AppShapes.container(ContainerLevel.Card)),
@@ -351,13 +353,13 @@ class BiliPaiFeedFilterPlugin : FeedPlugin {
             AppText(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
             if (subtitle.isNotEmpty()) {
                 AppText(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
             AppOutlinedTextField(

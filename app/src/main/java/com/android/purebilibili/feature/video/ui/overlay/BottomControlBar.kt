@@ -1,5 +1,7 @@
 // File: feature/video/ui/overlay/BottomControlBar.kt
 package com.android.purebilibili.feature.video.ui.overlay
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
@@ -95,7 +97,7 @@ import com.android.purebilibili.core.plugin.skin.parseUiSkinColor
 
 /**
  * Bottom Control Bar Component
- * 
+ *
  * Redesigned Control Bar:
  * [Play/Pause] [Time]  [Danmaku Switch] [       Input Bar       ] [Settings]  [Quality] [Speed] [Fullscreen]
  */
@@ -438,7 +440,7 @@ fun BottomControlBar(
     hasEpisodeEntry: Boolean = false,
     onToggleFullscreen: () -> Unit,
     viewportWidthDpOverride: Int? = null,
-    
+
     // Danmaku
     sponsorContributionAvailable: Boolean = false,
     sponsorContributionMarking: Boolean = false,
@@ -461,7 +463,7 @@ fun BottomControlBar(
     onVideoEnhancementAlgorithmChange: (VideoEnhancementAlgorithm) -> Unit = {},
     onAnime4kPresetChange: (Anime4KPreset) -> Unit = {},
     onFsrSharpnessChange: (Float) -> Unit = {},
-    
+
     // Quality
     currentAudioQualityLabel: String = "音质",
     isHiResAudioSelected: Boolean = false,
@@ -469,7 +471,7 @@ fun BottomControlBar(
     onAudioQualityClick: () -> Unit = {},
     currentQualityLabel: String = "",
     onQualityClick: () -> Unit = {},
-    
+
     // Features
     videoshotData: com.android.purebilibili.data.model.response.VideoshotData? = null,
     viewPoints: List<com.android.purebilibili.data.model.response.ViewPoint> = emptyList(),
@@ -477,7 +479,7 @@ fun BottomControlBar(
     pbpRidgeSamples: List<PbpRidgeSample> = emptyList(),
     currentChapter: String? = null,
     onChapterClick: () -> Unit = {},
-    
+
     // Portrait controls (kept for compatibility, though less used in new design)
     isVerticalVideo: Boolean = false,
     onPortraitFullscreen: () -> Unit = {},
@@ -742,6 +744,7 @@ fun BottomControlBar(
             progressPlacement = progressPlacement
         )
     }
+    val inlineTimeGlassDock = !isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val glassProgressDock = isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val expandInlineActionDock = !isFullscreen && uiLayoutWidthDp < 600 &&
         !showDanmakuInput && !showCompactDanmakuSend
@@ -863,12 +866,22 @@ fun BottomControlBar(
                 )
                 PlayerControlGlassDock(
                     enabled = true,
-                    modifier = if (isFullscreen) Modifier.height(48.dp) else Modifier,
+                    modifier = when {
+                        isFullscreen -> Modifier.height(48.dp)
+                        inlineTimeGlassDock -> Modifier.heightIn(min = 40.dp)
+                        else -> Modifier
+                    },
                 ) {
                     Row(
-                        modifier = if (isFullscreen) Modifier
-                            .fillMaxHeight()
-                            .padding(horizontal = 4.dp) else Modifier,
+                        modifier = when {
+                            isFullscreen -> Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 4.dp)
+                            inlineTimeGlassDock -> Modifier
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                .heightIn(min = 28.dp)
+                            else -> Modifier
+                        },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (isFullscreen && uiLayoutWidthDp >= 840 && showNextEpisodeButton) {
@@ -892,7 +905,9 @@ fun BottomControlBar(
                             fontSp = layoutPolicy.timeFontSp,
                         )
 
-                        Spacer(modifier = Modifier.width(layoutPolicy.afterTimeSpacingDp.dp))
+                        if (!inlineTimeGlassDock || showDanmakuToggle) {
+                            Spacer(modifier = Modifier.width(layoutPolicy.afterTimeSpacingDp.dp))
+                        }
 
                         if (showDanmakuToggle) {
                             val danmakuActiveColor = Color.White.copy(alpha = 0.96f)
@@ -903,11 +918,12 @@ fun BottomControlBar(
                                 activeTint = danmakuActiveColor,
                                 inactiveTint = danmakuInactiveColor,
                                 iconSize = layoutPolicy.danmakuIconSizeDp.dp,
+                                modifier = if (isFullscreen) Modifier.width(40.dp).height(48.dp) else Modifier,
                             )
 
                             AppIconButton(
                                 onClick = onDanmakuSettingsClick,
-                                modifier = if (isFullscreen) Modifier.size(48.dp) else Modifier,
+                                modifier = if (isFullscreen) Modifier.width(40.dp).height(48.dp) else Modifier,
                             ) {
                                 com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSettingsIcon(
                                     tint = Color.White.copy(alpha = 0.9f),
@@ -1102,7 +1118,7 @@ fun BottomControlBar(
                         // Speed
                         AppText(
                             text = if (currentSpeed == 1.0f) "倍速" else "${currentSpeed}x",
-                            color = if (currentSpeed == 1.0f) Color.White else MaterialTheme.colorScheme.primary,
+                            color = if (currentSpeed == 1.0f) Color.White else AppContentColors.accent(),
                             fontSize = layoutPolicy.actionTextFontSp.sp,
                             lineHeight = (layoutPolicy.actionTextFontSp + 2).sp,
                             fontWeight = FontWeight.Medium,
@@ -1133,7 +1149,7 @@ fun BottomControlBar(
                         if (showSubtitleButton) {
                             AppText(
                                 text = "字幕",
-                                color = if (subtitleEnabled) MaterialTheme.colorScheme.primary else Color.White,
+                                color = if (subtitleEnabled) AppContentColors.accent() else Color.White,
                                 fontSize = layoutPolicy.actionTextFontSp.sp,
                                 lineHeight = (layoutPolicy.actionTextFontSp + 2).sp,
                                 fontWeight = FontWeight.Medium,
@@ -1292,7 +1308,7 @@ fun BottomControlBar(
                                 content = {
                                     AppText(
                                         text = "更多",
-                                        color = if (showMoreActionsPanel) MaterialTheme.colorScheme.primary else Color.White,
+                                        color = if (showMoreActionsPanel) AppContentColors.accent() else Color.White,
                                         fontSize = layoutPolicy.actionTextFontSp.sp,
                                         lineHeight = (layoutPolicy.actionTextFontSp + 2).sp,
                                         fontWeight = FontWeight.SemiBold,
@@ -1550,7 +1566,7 @@ private fun FullscreenDockTextAction(
 ) {
     AppText(
         text = text,
-        color = if (selected) MaterialTheme.colorScheme.primary else Color.White,
+        color = if (selected) AppContentColors.accent() else Color.White,
         fontSize = fontSp.sp,
         lineHeight = (fontSp + 2).sp,
         fontWeight = FontWeight.Medium,
@@ -1618,7 +1634,7 @@ private fun SubtitlePanelOption(
         text = label,
         color = when {
             !enabled -> Color.White.copy(alpha = 0.42f)
-            selected -> MaterialTheme.colorScheme.primary
+            selected -> AppContentColors.accent()
             else -> Color.White
         },
         textAlign = TextAlign.Center,
@@ -1641,7 +1657,7 @@ private fun MoreActionTextButton(
 ) {
     AppText(
         text = label,
-        color = if (highlighted) MaterialTheme.colorScheme.primary else Color.White,
+        color = if (highlighted) AppContentColors.accent() else Color.White,
         textAlign = TextAlign.Center,
         style = MaterialTheme.typography.bodyMedium,
         fontWeight = FontWeight.SemiBold,
@@ -1809,7 +1825,7 @@ private fun VideoEnhancementChoice(
             .clip(AppShapes.container(ContainerLevel.Field))
             .background(
                 if (selected) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                    AppContentColors.accent().copy(alpha = 0.22f)
                 } else {
                     Color.White.copy(alpha = 0.06f)
                 }
@@ -1820,7 +1836,7 @@ private fun VideoEnhancementChoice(
     ) {
         AppText(
             text = label,
-            color = if (selected) MaterialTheme.colorScheme.primary else Color.White,
+            color = if (selected) AppContentColors.accent() else Color.White,
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
@@ -1876,7 +1892,7 @@ fun VideoProgressBar(
     val progressColors = progressSkin?.manifest?.colors
     val primaryColor = parseUiSkinColor(
         progressColors?.playerProgressActiveTint,
-        MaterialTheme.colorScheme.primary,
+        AppContentColors.accent(),
     )
     val bufferedTrackColor = if (neutralGlassTrack) Color.White.copy(alpha = 0.34f) else parseUiSkinColor(
         progressColors?.playerProgressBufferedTint,

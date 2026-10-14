@@ -54,6 +54,20 @@ fun resolveVideoActionCountTint(
     inactiveColor: Color
 ): Color = if (isActive) activeColor else inactiveColor
 
+internal fun canSubmitVideoFollowAction(
+    statusKnown: Boolean,
+    isFollowing: Boolean,
+    isSubmitting: Boolean,
+): Boolean = statusKnown && !isFollowing && !isSubmitting
+
+internal fun canSubmitVideoTripleAction(
+    statusKnown: Boolean,
+    isLiked: Boolean,
+    isCoined: Boolean,
+    isFavorited: Boolean,
+    isSubmitting: Boolean,
+): Boolean = statusKnown && !isSubmitting && !(isLiked && isCoined && isFavorited)
+
 fun resolveVideoFeedbackPlacement(
     isFullscreen: Boolean,
     isLandscape: Boolean,

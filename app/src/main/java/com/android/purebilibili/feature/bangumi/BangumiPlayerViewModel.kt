@@ -37,6 +37,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -97,6 +99,7 @@ sealed class BangumiPlayerState {
         val isLoggedIn: Boolean = false,
         val isVip: Boolean = false,
         val isLiked: Boolean = false,
+        val likeStatusKnown: Boolean = false,
         val coinCount: Int = 0
     ) : BangumiPlayerState()
     
@@ -153,6 +156,7 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
     private val interactionUseCase = VideoInteractionUseCase()
     
     private val _uiState = MutableStateFlow<BangumiPlayerState>(BangumiPlayerState.Loading)
+    private val likeToggleMutex = Mutex()
     val uiState = _uiState.asStateFlow()
     
     //  Toast 事件通道
@@ -1267,23 +1271,43 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
         }
 
         viewModelScope.launch {
-            val result = interactionUseCase.toggleLike(
-                aid = aid,
-                currentlyLiked = currentState.isLiked,
-                bvid = currentState.currentEpisode.bvid
-            )
-            result.onSuccess { liked ->
-                if (!acceptsFollowSession(session)) return@onSuccess
-                val latestState = _uiState.value as? BangumiPlayerState.Success ?: currentState
-                if (latestState.currentEpisode.id != currentState.currentEpisode.id) return@onSuccess
-                _uiState.value = updateBangumiSuccessInteractionState(
-                    state = latestState,
-                    isLiked = liked,
-                    coinCount = latestState.coinCount
+            likeToggleMutex.withLock {
+                fun isCurrent(): Boolean = acceptsFollowSession(session) &&
+                    (_uiState.value as? BangumiPlayerState.Success)?.currentEpisode?.id == currentState.currentEpisode.id
+                if (!isCurrent()) return@withLock
+                val before = _uiState.value as? BangumiPlayerState.Success ?: return@withLock
+                val confirmedLike = if (before.likeStatusKnown) before.isLiked else {
+                    com.android.purebilibili.feature.video.viewmodel.queryVideoInteractionStatusWithRetry(
+                        isCurrent = { isCurrent() },
+                        query = { ActionRepository.queryLikeStatus(aid) },
+                    ).getOrElse {
+                        if (it is kotlinx.coroutines.CancellationException) throw it
+                        if (isCurrent()) _toastEvent.trySend("点赞状态获取失败，请稍后重试")
+                        return@withLock
+                    }
+                }
+                if (!isCurrent()) return@withLock
+                val confirmed = _uiState.value as? BangumiPlayerState.Success ?: return@withLock
+                _uiState.value = confirmed.copy(isLiked = confirmedLike, likeStatusKnown = true)
+                val result = interactionUseCase.toggleLike(
+                    aid = aid,
+                    currentlyLiked = confirmedLike,
+                    bvid = currentState.currentEpisode.bvid
                 )
-                _toastEvent.trySend(if (liked) "已点赞" else "已取消点赞")
-            }.onFailure { error ->
-                _toastEvent.trySend(error.message ?: "点赞失败")
+                result.onSuccess { liked ->
+                    if (!acceptsFollowSession(session)) return@onSuccess
+                    val latestState = _uiState.value as? BangumiPlayerState.Success ?: currentState
+                    if (latestState.currentEpisode.id != currentState.currentEpisode.id) return@onSuccess
+                    _uiState.value = updateBangumiSuccessInteractionState(
+                        state = latestState,
+                        isLiked = liked,
+                        coinCount = latestState.coinCount
+                    ).copy(likeStatusKnown = true)
+                    _toastEvent.trySend(if (liked) "已点赞" else "已取消点赞")
+                }.onFailure { error ->
+                    if (error is kotlinx.coroutines.CancellationException) throw error
+                    _toastEvent.trySend(error.message ?: "点赞失败")
+                }
             }
         }
     }
@@ -1530,9 +1554,8 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
         if (episodeAid <= 0L) return
 
         viewModelScope.launch {
-            val isLiked = runCatching {
-                ActionRepository.checkLikeStatus(episodeAid)
-            }.getOrDefault(false)
+            val likeResult = ActionRepository.queryLikeStatus(episodeAid)
+            (likeResult.exceptionOrNull() as? kotlinx.coroutines.CancellationException)?.let { throw it }
             val coinCount = runCatching {
                 ActionRepository.checkCoinStatus(episodeAid)
             }.getOrDefault(0)
@@ -1545,9 +1568,11 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
 
             _uiState.value = updateBangumiSuccessInteractionState(
                 state = currentState,
-                isLiked = isLiked,
+                isLiked = if (likeResult.isSuccess) {
+                    ActionRepository.cachedLikeStatus(episodeAid) ?: likeResult.getOrThrow()
+                } else currentState.isLiked,
                 coinCount = coinCount
-            )
+            ).copy(likeStatusKnown = currentState.likeStatusKnown || likeResult.isSuccess)
         }
     }
 

@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.list
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -1552,7 +1554,7 @@ fun CommonListScreen(
                     ) {
                         AppText(
                             "删除",
-                            color = MaterialTheme.colorScheme.error,
+                            color = AppContentColors.error(),
                         )
                     }
                 }
@@ -1580,7 +1582,7 @@ fun CommonListScreen(
                     ) {
                         AppText(
                             "移除",
-                            color = MaterialTheme.colorScheme.error,
+                            color = AppContentColors.error(),
                         )
                     }
                 }
@@ -1626,7 +1628,7 @@ fun CommonListScreen(
                     ) {
                         AppText(
                             "移除",
-                            color = MaterialTheme.colorScheme.error,
+                            color = AppContentColors.error(),
                         )
                     }
                 }
@@ -2570,9 +2572,9 @@ fun CommonListScreen(
                                         text = folder.title,
                                         modifier = Modifier.padding(AppSpacingTokens.Medium),
                                         color = if (selectedFavoriteDetailTransferFolderId == folder.id) {
-                                            MaterialTheme.colorScheme.primary
+                                            AppContentColors.accent()
                                         } else {
-                                            MaterialTheme.colorScheme.onSurface
+                                            AppContentColors.primaryText()
                                         },
                                     )
                                 }
@@ -2717,7 +2719,7 @@ private fun CommonListContent(
             headerContent?.invoke()
             AppText(
                 text = error,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.bodyMedium
             )
             if (onRetry != null) {
@@ -3054,7 +3056,7 @@ private fun CommonListContent(
                                             .border(
                                                 width = if (isSelected) AppSpacingTokens.Micro else AppSpacingTokens.Micro / 2,
                                                 color = if (isSelected) {
-                                                    MaterialTheme.colorScheme.primary
+                                                    AppContentColors.accent()
                                                 } else {
                                                     MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)
                                                 },
@@ -3062,7 +3064,7 @@ private fun CommonListContent(
                                             )
                                             .background(
                                                 if (isSelected) {
-                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                                                    AppContentColors.accent().copy(alpha = 0.10f)
                                                 } else {
                                                     Color.Transparent
                                                 },
@@ -3073,9 +3075,9 @@ private fun CommonListContent(
                                         imageVector = if (isSelected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
                                         contentDescription = if (isSelected) "已选择" else "未选择",
                                         tint = if (isSelected) {
-                                            MaterialTheme.colorScheme.primary
+                                            AppContentColors.accent()
                                         } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                                            AppContentColors.secondaryText().copy(alpha = 0.75f)
                                         },
                                         modifier = Modifier
                                             .align(Alignment.TopEnd)
@@ -3206,11 +3208,11 @@ private fun HistoryArticleCard(
             ) {
                 AppSurface(
                     shape = AppShapes.container(ContainerLevel.Pill),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    color = AppContentColors.accent().copy(alpha = 0.12f)
                 ) {
                     AppText(
                         text = "专栏",
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppContentColors.accent(),
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(horizontal = AppSpacingTokens.Small + AppSpacingTokens.Micro, vertical = AppSpacingTokens.ExtraSmall)
                     )
@@ -3225,7 +3227,7 @@ private fun HistoryArticleCard(
                 AppText(
                     text = article.owner.name.ifBlank { "未知作者" },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -3341,14 +3343,14 @@ private fun FavoriteSubscribedFolderRow(
                 AppText(
                     text = folder.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 1
                 )
                 Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
                 AppText(
                     text = "${folder.media_count} 个内容",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
             Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
@@ -3385,7 +3387,7 @@ private fun FavoriteSubscribedFolderPreview(
             AppIcon(
                 imageVector = rememberAppFolderIcon(),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+                tint = AppContentColors.accent()
             )
         }
     }
@@ -3457,14 +3459,14 @@ private fun FavoriteCollectionRow(
             AppIcon(
                 imageVector = rememberAppFolderIcon(),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+                tint = AppContentColors.accent()
             )
             Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))
             Column(modifier = Modifier.weight(1f)) {
                 AppText(
                     text = item.title,
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 1
                 )
                 if (subtitle.isNotBlank()) {
@@ -3472,7 +3474,7 @@ private fun FavoriteCollectionRow(
                     AppText(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 2
                     )
                 }

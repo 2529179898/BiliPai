@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.download
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
@@ -150,7 +152,7 @@ fun DownloadListScreen(
                             AppText(
                                 text = if (hasActive) "暂停全部" else "继续全部",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary
+                                color = AppContentColors.accent()
                             )
                         }
                     }
@@ -287,19 +289,19 @@ fun DownloadListScreen(
                                 taskList.sumOf { it.fileSize.coerceAtLeast(0L) }
                             ),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            color = AppContentColors.secondaryText()
                         )
                         Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
                         AppText(
                             text = "存储位置",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            color = AppContentColors.secondaryText()
                         )
                         Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
                         AppText(
                             text = currentDir,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            color = AppContentColors.secondaryText(),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
                     }
@@ -327,7 +329,7 @@ fun DownloadListScreen(
                         dissolvingTaskIds = dissolvingTaskIds + taskToDelete.id
                     }, modifier = Modifier.appElasticPress()
                 ) {
-                    AppText("删除", color = MaterialTheme.colorScheme.error)
+                    AppText("删除", color = AppContentColors.error())
                 }
             },
             dismissButton = {
@@ -425,7 +427,7 @@ private fun DownloadTaskItem(
                             AppText("已暂停", color = Color.White, style = MaterialTheme.typography.labelMedium)
                         }
                         DownloadStatus.FAILED -> {
-                            AppText("失败", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                            AppText("失败", color = AppContentColors.error(), style = MaterialTheme.typography.labelMedium)
                         }
                         else -> {}
                     }
@@ -457,7 +459,7 @@ private fun DownloadTaskItem(
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
 
             Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
@@ -466,7 +468,7 @@ private fun DownloadTaskItem(
                 AppText(
                     text = secondaryText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -476,7 +478,7 @@ private fun DownloadTaskItem(
             AppText(
                 text = task.ownerName,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -514,8 +516,8 @@ private fun DownloadTaskItem(
                     style = MaterialTheme.typography.labelSmall,
                     color = when (task.status) {
                         DownloadStatus.COMPLETED -> MaterialTheme.colorScheme.secondary
-                        DownloadStatus.FAILED -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.primary
+                        DownloadStatus.FAILED -> AppContentColors.error()
+                        else -> AppContentColors.accent()
                     }
                 )
             }
@@ -541,7 +543,7 @@ private fun DownloadTaskItem(
                         "本地缓存文件不可用"
                     },
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -558,7 +560,7 @@ private fun DownloadTaskItem(
                         AppIcon(
                             imageVector = if (task.isDownloading) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                             contentDescription = if (task.isDownloading) "暂停" else "继续",
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = AppContentColors.accent()
                         )
                     }
                 }
@@ -568,7 +570,7 @@ private fun DownloadTaskItem(
                     AppIcon(
                         imageVector = Icons.Outlined.Delete,
                         contentDescription = "删除",
-                        tint = MaterialTheme.colorScheme.error
+                        tint = AppContentColors.error()
                     )
                 }
             }

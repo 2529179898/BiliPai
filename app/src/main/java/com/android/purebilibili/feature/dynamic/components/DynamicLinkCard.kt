@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.dynamic.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.AppSpacingTokens
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.AppChromeSizeTokens
@@ -82,7 +84,7 @@ internal fun DynamicLinkCard(
                         AppText(
                             text = card.label,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = AppContentColors.accent(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -91,7 +93,7 @@ internal fun DynamicLinkCard(
                         text = card.title.ifBlank { resolveLinkCardFallbackTitle(card.type) },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -99,7 +101,7 @@ internal fun DynamicLinkCard(
                         AppText(
                             text = card.description,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -111,8 +113,8 @@ internal fun DynamicLinkCard(
                     AppText(
                         text = card.badgeText,
                         style = MaterialTheme.typography.labelMedium,
-                        color = if (actionEnabled) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (actionEnabled) AppContentColors.accent()
+                        else AppContentColors.secondaryText(),
                         maxLines = 1,
                         modifier = Modifier
                             .then(
@@ -168,7 +170,7 @@ private fun DynamicLinkCardMatchRow(matchUi: DynamicMatchUi) {
                 text = left.score.ifBlank { matchUi.centerLabel }.ifBlank { "VS" },
                 fontSize = MaterialTheme.typography.titleSmall.fontSize,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary
+                color = AppContentColors.accent()
             )
             AppText(
                 text = right.name,
@@ -192,7 +194,7 @@ private fun DynamicLinkCardMatchRow(matchUi: DynamicMatchUi) {
             AppText(
                 text = matchUi.centerLabel,
                 fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -233,7 +235,7 @@ private fun LinkCardCover(card: OpusLinkCard) {
                 imageVector = rememberAppDynamicIcon(),
                 contentDescription = null,
                 modifier = Modifier.size(AppSpacingTokens.ExtraLarge),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = AppContentColors.secondaryText()
             )
         }
     }

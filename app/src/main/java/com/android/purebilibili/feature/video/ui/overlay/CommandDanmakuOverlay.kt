@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -37,6 +39,7 @@ import androidx.compose.material.icons.rounded.ThumbUp
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppIconButton
 import com.android.purebilibili.core.ui.components.AppIconButtonDefaults
+import com.android.purebilibili.core.ui.components.AppCircularProgressIndicator
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import com.android.purebilibili.core.ui.components.AppSurface
@@ -67,6 +70,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -93,6 +97,9 @@ import androidx.compose.ui.unit.Density
 import com.android.purebilibili.feature.video.danmaku.DanmakuViewport
 import com.android.purebilibili.data.model.response.DynamicVoteInfo
 import com.android.purebilibili.data.repository.DynamicVoteRepository
+import com.android.purebilibili.feature.video.ui.feedback.canSubmitVideoFollowAction
+import com.android.purebilibili.feature.video.ui.feedback.canSubmitVideoTripleAction
+import com.android.purebilibili.feature.video.ui.feedback.resolveVideoActionTint
 
 @Composable
 internal fun CommandDanmakuOverlay(
@@ -109,6 +116,11 @@ internal fun CommandDanmakuOverlay(
     isFollowing: Boolean = false,
     followStatusKnown: Boolean,
     likeStatusKnown: Boolean,
+    isLiked: Boolean,
+    isCoined: Boolean,
+    isFavorited: Boolean,
+    isFollowSubmitting: Boolean,
+    isTripleSubmitting: Boolean,
     modifier: Modifier = Modifier,
     renderingPaused: Boolean = false,
 ) {
@@ -142,6 +154,11 @@ internal fun CommandDanmakuOverlay(
                     isFollowing = isFollowing,
                     followStatusKnown = followStatusKnown,
                     likeStatusKnown = likeStatusKnown,
+                    isLiked = isLiked,
+                    isCoined = isCoined,
+                    isFavorited = isFavorited,
+                    isFollowSubmitting = isFollowSubmitting,
+                    isTripleSubmitting = isTripleSubmitting,
                     onDismiss = { state.dismiss(item.id) }
                 )
             }
@@ -163,6 +180,11 @@ private fun CommandDanmakuCard(
     isFollowing: Boolean,
     followStatusKnown: Boolean,
     likeStatusKnown: Boolean,
+    isLiked: Boolean,
+    isCoined: Boolean,
+    isFavorited: Boolean,
+    isFollowSubmitting: Boolean,
+    isTripleSubmitting: Boolean,
     onDismiss: () -> Unit
 ) {
     val isVote = item.type == CommandDanmakuType.VOTE && item.voteKind != VoteDanmakuKind.GRADE
@@ -276,6 +298,11 @@ private fun CommandDanmakuCard(
                     isFollowing = isFollowing,
                     followStatusKnown = followStatusKnown,
                     likeStatusKnown = likeStatusKnown,
+                    isLiked = isLiked,
+                    isCoined = isCoined,
+                    isFavorited = isFavorited,
+                    isFollowSubmitting = isFollowSubmitting,
+                    isTripleSubmitting = isTripleSubmitting,
                     onFollowClick = onFollowClick,
                     onTripleClick = onTripleClick,
                     onDismiss = onDismiss,
@@ -362,11 +389,20 @@ private fun AttentionCommandCard(
     isFollowing: Boolean,
     followStatusKnown: Boolean,
     likeStatusKnown: Boolean,
+    isLiked: Boolean,
+    isCoined: Boolean,
+    isFavorited: Boolean,
+    isFollowSubmitting: Boolean,
+    isTripleSubmitting: Boolean,
     onFollowClick: () -> Unit,
     onTripleClick: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val showTriple = item.attentionType == 1 || item.attentionType == 2
+    val followEnabled = canSubmitVideoFollowAction(followStatusKnown, isFollowing, isFollowSubmitting)
+    val tripleEnabled = canSubmitVideoTripleAction(
+        likeStatusKnown, isLiked, isCoined, isFavorited, isTripleSubmitting
+    )
 
     fun dispatchAction(target: AttentionCommandAction) {
         val action = resolveAttentionCommandClickAction(
@@ -374,8 +410,8 @@ private fun AttentionCommandCard(
             action = target,
             isFollowing = isFollowing,
         )
-        if (action.shouldFollow && followStatusKnown) onFollowClick()
-        if (action.shouldTriple && likeStatusKnown) onTripleClick()
+        if (action.shouldFollow && followEnabled) onFollowClick()
+        if (action.shouldTriple && tripleEnabled) onTripleClick()
     }
 
     AppSurface(
@@ -393,7 +429,12 @@ private fun AttentionCommandCard(
         ) {
             if (showTriple) {
                 AttentionCommandTripleButton(
-                    enabled = likeStatusKnown,
+                    enabled = tripleEnabled,
+                    statusKnown = likeStatusKnown,
+                    isLiked = isLiked,
+                    isCoined = isCoined,
+                    isFavorited = isFavorited,
+                    isSubmitting = isTripleSubmitting,
                     onClick = { dispatchAction(AttentionCommandAction.TRIPLE) },
                 )
             } else {
@@ -417,6 +458,8 @@ private fun AttentionCommandCard(
                 AttentionCommandFollowButton(
                     isFollowing = isFollowing,
                     followStatusKnown = followStatusKnown,
+                    enabled = followEnabled,
+                    isSubmitting = isFollowSubmitting,
                     onClick = { dispatchAction(AttentionCommandAction.FOLLOW) },
                 )
             }
@@ -453,7 +496,15 @@ private fun CommandDanmakuCloseButton(
 }
 
 @Composable
-private fun AttentionCommandTripleButton(enabled: Boolean, onClick: () -> Unit) {
+private fun AttentionCommandTripleButton(
+    enabled: Boolean,
+    statusKnown: Boolean,
+    isLiked: Boolean,
+    isCoined: Boolean,
+    isFavorited: Boolean,
+    isSubmitting: Boolean,
+    onClick: () -> Unit,
+) {
     var pulseKey by remember(enabled) { mutableIntStateOf(0) }
     var pressed by remember(enabled) { mutableStateOf(false) }
     val scale = animateFloatAsState(
@@ -468,6 +519,22 @@ private fun AttentionCommandTripleButton(enabled: Boolean, onClick: () -> Unit) 
             pressed = false
         }
     }
+    val activeColor = AppContentColors.accent()
+    val inactiveColor = if (statusKnown) Color.White else Color.White.copy(alpha = 0.38f)
+    val completed = statusKnown && isLiked && isCoined && isFavorited
+    val interactionDescription = remember(statusKnown, isLiked, isCoined, isFavorited, isSubmitting) {
+        when {
+            isSubmitting -> "三连提交中"
+            !statusKnown -> "三连状态尚未确认"
+            completed -> "已完成三连"
+            else -> {
+                val like = if (isLiked) "已点赞" else "未点赞"
+                val coin = if (isCoined) "已投币" else "未投币"
+                val favorite = if (isFavorited) "已收藏" else "未收藏"
+                "$like，$coin，$favorite"
+            }
+        }
+    }
     Box(
         modifier = Modifier
             .width((ATTENTION_ICON_SLOT_DP * 3).dp)
@@ -476,12 +543,44 @@ private fun AttentionCommandTripleButton(enabled: Boolean, onClick: () -> Unit) 
                 pulseKey += 1
                 onClick()
             }
-            .semantics { contentDescription = "一键三连：点赞、投币、收藏" },
+            .semantics {
+                contentDescription = "一键三连：点赞、投币、收藏"
+                stateDescription = interactionDescription
+                selected = completed
+            },
     ) {
         Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            AttentionCommandIconSlot(Icons.Rounded.ThumbUp, 24.dp, scale)
-            AttentionCommandIconSlot(attentionFilledCoinIcon(), 24.dp, scale, Color.Unspecified)
-            AttentionCommandIconSlot(Icons.Rounded.Star, 30.dp, scale)
+            AttentionCommandIconSlot(
+                Icons.Rounded.ThumbUp, 24.dp, scale,
+                resolveVideoActionTint(statusKnown && isLiked, activeColor, inactiveColor),
+            )
+            AttentionCommandIconSlot(
+                attentionFilledCoinIcon(), 24.dp, scale,
+                Color.Unspecified,
+                backgroundColor = if (statusKnown && isCoined) {
+                    activeColor.copy(alpha = 0.22f)
+                } else Color.Unspecified,
+                contentAlpha = if (statusKnown) 1f else 0.38f,
+            )
+            AttentionCommandIconSlot(
+                Icons.Rounded.Star, 30.dp, scale,
+                resolveVideoActionTint(statusKnown && isFavorited, activeColor, inactiveColor),
+            )
+        }
+        if (isSubmitting) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(24.dp)
+                    .background(Color.Black.copy(alpha = 0.8f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                AppCircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp,
+                )
+            }
         }
     }
 }
@@ -490,12 +589,29 @@ private fun AttentionCommandTripleButton(enabled: Boolean, onClick: () -> Unit) 
 private fun AttentionCommandFollowButton(
     isFollowing: Boolean,
     followStatusKnown: Boolean,
+    enabled: Boolean,
+    isSubmitting: Boolean,
     onClick: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val actionable = followStatusKnown && !isFollowing
-    val containerColor = if (actionable) scheme.primary else scheme.surfaceContainerHigh
-    val contentColor = if (actionable) scheme.onPrimary else scheme.onSurface
+    val actionable = enabled
+    val followed = followStatusKnown && isFollowing
+    val containerColor = when {
+        actionable -> scheme.primary
+        followed -> scheme.primaryContainer
+        else -> scheme.surfaceContainerHigh
+    }
+    val contentColor = when {
+        actionable -> scheme.onPrimary
+        followed -> scheme.onPrimaryContainer
+        else -> scheme.onSurface
+    }
+    val label = when {
+        isSubmitting -> "处理中"
+        !followStatusKnown -> "—"
+        isFollowing -> "已关注"
+        else -> "关注"
+    }
     val baseTextStyle = MaterialTheme.typography.labelMedium
     val textStyle = remember(baseTextStyle) {
         baseTextStyle.copy(fontSize = 12.sp, lineHeight = 16.sp)
@@ -506,12 +622,16 @@ private fun AttentionCommandFollowButton(
             .heightIn(min = 24.dp)
             .clip(RoundedCornerShape(4.dp))
             .background(containerColor)
-            .clickable(enabled = followStatusKnown && !isFollowing, role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics {
+                selected = followed
+                stateDescription = if (!followStatusKnown && !isSubmitting) "关注状态尚未确认" else label
+            }
             .padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (followStatusKnown && !isFollowing) {
+        if (actionable) {
             AppIcon(
                 Icons.Rounded.Add,
                 contentDescription = null,
@@ -520,7 +640,7 @@ private fun AttentionCommandFollowButton(
             )
         }
         AppText(
-            text = if (!followStatusKnown) "—" else if (isFollowing) "已关注" else "关注",
+            text = label,
             style = textStyle,
             fontWeight = FontWeight.Medium,
             color = contentColor,
@@ -536,9 +656,16 @@ private fun AttentionCommandIconSlot(
     iconSize: Dp,
     scale: State<Float>,
     tint: Color = Color.White,
+    backgroundColor: Color = Color.Unspecified,
+    contentAlpha: Float = 1f,
 ) {
     Box(
-        modifier = Modifier.size(width = ATTENTION_ICON_SLOT_DP.dp, height = 28.dp),
+        modifier = Modifier
+            .size(width = ATTENTION_ICON_SLOT_DP.dp, height = 28.dp)
+            .then(
+                if (backgroundColor != Color.Unspecified) Modifier.background(backgroundColor, CircleShape)
+                else Modifier
+            ),
         contentAlignment = Alignment.Center,
     ) {
         AppIcon(
@@ -549,6 +676,7 @@ private fun AttentionCommandIconSlot(
                 val currentScale = scale.value
                 scaleX = currentScale
                 scaleY = currentScale
+                alpha = contentAlpha
             },
         )
     }

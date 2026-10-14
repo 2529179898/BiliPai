@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.components.cards
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 
 import android.os.Build
 import coil3.request.crossfade
@@ -299,7 +301,7 @@ private fun VideoCardOwnerMetadata(
                         AppText(
                             text = "已关注",
                             style = contentTypography.coverBadge,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = AppContentColors.accent(),
                             modifier = Modifier.padding(
                                 horizontal = AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro,
                                 vertical = AppSpacingTokens.Micro
@@ -310,7 +312,7 @@ private fun VideoCardOwnerMetadata(
                     AppText(
                         text = "已关注",
                         style = contentTypography.coverBadge,
-                        color = MaterialTheme.colorScheme.primary
+                        color = AppContentColors.accent()
                     )
                 }
             }
@@ -385,7 +387,7 @@ internal fun VideoCardDurationPublishRow(
         if (durationText.isNotBlank()) {
             AppText(
                 text = durationText,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 style = contentTypography.statistic.copy(fontWeight = FontWeight.Medium),
                 maxLines = 1,
                 softWrap = false,
@@ -580,7 +582,7 @@ internal fun ElegantVideoCard(
     val playbackProgressManager = remember(context) {
         PlaybackProgressManager.getInstance(context)
     }
-    
+
     val cardCornerRadius = AppShapes.containerCornerDp(ContainerLevel.Card)
     val durationBadgeStyle = remember { resolveVideoCardDurationBadgeVisualStyle() }
     // 统计文案组合规则已下沉 core-data（resolveVideoCardStatsTexts），与 TV 卡片共用同一实现。
@@ -719,20 +721,20 @@ internal fun ElegantVideoCard(
     val showHistoryProgressBar = historyProgressState.showProgressBar
     val historyProgressFraction = historyProgressState.progressFraction
     val historyProgressBarColor = resolveVideoCardHistoryProgressBarColor(
-        themePrimary = MaterialTheme.colorScheme.primary
+        themePrimary = AppContentColors.accent()
     )
     val coverOverlayBottomLayout = remember(scrollLitePolicy.showHistoryProgressBar, showHistoryProgressBar) {
         resolveVideoCardCoverOverlayBottomLayout(
             showHistoryProgressBar = scrollLitePolicy.showHistoryProgressBar && showHistoryProgressBar
         )
     }
-    
+
     //  [新增] 长按删除菜单状态
     var showDismissMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
     //  [新增] 确认对话框状态
     var showUnfavoriteDialog by remember { mutableStateOf(false) }
-    
+
     val useLowQualityCover = isDataSaverActive && preferLowQualityCover
     val coverCacheKey: String
     val coverUrl: String
@@ -760,8 +762,8 @@ internal fun ElegantVideoCard(
         animationSpec = tween(durationMillis = 350),
         label = "video_card_cover_tint"
     )
-    val defaultOnSurface = MaterialTheme.colorScheme.onSurface
-    val defaultOnSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val defaultOnSurface = AppContentColors.primaryText()
+    val defaultOnSurfaceVariant = AppContentColors.secondaryText()
     val adaptiveContentColors = remember(
         wallpaperPalette,
         animatedCoverTint,
@@ -817,7 +819,7 @@ internal fun ElegantVideoCard(
         publishTimeRowText = text
         emphasizePublishTime = emphasize
     }
-    
+
     //  判断是否为竖屏视频（通过封面图 URL 中的尺寸信息或默认不显示）
     // B站封面 URL 通常包含尺寸信息，如 width=X&height=Y
     // 简单方案：暂不显示竖屏标签（因推荐API不提供视频尺寸信息）
@@ -842,7 +844,7 @@ internal fun ElegantVideoCard(
     val compactStatsAvailableWidthDp = remember(resolvedCardWidthDp) {
         (resolvedCardWidthDp - (AppSpacingTokens.Small.value * 2f)).coerceAtLeast(0f)
     }
-    
+
     //  记录卡片位置（非 Compose State，避免滚动时触发高频重组）
     //  [性能优化] 存储 LayoutCoordinates 引用而非 Rect，boundsInRoot() 仅在交互时惰性计算，
     //  避免滚动期间每帧 4 次坐标树遍历开销。
@@ -872,7 +874,7 @@ internal fun ElegantVideoCard(
     val nativeCardLayer = rememberNativeVideoCardLayer()
     val nativeCoverOverlayLayer = rememberNativeVideoCardLayer()
     val freezeNativeCardLayer = remember(video.bvid) { mutableStateOf(false) }
-    
+
     val triggerCardClick = {
         cardCoordsRef.value?.takeIf { it.isAttached }?.boundsInRoot()?.let { bounds ->
             val sourceCoverBounds = coverCoordsRef.value
@@ -1547,7 +1549,7 @@ internal fun ElegantVideoCard(
             }
 
         }
-        
+
         val infoSurfaceShape = remember(cardCornerRadius) {
             AppShapes.bottomRounded(cardCornerRadius)
         }
@@ -1780,7 +1782,7 @@ internal fun ElegantVideoCard(
                     )
                 }
         )
-        
+
         Spacer(modifier = Modifier.height(if (compactMetadata) AppSpacingTokens.ExtraSmall else AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro))
 
         Column(
@@ -1921,7 +1923,7 @@ internal fun ElegantVideoCard(
             }
         }
     }
-        
+
         // Equal-height feed rows give this card tight height constraints. The root propagates
         // those minima, so isolate the small popup anchor in an overlay that clears them.
         // matchParentSize keeps the overlay out of the card's intrinsic height calculation.
@@ -1949,7 +1951,7 @@ internal fun ElegantVideoCard(
                             text = {
                                 AppText(
                                     "🕐 稍后再看",
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = AppContentColors.primaryText()
                                 )
                             },
                             onClick = {
@@ -1965,7 +1967,7 @@ internal fun ElegantVideoCard(
                             text = {
                                 AppText(
                                     "💔 取消收藏",
-                                    color = MaterialTheme.colorScheme.error  // 使用错误色强调删除操作
+                                    color = AppContentColors.error()  // 使用错误色强调删除操作
                                 )
                             },
                             onClick = {
@@ -1982,7 +1984,7 @@ internal fun ElegantVideoCard(
                             text = {
                                 AppText(
                                     dismissMenuText,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = AppContentColors.primaryText()
                                 )
                             },
                             onClick = {
@@ -2008,7 +2010,7 @@ internal fun ElegantVideoCard(
                         onUnfavorite?.invoke()
                     }
                 ) {
-                    AppText("移除", color = MaterialTheme.colorScheme.error)
+                    AppText("移除", color = AppContentColors.error())
                 }
             },
             dismissButton = {

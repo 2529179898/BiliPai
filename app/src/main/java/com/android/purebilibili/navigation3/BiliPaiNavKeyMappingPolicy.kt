@@ -112,7 +112,9 @@ internal fun BiliPaiNavKey.toLegacyRoute(): String {
             cover = seedCover,
             title = seedTitle
         )
-        is BiliPaiNavKey.AudioMode -> ScreenRoutes.AudioMode.createRoute(sourceBvid, sourceCid)
+        is BiliPaiNavKey.AudioMode -> if (collectionMediaId > 0L || collectionSeasonId > 0L) {
+            "audio_mode?mediaId=$collectionMediaId&seasonId=$collectionSeasonId&title=${encodeRouteValue(collectionTitle)}"
+        } else ScreenRoutes.AudioMode.createRoute(sourceBvid, sourceCid)
         is BiliPaiNavKey.SeasonSeriesDetail -> ScreenRoutes.SeasonSeriesDetail.createRoute(
             type = type,
             id = id,
@@ -296,7 +298,10 @@ internal fun legacyRouteToBiliPaiNavKey(route: String?): BiliPaiNavKey {
         }
         routeBase == "audio_mode" -> BiliPaiNavKey.AudioMode(
             sourceBvid = decodeRouteValue(query["bvid"].orEmpty()),
-            sourceCid = query["cid"]?.toLongOrNull() ?: 0L
+            sourceCid = query["cid"]?.toLongOrNull() ?: 0L,
+            collectionMediaId = query["mediaId"]?.toLongOrNull() ?: 0L,
+            collectionSeasonId = query["seasonId"]?.toLongOrNull() ?: 0L,
+            collectionTitle = query["title"].orEmpty(),
         )
         segments.firstOrNull() == "season_series_detail" && segments.size >= 3 -> {
             BiliPaiNavKey.SeasonSeriesDetail(

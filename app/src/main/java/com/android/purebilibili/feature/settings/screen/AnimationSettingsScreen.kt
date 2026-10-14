@@ -1,5 +1,7 @@
 // 文件路径: feature/settings/AnimationSettingsScreen.kt
 package com.android.purebilibili.feature.settings
+
+import com.android.purebilibili.core.ui.AppContentColors
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -140,7 +142,7 @@ fun AnimationSettingsContent(
     val listState = rememberLazyListState()
     val focusRequest by SettingsSearchFocusController.request.collectAsStateWithLifecycle()
     val windowSizeClass = LocalWindowSizeClass.current
-    val warningTint = rememberAdaptiveSemanticIconTint(iOSOrange)
+    val warningTint = AppContentColors.warning()
     val deviceUiProfile = remember(windowSizeClass.widthSizeClass) {
         resolveDeviceUiProfile(
             widthSizeClass = windowSizeClass.widthSizeClass
@@ -177,6 +179,8 @@ fun AnimationSettingsContent(
         .observeReadabilityMode(context)
         .collectAsStateWithLifecycle(initialValue = LiquidGlassReadabilityMode.STABLE)
     val uiEntranceAnimationEnabled by SettingsManager.getUiEntranceAnimationEnabled(context)
+        .collectAsStateWithLifecycle(initialValue = true)
+    val globalDragFeedbackEnabled by SettingsManager.getGlobalDragFeedbackEnabled(context)
         .collectAsStateWithLifecycle(initialValue = true)
     val maidLottieAnimationEnabled by SettingsManager.getMaidLottieAnimationEnabled(context)
         .collectAsStateWithLifecycle(initialValue = true)
@@ -302,7 +306,20 @@ fun AnimationSettingsContent(
                                         SettingsManager.setUiEntranceAnimationEnabled(context, value)
                                     }
                                 },
-                                iconTint = iOSGreen
+                                iconTint = AppContentColors.secondaryText()
+                            )
+                        }
+                        AppPreferenceDivider()
+                        SettingsItemAnchor("animation.global_drag_feedback_enabled") {
+                            AppSwitchPreference(
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.UI_ENTRANCE_ANIMATION),
+                                title = settingItemTitle("animation.global_drag_feedback_enabled"),
+                                subtitle = "统一控制按钮与胶囊的拖动形变，关闭后保留按压反馈",
+                                checked = globalDragFeedbackEnabled,
+                                onCheckedChange = { value ->
+                                    scope.launch { SettingsManager.setGlobalDragFeedbackEnabled(context, value) }
+                                },
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                         AppPreferenceDivider()
@@ -313,7 +330,7 @@ fun AnimationSettingsContent(
                                 subtitle = "切换页面或完成操作时轻微振动",
                                 checked = state.hapticFeedbackEnabled,
                                 onCheckedChange = viewModel::toggleHapticFeedback,
-                                iconTint = iOSBlue,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                         AppPreferenceDivider()
@@ -328,7 +345,7 @@ fun AnimationSettingsContent(
                                         SettingsManager.setGlobalTextTapCopyEnabled(context, enabled)
                                     }
                                 },
-                                iconTint = iOSOrange,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                         if (entranceDowngradedBySystem) {
@@ -341,7 +358,7 @@ fun AnimationSettingsContent(
                                 AppText(
                                     text = "系统已开启「减弱动效」，入场动画已自动关闭。",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = AppContentColors.secondaryText()
                                 )
                             }
                         }
@@ -368,7 +385,7 @@ fun AnimationSettingsContent(
                                         SettingsManager.setMaidLottieAnimationEnabled(context, enabled)
                                     }
                                 },
-                                iconTint = iOSBlue,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                     }
@@ -391,7 +408,7 @@ fun AnimationSettingsContent(
                                 subtitle = "打开首页时卡片依次淡入",
                                 checked = state.cardAnimationEnabled,
                                 onCheckedChange = { viewModel.toggleCardAnimation(it) },
-                                iconTint = iOSPink
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                         AppPreferenceDivider()
@@ -402,7 +419,7 @@ fun AnimationSettingsContent(
                                 subtitle = "封面和标题平滑过渡到详情页",
                                 checked = state.cardTransitionEnabled,
                                 onCheckedChange = { viewModel.toggleCardTransition(it) },
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -422,7 +439,7 @@ fun AnimationSettingsContent(
                                     }
                                 },
                                 enabled = state.cardTransitionEnabled,
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -434,7 +451,7 @@ fun AnimationSettingsContent(
                                 checked = liveSurfaceCardTransitionEnabled,
                                 onCheckedChange = { viewModel.toggleLiveSurfaceCardTransition(it) },
                                 enabled = state.cardTransitionEnabled,
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -454,7 +471,7 @@ fun AnimationSettingsContent(
                                     }
                                 },
                                 enabled = state.cardTransitionEnabled,
-                                iconTint = iOSTeal,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                         AppPreferenceDivider()
@@ -477,7 +494,7 @@ fun AnimationSettingsContent(
                                     }
                                 },
                                 enabled = state.cardTransitionEnabled,
-                                iconTint = iOSTeal,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                         AppPreferenceDivider()
@@ -497,7 +514,7 @@ fun AnimationSettingsContent(
                                     }
                                 },
                                 enabled = state.cardTransitionEnabled,
-                                iconTint = iOSTeal,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                         AppPreferenceDivider()
@@ -508,7 +525,7 @@ fun AnimationSettingsContent(
                                 subtitle = "转场更有层次感；关闭可省电",
                                 checked = videoTransitionRealtimeBlurEnabled,
                                 onCheckedChange = { viewModel.toggleVideoTransitionRealtimeBlur(it) },
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -527,7 +544,7 @@ fun AnimationSettingsContent(
                                     )
                                 }
                             },
-                            iconTint = iOSTeal
+                            iconTint = AppContentColors.secondaryText()
                         )
                         if (predictiveBackStyle == BiliPaiPredictiveBackAnimationStyle.MIUIX) {
                             AppPreferenceDivider()
@@ -572,7 +589,7 @@ fun AnimationSettingsContent(
                                             )
                                         }
                                     },
-                                    iconTint = iOSTeal,
+                                    iconTint = AppContentColors.secondaryText(),
                                 )
                             }
                         }
@@ -609,7 +626,7 @@ fun AnimationSettingsContent(
                                         SettingsManager.setFullScreenSwipeBackEnabled(context, enabled)
                                     }
                                 },
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -651,26 +668,26 @@ fun AnimationSettingsContent(
                             AppText(
                                 text = "首页动画强度",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             AppText(
                                 text = motionTierLabel,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = AppContentColors.primaryText()
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             AppText(
                                 text = motionTierHint,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             AppText(
                                 text = "此项只调整首页卡片，设置页动画独立控制。",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                         }
                     }
@@ -691,7 +708,7 @@ fun AnimationSettingsContent(
                             AppText(
                                 text = if (!isLiquidGlassAvailable) "当前设备不支持玻璃效果，以下参数暂不生效" else "先在外观设置中启用液态玻璃，以下参数暂不生效",
                                 modifier = Modifier.padding(16.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                             )
                         }
                         LiquidGlassAdjustmentPanel(
@@ -778,7 +795,7 @@ fun AnimationSettingsContent(
                                             .setBreathingEnabled(context, enabled)
                                     }
                                 },
-                                iconTint = iOSBlue,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                         AppPreferenceDivider()
@@ -790,7 +807,7 @@ fun AnimationSettingsContent(
                                 subtitle = "模糊顶栏背后的内容，不含折射和光效",
                                 checked = state.headerBlurEnabled,
                                 onCheckedChange = { viewModel.toggleHeaderBlur(it) },
-                                iconTint = iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -801,7 +818,7 @@ fun AnimationSettingsContent(
                                 subtitle = "顶栏模糊随滚动渐变（需 Android 13+）",
                                 checked = state.progressiveTopBlurEnabled,
                                 onCheckedChange = { viewModel.toggleProgressiveTopBlur(it) },
-                                iconTint = iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -812,7 +829,7 @@ fun AnimationSettingsContent(
                                 subtitle = "状态栏到顶栏用纯色渐变过渡，比模糊更省电",
                                 checked = state.progressiveTopFadeEnabled,
                                 onCheckedChange = { viewModel.toggleProgressiveTopFade(it) },
-                                iconTint = iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -823,7 +840,7 @@ fun AnimationSettingsContent(
                                 subtitle = "模糊底栏背后的内容，不含折射和光效",
                                 checked = state.bottomBarBlurEnabled,
                                 onCheckedChange = { viewModel.toggleBottomBarBlur(it) },
-                                iconTint = iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -865,7 +882,7 @@ fun AnimationSettingsContent(
                             AppText(
                                 text = "如果出现掉帧或耗电增加，可关闭部分动画或玻璃效果。",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                         }
                     }
@@ -905,7 +922,7 @@ fun AnimationSettingsContent(
                     AppText(
                         text = "预览图片和其他应用设置不会改变。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppContentColors.accent(),
                     )
                 }
             },

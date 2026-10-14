@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -111,12 +113,12 @@ internal fun BottomBarFloatingSegmentedControl(
     val itemCount = items.size
     val maxTabIndex = (itemCount - 1).coerceAtLeast(0)
     val safeSelectedIndex = selectedIndex.coerceIn(0, maxTabIndex)
-    val selectedTextColor = selectedTextColorOverride ?: MaterialTheme.colorScheme.primary
+    val selectedTextColor = selectedTextColorOverride ?: AppContentColors.accent()
     // 液态玻璃模式下与首页底栏保持一致，使用纯净中性玻璃材质，不走主题色
     val themedIndicatorSurface = indicatorIdleSurfaceColorOverride
     val unselectedTextColor = unselectedTextColorOverride
         ?: resolveLiquidSegmentedControlUnselectedTextColor(
-            onSurface = MaterialTheme.colorScheme.onSurface,
+            onSurface = AppContentColors.primaryText(),
             enabled = enabled,
         )
     val shellColor = containerColorOverride ?: resolveBiliPaiBottomBarShellColor(

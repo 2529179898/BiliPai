@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -161,14 +163,14 @@ internal fun LiveRoomCard(
             ) {
                 AppText(
                     text = model.title,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     style = MaterialTheme.typography.titleSmall,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 AppText(
                     text = model.hostName,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

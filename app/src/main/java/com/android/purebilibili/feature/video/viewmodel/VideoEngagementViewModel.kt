@@ -9,10 +9,13 @@ import com.android.purebilibili.core.util.EasterEggs
 import com.android.purebilibili.core.network.NetworkModule
 import com.android.purebilibili.feature.video.ui.feedback.resolveTripleActionFeedbackMessage
 import com.android.purebilibili.feature.video.ui.feedback.resolveTripleActionVisualState
+import com.android.purebilibili.feature.video.ui.feedback.canSubmitVideoFollowAction
+import com.android.purebilibili.feature.video.ui.feedback.canSubmitVideoTripleAction
 import com.android.purebilibili.feature.video.usecase.TripleActionResult
 import com.android.purebilibili.feature.video.usecase.VideoInteractionUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +58,8 @@ data class VideoEngagementUiState(
     val isLiked: Boolean = false,
     val likeStatusKnown: Boolean = false,
     val followStatusKnown: Boolean = false,
+    val isFollowSubmitting: Boolean = false,
+    val isTripleSubmitting: Boolean = false,
     val isDisliked: Boolean = false,
     val likeCount: Int = 0,
     val coinCount: Int = 0,
@@ -112,6 +117,7 @@ private val DefaultVideoCoinBalanceLoader = VideoCoinBalanceLoader {
 }
 
 interface VideoEngagementActions {
+    suspend fun queryLikeStatus(aid: Long): Result<Boolean>
     suspend fun toggleFollow(mid: Long, currentlyFollowing: Boolean): Result<Boolean>
     suspend fun toggleLike(aid: Long, currentlyLiked: Boolean, bvid: String): Result<Boolean>
     suspend fun toggleDislike(aid: Long, currentlyDisliked: Boolean, bvid: String): Result<Boolean>
@@ -124,6 +130,9 @@ interface VideoEngagementActions {
 private class DefaultVideoEngagementActions(
     private val useCase: VideoInteractionUseCase = VideoInteractionUseCase()
 ) : VideoEngagementActions {
+    override suspend fun queryLikeStatus(aid: Long) =
+        com.android.purebilibili.data.repository.ActionRepository.queryLikeStatus(aid)
+
     override suspend fun toggleFollow(mid: Long, currentlyFollowing: Boolean) =
         useCase.toggleFollow(mid, currentlyFollowing)
 
@@ -163,7 +172,9 @@ class VideoEngagementViewModel(
     private var tripleCelebrationSequence = 0L
     // 点赞切换排队锁：保证快速连点时每次点击都基于最新状态交替生效
     private val likeToggleMutex = Mutex()
+    private var likeStatusRecoveryJob: Job? = null
     private val followToggleMutex = Mutex()
+    private var ownerFollowRequests = 0
     private var boundSession: Any = interactionSession()
     private var likeRevision = 0L
     private var followRevision = 0L
@@ -196,10 +207,13 @@ class VideoEngagementViewModel(
             sync(seed)
             return
         }
+        likeStatusRecoveryJob?.cancel()
+        likeStatusRecoveryJob = null
         boundSession = interactionSession()
         ++likeRevision
         ++followRevision
         locallyModifiedFields = emptySet()
+        ownerFollowRequests = 0
         val previous = _uiState.value
         _uiState.value = VideoEngagementUiState(
             subject = subject,
@@ -262,52 +276,78 @@ class VideoEngagementViewModel(
     }
 
     fun toggleFollow(mid: Long? = null, currentlyFollowing: Boolean? = null) {
+        changeFollow(mid, followOnly = false)
+    }
+
+    /** Attention cards only request following; they never toggle an existing follow off. */
+    fun followOwner() {
+        changeFollow(mid = null, followOnly = true)
+    }
+
+    private fun changeFollow(mid: Long?, followOnly: Boolean) {
         val state = _uiState.value
         val targetMid = mid ?: state.subject?.ownerMid ?: return
-        if (targetMid == state.subject?.ownerMid && !state.followStatusKnown) {
-            emitMessage("关注状态尚未确认，请稍后重试")
+        val isOwner = targetMid == state.subject?.ownerMid
+        if (isOwner && !state.followStatusKnown) {
+            if (!followOnly) emitMessage("关注状态尚未确认，请稍后重试")
             return
         }
+        if (followOnly && !canSubmitVideoFollowAction(
+                statusKnown = state.followStatusKnown,
+                isFollowing = state.isFollowing,
+                isSubmitting = state.isFollowSubmitting,
+            )
+        ) return
         val session = interactionSession()
+        if (isOwner && ownerFollowRequests++ == 0) {
+            _uiState.update { it.copy(isFollowSubmitting = true) }
+        }
         viewModelScope.launch {
-            followToggleMutex.withLock {
-            if (!isCurrent(state, session)) return@withLock
-            val latest = _uiState.value
-            if (targetMid == latest.subject?.ownerMid && !latest.followStatusKnown) return@withLock
-            val wasFollowing = if (targetMid == latest.subject?.ownerMid) latest.isFollowing else {
-                com.android.purebilibili.data.repository.ActionRepository.cachedFollowStatus(targetMid)
-                    ?: com.android.purebilibili.data.repository.ActionRepository.queryFollowStatus(targetMid)
-                        .getOrElse {
+            try {
+                followToggleMutex.withLock {
+                    if (!isCurrent(state, session)) return@withLock
+                    val latest = _uiState.value
+                    if (isOwner && !latest.followStatusKnown) return@withLock
+                    val wasFollowing = if (isOwner) latest.isFollowing else {
+                        com.android.purebilibili.data.repository.ActionRepository.cachedFollowStatus(targetMid)
+                            ?: com.android.purebilibili.data.repository.ActionRepository.queryFollowStatus(targetMid)
+                                .getOrElse {
+                                    it.rethrowCancellation()
+                                    if (isCurrent(state, session)) emitMessage("关注状态尚未确认，请稍后重试")
+                                    return@withLock
+                                }
+                    }
+                    if (!isCurrent(state, session) || (followOnly && wasFollowing)) return@withLock
+                    val revision = ++followRevision
+                    actions.toggleFollow(targetMid, if (followOnly) false else wasFollowing)
+                        .onSuccess { following ->
+                            if (!isCurrent(state, session) || revision != followRevision) return@onSuccess
+                            locallyModifiedFields = locallyModifiedFields + VideoEngagementField.FOLLOWING_MIDS
+                            if (isOwner) {
+                                locallyModifiedFields = locallyModifiedFields + VideoEngagementField.FOLLOWING
+                            }
+                            _uiState.update { current ->
+                                current.copy(
+                                    isFollowing = if (isOwner) following else current.isFollowing,
+                                    followStatusKnown = current.followStatusKnown || isOwner,
+                                    followingMids = if (following) {
+                                        current.followingMids + targetMid
+                                    } else {
+                                        current.followingMids - targetMid
+                                    }
+                                )
+                            }
+                            emitMessage(if (following) "关注成功" else "已取消关注")
+                            if (following) _events.send(VideoEngagementEvent.OpenFollowGroups(targetMid))
+                        }
+                        .onFailure {
                             it.rethrowCancellation()
-                            if (isCurrent(state, session)) emitMessage("关注状态尚未确认，请稍后重试")
-                            return@withLock
+                            if (isCurrent(state, session)) emitMessage(it.message ?: "操作失败")
                         }
-            }
-            if (!isCurrent(state, session)) return@withLock
-            val revision = ++followRevision
-            actions.toggleFollow(targetMid, wasFollowing)
-                .onSuccess { following ->
-                    if (!isCurrent(state, session) || revision != followRevision) return@onSuccess
-                    locallyModifiedFields = locallyModifiedFields + VideoEngagementField.FOLLOWING_MIDS
-                    if (state.subject?.ownerMid == targetMid) {
-                        locallyModifiedFields = locallyModifiedFields + VideoEngagementField.FOLLOWING
-                    }
-                    _uiState.update { current ->
-                        val followingMids = current.followingMids.toMutableSet().apply {
-                            if (following) add(targetMid) else remove(targetMid)
-                        }
-                        current.copy(
-                            isFollowing = if (current.subject?.ownerMid == targetMid) following else current.isFollowing,
-                            followStatusKnown = current.followStatusKnown || current.subject?.ownerMid == targetMid,
-                            followingMids = followingMids
-                        )
-                    }
-                    emitMessage(if (following) "关注成功" else "已取消关注")
-                    if (following) _events.send(VideoEngagementEvent.OpenFollowGroups(targetMid))
                 }
-                .onFailure {
-                    it.rethrowCancellation()
-                    if (isCurrent(state, session)) emitMessage(it.message ?: "操作失败")
+            } finally {
+                if (isOwner && isCurrent(state, session) && --ownerFollowRequests == 0) {
+                    _uiState.update { it.copy(isFollowSubmitting = false) }
                 }
             }
         }
@@ -323,17 +363,30 @@ class VideoEngagementViewModel(
         val targetAid = aid ?: state.subject?.aid ?: return
         val targetBvid = bvid ?: state.subject?.bvid ?: return
         if (targetAid != state.subject?.aid || targetBvid != state.subject?.bvid) return
-        if (!state.likeStatusKnown) {
-            emitMessage("点赞状态尚未确认，请稍后重试")
-            return
-        }
+        if (!state.likeStatusKnown && likeStatusRecoveryJob?.isActive == true) return
         val session = interactionSession()
-        viewModelScope.launch {
+        val likeJob = viewModelScope.launch {
             // 串行化点赞切换：快速连点时排队执行，且每次执行前重读最新
             // isLiked，避免两个在途请求基于同一个过期状态算出相同目标，
             // 导致某次点击"吞掉"（无状态变化、无动画）。
             likeToggleMutex.withLock {
-                if (!isCurrent(state, session) || !_uiState.value.likeStatusKnown) return@withLock
+                if (!isCurrent(state, session)) return@withLock
+                if (!_uiState.value.likeStatusKnown) {
+                    val liked = queryVideoInteractionStatusWithRetry(
+                        isCurrent = { isCurrent(state, session) },
+                        query = { actions.queryLikeStatus(targetAid) },
+                    ).getOrElse {
+                        it.rethrowCancellation()
+                        if (isCurrent(state, session)) emitMessage("点赞状态获取失败，请稍后重试")
+                        return@withLock
+                    }
+                    if (!isCurrent(state, session)) return@withLock
+                    // A deferred seed must not reset a status recovered by this action.
+                    locallyModifiedFields = locallyModifiedFields + VideoEngagementField.LIKE
+                    _uiState.update { current ->
+                        current.copy(isLiked = liked, likeStatusKnown = true)
+                    }
+                }
                 val revision = ++likeRevision
                 val wasLiked = _uiState.value.isLiked
                 actions.toggleLike(targetAid, wasLiked, targetBvid)
@@ -368,6 +421,7 @@ class VideoEngagementViewModel(
                     }
             }
         }
+        if (!state.likeStatusKnown) likeStatusRecoveryJob = likeJob
     }
 
     fun toggleDislike(
@@ -509,10 +563,29 @@ class VideoEngagementViewModel(
             emitMessage("点赞状态尚未确认，请稍后重试")
             return
         }
+        if (!canSubmitVideoTripleAction(
+                statusKnown = state.likeStatusKnown,
+                isLiked = state.isLiked,
+                isCoined = state.coinCount > 0,
+                isFavorited = state.isFavorited,
+                isSubmitting = state.isTripleSubmitting,
+            )
+        ) return
         val session = interactionSession()
+        _uiState.update { it.copy(isTripleSubmitting = true) }
         viewModelScope.launch {
+            try {
             likeToggleMutex.withLock {
             if (!isCurrent(state, session) || !_uiState.value.likeStatusKnown) return@withLock
+            val latest = _uiState.value
+            if (!canSubmitVideoTripleAction(
+                    statusKnown = latest.likeStatusKnown,
+                    isLiked = latest.isLiked,
+                    isCoined = latest.coinCount > 0,
+                    isFavorited = latest.isFavorited,
+                    isSubmitting = false,
+                )
+            ) return@withLock
             val actionState = _uiState.value
             emitMessage("正在三连")
             actions.doTripleAction(targetAid, actionState.coinLimit)
@@ -595,6 +668,11 @@ class VideoEngagementViewModel(
                 .onFailure {
                     it.rethrowCancellation()
                     if (isCurrent(state, session)) emitMessage(it.message ?: "三连失败")
+                }
+            }
+            } finally {
+                if (isCurrent(state, session)) {
+                    _uiState.update { it.copy(isTripleSubmitting = false) }
                 }
             }
         }

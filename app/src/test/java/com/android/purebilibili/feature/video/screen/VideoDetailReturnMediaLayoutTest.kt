@@ -1,6 +1,7 @@
 package com.android.purebilibili.feature.video.screen
 
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
 import com.android.purebilibili.core.ui.transition.VideoCardSourceLayout
 import java.io.File
 import kotlin.test.Test
@@ -9,6 +10,34 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class VideoDetailReturnMediaLayoutTest {
+    @Test
+    fun splitPlayerKeepsItsOwnOriginBeforeReturn() {
+        val frame = VideoDetailReturnMediaLayoutFrame(0, 0, 700, 394)
+        assertEquals(frame, resolveVideoDetailReturnMediaFrameInSlot(frame, Offset(220f, 32f), 0f))
+    }
+
+    @Test
+    fun splitPlayerConvertsEntryLandingToLocalCoordinates() {
+        val frame = VideoDetailReturnMediaLayoutFrame(20, 10, 400, 225)
+        val local = resolveVideoDetailReturnMediaFrameInSlot(frame, Offset(220f, 32f), 1f)
+        assertEquals(-200, local.offsetXPx)
+        assertEquals(-22, local.offsetYPx)
+        assertEquals(frame.widthPx, local.widthPx)
+        assertEquals(frame.heightPx, local.heightPx)
+        // The final cover lands at the same entry-space origin despite a shifted player pane.
+        assertEquals(20f, local.offsetXPx + 220f)
+        assertEquals(10f, local.offsetYPx + 32f)
+    }
+
+    @Test
+    fun splitPlayerOriginCompensationIsContinuousAndReversible() {
+        val frame = VideoDetailReturnMediaLayoutFrame(0, 0, 700, 394)
+        val half = resolveVideoDetailReturnMediaFrameInSlot(frame, Offset(220f, 32f), 0.5f)
+        assertEquals(-110, half.offsetXPx)
+        assertEquals(-16, half.offsetYPx)
+        assertEquals(frame, resolveVideoDetailReturnMediaFrameInSlot(frame, Offset(220f, 32f), -1f))
+    }
+
     @Test
     fun stackedCardUsesMeasuredCoverGeometry() {
         val layout = resolveVideoDetailReturnSourceCardLayout(

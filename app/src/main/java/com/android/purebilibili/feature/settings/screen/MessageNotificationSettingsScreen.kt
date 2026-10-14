@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -37,13 +39,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.android.purebilibili.core.theme.iOSBlue
-import com.android.purebilibili.core.theme.iOSGreen
-import com.android.purebilibili.core.theme.iOSOrange
-import com.android.purebilibili.core.theme.iOSPink
-import com.android.purebilibili.core.theme.iOSPurple
-import com.android.purebilibili.core.theme.iOSRed
-import com.android.purebilibili.core.theme.iOSTeal
 import com.android.purebilibili.core.ui.components.AppChoiceOption
 import com.android.purebilibili.core.ui.components.AppPreference as SettingClickableItem
 import com.android.purebilibili.core.ui.components.AppPreferenceDivider
@@ -236,14 +231,14 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
             AppText(
                 text = "离开应用后也检查新消息。更频繁检查和保持后台运行会增加耗电；系统可能中止检查。",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             )
             statusMessage?.let { message ->
                 AppText(
                     text = message,
                     style = MaterialTheme.typography.bodySmall,
-                    color = iOSOrange,
+                    color = AppContentColors.warning(),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
@@ -279,7 +274,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
-                        iconTint = iOSBlue,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
                 AppPreferenceDivider()
@@ -308,7 +303,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
-                        iconTint = iOSGreen,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
             }
@@ -328,7 +323,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
-                        iconTint = iOSPurple,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
                 AppPreferenceDivider()
@@ -345,7 +340,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
-                        iconTint = iOSBlue,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
                 AppPreferenceDivider()
@@ -362,7 +357,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
-                        iconTint = iOSTeal,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
                 AppPreferenceDivider()
@@ -379,7 +374,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
-                        iconTint = iOSPink,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
                 AppPreferenceDivider()
@@ -396,7 +391,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
-                        iconTint = iOSRed,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
                 AppPreferenceDivider()
@@ -413,7 +408,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
-                        iconTint = iOSBlue,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
                 AppPreferenceDivider()
@@ -430,7 +425,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
-                        iconTint = iOSOrange,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
             }
@@ -475,7 +470,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                 }
                             }
                         },
-                        iconTint = iOSOrange,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
 
@@ -499,7 +494,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                             openNotificationSettings()
                         }
                     },
-                    iconTint = iOSGreen,
+                    iconTint = AppContentColors.secondaryText(),
                 )
             }
 

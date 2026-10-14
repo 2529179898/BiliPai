@@ -1,5 +1,7 @@
 // 文件路径: feature/onboarding/OnboardingBottomSheet.kt
 package com.android.purebilibili.feature.onboarding
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.resolveFilledButtonContainerColor
 import com.android.purebilibili.core.ui.resolveFilledButtonContentColor
 import com.android.purebilibili.core.ui.components.AppText
@@ -62,7 +64,7 @@ import com.android.purebilibili.core.ui.ContainerLevel
 
 /**
  *  iOS 风格新手引导底部弹窗
- * 
+ *
  * 特色功能：
  * - 多页轮播引导
  * - 突出外观设置和播放设置
@@ -80,13 +82,13 @@ fun OnboardingBottomSheet(
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
     val sheetMotion = rememberAppBottomSheetMotion()
-    
+
     // 3 页引导
     val pagerState = rememberPagerState(pageCount = { 3 })
-    
+
     //  弹窗局部 Haze 状态 (用于内部元素)
     val localHazeState = com.android.purebilibili.core.ui.blur.rememberRecoverableHazeState()
-    
+
     //  控制进出场动画
     androidx.compose.animation.AnimatedVisibility(
         visible = visible,
@@ -138,7 +140,7 @@ fun OnboardingBottomSheet(
                     .clickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                         indication = null,
-                        onClick = {} 
+                        onClick = {}
                     )
             ) {
                 Column(
@@ -154,9 +156,9 @@ fun OnboardingBottomSheet(
                             .padding(top = 12.dp, bottom = 8.dp)
                             .size(width = 40.dp, height = 4.dp)
                             .clip(AppShapes.container(ContainerLevel.Tag))
-                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                            .background(AppContentColors.primaryText().copy(alpha = 0.2f))
                     )
-                    
+
                     //  多页轮播内容
                     // 注意：不再作为 Haze 源，而是作为 Haze 的 Child 的内容
                     HorizontalPager(
@@ -176,9 +178,9 @@ fun OnboardingBottomSheet(
                             2 -> PlaybackSettingsPage(hazeState = localHazeState)
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     //  页面指示器
                     Row(
                         modifier = Modifier.padding(vertical = 8.dp),
@@ -196,15 +198,15 @@ fun OnboardingBottomSheet(
                                     .size(width = width.dp, height = 8.dp)
                                     .clip(AppShapes.container(ContainerLevel.Tag))
                                     .background(
-                                        if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                                        if (isSelected) AppContentColors.accent()
+                                        else AppContentColors.primaryText().copy(alpha = 0.2f)
                                     )
                             )
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     //  底部按钮区域
                     Row(
                         modifier = Modifier
@@ -219,16 +221,16 @@ fun OnboardingBottomSheet(
                                 modifier = Modifier.weight(1f),
                                 shape = AppShapes.container(ContainerLevel.Card),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                    contentColor = AppContentColors.primaryText()
                                 ),
                                 border = androidx.compose.foundation.BorderStroke(
-                                    1.dp, 
+                                    1.dp,
                                     MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                                 )
                             ) {
                                 AppText("跳过", fontWeight = FontWeight.Medium)
                             }
-                            
+
                             // 下一步按钮
                             AppButton(
                                 onClick = {
@@ -268,13 +270,13 @@ fun OnboardingBottomSheet(
                             }
                         }
                     }
-                    
+
                     //  GitHub 链接
                     Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
                     AppText(
                         "github.com/jay3-yy/BiliPai",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                        color = AppContentColors.accent().copy(alpha = 0.8f),
                         modifier = Modifier.clickable {
                             uriHandler.openUri("https://github.com/jay3-yy/BiliPai")
                         }
@@ -292,7 +294,7 @@ fun OnboardingBottomSheet(
 private fun WelcomePage(hazeState: HazeState) {
     //  iOS 风格交错入场动画
     val animatedItems = remember { List(6) { Animatable(0f) } }
-    
+
     LaunchedEffect(Unit) {
         animatedItems.forEachIndexed { index, animatable ->
             delay(index * 80L) // 交错延迟
@@ -304,7 +306,7 @@ private fun WelcomePage(hazeState: HazeState) {
             }
         }
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -322,7 +324,7 @@ private fun WelcomePage(hazeState: HazeState) {
             composition = welcomeComposition,
             iterations = LottieConstants.IterateForever
         )
-        
+
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -348,37 +350,37 @@ private fun WelcomePage(hazeState: HazeState) {
                 modifier = Modifier.size(120.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraLarge))
-        
+
         // 标题 - 动画项 1
         AppText(
             "欢迎使用 BiliPai",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             modifier = Modifier.graphicsLayer {
                 alpha = animatedItems[1].value
                 translationY = (1f - animatedItems[1].value) * 30f
             }
         )
-        
+
         Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
-        
+
         // 副标题 - 动画项 2
         AppText(
             "简洁 · 流畅 · 开源",
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             letterSpacing = 3.sp,
             modifier = Modifier.graphicsLayer {
                 alpha = animatedItems[2].value
                 translationY = (1f - animatedItems[2].value) * 20f
             }
         )
-        
+
         Spacer(modifier = Modifier.height(AppSpacingTokens.DoubleExtraLarge))
-        
+
         // 特性标签 - 动画项 3, 4, 5
         Row(
             modifier = Modifier
@@ -387,30 +389,30 @@ private fun WelcomePage(hazeState: HazeState) {
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             FeatureBadge(
-                emoji = "🎨", 
+                emoji = "🎨",
                 label = "个性外观",
                 animationProgress = animatedItems[3].value
             )
             FeatureBadge(
-                emoji = "⚡", 
+                emoji = "⚡",
                 label = "极速播放",
                 animationProgress = animatedItems[4].value
             )
             FeatureBadge(
-                emoji = "🔒", 
+                emoji = "🔒",
                 label = "隐私优先",
                 animationProgress = animatedItems[5].value
             )
         }
-        
+
         Spacer(modifier = Modifier.height(AppSpacingTokens.DoubleExtraLarge))
-        
+
         val disclaimerColors = resolveAccessibleContainerColors(
             containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f),
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
             backgroundColor = MaterialTheme.colorScheme.surface,
             fallbackContentColors = listOf(
-                MaterialTheme.colorScheme.onSurface,
+                AppContentColors.primaryText(),
                 MaterialTheme.colorScheme.onBackground,
             ),
         )
@@ -442,7 +444,7 @@ private fun WelcomePage(hazeState: HazeState) {
 private fun AppearanceSettingsPage(hazeState: HazeState) {
     //  iOS 风格交错入场动画
     val animatedItems = remember { List(7) { Animatable(0f) } }
-    
+
     LaunchedEffect(Unit) {
         animatedItems.forEachIndexed { index, animatable ->
             delay(index * 80L)
@@ -454,7 +456,7 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
             }
         }
     }
-    
+
     //  图标呼吸动画
     val infiniteTransition = rememberInfiniteTransition(label = "iconPulse")
     val iconScale by infiniteTransition.animateFloat(
@@ -466,7 +468,7 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
         ),
         label = "iconScale"
     )
-    
+
     //  Lottie 外观主题动画 - 彩虹渐变
     val themeComposition by rememberLottieComposition(
         LottieCompositionSpec.Url(LottieUrls.THEME_COLORS)
@@ -475,7 +477,7 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
         composition = themeComposition,
         iterations = LottieConstants.IterateForever
     )
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -502,36 +504,36 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
                 modifier = Modifier.size(100.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraLarge))
-        
+
         // 标题 - 动画项 1
         AppText(
             "个性化外观",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             modifier = Modifier.graphicsLayer {
                 alpha = animatedItems[1].value
                 translationY = (1f - animatedItems[1].value) * 30f
             }
         )
-        
+
         Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
-        
+
         // 副标题 - 动画项 2
         AppText(
             "打造专属于你的界面风格",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             modifier = Modifier.graphicsLayer {
                 alpha = animatedItems[2].value
                 translationY = (1f - animatedItems[2].value) * 20f
             }
         )
-        
+
         Spacer(modifier = Modifier.height(AppSpacingTokens.DoubleExtraLarge))
-        
+
         // 功能列表 - 动画项 3, 4, 5, 6
         FeatureListItem(
             icon = "🎨",
@@ -540,9 +542,9 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
             animationProgress = animatedItems[3].value,
             hazeState = hazeState
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         FeatureListItem(
             icon = "🌙",
             title = "深色模式",
@@ -550,9 +552,9 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
             animationProgress = animatedItems[4].value,
             hazeState = hazeState
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         FeatureListItem(
             icon = "✨",
             title = "动态取色",
@@ -560,9 +562,9 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
             animationProgress = animatedItems[5].value,
             hazeState = hazeState
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         FeatureListItem(
             icon = "👁️",
             title = "护眼模式",
@@ -580,7 +582,7 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
 private fun PlaybackSettingsPage(hazeState: HazeState) {
     //  iOS 风格交错入场动画
     val animatedItems = remember { List(7) { Animatable(0f) } }
-    
+
     LaunchedEffect(Unit) {
         animatedItems.forEachIndexed { index, animatable ->
             delay(index * 80L)
@@ -592,7 +594,7 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
             }
         }
     }
-    
+
     //  图标呼吸动画
     val infiniteTransition = rememberInfiniteTransition(label = "iconPulse")
     val iconScale by infiniteTransition.animateFloat(
@@ -604,7 +606,7 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
         ),
         label = "iconScale"
     )
-    
+
     //  Lottie 播放动画 - 视频播放按钮
     val playComposition by rememberLottieComposition(
         LottieCompositionSpec.Url(LottieUrls.VIDEO_PLAY)
@@ -613,7 +615,7 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
         composition = playComposition,
         iterations = LottieConstants.IterateForever
     )
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -640,36 +642,36 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
                 modifier = Modifier.size(100.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraLarge))
-        
+
         // 标题 - 动画项 1
         AppText(
             "智能播放体验",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             modifier = Modifier.graphicsLayer {
                 alpha = animatedItems[1].value
                 translationY = (1f - animatedItems[1].value) * 30f
             }
         )
-        
+
         Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
-        
+
         // 副标题 - 动画项 2
         AppText(
             "流畅观看，省流省电",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             modifier = Modifier.graphicsLayer {
                 alpha = animatedItems[2].value
                 translationY = (1f - animatedItems[2].value) * 20f
             }
         )
-        
+
         Spacer(modifier = Modifier.height(AppSpacingTokens.DoubleExtraLarge))
-        
+
         // 功能列表 - 动画项 3, 4, 5, 6
         FeatureListItem(
             icon = "📺",
@@ -678,9 +680,9 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
             animationProgress = animatedItems[3].value,
             hazeState = hazeState
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         FeatureListItem(
             icon = "🖼️",
             title = "小窗播放",
@@ -688,9 +690,9 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
             animationProgress = animatedItems[4].value,
             hazeState = hazeState
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         FeatureListItem(
             icon = "👆",
             title = "手势控制",
@@ -698,9 +700,9 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
             animationProgress = animatedItems[5].value,
             hazeState = hazeState
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         FeatureListItem(
             icon = "👍",
             title = "双击点赞",
@@ -716,7 +718,7 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
  */
 @Composable
 private fun FeatureBadge(
-    emoji: String, 
+    emoji: String,
     label: String,
     animationProgress: Float = 1f
 ) {
@@ -731,7 +733,7 @@ private fun FeatureBadge(
         ),
         label = "badgeScale"
     )
-    
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.graphicsLayer {
@@ -756,7 +758,7 @@ private fun FeatureBadge(
                     .background(
                         brush = Brush.radialGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                                AppContentColors.accent().copy(alpha = 0.35f),
                                 Color.Transparent
                             )
                         ),
@@ -788,7 +790,7 @@ private fun FeatureBadge(
             label,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
     }
 }
@@ -839,20 +841,20 @@ private fun FeatureListItem(
             ) {
                 AppText(icon, style = MaterialTheme.typography.titleMedium)
             }
-            
+
             Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))
-            
+
             Column(modifier = Modifier.weight(1f)) {
                 AppText(
                     title,
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
                 AppText(
                     description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }

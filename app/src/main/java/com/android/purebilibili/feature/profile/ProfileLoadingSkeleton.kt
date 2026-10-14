@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.profile
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -99,27 +101,31 @@ private fun ProfilePhoneLoadingSkeleton(blockColor: Color) {
             ) {
                 Column(
                     modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = layoutTokens.heroBottomInsetDp.dp),
+                        .align(Alignment.TopCenter)
+                        .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 35.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ProfileSkeletonBlock(80.dp, 80.dp, blockColor, CircleShape)
-                        Spacer(modifier = Modifier.weight(1f))
-                        repeat(3) { index ->
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                ProfileSkeletonBlock(28.dp, 14.dp, blockColor)
-                                ProfileSkeletonBlock(40.dp, 10.dp, blockColor)
-                            }
-                            if (index != 2) Spacer(modifier = Modifier.width(18.dp))
+                    ProfileSkeletonBlock(96.dp, 96.dp, blockColor, CircleShape)
+                    ProfileSkeletonBlock(156.dp, 24.dp, blockColor)
+                    ProfileSkeletonBlock(100.dp, 14.dp, blockColor)
+                }
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = layoutTokens.heroBottomInsetDp.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    repeat(3) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            ProfileSkeletonBlock(28.dp, 14.dp, blockColor)
+                            ProfileSkeletonBlock(40.dp, 10.dp, blockColor)
                         }
                     }
-                    ProfileSkeletonBlock(156.dp, 24.dp, blockColor)
-                    ProfileSkeletonBlock(232.dp, 14.dp, blockColor)
                 }
             }
         }
@@ -286,7 +292,7 @@ private fun rememberProfileSkeletonBlockColor(animated: Boolean): Color {
         animatedPulse
     }
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val onSurfaceVariant = AppContentColors.secondaryText()
     return remember(pulse, surfaceVariant, onSurfaceVariant) {
         lerp(surfaceVariant, onSurfaceVariant.copy(alpha = 0.20f), pulse)
     }

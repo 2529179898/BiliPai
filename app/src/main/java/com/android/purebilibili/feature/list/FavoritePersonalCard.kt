@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.list
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -160,7 +162,7 @@ internal fun FavoritePersonalCard(
                 UpBadgeName(
                     name = item.owner.name.ifBlank { "未知UP主" },
                     nameStyle = MaterialTheme.typography.bodySmall,
-                    nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    nameColor = AppContentColors.secondaryText(),
                     overflow = TextOverflow.Visible,
                 )
                 val dateLabel = resolveFavoriteDateLabel(item.view_at)
@@ -168,7 +170,7 @@ internal fun FavoritePersonalCard(
                     AppText(
                         text = dateLabel,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.76f),
+                        color = AppContentColors.secondaryText(),
                         overflow = TextOverflow.Visible,
                     )
                 }
@@ -216,7 +218,7 @@ internal fun FavoritePersonalCard(
                     AppIcon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = "移出收藏夹",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                     )
                 }
             }

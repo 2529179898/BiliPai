@@ -87,6 +87,7 @@ fun SettingsSearchScreen(
                 query = searchQuery,
                 onQueryChange = { searchQuery = it; visibleCount = 20 },
                 onSearch = { viewModel.recordSearchQuery(searchQuery) },
+                autoFocusEnabled = !navigationTransitionRunning,
             )
         },
     ) {
@@ -110,11 +111,12 @@ fun SettingsSearchScreen(
                     } else SettingsSearchResultsSection(
                         results = searchResults.take(visibleCount),
                         settingsState = settingsState,
+                        query = searchQuery,
                         onClearQuery = { searchQuery = ""; visibleCount = 20 },
                         onResultClick = { result ->
                             viewModel.recordSearchQuery(searchQuery)
                             keyboard?.hide()
-                            SettingsSearchFocusController.submit(result.target, result.focusId, result.settingId.takeUnless { it.startsWith("legacy.") })
+                            SettingsSearchFocusController.submit(result.target, result.focusId, result.settingId.takeUnless { it.startsWith("legacy.") }, query = searchQuery)
                             onSearchResultClick(result)
                         },
                     )

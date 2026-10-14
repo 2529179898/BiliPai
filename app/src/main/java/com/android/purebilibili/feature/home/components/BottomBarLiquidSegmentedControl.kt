@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.os.Build
 import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import com.android.purebilibili.core.ui.AppSpacingTokens
@@ -593,9 +595,9 @@ internal fun AndroidNativeUnderlinedSegmentedControl(
 ) {
     val itemCount = items.size
     val safeSelectedIndex = selectedIndex.coerceIn(0, itemCount - 1)
-    val selectedTextColor = selectedTextColorOverride ?: MaterialTheme.colorScheme.primary
+    val selectedTextColor = selectedTextColorOverride ?: AppContentColors.accent()
     val unselectedTextColor = unselectedTextColorOverride
-        ?: MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 0.78f else 0.42f)
+        ?: resolveLiquidSegmentedControlUnselectedTextColor(AppContentColors.primaryText(), enabled)
     val underlineShape = CircleShape
     val density = LocalDensity.current
     val measuredLabelWidths: SnapshotStateList<Float> = remember(items) {

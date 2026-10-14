@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.space
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.components.AppSurface
 
 import androidx.compose.foundation.background
@@ -190,7 +192,7 @@ private fun SpaceUpowerRankRow(
                 1 -> Color(0xFFfdad13)
                 2 -> Color(0xFF8aace1)
                 3 -> Color(0xFFdfa777)
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                else -> AppContentColors.secondaryText()
             },
         )
         SpaceSupporterAvatar(
@@ -201,7 +203,7 @@ private fun SpaceUpowerRankRow(
         AppText(
             text = nickname,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             modifier = Modifier.weight(1f),
         )
         // elec 回退数据没有充电天数，隐藏天数标签
@@ -209,7 +211,7 @@ private fun SpaceUpowerRankRow(
             AppText(
                 text = "${days}天",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
             )
         }
     }
@@ -363,7 +365,7 @@ private fun SpaceGuardPodium(
                     )
                     AppSurface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppContentColors.accent(),
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .size(if (isFirst) 18.dp else 16.dp),
@@ -372,7 +374,7 @@ private fun SpaceGuardPodium(
                             AppText(
                                 text = (tops.indexOf(member) + 1).toString(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = AppContentColors.onAccent(),
                             )
                         }
                     }
@@ -380,7 +382,7 @@ private fun SpaceGuardPodium(
                 AppText(
                     text = member.username,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
@@ -407,13 +409,13 @@ private fun SpaceGuardMemberRow(
         AppText(
             text = username,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             modifier = Modifier.weight(1f),
         )
         AppText(
             text = resolveSpaceGuardLevelLabel(guardLevel),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
+            color = AppContentColors.accent(),
         )
     }
 }
@@ -451,7 +453,7 @@ private fun SpaceSupporterErrorState(
         AppText(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
         )
         AppTextButton(onClick = onRetry) {
             AppText("重试")
@@ -468,7 +470,7 @@ private fun SpaceSupporterEmptyState(text: String) {
         AppText(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
         )
     }
 }

@@ -3234,7 +3234,7 @@ private fun VideoPageItem(
                     Spacer(modifier = Modifier.height(4.dp))
                     AppText(
                         text = deltaText,
-                        color = if (deltaMs >= 0) Color(0xFF66FF66) else Color(0xFFFF6666),
+                        color = com.android.purebilibili.core.ui.MediaContrastPalette.Foreground,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -3262,11 +3262,7 @@ private fun VideoPageItem(
             ) {
                 AppText(
                     text = seekFeedbackText.orEmpty(),
-                    color = if (seekFeedbackText?.startsWith("+") == true) {
-                        Color(0xFF66FF66)
-                    } else {
-                        Color(0xFFFF6666)
-                    },
+                    color = com.android.purebilibili.core.ui.MediaContrastPalette.Foreground,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -3606,7 +3602,7 @@ private fun VideoPageItem(
                 }
             },
             onLikeClick = {
-                if (canHandlePortraitInteraction && resolvedInteractionState.likeStatusKnown) {
+                if (canHandlePortraitInteraction) {
                     onToggleLike(activeAid, bvid, resolvedInteractionState.isLiked) { }
                 }
             },

@@ -1,6 +1,8 @@
 // 文件路径: feature/partition/PartitionScreen.kt
 package com.android.purebilibili.feature.partition
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.os.Build
 import com.android.purebilibili.core.util.animateScrollToTop
 import com.android.purebilibili.core.ui.components.AppIcon
@@ -795,11 +797,60 @@ private fun PartitionSideRail(
                 .background(AppSurfaceTokens.background())
         )
 
+        if (liquidGlassIndicatorEnabled) {
+            // Separate export material from the visible list: only resting indicator bands
+            // are opaque, leaving their gaps available to the shared upstream lens.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                    .clearAndSetSemantics {}
+                    .alpha(0f)
+                    .graphicsLayer {
+                        translationY = contentTopPaddingPx -
+                            listState.firstVisibleItemIndex * itemSlotHeightPx -
+                            listState.firstVisibleItemScrollOffset
+                        clip = false
+                    }
+                    .layerBackdrop(railContentBackdrop)
+                    .then(interactiveHighlight?.modifier ?: Modifier),
+                verticalArrangement = Arrangement.spacedBy(PartitionSideRailItemSpacing),
+            ) {
+                partitions.forEach { partition ->
+                    Box(
+                        Modifier.fillMaxWidth().height(PartitionSideRailItemHeight),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        PartitionSideRailItem(
+                            partition = partition,
+                            selected = true,
+                            selectionProgress = 1f,
+                            showIcon = showIcon,
+                            showText = showText,
+                            iconFamily = iconFamily,
+                            onClick = {},
+                            interactive = false,
+                            contentColorOverride = AppContentColors.accent(),
+                            itemHeight = PartitionSideRailIndicatorHeight,
+                            modifier = Modifier
+                                .width(indicatorWidth)
+                                .background(
+                                    com.android.purebilibili.feature.home.components.resolveBiliPaiBottomBarContainerColor(
+                                        darkTheme = isDarkTheme,
+                                        liquidGlassTuning = liquidGlassTuning,
+                                        surfaceColor = AppSurfaceTokens.surfaceContainer(),
+                                    ),
+                                    resolveSharedBottomBarCapsuleShape(),
+                                ),
+                        )
+                    }
+                }
+            }
+        }
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (liquidGlassIndicatorEnabled) Modifier.layerBackdrop(railContentBackdrop) else Modifier)
                 .zIndex(if (liquidGlassIndicatorEnabled) 0f else 2f),
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(PartitionSideRailItemSpacing)
@@ -908,7 +959,7 @@ private fun PartitionSideRailMovingIndicator(
                         .width(PartitionSideRailMd3UnderlineWidth)
                         .height(PartitionSideRailMd3UnderlineHeight)
                         .clip(RoundedCornerShape(percent = 50))
-                        .background(MaterialTheme.colorScheme.primary),
+                        .background(AppContentColors.accent()),
                 )
             }
         }
@@ -1005,17 +1056,18 @@ private fun PartitionSideRailItem(
     onClick: () -> Unit,
     interactive: Boolean = true,
     contentColorOverride: Color? = null,
+    itemHeight: androidx.compose.ui.unit.Dp = PartitionSideRailItemHeight,
     modifier: Modifier = Modifier,
 ) {
-    val selectedColor = MaterialTheme.colorScheme.primary
-    val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val selectedColor = AppContentColors.accent()
+    val unselectedColor = AppContentColors.secondaryText()
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val clampedSelectionProgress = selectionProgress.coerceIn(0f, 1f)
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(PartitionSideRailItemHeight)
+            .height(itemHeight)
             .clip(resolveSharedBottomBarCapsuleShape())
             .then(
                 if (interactive) {
@@ -1042,7 +1094,7 @@ private fun PartitionSideRailItem(
                     selectedColor,
                     clampedSelectionProgress
                 )
-                pressed -> MaterialTheme.colorScheme.onSurface
+                pressed -> AppContentColors.primaryText()
                 else -> unselectedColor
             }
             if (showIcon) {
@@ -1188,7 +1240,7 @@ private fun PartitionVideoList(
                 AppText(
                     text = state.error,
                     modifier = Modifier.align(Alignment.Center),
-                    color = MaterialTheme.colorScheme.error
+                    color = AppContentColors.error()
                 )
             }
         }

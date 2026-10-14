@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -54,8 +56,8 @@ import com.android.purebilibili.feature.settings.SettingsHomeSearchEntry
 import com.android.purebilibili.feature.settings.SettingsRootCategory
 import com.android.purebilibili.feature.settings.canonicalSettingsRootCategory
 import com.android.purebilibili.feature.settings.rememberSettingsEntryVisual
+import com.android.purebilibili.feature.settings.rememberSettingsSiblingIconTints
 import com.android.purebilibili.feature.settings.resolveSettingsRootCategoryOrder
-import com.android.purebilibili.feature.settings.resolveSettingsSiblingIconTints
 import com.android.purebilibili.feature.settings.resolveSettingsTabletLayoutPolicy
 import com.android.purebilibili.feature.settings.resolveSettingsVisualSpec
 import com.android.purebilibili.feature.settings.shouldRenderSettingsTabletDetailPane
@@ -87,9 +89,7 @@ fun SettingsTabletShell(
         selectedCategory = selectedCategory,
         isSearchActive = isSearchActive,
     )
-    val categoryIconTints = remember(categories.size) {
-        resolveSettingsSiblingIconTints(categories.size)
-    }
+    val categoryIconTints = rememberSettingsSiblingIconTints(categories.size)
     val useThreePaneLayout =
         LocalWindowSizeClass.current.shouldUseThreePaneLayout && selectedCategory != null
     val emptyDetailPane: @Composable () -> Unit = {
@@ -112,7 +112,7 @@ fun SettingsTabletShell(
                 AppText(
                     text = "从左侧选择一个分类以查看和修改设置",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
             }
         }
@@ -221,7 +221,7 @@ fun SettingsTabletShell(
                                         AppText(
                                             text = category.subtitle,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = AppContentColors.secondaryText(),
                                             maxLines = 2,
                                         )
                                     }
@@ -274,7 +274,7 @@ fun SettingsTabletShell(
             AppText(
                 text = selectedCategory?.subtitle ?: "选择左侧分类以查看设置",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
             )
         }
     }

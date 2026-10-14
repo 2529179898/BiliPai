@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.plugin
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
 import androidx.compose.foundation.background
@@ -322,7 +324,7 @@ class TodayWatchPlugin : RecommendationPluginApi {
             AppText(
                 text = "默认模式",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
+                color = AppContentColors.accent()
             )
             TodayWatchPluginModeSegmentedControl(
                 selectedMode = uiConfig.currentMode,
@@ -352,7 +354,7 @@ class TodayWatchPlugin : RecommendationPluginApi {
                     RecommendationStrategy.EXPLORE -> "增加新 UP、新主题与近期内容"
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
 
             AppText("候选范围", style = MaterialTheme.typography.labelLarge)
@@ -375,7 +377,7 @@ class TodayWatchPlugin : RecommendationPluginApi {
                     "仅重排首页已有内容，不产生额外请求"
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
 
             AppHorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -383,7 +385,7 @@ class TodayWatchPlugin : RecommendationPluginApi {
             AppText(
                 text = "推荐规模",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
+                color = AppContentColors.accent()
             )
             AppText("UP主榜数量", style = MaterialTheme.typography.labelLarge)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -493,12 +495,12 @@ class TodayWatchPlugin : RecommendationPluginApi {
             AppText(
                 text = "推荐画像维护",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
+                color = AppContentColors.accent()
             )
             AppText(
                 text = "会清空本地学习到的偏好与不感兴趣反馈，推荐会回到冷启动状态。",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             AppTextButton(
                 onClick = { showResetDialog = true }
@@ -510,7 +512,7 @@ class TodayWatchPlugin : RecommendationPluginApi {
                 AppText(
                     text = resetMessage.orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
+                    color = AppContentColors.accent()
                 )
             }
 
@@ -518,7 +520,7 @@ class TodayWatchPlugin : RecommendationPluginApi {
             AppText(
                 text = "所有设置仅在本地生效，不上传你的历史记录。",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             }
         }
@@ -601,12 +603,12 @@ private fun TodayWatchTasteInsightSection(
     AppText(
         text = "推荐依据",
         style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary
+        color = AppContentColors.accent()
     )
     AppText(
         text = "${state.modeTitle}：${state.modeSummary}",
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        color = AppContentColors.secondaryText()
     )
 
     if (state.preferredCreators.isNotEmpty()) {
@@ -627,7 +629,7 @@ private fun TodayWatchTasteInsightSection(
         AppText(
             text = "还没有本地负反馈。点视频菜单里的“不感兴趣”后，会在这里显示近期样本。",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
     } else {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -639,12 +641,12 @@ private fun TodayWatchTasteInsightSection(
                     AppText(
                         text = item.title,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     )
                     AppText(
                         text = item.subtitle,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
             }

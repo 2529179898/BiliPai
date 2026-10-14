@@ -1,4 +1,8 @@
 package com.android.purebilibili.feature.video.ui.overlay
+
+import com.android.purebilibili.core.ui.MediaContrastPalette
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -97,7 +101,7 @@ fun PortraitFullscreenOverlay(
     onStaffMemberClick: (Long) -> Unit = {},
     isPlaying: Boolean,
     progress: PlayerProgress,
-    
+
     // 互动数据
     statView: Int = 0,
     statLike: Int = 0,
@@ -106,7 +110,7 @@ fun PortraitFullscreenOverlay(
     statReply: Int = 0,
     statFavorite: Int = 0,
     statShare: Int = 0,
-    
+
     // 互动状态
     isLiked: Boolean,
     likeStatusKnown: Boolean,
@@ -119,17 +123,17 @@ fun PortraitFullscreenOverlay(
     onFavoriteLongClick: () -> Unit = {},
     onCommentClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
-    
+
     // 关注状态 (Follow status)
     isFollowing: Boolean = false,
     followStatusKnown: Boolean,
     onFollowClick: () -> Unit = {},
-    
+
     // [新增] 详情点击
     onDetailClick: () -> Unit = {},
     onTitleClick: () -> Unit = {},
     onAuthorClick: () -> Unit = {},
-    
+
     // 控制状态
     currentSpeed: Float,
     currentQualityLabel: String,
@@ -139,14 +143,14 @@ fun PortraitFullscreenOverlay(
     currentRatio: VideoAspectRatio,
     danmakuEnabled: Boolean,
     isStatusBarHidden: Boolean,
-    
+
     // 显示状态
     showControls: Boolean = true,
     commentExpansionProgress: Float = 0f,
     videoshotData: VideoshotData? = null,
     videoAspectRatio: Float? = null,
     isPlaybackRecovering: Boolean = false,
-    
+
     // 回调
     onBack: () -> Unit,
     onHomeClick: () -> Unit = onBack,
@@ -171,7 +175,7 @@ fun PortraitFullscreenOverlay(
     onRotateToLandscape: () -> Unit,
     onSearchClick: () -> Unit = {},
     onMoreClick: () -> Unit = {},
-    
+
     playbackReady: Boolean = true,
     modifier: Modifier = Modifier
 ) {
@@ -201,7 +205,7 @@ fun PortraitFullscreenOverlay(
         enabled = true,
         modifier = modifier.fillMaxSize(),
     ) {
-        
+
         // 控件层动画
         AnimatedVisibility(
             visible = showControls && commentOverlayAlpha > 0.001f,
@@ -220,7 +224,7 @@ fun PortraitFullscreenOverlay(
                 ) {
                     PortraitReadableTextScrims(layoutPolicy = layoutPolicy)
                 }
-                
+
                 // 1. 顶部栏 (返回 + 观看人数)
                 PortraitTopControlBar(
                     layoutPolicy = layoutPolicy,
@@ -260,7 +264,7 @@ fun PortraitFullscreenOverlay(
                             translationX = commentOverlayOffsetPx
                         }
                 )
-                
+
                 // 3. 底部区域 (信息 + 进度条 + 输入栏占位)
                 Column(
                     modifier = Modifier
@@ -328,7 +332,7 @@ fun PortraitFullscreenOverlay(
                             .padding(horizontal = progressLayoutPolicy.horizontalPaddingDp.dp)
                             .padding(bottom = 2.dp)
                     )
-                    
+
                     // 底部进度条 (Progress Bar)
                     PortraitBottomContainer(
                         progress = if (progress.duration > 0) progress.current.toFloat() / progress.duration else 0f,
@@ -348,17 +352,17 @@ fun PortraitFullscreenOverlay(
                         videoshotData = videoshotData,
                         videoAspectRatio = videoAspectRatio
                     )
-                    
+
                     // 底部输入栏占位 (Input Bar Spacer)
                     // Input Bar height is usually around 50-60dp.
                     // Since Input Bar is an overlay at Alignment.BottomCenter in the outer Box (see below),
                     // we need to add a spacer here so the progress bar sits *above* the input bar, not behind it.
                     // Or, we render the Input Bar *here* in the Column?
                     // "PortraitBottomInputBar" logic:
-                    // If we put it here, it will be stacked. 
+                    // If we put it here, it will be stacked.
                     // Let's verify where PortraitBottomInputBar is placed in the original code.
                     // Original: Modifier.align(Alignment.BottomCenter)
-                    
+
                     // Let's add a Spacer. Assuming Input Bar height ~50dp + margins.
                     Spacer(
                         modifier = Modifier.height(
@@ -727,7 +731,7 @@ private fun PortraitVideoInfo(
                     modifier = Modifier
                         .size(layoutPolicy.avatarSizeDp.dp)
                         .clip(CircleShape)
-                        .background(Color.Gray)
+                        .background(MediaContrastPalette.ControlSurface)
                 )
                 Spacer(modifier = Modifier.width(layoutPolicy.avatarNameSpacingDp.dp))
             }
@@ -745,14 +749,14 @@ private fun PortraitVideoInfo(
                                 .offset(x = if (index == 0) 0.dp else (-(layoutPolicy.avatarSizeDp * 0.28f)).dp)
                                 .size(layoutPolicy.avatarSizeDp.dp)
                                 .clip(CircleShape)
-                                .background(Color.Gray)
+                                .background(MediaContrastPalette.ControlSurface)
                                 .border(1.dp, Color.Black.copy(alpha = 0.6f), CircleShape)
                         )
                     }
                     Spacer(modifier = Modifier.width(layoutPolicy.avatarNameSpacingDp.dp))
                 }
             }
-            
+
             // 名字（seed 未带 owner 时勿只渲染裸 `@`）
             AppText(
                 text = com.android.purebilibili.feature.video.ui.pager.resolvePortraitAuthorLabel(authorName),
@@ -772,13 +776,13 @@ private fun PortraitVideoInfo(
                     modifier = Modifier.clickable { showStaffSheet = true }
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(layoutPolicy.avatarNameSpacingDp.dp))
-            
+
             // 关注按钮
             val isFollowed = followStatusKnown && isFollowing
-            val buttonColor = if (!followStatusKnown || isFollowed) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primary
-            val contentColor = if (LocalPlayerControlGlassEnabled.current) Color.White else if (!followStatusKnown || isFollowed) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onPrimary
+            val buttonColor = if (!followStatusKnown || isFollowed) Color.White.copy(alpha = 0.2f) else AppContentColors.accent()
+            val contentColor = if (LocalPlayerControlGlassEnabled.current) Color.White else if (!followStatusKnown || isFollowed) Color.White.copy(alpha = 0.7f) else AppContentColors.onAccent()
             val buttonText = if (!followStatusKnown) "待确认" else if (isFollowed) "已关注" else "关注"
             val iconVisible = followStatusKnown && !isFollowed
 
@@ -918,7 +922,7 @@ private fun PortraitStaffSheet(
     AppModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface
+        contentColor = AppContentColors.primaryText()
     ) {
         AppText(
             text = "联合创作 · 共 ${staff.size} 人",
@@ -956,7 +960,7 @@ private fun PortraitStaffSheet(
                         AppText(
                             text = member.title,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }
@@ -965,9 +969,9 @@ private fun PortraitStaffSheet(
                     AppSurface(
                         shape = RoundedCornerShape(14.dp),
                         color = if (isFollowing) {
-                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                            AppContentColors.primaryText().copy(alpha = 0.12f)
                         } else {
-                            MaterialTheme.colorScheme.primary
+                            AppContentColors.accent()
                         },
                         modifier = Modifier.clickable {
                             scope.launch {
@@ -983,9 +987,9 @@ private fun PortraitStaffSheet(
                             text = if (isFollowing) "已关注" else "关注",
                             style = MaterialTheme.typography.labelMedium,
                             color = if (isFollowing) {
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f)
+                                AppContentColors.primaryText().copy(alpha = 0.72f)
                             } else {
-                                MaterialTheme.colorScheme.onPrimary
+                                AppContentColors.onAccent()
                             },
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                         )
@@ -994,7 +998,7 @@ private fun PortraitStaffSheet(
                     AppText(
                         text = "UP 主",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = AppContentColors.accent()
                     )
                 }
                 Spacer(modifier = Modifier.width(4.dp))

@@ -1,5 +1,7 @@
 // 文件路径: feature/video/screen/VideoDetailScreen.kt
 package com.android.purebilibili.feature.video.screen
+
+import com.android.purebilibili.core.ui.AppContentColors
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -77,19 +79,19 @@ internal fun VideoDetailDownloadOverlayAdapter(
                     AppIcon(
                         imageVector = rememberAppDownloadIcon(),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = AppContentColors.accent()
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         AppText(
                             text = "缓存视频",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                         AppText(
                             text = "选择画质缓存当前视频",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }
@@ -108,19 +110,19 @@ internal fun VideoDetailDownloadOverlayAdapter(
                         AppIcon(
                             imageVector = rememberAppCollectionIcon(),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = AppContentColors.accent()
                         )
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
                             AppText(
                                 text = "批量缓存",
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = AppContentColors.primaryText()
                             )
                             AppText(
                                 text = "选择多个分P或合集条目统一加入下载",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                         }
                     }
@@ -162,19 +164,19 @@ internal fun VideoDetailDownloadOverlayAdapter(
                     AppIcon(
                         imageVector = rememberAppMusicIcon(),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = AppContentColors.accent()
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         AppText(
                             text = "下载音频",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                         AppText(
                             text = "仅保存音频文件",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }
@@ -213,19 +215,19 @@ internal fun VideoDetailDownloadOverlayAdapter(
                     AppIcon(
                         imageVector = rememberAppPhotoIcon(),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = AppContentColors.accent()
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         AppText(
                             text = "保存封面",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                         AppText(
                             text = "保存当前视频封面到相册",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }

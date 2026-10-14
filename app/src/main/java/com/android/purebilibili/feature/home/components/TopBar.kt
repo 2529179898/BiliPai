@@ -1,6 +1,8 @@
 // 文件路径: feature/home/components/TopBar.kt
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppPressShiftContent
@@ -867,7 +869,7 @@ fun FluidHomeTopBar(
                                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center
                             ) {
-                                AppText("未", fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                AppText("未", fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold, color = AppContentColors.secondaryText())
                             }
                         }
                     }
@@ -901,7 +903,7 @@ fun FluidHomeTopBar(
                             AppIcon(
                                 Icons.Outlined.Search,
                                 null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                                tint = AppContentColors.secondaryText().copy(0.5f),
                                 modifier = Modifier.size(AppSpacingTokens.Large + AppSpacingTokens.Micro)
                             )
                             Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
@@ -909,7 +911,7 @@ fun FluidHomeTopBar(
                                 text = "搜索视频、UP主...",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontSize = MaterialTheme.typography.labelMedium.fontSize,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                color = AppContentColors.secondaryText(),
                                 maxLines = 1
                             )
                         }
@@ -917,7 +919,7 @@ fun FluidHomeTopBar(
                 }
 
                 Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
-                
+
                 //  右侧：设置按钮
                 AppIconButton(
                     onClick = onSettingsClick
@@ -925,7 +927,7 @@ fun FluidHomeTopBar(
                     AppIcon(
                         Icons.Outlined.Settings,
                         contentDescription = "设置",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        tint = AppContentColors.primaryText().copy(alpha = 0.7f),
                         modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro)
                     )
                 }
@@ -1094,7 +1096,7 @@ private fun LightweightHomeTopTabs(
         enabled = adaptiveReadabilityEnabled,
     )
     val adaptiveTopTabContentColor = rememberLiquidGlassAdaptiveContentColor(
-        stableColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        stableColor = AppContentColors.primaryText(),
         state = adaptiveReadabilityState,
         enabled = adaptiveReadabilityEnabled,
     )
@@ -1446,6 +1448,14 @@ private fun LightweightHomeTopTabs(
         val dockIndicatorVerticalGap = resolveTopTabDockIndicatorVerticalGapDp(
             hasOuterChromeSurface = hasOuterChromeSurface
         ).dp
+        // Like upstream's 56dp capture inside its 64dp shell, record only the resting
+        // indicator band. Its top/bottom material boundary is part of the lens input.
+        val topTabCaptureHeight = resolveTopTabDockIndicatorHeightDp(
+            rowHeightDp = rowHeight.value,
+            verticalGapDp = dockIndicatorVerticalGap.value,
+            minHeightDp = com.android.purebilibili.core.ui.resolveMatchedLiquidIndicatorHeightDp(rowHeight.value),
+            indicatorWidthDp = resolveTopTabDockIndicatorWidthDp(itemWidth.value, dockIndicatorHorizontalGap.value),
+        ).dp
         val md3TopTabRowVerticalTranslationPx = with(density) {
             resolveMd3TopTabRowVerticalTranslationDp(
                 skinPlainStyle = skinPlainStyle,
@@ -1701,12 +1711,16 @@ private fun LightweightHomeTopTabs(
             else -> topTabMiuixContentBackdrop
         }
         val topTabIndicatorCaptureSurfaceColor =
-            resolveBiliPaiBottomBarContainerColor(darkTheme = isDarkTheme)
+            resolveBiliPaiBottomBarContainerColor(
+                darkTheme = isDarkTheme,
+                liquidGlassTuning = resolvedLiquidGlassTuning,
+                surfaceColor = AppSurfaceTokens.surfaceContainer(),
+            )
         val useTopTabGlassColorPath = resolveTopTabUsesGlassExportForSelectedGlyphs(
             liquidGlassEnabled = shouldUseLiquidGlassIndicator,
         )
         val topTabVisibleContentZIndex = if (useTopTabGlassColorPath) 0f else 2f
-        val topTabThemeColor = MaterialTheme.colorScheme.primary
+        val topTabThemeColor = AppContentColors.accent()
         val stableTopTabExportTintColor = resolveAndroidNativeExportTintColor(
             themeColor = topTabThemeColor,
             darkTheme = isDarkTheme
@@ -1883,15 +1897,35 @@ private fun LightweightHomeTopTabs(
                 // Keep the sampled and visible labels fixed. Moving this whole group makes the
                 // tab strip rebound with the indicator and desynchronizes backdrop sampling from
                 // LazyRow's own gesture transform. Only the indicator receives the liquid offset.
-                Box(modifier = Modifier.fillMaxSize()) {
-                // Match the bottom bar: keep the export capture inside the dock band.
-                // When the indicator scales beyond it, the combined backdrop exposes the
-                // page source above and below instead of stretching dock material outward.
+                val captureHighlightScope = rememberCoroutineScope()
+                val topTabCaptureHighlight = if (shouldPrimeTopTabLiquidGlassCapture &&
+                    com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current
+                ) {
+                    remember(captureHighlightScope, listState, rowHeight, topTabCaptureHeight, density, itemWidth, topTabHorizontalPadding) {
+                        com.android.purebilibili.feature.home.components.miuix.InteractiveHighlight(
+                            animationScope = captureHighlightScope,
+                            position = { _, point ->
+                                androidx.compose.ui.geometry.Offset(
+                                    point.x - topTabHorizontalPaddingPx + topTabListScrollOffsetPxProvider(),
+                                    point.y - with(density) { (rowHeight - topTabCaptureHeight).toPx() / 2f },
+                                )
+                            },
+                        )
+                    }
+                } else null
+                Box(
+                    modifier = Modifier.fillMaxSize()
+                        .then(topTabCaptureHighlight?.gestureModifier ?: Modifier),
+                ) {
+                // Match the bottom bar's resting-indicator capture height. Sampling the
+                // full shell erases the narrow material boundary used by rim dispersion.
                 // Capture layer: BiliPai-style tabsBackdrop (export-tinted glyphs under glass).
                 if (shouldPrimeTopTabLiquidGlassCapture) {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
+                            .height(topTabCaptureHeight)
+                            .align(Alignment.Center)
                             .clearAndSetSemantics {}
                             .alpha(0f)
                             .zIndex(0f)
@@ -1924,7 +1958,8 @@ private fun LightweightHomeTopTabs(
                                         }
                                         .background(topTabIndicatorCaptureSurfaceColor)
                                 }
-                            },
+                            }
+                            .then(topTabCaptureHighlight?.modifier ?: Modifier),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Row(
@@ -2200,7 +2235,7 @@ private fun LightweightHomeTopTabs(
                         AppIcon(
                             resolveTopTabPartitionIcon(topTabIconFamily),
                             contentDescription = "浏览全部分区",
-                            tint = skinPlainContentColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = skinPlainContentColor ?: AppContentColors.secondaryText(),
                             modifier = Modifier.size(actionIconSize)
                         )
                     }
@@ -2552,8 +2587,8 @@ private fun BoxScope.LightweightTopTabMd3Underline(
 ) {
     val indicatorColor = when {
         skinPlainContentColor != null -> resolveHomeSkinTopTabIndicatorColor(skinPlainContentColor)
-        LocalAppUiStyle.current == AppUiStyle.MIUIX -> MaterialTheme.colorScheme.onSurface
-        else -> MaterialTheme.colorScheme.primary
+        LocalAppUiStyle.current == AppUiStyle.MIUIX -> AppContentColors.primaryText()
+        else -> AppContentColors.accent()
     }
     val iconOnlyIndicator = showIcon && !showText
     val nativeIndicatorWidth = if (iconOnlyIndicator) {
@@ -2689,7 +2724,7 @@ private fun LightweightTopTabItem(
     }
     val contentColor = when (colorMode) {
         TopTabLiquidColorMode.GLASS_EXPORT -> exportMonochromeColor
-        TopTabLiquidColorMode.GLASS_VISIBLE -> adaptiveContentColorOverride ?: unselectedColor
+        TopTabLiquidColorMode.GLASS_VISIBLE -> adaptiveContentColorOverride ?: AppContentColors.primaryText()
         TopTabLiquidColorMode.NORMAL -> androidx.compose.ui.graphics.lerp(
             adaptiveContentColorOverride ?: unselectedColor,
             selectedColor,
@@ -3276,14 +3311,14 @@ fun CategoryTabItem(
      val contentMinHeight = resolveTopTabContentMinHeightDp(normalizedLabelMode).dp
      val contentVerticalPadding = resolveTopTabContentVerticalPaddingDp(normalizedLabelMode).dp
      val iconTextSpacing = resolveTopTabIconTextSpacingDp(normalizedLabelMode).dp
-     
+
      val targetScale = resolveTopTabContentScale(
          selectionFraction = selectionFraction,
          showIcon = showIcon,
          showText = showText,
          presentation = chromePolicy.tabPresentation
      )
-     
+
      // Font weight change still triggers relayout, but it's discrete (only happens at 0.6 threshold)
      // This is acceptable as it doesn't happen every frame.
      val fontWeight = if (selectionFraction > 0.6f) FontWeight.SemiBold else FontWeight.Medium

@@ -666,7 +666,7 @@ class VideoPlayerCoverPolicyTest {
         assertFalse(buttonSource.contains("AppFilledIconButton("))
         assertTrue(buttonSource.contains("painter = manualStartPlayIcon"))
         assertTrue(source.contains("val manualStartPlayIcon = painterResource(R.drawable.ic_pili_tv_play)"))
-        assertTrue(buttonSource.contains("tint = MaterialTheme.colorScheme.primary"))
+        assertTrue(buttonSource.contains("tint = AppContentColors.accent()"))
         assertTrue(buttonSource.contains("Modifier.size(60.dp)"))
         assertFalse(buttonSource.contains("Color(0xFF4D5160)"))
         assertFalse(buttonSource.contains("Color.White.copy(alpha = 0.96f)"))

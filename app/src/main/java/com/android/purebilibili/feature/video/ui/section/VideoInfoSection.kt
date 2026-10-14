@@ -1,12 +1,15 @@
 // File: feature/video/ui/section/VideoInfoSection.kt
 package com.android.purebilibili.feature.video.ui.section
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.motion.folmeExpandEnterTransition
 import com.android.purebilibili.core.ui.motion.folmeExpandExitTransition
 import com.android.purebilibili.core.ui.components.AppText
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -53,7 +56,7 @@ import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
-//  已改用 MaterialTheme.colorScheme.primary
+//  已改用 AppContentColors.accent()
 import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.data.repository.VideoRepository
 import com.android.purebilibili.data.model.response.UgcSeason
@@ -266,13 +269,13 @@ private fun buildRawDescriptionAnnotatedString(
 
 /**
  * Video Info Section Components
- * 
+ *
  * Contains components for displaying video information:
  * - VideoTitleSection: Video title with expand/collapse
  * - VideoTitleWithDesc: Title + stats + description
  * - UpInfoSection: UP owner info with follow button
  * - DescriptionSection: Video description
- * 
+ *
  * Requirement Reference: AC3.1 - Video info components in dedicated file
  */
 
@@ -312,7 +315,7 @@ fun VideoTitleSection(
             title = info.title
         )
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -336,7 +339,7 @@ fun VideoTitleSection(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = if (expanded) Int.MAX_VALUE else 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     modifier = Modifier.copyOnLongPress(info.title, "视频标题")
                 )
             }
@@ -344,18 +347,18 @@ fun VideoTitleSection(
             AppIcon(
                 imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                tint = AppContentColors.secondaryText().copy(alpha = 0.5f),
                 modifier = Modifier.size(18.dp)
             )
         }
-        
+
         Spacer(Modifier.height(2.dp))
-        
+
         // Stats row (views, danmaku)
         AppText(
             text = "${FormatUtils.formatStat(info.stat.view.toLong())}  \u2022  ${FormatUtils.formatStat(info.stat.danmaku.toLong())}\u5f39\u5e55",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            color = AppContentColors.secondaryText(),
             maxLines = 1
         )
 
@@ -372,7 +375,7 @@ fun VideoTitleSection(
                         text = publishTimeRowText,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f),
+                        color = AppContentColors.secondaryText(),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
@@ -380,7 +383,7 @@ fun VideoTitleSection(
                 AppText(
                     text = publishTimeRowText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1
                 )
             }
@@ -454,8 +457,11 @@ fun VideoTitleWithDesc(
     onRelatedVideoClick: (String, android.os.Bundle?) -> Unit = { _, _ -> },
     // PiliPlus 式标题前缀徽标（赞助/恰饭等），空串不展示
     sponsorLabel: String = "",
+    showDescriptionAndTags: Boolean = true,
+    expandedOverride: Boolean? = null,
+    onExpandedChange: ((Boolean) -> Unit)? = null,
     // 信息行末尾的紧凑入口插槽（AI 总结 / 视频笔记图标）
-    trailingStatsContent: (@Composable () -> Unit)? = null
+    trailingStatsContent: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val isMaterial3 = LocalAppUiStyle.current == AppUiStyle.MATERIAL3
@@ -466,14 +472,21 @@ fun VideoTitleWithDesc(
     val argueMsgShown by com.android.purebilibili.core.store.SettingsManager
         .getVideoArgueMsgShown(context)
         .collectAsStateWithLifecycle(initialValue = true)
-    var expanded by remember(info.bvid, info.desc, videoTags.size, defaultExpanded) {
-        mutableStateOf(
-            resolveVideoInfoInitialExpandedState(
-                hasDescription = info.desc.isNotBlank(),
-                hasTags = videoTags.isNotEmpty(),
-                defaultExpanded = defaultExpanded
-            )
+    // 展开状态改为“用户意图优先”：用户手动切换过之后，晚到的描述/标签数据不再重置它。
+    // 原实现把 videoTags.size 放进 remember 的 key，标签异步回填时会重算初始值，
+    // 既会覆盖用户的手动收起，也会让标签区重新播放展开动画并下推下方内容。
+    var localExpanded by remember(info.bvid) { mutableStateOf<Boolean?>(null) }
+    val expanded = expandedOverride
+        ?: localExpanded
+        ?: resolveVideoInfoInitialExpandedState(
+            hasDescription = info.desc.isNotBlank(),
+            hasTags = videoTags.isNotEmpty(),
+            defaultExpanded = defaultExpanded
         )
+    val toggleExpanded: () -> Unit = {
+        val next = !expanded
+        localExpanded = next
+        onExpandedChange?.invoke(next)
     }
     val publishTimeRowText = remember(info.pubdate, info.tname, info.title) {
         resolvePublishTimeRowText(
@@ -501,7 +514,7 @@ fun VideoTitleWithDesc(
     val videoBadges = remember(info.isUpowerExclusive, info.isUpowerPreview, info.isCooperation) {
         resolveVideoDetailBadges(info)
     }
-    
+
     //  尝试获取共享元素作用域
     val sharedTransitionScope = com.android.purebilibili.core.ui.LocalSharedTransitionScope.current
     val animatedVisibilityScope = com.android.purebilibili.core.ui.LocalAnimatedVisibilityScope.current
@@ -529,7 +542,7 @@ fun VideoTitleWithDesc(
             speedSettings = sharedTransitionSpeedSettings
         )
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -549,7 +562,7 @@ fun VideoTitleWithDesc(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(role = Role.Button) { expanded = !expanded },
+                .clickable(role = Role.Button, onClick = toggleExpanded),
             verticalAlignment = Alignment.Top
         ) {
             //  共享元素过渡 - 标题
@@ -590,7 +603,7 @@ fun VideoTitleWithDesc(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = if (expanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     modifier = titleModifier
                 )
             }
@@ -603,7 +616,7 @@ fun VideoTitleWithDesc(
             AppIcon(
                 imageVector = Icons.Outlined.KeyboardArrowDown,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                tint = AppContentColors.secondaryText().copy(alpha = 0.5f),
                 modifier = Modifier
                     .align(Alignment.CenterVertically)
                     .rotate(rotateAngle)
@@ -611,13 +624,19 @@ fun VideoTitleWithDesc(
                     .padding(4.dp)
             )
         }
-        
+
         Spacer(Modifier.height(if (isMaterial3) 4.dp else 3.dp))
-        
+
+        val argueMsg = info.argueInfo?.argueMsg.orEmpty()
+        val noReprint = info.rights.noReprint == 1
+        val inlineDeclarations = argueMsgShown && (argueMsg.isNotBlank() || noReprint) &&
+            !expanded && videoBadges.isEmpty() && info.honorReply?.honor.isNullOrEmpty()
+
         // Stats row
         Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
         androidx.compose.foundation.layout.FlowRow(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(2.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             itemVerticalAlignment = Alignment.CenterVertically
@@ -650,14 +669,14 @@ fun VideoTitleWithDesc(
                     AppIcon(
                         imageVector = Icons.Outlined.PlayCircleOutline,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                         modifier = Modifier.size(13.dp)
                     )
                     Spacer(Modifier.width(2.dp))
                     AppText(
                         text = FormatUtils.formatStat(info.stat.view.toLong()),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
 
@@ -689,14 +708,14 @@ fun VideoTitleWithDesc(
                     AppIcon(
                         imageVector = Icons.Outlined.Subtitles,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                         modifier = Modifier.size(13.dp)
                     )
                     Spacer(Modifier.width(2.dp))
                     AppText(
                         text = FormatUtils.formatStat(info.stat.danmaku.toLong()),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
 
@@ -705,7 +724,7 @@ fun VideoTitleWithDesc(
                 AppText(
                     text = onlineCountText,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.82f),
+                    color = AppContentColors.accent().copy(alpha = 0.82f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -722,7 +741,7 @@ fun VideoTitleWithDesc(
                             text = publishTimeRowText,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f),
+                            color = AppContentColors.secondaryText(),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
@@ -730,11 +749,18 @@ fun VideoTitleWithDesc(
                     AppText(
                         text = fullPublishTimeText.ifBlank { publishTimeRowText },
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 1
                     )
                 }
             }
+        }
+        if (inlineDeclarations) {
+            Spacer(Modifier.height(4.dp))
+            if (argueMsg.isNotBlank()) VideoArgueMsgRow(argueMsg = argueMsg)
+            if (argueMsg.isNotBlank() && noReprint) Spacer(Modifier.height(2.dp))
+            if (noReprint) VideoArgueMsgRow(argueMsg = "未经作者授权，请勿转载")
+        }
         }
         trailingStatsContent?.invoke()
         }
@@ -755,7 +781,7 @@ fun VideoTitleWithDesc(
             AppText(
                 text = info.bvid,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.66f),
+                color = AppContentColors.secondaryText(),
                 modifier = Modifier
                     .padding(top = 6.dp)
                     .copyOnClick(info.bvid, "BV号")
@@ -812,15 +838,13 @@ fun VideoTitleWithDesc(
 
         // UP 主视频声明(PiliPlus argue_msg)+ 禁止转载(rights.no_reprint):
         // 声明小字置于 BGM 胶囊之上,与荣誉胶囊形成"胶囊区→声明区"的统一观感。
-        val argueMsg = info.argueInfo?.argueMsg.orEmpty()
-        val noReprint = info.rights.noReprint == 1
-        if (argueMsgShown && (argueMsg.isNotBlank() || noReprint)) {
-            Spacer(Modifier.height(6.dp))
+        if (!inlineDeclarations && argueMsgShown && (argueMsg.isNotBlank() || noReprint)) {
+            Spacer(Modifier.height(4.dp))
             if (argueMsg.isNotBlank()) {
                 VideoArgueMsgRow(argueMsg = argueMsg)
             }
             if (argueMsg.isNotBlank() && noReprint) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
             }
             if (noReprint) {
                 VideoArgueMsgRow(argueMsg = "未经作者授权，请勿转载")
@@ -837,9 +861,39 @@ fun VideoTitleWithDesc(
             )
         }
 
+        if (showDescriptionAndTags) {
+            VideoDescriptionAndTags(
+                info = info,
+                videoTags = videoTags,
+                expanded = expanded,
+                animateLayout = animateLayout,
+                onDescriptionUrlClick = onDescriptionUrlClick,
+                onBgmClick = onBgmClick,
+                onTagClick = onTagClick,
+            )
+        }
+    }
+}
+
+/** Shared rich description and tags; large-screen info panes also show a compact preview. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun VideoDescriptionAndTags(
+    info: ViewInfo,
+    videoTags: List<VideoTag>,
+    expanded: Boolean,
+    modifier: Modifier = Modifier,
+    showCollapsedPreview: Boolean = false,
+    animateLayout: Boolean = true,
+    onDescriptionUrlClick: ((String) -> Unit)? = null,
+    onBgmClick: (BgmInfo) -> Unit = {},
+    onTagClick: (String) -> Unit = {},
+) {
+    val context = LocalContext.current
+    Column(modifier = modifier) {
         //  Description - 默认隐藏，展开后显示
         androidx.compose.animation.AnimatedVisibility(
-            visible = expanded && info.desc.isNotBlank(),
+            visible = (expanded || showCollapsedPreview) && info.desc.isNotBlank(),
             enter = if (animateLayout) {
                 folmeExpandEnterTransition(useMiuixSpring)
             } else {
@@ -853,7 +907,7 @@ fun VideoTitleWithDesc(
         ) {
             Column {
                 Spacer(Modifier.height(6.dp))
-                val descriptionUrlColor = MaterialTheme.colorScheme.primary
+                val descriptionUrlColor = AppContentColors.accent()
                 val descriptionLinkListener = remember(onDescriptionUrlClick) {
                     onDescriptionUrlClick?.let { handler ->
                         androidx.compose.ui.text.LinkInteractionListener { link ->
@@ -884,17 +938,19 @@ fun VideoTitleWithDesc(
                 SelectionContainer {
                     AppText(
                         text = descriptionText,
+                        maxLines = if (expanded || !showCollapsedPreview) Int.MAX_VALUE else 3,
+                        overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        color = AppContentColors.secondaryText(),
                         modifier = descriptionModifier
                     )
                 }
             }
         }
-        
+
         //  Tags - 默认隐藏，展开后显示
         androidx.compose.animation.AnimatedVisibility(
-            visible = expanded && videoTags.isNotEmpty(),
+            visible = (expanded || showCollapsedPreview) && videoTags.isNotEmpty(),
             enter = if (animateLayout) {
                 folmeExpandEnterTransition(useMiuixSpring)
             } else {
@@ -918,6 +974,7 @@ fun VideoTitleWithDesc(
                 // Keep native touch expansion without reserving a 48dp layout box per tag.
                 CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                     androidx.compose.foundation.layout.FlowRow(
+                        maxLines = if (expanded || !showCollapsedPreview) Int.MAX_VALUE else 2,
                         horizontalArrangement = Arrangement.spacedBy(tagMetrics.itemSpacingHorizontal),
                         verticalArrangement = Arrangement.spacedBy(tagMetrics.itemSpacingVertical)
                     ) {
@@ -963,13 +1020,13 @@ private fun VideoArgueMsgRow(argueMsg: String) {
         androidx.compose.material3.Icon(
             imageVector = Icons.Outlined.ErrorOutline,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = AppContentColors.secondaryText(),
             modifier = Modifier.size(13.dp)
         )
         AppText(
             text = argueMsg,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
     }
 }
@@ -1110,7 +1167,7 @@ fun UpInfoSection(
                         AppIcon(
                             imageVector = Icons.Outlined.AccountCircle,
                             contentDescription = "UP主标识",
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = AppContentColors.accent(),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -1173,7 +1230,7 @@ fun UpInfoSection(
                 val ownerStaff = info.staff.firstOrNull { it.mid == info.owner.mid }
                 val fallbackVipStatus = ownerStaff?.vip?.status ?: 0
                 val fallbackVipType = ownerStaff?.vip?.type ?: 0
-                val onSurfaceColor = MaterialTheme.colorScheme.onSurface
+                val onSurfaceColor = AppContentColors.primaryText()
                 val secondaryColor = MaterialTheme.colorScheme.secondary
                 val ownerNameColor by produceState<Color>(
                     initialValue = resolveUpNameColor(
@@ -1243,16 +1300,14 @@ fun UpInfoSection(
                     darkTheme = followDarkTheme,
                 )
             }
+            // 关注状态未确认时不再用空格+灰底占位：直接按“未关注”的主题配色渲染完整按钮，
+            // 状态回填后仅用 Crossfade 切换文案，避免灰胶囊→蓝色按钮的硬跳与闪烁。
             AppSurface(
                 onClick = onFollowClick,
                 enabled = followStatusKnown,
-                color = if (followStatusKnown) {
-                    when (followVisualPolicy.detailButtonTone) {
-                        FollowButtonTone.PRIMARY -> MaterialTheme.colorScheme.primary
-                        FollowButtonTone.PRIMARY_CONTAINER -> MaterialTheme.colorScheme.primaryContainer
-                    }
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
+                color = when (followVisualPolicy.detailButtonTone) {
+                    FollowButtonTone.PRIMARY -> AppContentColors.accent()
+                    FollowButtonTone.PRIMARY_CONTAINER -> MaterialTheme.colorScheme.primaryContainer
                 },
                 shape = VideoDetailShapes.action(),
                 modifier = followActionModifier.followActionAnchor()
@@ -1264,23 +1319,21 @@ fun UpInfoSection(
                         .fillMaxWidth()
                         .padding(horizontal = if (isCompact) 8.dp else 12.dp),
                 ) {
-                    AppText(
-                        text = if (followStatusKnown) {
-                            if (isFollowing) "\u5df2\u5173\u6ce8" else "\u5173\u6ce8"
-                        } else {
-                            " "
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (followStatusKnown) {
-                            when (followVisualPolicy.detailTextTone) {
-                                FollowTextTone.ON_PRIMARY -> MaterialTheme.colorScheme.onPrimary
+                    Crossfade(
+                        targetState = if (isFollowing) "\u5df2\u5173\u6ce8" else "\u5173\u6ce8",
+                        animationSpec = tween(durationMillis = 180),
+                        label = "videoDetailFollowLabel"
+                    ) { followLabel ->
+                        AppText(
+                            text = followLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = when (followVisualPolicy.detailTextTone) {
+                                FollowTextTone.ON_PRIMARY -> AppContentColors.onAccent()
                                 FollowTextTone.ON_PRIMARY_CONTAINER -> MaterialTheme.colorScheme.onPrimaryContainer
-                            }
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
-                        },
-                        fontWeight = FontWeight.Medium
-                    )
+                            },
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
@@ -1316,7 +1369,7 @@ fun UpInfoSection(
                                 AppText(
                                     text = upStatsText,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
+                                    color = AppContentColors.secondaryText(),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -1347,7 +1400,7 @@ fun UpInfoSection(
                             AppText(
                                 text = upStatsText,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
+                                color = AppContentColors.secondaryText(),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -1413,13 +1466,13 @@ private fun CreatorTeamSection(
                 text = "创作团队",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
             Spacer(modifier = Modifier.weight(1f))
             AppText(
                 text = "共 ${staff.size} 位",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+                color = AppContentColors.secondaryText()
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -1516,7 +1569,7 @@ private fun CreatorTeamMemberChip(
                     text = member.name,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
@@ -1532,7 +1585,7 @@ private fun CreatorTeamMemberChip(
                 AppText(
                     text = member.title,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1548,7 +1601,7 @@ private fun CreatorTeamMemberChip(
             ) {
                 AppSurface(
                     color = when (followVisualPolicy.detailButtonTone) {
-                        FollowButtonTone.PRIMARY -> MaterialTheme.colorScheme.primary
+                        FollowButtonTone.PRIMARY -> AppContentColors.accent()
                         FollowButtonTone.PRIMARY_CONTAINER -> MaterialTheme.colorScheme.primaryContainer
                     },
                     shape = VideoDetailShapes.action(),
@@ -1562,7 +1615,7 @@ private fun CreatorTeamMemberChip(
                             text = if (isFollowing) "已关注" else "关注",
                             style = MaterialTheme.typography.labelMedium,
                             color = when (followVisualPolicy.detailTextTone) {
-                                FollowTextTone.ON_PRIMARY -> MaterialTheme.colorScheme.onPrimary
+                                FollowTextTone.ON_PRIMARY -> AppContentColors.onAccent()
                                 FollowTextTone.ON_PRIMARY_CONTAINER -> MaterialTheme.colorScheme.onPrimaryContainer
                             },
                             fontWeight = FontWeight.Medium
@@ -1597,7 +1650,7 @@ fun DescriptionSection(desc: String) {
                 AppText(
                     text = desc,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
+                    color = AppContentColors.secondaryText(),
                     maxLines = if (expanded) Int.MAX_VALUE else 3,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1614,7 +1667,7 @@ fun DescriptionSection(desc: String) {
                 ) {
                     AppText(
                         text = if (expanded) "\u6536\u8d77" else "\u5c55\u5f00\u66f4\u591a",
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppContentColors.accent(),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -1622,7 +1675,7 @@ fun DescriptionSection(desc: String) {
                     AppIcon(
                         imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = AppContentColors.accent(),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -1703,7 +1756,7 @@ fun BgmInfoRow(
     )
 
     AppSurface(
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+        color = AppContentColors.accent().copy(alpha = 0.08f),
         shape = AppShapes.container(ContainerLevel.Chip),
         modifier = Modifier
             .fillMaxWidth()
@@ -1716,7 +1769,7 @@ fun BgmInfoRow(
             AppIcon(
                 imageVector = Icons.Outlined.MusicNote,
                 contentDescription = "BGM",
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                tint = AppContentColors.accent().copy(alpha = 0.8f),
                 modifier = Modifier.size(14.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -1726,7 +1779,7 @@ fun BgmInfoRow(
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Medium
                     ),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.92f),
+                    color = AppContentColors.accent().copy(alpha = 0.92f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1735,7 +1788,7 @@ fun BgmInfoRow(
                     AppText(
                         text = it,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
+                        color = AppContentColors.secondaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1745,7 +1798,7 @@ fun BgmInfoRow(
                 AppIcon(
                     imageVector = Icons.Outlined.KeyboardArrowDown,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                    tint = AppContentColors.accent().copy(alpha = 0.72f),
                     modifier = Modifier
                         .size(18.dp)
                         .rotate(indicatorRotation)
@@ -1877,7 +1930,7 @@ private fun BgmSelectionSheet(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                         modifier = Modifier.weight(1f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -1947,7 +2000,7 @@ private fun BgmSelectionSheet(
                     AppText(
                         text = selectedData.errorMessage.takeIf { it.isNotBlank() } ?: "音乐推荐加载失败",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
+                        color = AppContentColors.secondaryText(),
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
@@ -1956,7 +2009,7 @@ private fun BgmSelectionSheet(
                     AppText(
                         text = "暂无相关视频",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
+                        color = AppContentColors.secondaryText(),
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
@@ -1973,7 +2026,7 @@ private fun BgmSelectionSheet(
                     AppText(
                         text = "暂时无法加载更多音乐信息",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
+                        color = AppContentColors.secondaryText(),
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     )
                 }
@@ -2019,7 +2072,7 @@ private fun BgmDiscoveryRelatedHeader() {
             text = "使用该音乐的视频",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
         Spacer(modifier = Modifier.height(10.dp))
     }
@@ -2145,7 +2198,7 @@ private fun BgmSelectionStrip(
                         .clip(AppShapes.container(ContainerLevel.Floating))
                         .background(
                             if (selected) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                AppContentColors.accent().copy(alpha = 0.12f)
                             } else {
                                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
                             }
@@ -2153,7 +2206,7 @@ private fun BgmSelectionStrip(
                         .border(
                             width = if (selected) 1.5.dp else 1.dp,
                             color = if (selected) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+                                AppContentColors.accent().copy(alpha = 0.55f)
                             } else {
                                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.38f)
                             },
@@ -2176,7 +2229,7 @@ private fun BgmSelectionStrip(
                         AppIcon(
                             imageVector = Icons.Outlined.MusicNote,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.78f),
+                            tint = AppContentColors.accent().copy(alpha = 0.78f),
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -2186,9 +2239,9 @@ private fun BgmSelectionStrip(
                     text = bgm.musicTitle.ifBlank { "未知音乐" },
                     style = MaterialTheme.typography.labelSmall,
                     color = if (selected) {
-                        MaterialTheme.colorScheme.primary
+                        AppContentColors.accent()
                     } else {
-                        MaterialTheme.colorScheme.onSurface
+                        AppContentColors.primaryText()
                     },
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1,
@@ -2249,7 +2302,7 @@ internal fun BgmDetailCard(
                         text = detail?.musicTitle.orEmpty().ifBlank { bgm.musicTitle.ifBlank { "未知音乐" } },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -2258,7 +2311,7 @@ internal fun BgmDetailCard(
                         AppIcon(
                             imageVector = Icons.Outlined.Star,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = AppContentColors.accent(),
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
@@ -2266,14 +2319,14 @@ internal fun BgmDetailCard(
                             text = scoreText,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     AppText(
                         text = displayStatLine,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -2281,7 +2334,7 @@ internal fun BgmDetailCard(
                     AppText(
                         text = commentText,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -2289,7 +2342,7 @@ internal fun BgmDetailCard(
                     AppText(
                         text = description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f),
+                        color = AppContentColors.secondaryText(),
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -2299,7 +2352,7 @@ internal fun BgmDetailCard(
                     AppText(
                         text = "打开音乐详情",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = AppContentColors.accent(),
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable(onClick = onOpenMusic)
                     )
@@ -2384,7 +2437,7 @@ private fun BgmDetailCover(
         modifier = Modifier
             .size(width = 112.dp, height = 112.dp)
             .clip(AppShapes.container(ContainerLevel.Floating))
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+            .background(AppContentColors.accent().copy(alpha = 0.10f)),
         contentAlignment = Alignment.Center
     ) {
         if (coverUrl.isNotBlank()) {
@@ -2402,7 +2455,7 @@ private fun BgmDetailCover(
             AppIcon(
                 imageVector = Icons.Outlined.MusicNote,
                 contentDescription = title,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                tint = AppContentColors.accent().copy(alpha = 0.8f),
                 modifier = Modifier.size(34.dp)
             )
         }

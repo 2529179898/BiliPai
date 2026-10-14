@@ -1,5 +1,9 @@
 // 文件路径: feature/video/VideoPlayerOverlay.kt
 package com.android.purebilibili.feature.video.ui.overlay
+
+import com.android.purebilibili.core.ui.MediaContrastPalette
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -72,6 +76,7 @@ import com.android.purebilibili.feature.video.ui.components.VideoSettingsPanel
 import com.android.purebilibili.feature.video.ui.components.PagesSelector
 import com.android.purebilibili.feature.video.ui.components.resolveCurrentUgcEpisodeLazyListIndex
 import com.android.purebilibili.feature.video.ui.components.LandscapeSidePanel
+import com.android.purebilibili.feature.video.ui.components.landscapeEndDrawerPadding
 import com.android.purebilibili.feature.video.ui.components.LandscapeSidePanelEdge
 import com.android.purebilibili.data.model.response.SponsorProgressMarker
 import com.android.purebilibili.data.model.response.ViewPoint
@@ -700,7 +705,8 @@ private fun VideoPlayerOverlayContent(
     val onPlaybackSpeedChange = actions.onPlaybackSpeedChange ?: { speed: Float -> state.player.setPlaybackSpeed(speed) }
     val endDrawerVisible = state.endDrawerVisible
     val endDrawerInitialTab = state.endDrawerInitialTab
-    val endDrawerReservedWidth = state.endDrawerReservedWidth
+    val endDrawerReservedWidthProvider = state.endDrawerReservedWidthProvider
+    val endDrawerCloseProgress = state.endDrawerCloseProgress ?: remember { mutableFloatStateOf(1f) }
     val onShowEndDrawer = actions.onShowEndDrawer
     val onDismissEndDrawer = actions.onDismissEndDrawer
     val relatedVideos = state.relatedVideos
@@ -1136,7 +1142,7 @@ private fun VideoPlayerOverlayContent(
         .layout { measurable, constraints ->
             val commentInset = (landscapeCommentReservedWidth.toPx() *
                 (1f - state.landscapeCommentCloseProgressProvider().coerceIn(0f, 1f))).toInt()
-            val endInset = endDrawerReservedWidth.roundToPx()
+            val endInset = endDrawerReservedWidthProvider().roundToPx()
             val totalInset = (commentInset + endInset).coerceAtMost(constraints.maxWidth)
             val placeable = measurable.measure(constraints.offset(horizontal = -totalInset))
             layout(placeable.width + totalInset, placeable.height) {
@@ -1198,7 +1204,7 @@ private fun VideoPlayerOverlayContent(
             bandwidthEstimate = debugInfo.bandwidthEstimate
         )
     }
-    val themePrimary = MaterialTheme.colorScheme.primary
+    val themePrimary = AppContentColors.accent()
     val centerLoadingVisualState = remember(themePrimary) {
         resolveCenterLoadingVisualState(
             themePrimary = themePrimary
@@ -1348,7 +1354,7 @@ private fun VideoPlayerOverlayContent(
             //  [修复] align 必须在 AnimatedVisibility 的 modifier 上，而不是内部 Box 上
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(end = endDrawerReservedWidth)
+                .landscapeEndDrawerPadding(endDrawerReservedWidthProvider)
         ) {
             Box(
                 modifier = Modifier
@@ -1383,7 +1389,7 @@ private fun VideoPlayerOverlayContent(
             exit = fadeOut(OverlayChromeFadeSpec),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(end = endDrawerReservedWidth)
+                .landscapeEndDrawerPadding(endDrawerReservedWidthProvider)
         ) {
             Box(
                 modifier = Modifier
@@ -1413,7 +1419,7 @@ private fun VideoPlayerOverlayContent(
                 progressProvider = displayedProgressProvider,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(end = endDrawerReservedWidth)
+                    .landscapeEndDrawerPadding(endDrawerReservedWidthProvider)
             )
         }
 
@@ -1656,7 +1662,7 @@ private fun VideoPlayerOverlayContent(
                                 },
                                 contentDescription = fullscreenLockButtonState.contentDescription,
                                 tint = if (fullscreenLockButtonState.highlighted) {
-                                    MaterialTheme.colorScheme.primary
+                                    AppContentColors.accent()
                                 } else {
                                     Color.White
                                 },
@@ -1728,9 +1734,9 @@ private fun VideoPlayerOverlayContent(
                             .size(8.dp)
                             .background(
                                 color = when (insightPresentation.level) {
-                                    PlaybackInsightLevel.LIVE -> Color(0xFF66E28A)
-                                    PlaybackInsightLevel.ATTENTION -> Color(0xFFFFB74D)
-                                    PlaybackInsightLevel.UNAVAILABLE -> Color(0xFFB0B4BA)
+                                    PlaybackInsightLevel.LIVE -> MediaContrastPalette.Success
+                                    PlaybackInsightLevel.ATTENTION -> MediaContrastPalette.Warning
+                                    PlaybackInsightLevel.UNAVAILABLE -> MediaContrastPalette.SecondaryForeground
                                 },
                                 shape = CircleShape
                             )
@@ -2329,6 +2335,7 @@ private fun VideoPlayerOverlayContent(
                     ) {
                         PagesSelector(
                             pages = pages,
+                            coverUrl = coverUrl,
                             currentPageIndex = currentPageIndex,
                             forceGridMode = true,
                             blockParentVerticalScroll = true,
@@ -2360,6 +2367,7 @@ private fun VideoPlayerOverlayContent(
         // --- 11. [新增] 侧边栏抽屉 ---
         LandscapeEndDrawer(
             visible = endDrawerVisible && isFullscreen,
+            closeProgress = endDrawerCloseProgress,
             onDismiss = onDismissEndDrawer,
             relatedVideos = relatedVideos,
             ugcSeason = ugcSeason,
@@ -2594,14 +2602,14 @@ private fun PortraitTopBar(
                     modifier = Modifier
                         .size(layoutPolicy.buttonSizeDp.dp)
                         .then(
-                            if (isAudioOnly) Modifier.background(MaterialTheme.colorScheme.primary, CircleShape)
+                            if (isAudioOnly) Modifier.background(AppContentColors.accent(), CircleShape)
                             else Modifier
                         )
                 ) {
                     AppIcon(
                         imageVector = Icons.Outlined.Headphones,
                         contentDescription = "听视频",
-                        tint = if (isAudioOnly) MaterialTheme.colorScheme.onPrimary else Color.White,
+                        tint = if (isAudioOnly) AppContentColors.onAccent() else Color.White,
                         modifier = Modifier.size(layoutPolicy.iconSizeDp.dp)
                     )
                 }
@@ -2740,7 +2748,7 @@ private fun PlaybackInsightPanel(
         color = MaterialTheme.colorScheme.surface.copy(
             alpha = if (realtimeHazeState != null) 0.72f else 0.94f
         ),
-        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentColor = AppContentColors.primaryText(),
         tonalElevation = 0.dp,
         border = BorderStroke(
             width = 0.6.dp,
@@ -2759,7 +2767,7 @@ private fun PlaybackInsightPanel(
                     AppText(
                         displayedPresentation.statusText,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
                 if (onCopyReport != null) {
@@ -2786,7 +2794,7 @@ private fun PlaybackInsightPanel(
                             AppText(
                                 section.title,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary
+                                color = AppContentColors.accent()
                             )
                             rows.forEach { row ->
                                 Row(
@@ -2797,7 +2805,7 @@ private fun PlaybackInsightPanel(
                                     AppText(
                                         row.label,
                                         modifier = Modifier.weight(0.8f),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = AppContentColors.secondaryText(),
                                         style = MaterialTheme.typography.labelSmall
                                     )
                                     AppText(
@@ -2820,7 +2828,7 @@ private fun PlaybackInsightPanel(
                             AppText(
                                 "诊断事件",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary
+                                color = AppContentColors.accent()
                             )
                             diagnosticEvents.takeLast(6).asReversed().forEach { event ->
                                 AppText(
@@ -2860,7 +2868,8 @@ fun LandscapeEndDrawer(
     onToggleFollow: () -> Unit,
     onVideoClick: (String, android.os.Bundle?) -> Unit,
     hazeState: HazeState? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    closeProgress: androidx.compose.runtime.MutableFloatState = remember { mutableFloatStateOf(1f) },
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -2925,6 +2934,7 @@ fun LandscapeEndDrawer(
                 visible = true,
                 edge = LandscapeSidePanelEdge.End,
                 width = layoutPolicy.drawerWidthDp.dp,
+                closeProgress = closeProgress,
                 onDismiss = onDismiss,
                 modifier = Modifier.fillMaxHeight(),
             ) { requestDismiss ->
@@ -2932,7 +2942,7 @@ fun LandscapeEndDrawer(
                 AppSurface(
                     modifier = Modifier.fillMaxSize(),
                     color = Color.Transparent,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    contentColor = AppContentColors.primaryText(),
                 ) {
                 Box(
                     modifier = Modifier
@@ -2967,7 +2977,7 @@ fun LandscapeEndDrawer(
                                 modifier = Modifier
                                     .size(layoutPolicy.avatarSizeDp.dp)
                                     .clip(CircleShape)
-                                    .background(Color.Gray),
+                                    .background(MediaContrastPalette.ControlSurface),
                                 contentScale = ContentScale.Crop
                             )
 
@@ -2976,7 +2986,7 @@ fun LandscapeEndDrawer(
                             // 名字
                             AppText(
                                 text = ownerName,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = AppContentColors.primaryText(),
                                 fontSize = layoutPolicy.titleFontSp.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
@@ -2991,8 +3001,8 @@ fun LandscapeEndDrawer(
                                 onClick = onToggleFollow,
                                 enabled = followStatusKnown,
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isFollowed) MaterialTheme.colorScheme.onSurface.copy(0.2f) else MaterialTheme.colorScheme.primary,
-                                    contentColor = if (isFollowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
+                                    containerColor = if (isFollowed) AppContentColors.primaryText().copy(0.2f) else AppContentColors.accent(),
+                                    contentColor = if (isFollowed) AppContentColors.primaryText() else AppContentColors.onAccent(),
                                 ),
                                 contentPadding = PaddingValues(
                                     horizontal = layoutPolicy.followButtonHorizontalPaddingDp.dp,
@@ -3107,7 +3117,7 @@ fun LandscapeEndDrawer(
                                         AppText(
                                             text = section.title,
                                             style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = AppContentColors.secondaryText(),
                                             modifier = Modifier.padding(bottom = 8.dp)
                                         )
                                     }
@@ -3162,13 +3172,13 @@ private fun InteractionButton(
         AppIcon(
             imageVector = icon,
             contentDescription = label,
-            tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            tint = if (isActive) AppContentColors.accent() else AppContentColors.primaryText(),
             modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.height(4.dp))
         AppText(
             text = label,
-            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (isActive) AppContentColors.accent() else AppContentColors.secondaryText(),
             style = MaterialTheme.typography.labelSmall
         )
     }
@@ -3236,7 +3246,7 @@ private fun TripleLikeInteractionButton(
             icon = if (isLiked) likeFilledIcon else likeIcon,
             label = "点赞",
             progress = longPressProgress,
-            progressColor = MaterialTheme.colorScheme.primary,
+            progressColor = AppContentColors.accent(),
             isActive = isLiked,
             onClick = onLikeClick,
             onLongPress = { isLongPressing = true },
@@ -3252,7 +3262,7 @@ private fun TripleLikeInteractionButton(
             icon = coinIcon,
             label = "投币",
             progress = longPressProgress,
-            progressColor = Color(0xFFFFB300),
+            progressColor = AppContentColors.accent(),
             isActive = isCoined,
             onClick = onCoinClick,
             showProgress = longPressProgress > 0.05f,
@@ -3264,7 +3274,7 @@ private fun TripleLikeInteractionButton(
             icon = favoriteIcon,
             label = "收藏",
             progress = longPressProgress,
-            progressColor = Color(0xFFFFC107),
+            progressColor = AppContentColors.accent(),
             isActive = isFavorited,
             onClick = onFavoriteClick,
             showProgress = longPressProgress > 0.05f,
@@ -3353,7 +3363,7 @@ private fun LandscapeProgressIcon(
             AppIcon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (isActive) progressColor else MaterialTheme.colorScheme.onSurface,
+                tint = if (isActive) progressColor else AppContentColors.primaryText(),
                 modifier = Modifier.size(iconSize)
             )
         }
@@ -3361,7 +3371,7 @@ private fun LandscapeProgressIcon(
         Spacer(modifier = Modifier.height(layoutPolicy.interactionLabelTopSpacingDp.dp))
         AppText(
             text = label,
-            color = if (isActive) progressColor else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (isActive) progressColor else AppContentColors.secondaryText(),
             fontSize = layoutPolicy.interactionLabelFontSp.sp
         )
     }
@@ -3381,7 +3391,7 @@ private fun LandscapeVideoItem(
             .fillMaxWidth()
             .height(layoutPolicy.videoItemHeightDp.dp)
             .clickable(onClick = onClick)
-            .background(if (isCurrent) MaterialTheme.colorScheme.onSurface.copy(0.1f) else Color.Transparent, AppShapes.container(ContainerLevel.Tag))
+            .background(if (isCurrent) AppContentColors.primaryText().copy(0.1f) else Color.Transparent, AppShapes.container(ContainerLevel.Tag))
             .padding(4.dp)
     ) {
         // 封面
@@ -3414,7 +3424,7 @@ private fun LandscapeVideoItem(
         ) {
             AppText(
                 text = video.title,
-                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                color = if (isCurrent) AppContentColors.accent() else AppContentColors.primaryText(),
                 fontSize = layoutPolicy.itemTitleFontSp.sp,
                 maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -3422,7 +3432,7 @@ private fun LandscapeVideoItem(
             )
             AppText(
                 text = video.owner.name,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 fontSize = layoutPolicy.itemMetaFontSp.sp
             )
         }
@@ -3443,7 +3453,7 @@ private fun LandscapeEpisodeItem(
             .fillMaxWidth()
             .height(layoutPolicy.episodeItemHeightDp.dp)
             .clickable(onClick = onClick)
-            .background(if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent, AppShapes.container(ContainerLevel.Tag))
+            .background(if (isCurrent) AppContentColors.accent().copy(alpha = 0.1f) else Color.Transparent, AppShapes.container(ContainerLevel.Tag))
             .padding(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3477,7 +3487,7 @@ private fun LandscapeEpisodeItem(
                 AppIcon(
                     imageVector = Icons.Outlined.PlayArrow,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = AppContentColors.accent(),
                     modifier = Modifier.size(layoutPolicy.metaIconSizeDp.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -3485,7 +3495,7 @@ private fun LandscapeEpisodeItem(
                  Box(
                     modifier = Modifier
                         .size((layoutPolicy.metaIconSizeDp / 2).dp)
-                        .background(MaterialTheme.colorScheme.onSurface.copy(0.3f), CircleShape)
+                        .background(AppContentColors.primaryText().copy(0.3f), CircleShape)
                 )
                  Spacer(modifier = Modifier.width(18.dp))
             }
@@ -3499,7 +3509,7 @@ private fun LandscapeEpisodeItem(
             // 标题
             AppText(
                 text = episode.title,
-                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                color = if (isCurrent) AppContentColors.accent() else AppContentColors.primaryText(),
                 fontSize = layoutPolicy.itemTitleFontSp.sp,
                 maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -3520,13 +3530,13 @@ private fun LandscapeEpisodeItem(
                     AppIcon(
                         imageVector = Icons.Outlined.PlayCircle,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                         modifier = Modifier.size(layoutPolicy.metaIconSizeDp.dp)
                     )
                     Spacer(modifier = Modifier.width(2.dp))
                     AppText(
                         text = FormatUtils.formatStat(episodeStat.view.toLong()),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         fontSize = layoutPolicy.itemMetaFontSp.sp
                     )
 
@@ -3536,13 +3546,13 @@ private fun LandscapeEpisodeItem(
                     AppIcon(
                         imageVector = Icons.Filled.ChatBubble,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                         modifier = Modifier.size(layoutPolicy.metaIconSizeDp.dp)
                     )
                     Spacer(modifier = Modifier.width(2.dp))
                     AppText(
                         text = FormatUtils.formatStat(episodeStat.danmaku.toLong()),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         fontSize = layoutPolicy.itemMetaFontSp.sp
                     )
                 }

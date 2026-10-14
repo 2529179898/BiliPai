@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -173,7 +175,7 @@ internal fun HomeHeroCarouselImmersive(
                         .size(width = if (i == pagerState.currentPage) 16.dp else 5.dp, height = 5.dp)
                         .clip(CircleShape)
                         .background(
-                            if (i == pagerState.currentPage) MaterialTheme.colorScheme.primary
+                            if (i == pagerState.currentPage) AppContentColors.accent()
                             else Color(0x80FFFFFF)
                         ),
                 )

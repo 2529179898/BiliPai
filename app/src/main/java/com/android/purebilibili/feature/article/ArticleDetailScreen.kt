@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.article
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.spring
 import androidx.activity.compose.BackHandler
@@ -153,7 +155,7 @@ fun ArticleDetailScreen(
                     ) {
                         AppText(
                             text = state.message,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                         AppButton(onClick = { retryToken++ }) {
                             AppText(retryLabel)
@@ -347,7 +349,7 @@ private fun ArticleDetailContent(
                                 AppText(
                                     text = article.publishTime,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = AppContentColors.secondaryText()
                                 )
                             }
                         }
@@ -357,7 +359,7 @@ private fun ArticleDetailContent(
                     AppText(
                         text = article.summary,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
             }
@@ -376,7 +378,7 @@ private fun ArticleDetailContent(
                         AppText(
                             text = buildArticleAnnotatedString(
                                 spans = block.spans,
-                                defaultColor = MaterialTheme.colorScheme.onSurface,
+                                defaultColor = AppContentColors.primaryText(),
                                 baseFontSize = MaterialTheme.typography.titleLarge.fontSize
                             ),
                             style = MaterialTheme.typography.titleLarge,
@@ -390,13 +392,13 @@ private fun ArticleDetailContent(
                         AppText(
                             text = block.text,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                     } else {
                         AppText(
                             text = buildArticleAnnotatedString(
                                 spans = block.spans,
-                                defaultColor = MaterialTheme.colorScheme.onSurface,
+                                defaultColor = AppContentColors.primaryText(),
                                 baseFontSize = MaterialTheme.typography.bodyLarge.fontSize
                             ),
                             style = MaterialTheme.typography.bodyLarge
@@ -409,14 +411,14 @@ private fun ArticleDetailContent(
                         AppText(
                             text = block.text,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             modifier = Modifier.padding(start = 12.dp)
                         )
                     } else {
                         AppText(
                             text = buildArticleAnnotatedString(
                                 spans = block.spans,
-                                defaultColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                defaultColor = AppContentColors.secondaryText(),
                                 baseFontSize = MaterialTheme.typography.bodyLarge.fontSize
                             ),
                             style = MaterialTheme.typography.bodyLarge,
@@ -432,7 +434,7 @@ private fun ArticleDetailContent(
                             AppText(
                                 text = prefix + item,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = AppContentColors.primaryText()
                             )
                         }
                     }
@@ -450,7 +452,7 @@ private fun ArticleDetailContent(
                         AppText(
                             text = block.content,
                             style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                     }
                 }

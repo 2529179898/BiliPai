@@ -1,5 +1,8 @@
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.ui.ProvideAppEntryIconColors
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.ColumnScope
@@ -36,14 +39,19 @@ fun AppPreferenceGroup(
     border: BorderStroke? = null,
     presentation: AppPreferenceGroupPresentation = AppPreferenceGroupPresentation.CARD,
     content: @Composable ColumnScope.() -> Unit,
-) = AdaptivePreferenceGroupRenderer(
-    modifier = modifier,
-    containerColor = containerColor,
-    shape = shape,
-    border = border,
-    presentation = presentation,
-    content = content,
-)
+) {
+    // 分组即“同级”边界：组内入口按声明顺序分配多彩色，重新进入分组时从头取色
+    ProvideAppEntryIconColors {
+        AdaptivePreferenceGroupRenderer(
+            modifier = modifier,
+            containerColor = containerColor,
+            shape = shape,
+            border = border,
+            presentation = presentation,
+            content = content,
+        )
+    }
+}
 
 @Composable
 fun AppSwitchPreference(
@@ -53,9 +61,9 @@ fun AppSwitchPreference(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     enabled: Boolean = true,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
-    subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    iconTint: Color = AppContentColors.secondaryText(),
+    textColor: Color = AppContentColors.primaryText(),
+    subtitleColor: Color = AppContentColors.secondaryText(),
 ) = AdaptiveSwitchPreferenceContent(
     icon = icon,
     title = title,
@@ -78,10 +86,10 @@ fun AppSliderPreference(
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int = 0,
     valueLabel: String? = null,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
-    subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    valueColor: Color = MaterialTheme.colorScheme.primary,
+    iconTint: Color = AppContentColors.secondaryText(),
+    textColor: Color = AppContentColors.primaryText(),
+    subtitleColor: Color = AppContentColors.secondaryText(),
+    valueColor: Color = AppContentColors.primaryText(),
 ) = AdaptiveSliderPreferenceRenderer(
     icon = icon,
     title = title,
@@ -106,11 +114,11 @@ fun AppPreference(
     value: String? = null,
     copyValue: String? = null,
     onClick: (() -> Unit)? = null,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
-    subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    valueColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    chevronTint: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+    iconTint: Color = AppContentColors.secondaryText(),
+    textColor: Color = AppContentColors.primaryText(),
+    subtitleColor: Color = AppContentColors.secondaryText(),
+    valueColor: Color = AppContentColors.secondaryText(),
+    chevronTint: Color = AppContentColors.secondaryText().copy(alpha = 0.72f),
     centered: Boolean = false,
     enableCopy: Boolean = false,
     onCopyRequest: ((text: String, label: String?) -> Unit)? = null,
@@ -147,9 +155,9 @@ fun AppPreferenceGridItem(
     icon: ImageVector,
     title: String,
     onClick: () -> Unit,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
+    iconTint: Color = AppContentColors.secondaryText(),
     containerColor: Color = MaterialTheme.colorScheme.surface,
-    contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    contentColor: Color = AppContentColors.primaryText(),
     modifier: Modifier = Modifier,
 ) = AdaptivePreferenceGridItemRenderer(
     icon = icon,

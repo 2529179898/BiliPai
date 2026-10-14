@@ -19,8 +19,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
+import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
 import com.android.purebilibili.core.ui.components.LocalElasticPressEnabled
 import com.android.purebilibili.core.ui.components.LocalAppTopBarIconDecorationEnabled
+import com.android.purebilibili.core.ui.components.LocalAppIconButtonGlassSurfaceProvided
 import com.android.purebilibili.core.ui.components.appElasticPress
 import com.android.purebilibili.core.ui.components.rememberAppElasticPressState
 import com.android.purebilibili.feature.home.components.biliPaiFloatingDockShell
@@ -71,6 +73,7 @@ internal fun PlayerControlGlassThumb(size: Dp, dragging: Boolean, modifier: Modi
                 pressProgress = if (dragging) 1f else 0f,
                 lensIntensity = 0.3f,
                 liquidGlassTuning = LocalLiquidGlassRenderConfig.current.tuning,
+                darkTheme = true,
                 interactionLayerBlock = {
                     scaleX = scale.value
                     scaleY = scale.value
@@ -89,20 +92,21 @@ internal fun PlayerControlGlassDock(
 ) {
     val glass = enabled && LocalAppThemeConfig.current.liquidGlassEnabled
     val tuning = LocalLiquidGlassRenderConfig.current.tuning
+    val feedbackEnabled = enabled && LocalComponentMotionEnabled.current && LocalElasticPressEnabled.current
     val elastic = rememberAppElasticPressState(feedbackStrength = if (shape == CircleShape) 1f else 0.6f)
     val ownsDrag = remember { mutableStateOf(false) }
     val providedBackdrop = LocalPlayerControlBackdrop.current
     Box(
         modifier = modifier
             .appElasticPress(
-                enabled = glass,
+                enabled = enabled,
                 state = elastic,
                 transformInBackdrop = glass && providedBackdrop != null,
                 highlightShape = shape,
                 // Observe the dock's own scroll gesture as well as its background drag.
-                allowConsumedDrag = { glass || ownsDrag.value },
+                allowConsumedDrag = { feedbackEnabled || ownsDrag.value },
             )
-            .then(if (glass) Modifier.pointerInput(Unit) {
+            .then(if (enabled) Modifier.pointerInput(Unit) {
                 // Controls claim drags inside their hit region; video gestures stay outside.
                 // Descendant horizontal scrolling still gets first refusal in Main.
                 detectDragGestures(
@@ -122,13 +126,20 @@ internal fun PlayerControlGlassDock(
                 pressProgress = 0f,
                 lensIntensity = 1f,
                 liquidGlassTuning = tuning,
+                darkTheme = true,
                 interactionLayerBlock = elastic.layerBlock,
                 interactionState = elastic,
             ) else Modifier),
     ) {
         CompositionLocalProvider(
-            LocalElasticPressEnabled provides (!glass && LocalElasticPressEnabled.current),
+            LocalElasticPressEnabled provides (!feedbackEnabled && LocalElasticPressEnabled.current),
             LocalAppTopBarIconDecorationEnabled provides false,
+            // Video chrome owns a dark media surface even when the surrounding app is light.
+            // Preserve explicit white/active glyph colors instead of correcting them against
+            // the light page behind a transparent native IconButton.
+            LocalAppIconButtonGlassSurfaceProvided provides true,
+            androidx.compose.material3.LocalContentColor provides Color.White,
+            top.yukonga.miuix.kmp.theme.LocalContentColor provides Color.White,
         ) { content() }
     }
 }

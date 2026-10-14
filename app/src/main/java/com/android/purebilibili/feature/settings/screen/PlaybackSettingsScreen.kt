@@ -1,5 +1,7 @@
 // 文件路径: feature/settings/PlaybackSettingsScreen.kt
 package com.android.purebilibili.feature.settings
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -56,12 +58,8 @@ import com.android.purebilibili.core.store.BottomProgressBehavior
 import com.android.purebilibili.core.store.FullscreenAspectRatio
 import com.android.purebilibili.core.store.PlaybackCompletionBehavior
 import com.android.purebilibili.core.store.PortraitPlayerCollapseMode
-import com.android.purebilibili.core.theme.iOSGreen
 import com.android.purebilibili.core.theme.LocalSettingsLiquidGlassEnabled
 import com.android.purebilibili.core.ui.AppSpacingTokens
-import com.android.purebilibili.core.theme.iOSTeal
-import com.android.purebilibili.core.theme.iOSOrange
-import com.android.purebilibili.core.theme.iOSSystemGray
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.util.LocalWindowSizeClass
 import com.android.purebilibili.core.util.LocalAppWindowAdaptiveInfo
@@ -131,7 +129,7 @@ fun PlaybackSettingsContent(
     val listState = rememberLazyListState()
     val focusRequest by SettingsSearchFocusController.request.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val warningTint = rememberAdaptiveSemanticIconTint(iOSOrange)
+    val warningTint = AppContentColors.warning()
     val windowSizeClass = LocalWindowSizeClass.current
     // val state by viewModel.state.collectAsStateWithLifecycle() // Moved to parameter
     val deviceUiProfile = remember(windowSizeClass.widthSizeClass) {
@@ -154,11 +152,16 @@ fun PlaybackSettingsContent(
             PlaybackSettingsPage.DECODER -> listOf(SettingsSearchFocusIds.PLAYBACK_DECODER)
             PlaybackSettingsPage.DIAGNOSTICS -> listOf(SettingsSearchFocusIds.PLAYBACK_DEBUG)
         }.flatMap { listOf(it + "_title", it) }
-        val key = if (playbackFocusId == SettingsSearchFocusIds.PLAYBACK_GESTURE) SettingsSearchFocusIds.PLAYBACK_FULLSCREEN else playbackFocusId
+        val key = resolveSettingsItemScrollKey(request.settingId)
+            ?: if (playbackFocusId == SettingsSearchFocusIds.PLAYBACK_GESTURE) SettingsSearchFocusIds.PLAYBACK_FULLSCREEN else playbackFocusId
         val index = keys.indexOf(key)
-        if (index < 0) return@LaunchedEffect
+        if (index < 0) {
+            SettingsSearchFocusController.clear(request.token)
+            return@LaunchedEffect
+        }
         if (request.settingId != null) listState.scrollToItem(index) else listState.animateScrollToItem(index)
         if (request.settingId == null) SettingsSearchFocusController.clear(request.token)
+        else clearUnclaimedSettingsFocusRequest(request.token)
     }
 
 
@@ -285,8 +288,8 @@ fun PlaybackSettingsContent(
     if (showPipPermissionDialog) {
         com.android.purebilibili.core.ui.AppAlertDialog(
             onDismissRequest = { showPipPermissionDialog = false },
-            title = { AppText("权限申请", color = MaterialTheme.colorScheme.onSurface) },
-            text = { AppText("检测到未开启「画中画」权限。请在设置中开启该权限，否则无法使用小窗播放。", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = { AppText("权限申请", color = AppContentColors.primaryText()) },
+            text = { AppText("检测到未开启「画中画」权限。请在设置中开启该权限，否则无法使用小窗播放。", color = AppContentColors.secondaryText()) },
             confirmButton = {
                 com.android.purebilibili.core.ui.AppDialogAction(
                     onClick = {
@@ -297,7 +300,7 @@ fun PlaybackSettingsContent(
             },
             dismissButton = {
                 com.android.purebilibili.core.ui.AppDialogAction(onClick = { showPipPermissionDialog = false }) {
-                    AppText("暂不开启", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    AppText("暂不开启", color = AppContentColors.secondaryText())
                 }
             }
         )
@@ -345,7 +348,7 @@ fun PlaybackSettingsContent(
                                         PlayerSettingsStore.setNativeMiuixPlayerPopups(context, enabled)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                                 }
                         AppPreferenceDivider()
@@ -360,7 +363,7 @@ fun PlaybackSettingsContent(
                                     //  [埋点] 设置变更追踪
                                     com.android.purebilibili.core.util.AnalyticsHelper.logSettingChange("hw_decode", it.toString())
                                 },
-                                iconTint = iOSGreen
+                                iconTint = AppContentColors.secondaryText()
                             )
                                 }
                         AppPreferenceDivider()
@@ -425,7 +428,7 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                             .setRememberLastPlaybackSpeed(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                                 }
                         AppPreferenceDivider()
@@ -444,7 +447,7 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                         SettingsManager.setLongPressSpeedHintHidden(context, hidden)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                         AppPreferenceDivider()
@@ -467,12 +470,12 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                     Text(
                                         text = "倍速提示大小",
                                         style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = AppContentColors.primaryText()
                                     )
                                     Text(
                                         text = "调整长按加速提示的整体大小",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = AppContentColors.secondaryText()
                                     )
                                 }
                                 Surface(
@@ -513,12 +516,12 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                     Text(
                                         text = "倍速提示背景深浅",
                                         style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = AppContentColors.primaryText()
                                     )
                                     Text(
                                         text = "调高后，倍速提示和其他提示的背景更深",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = AppContentColors.secondaryText()
                                     )
                                 }
                                 Surface(
@@ -644,7 +647,7 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                             .setStopPlaybackOnExit(context, it)
                                     }
                                 },
-                                iconTint = iOSOrange
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                         AppPreferenceDivider()
@@ -664,7 +667,7 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                             .setBackgroundPlaybackEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSGreen
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                         AppPreferenceDivider()
@@ -684,7 +687,7 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                             .setAudioFocusEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                         AppPreferenceDivider()
@@ -731,7 +734,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                                             .setAudioNowPlayingBarEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSOrange
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -750,7 +753,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                                         SettingsManager.setAudioNowPlayingBarOpensAudioMode(context, it)
                                     }
                                 },
-                                iconTint = iOSOrange
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -770,7 +773,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                                             .setAudioNowPlayingBarImmersiveEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSOrange
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -790,7 +793,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                                             .setLoudnessNormalizationEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSOrange
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -810,7 +813,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                                             .setStartupAutoPlayEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSOrange
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider()
@@ -839,7 +842,7 @@ SettingsItemAnchor("playback.music_lyrics_ui_style") {
                                     SettingsManager.setMusicLyricsUiStyle(context, style)
                                 }
                             },
-                            iconTint = iOSOrange
+                            iconTint = AppContentColors.secondaryText()
                         )
 }
 
@@ -871,13 +874,13 @@ SettingsItemAnchor("playback.music_lyrics_ui_style") {
                                     AppText(
                                         "点击前往系统设置开启",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                        color = AppContentColors.secondaryText()
                                     )
                                 }
                                 AppIcon(
                                     com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_keyboard_arrow_right_24),
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    tint = AppContentColors.secondaryText().copy(alpha = 0.5f),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -904,7 +907,7 @@ SettingsItemAnchor("playback.music_lyrics_ui_style") {
                                             .setPipNoDanmakuEnabled(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                         AppPreferenceDivider()
@@ -931,7 +934,7 @@ SettingsItemAnchor("playback.music_lyrics_ui_style") {
                                             .setAudioModeAutoPipEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                     }
@@ -1015,7 +1018,7 @@ SettingsSingleChoicePreference(
                                     )
                                 }
                             },
-                            iconTint = iOSTeal,
+                            iconTint = AppContentColors.secondaryText(),
                         )
 }
 
@@ -1037,7 +1040,7 @@ SettingsSingleChoicePreference(
                                             .setBiliDirectedTrafficEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                                 }
 
@@ -1059,7 +1062,7 @@ SettingsSingleChoicePreference(
                                             .setAutoHighestQuality(context, it)
                                     }
                                 },
-                                iconTint = iOSOrange
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
 
@@ -1164,7 +1167,7 @@ SettingsSingleChoicePreference(
                                 AppText(
                                     text = "省流量模式下，画质最高为 480P",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = iOSGreen.copy(alpha = 0.8f)
+                                    color = AppContentColors.success().copy(alpha = 0.8f)
                                 )
                             }
                         }
@@ -1230,7 +1233,7 @@ SettingsItemAnchor("playback.data_saver_mode") {
                                             .setLowQualityHomeCoverInDataSaver(context, enabled)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                     }
@@ -1385,7 +1388,7 @@ private fun PlaybackInteractionSettingsSection(
                             .setClickToPlay(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -1405,7 +1408,7 @@ private fun PlaybackInteractionSettingsSection(
                             .setResumePlaybackPromptEnabled(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -1425,7 +1428,7 @@ private fun PlaybackInteractionSettingsSection(
                             .setSpacePlayedVideoLocatePromptEnabled(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -1438,7 +1441,7 @@ private fun PlaybackInteractionSettingsSection(
                 onCheckedChange = { enabled ->
                     scope.launch { SettingsManager.setNextWatchHintEnabled(context, enabled) }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -1455,7 +1458,7 @@ private fun PlaybackInteractionSettingsSection(
                             .setAutoPlay(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -1471,7 +1474,7 @@ private fun PlaybackInteractionSettingsSection(
                             .setExternalPlaylistAutoContinue(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -1537,7 +1540,7 @@ SettingsItemAnchor("playback.subtitle_auto_preference") {
                         it.toString()
                     )
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSOrange
+                iconTint = AppContentColors.secondaryText()
             )
         }
         } else {
@@ -1557,7 +1560,7 @@ SettingsItemAnchor("playback.subtitle_auto_preference") {
                             .setDanmakuHideInteractiveCommands(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPink
+                iconTint = AppContentColors.secondaryText()
             )
 }
         AppPreferenceDivider()
@@ -1574,7 +1577,7 @@ SettingsItemAnchor("playback.subtitle_auto_preference") {
                             .setDanmakuCloudSyncEnabled(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -1594,7 +1597,7 @@ SettingsItemAnchor("playback.subtitle_auto_preference") {
                             .setVideoInfoDefaultExpanded(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -1614,7 +1617,7 @@ SettingsItemAnchor("playback.subtitle_auto_preference") {
                             .setVideoArgueMsgShown(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -1644,7 +1647,7 @@ SettingsItemAnchor("playback.subtitle_auto_preference") {
                         SettingsManager.setDetailedCommentTimeEnabled(context, enabled)
                     }
                 },
-                iconTint = iOSTeal,
+                iconTint = AppContentColors.secondaryText(),
             )
         }
         AppPreferenceDivider()
@@ -1663,7 +1666,7 @@ SettingsItemAnchor("playback.subtitle_auto_preference") {
                         SettingsManager.setShowVideoDetailCommentCount(context, enabled)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSTeal,
+                iconTint = AppContentColors.secondaryText(),
             )
         }
         AppPreferenceDivider()
@@ -1703,7 +1706,7 @@ SettingsItemAnchor("playback.video_tag_size_preset") {
                             .setVideoAiSummaryEntryEnabled(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -1723,7 +1726,7 @@ SettingsItemAnchor("playback.video_tag_size_preset") {
                             .setVideoNoteEnabled(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
         }
 
@@ -1745,7 +1748,7 @@ SettingsItemAnchor("playback.video_tag_size_preset") {
                                 .setVideoNoteDefaultCollapsed(context, it)
                         }
                     },
-                    iconTint = com.android.purebilibili.core.theme.iOSBlue
+                    iconTint = AppContentColors.secondaryText()
                 )
             }
 
@@ -1761,7 +1764,7 @@ SettingsItemAnchor("playback.video_tag_size_preset") {
                     //  [埋点] 设置变更追踪
                     com.android.purebilibili.core.util.AnalyticsHelper.logSettingChange("double_tap_like", it.toString())
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPink
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -1784,7 +1787,7 @@ SettingsItemAnchor("playback.video_tag_size_preset") {
                             .setQuickSaveDefaultFolder(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSYellow
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -1821,7 +1824,7 @@ SettingsItemAnchor("playback.comment_collapsed_reply_preview_limit") {
                             .setSubReplyLoadedCountEnabled(context, enabled)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -1837,7 +1840,7 @@ SettingsItemAnchor("playback.comment_collapsed_reply_preview_limit") {
                             .setCommentFraudDetectionEnabled(context, enabled)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -1853,7 +1856,7 @@ SettingsItemAnchor("playback.comment_collapsed_reply_preview_limit") {
                             .setCommentMemberDecorationsEnabled(context, enabled)
                     }
                 },
-                iconTint = iOSOrange
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -1873,7 +1876,7 @@ SettingsItemAnchor("playback.comment_collapsed_reply_preview_limit") {
                             .setImagePreviewLongPressSaveEnabled(context, enabled)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSGreen
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -1893,7 +1896,7 @@ SettingsItemAnchor("playback.comment_collapsed_reply_preview_limit") {
                             .setImagePreview3dPageEnabled(context, enabled)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                iconTint = AppContentColors.secondaryText()
             )
             }
     }
@@ -2003,13 +2006,13 @@ private fun PlaybackFullscreenGestureSettingsSection(
             title = {
                 AppText(
                     "允许调节系统亮度",
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
             },
             text = {
                 AppText(
                     "开启后，播放器亮度手势会先调节当前窗口亮度，并同步系统亮度。Android 需要你在系统设置中单独允许 BiliPai 修改系统设置。",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             },
             confirmButton = {
@@ -2036,7 +2039,7 @@ private fun PlaybackFullscreenGestureSettingsSection(
                 ) {
                     AppText(
                         "取消",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
             }
@@ -2051,7 +2054,7 @@ private fun PlaybackFullscreenGestureSettingsSection(
             valueRange = 0.5f..2.0f,
             steps = 5,
             icon = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_gesture_24),
-            iconTint = rememberAdaptiveSemanticIconTint(com.android.purebilibili.core.theme.iOSOrange),
+            iconTint = AppContentColors.warning(),
             valueFormatter = { value -> "${(value * 100).toInt()}%" },
         )
         AppPreferenceDivider()
@@ -2070,7 +2073,7 @@ private fun PlaybackFullscreenGestureSettingsSection(
                     AppText(
                         text = "双击快进或后退",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     )
                     AppText(
                         text = if (doubleTapSeekEnabled) {
@@ -2079,7 +2082,7 @@ private fun PlaybackFullscreenGestureSettingsSection(
                             "双击只切换播放或暂停"
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
                 AppAdaptiveSwitch(
@@ -2164,7 +2167,7 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
                         SettingsManager.setVideoDetailChromeScrollHideEnabled(context, enabled)
                     }
                 },
-                iconTint = iOSTeal,
+                iconTint = AppContentColors.secondaryText(),
             )
         }
 
@@ -2188,7 +2191,7 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
                             .setPauseOnPlayerCollapseEnabled(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
         }
 
@@ -2209,7 +2212,7 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
                             .setPortraitSwipeToFullscreenEnabled(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
             }
 
@@ -2230,7 +2233,7 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
                             .setAutoPortraitFullscreen(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
         }
 
@@ -2251,7 +2254,7 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
                             .setPortraitOnlyVerticalRecommendations(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
         }
 
@@ -2272,7 +2275,7 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
                             .setLaunchToPortraitFeedOnStartup(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
         }
 
@@ -2293,7 +2296,7 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
                             .setCenterSwipeToFullscreenEnabled(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                iconTint = AppContentColors.secondaryText()
             )
             }
 
@@ -2314,7 +2317,7 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
                             .setSlideVolumeBrightnessEnabled(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2351,7 +2354,7 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
                         }
                     }
                 },
-                iconTint = iOSOrange
+                iconTint = AppContentColors.secondaryText()
             )
             }
 
@@ -2519,7 +2522,7 @@ SettingsItemAnchor("playback.fullscreen_swipe_seek_seconds") {
                             .setAutoRotateEnabled(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2535,7 +2538,7 @@ SettingsItemAnchor("playback.fullscreen_swipe_seek_seconds") {
                             .setHorizontalAdaptationEnabled(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2550,7 +2553,7 @@ SettingsItemAnchor("playback.fullscreen_swipe_seek_seconds") {
                         SettingsManager.setShowPlayerCastButton(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -2565,7 +2568,7 @@ SettingsItemAnchor("playback.fullscreen_swipe_seek_seconds") {
                         SettingsManager.setShowVideoFollowButton(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPink
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -2580,7 +2583,7 @@ SettingsItemAnchor("playback.fullscreen_swipe_seek_seconds") {
                         SettingsManager.setCompactPlayerChrome(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -2660,7 +2663,7 @@ SettingsItemAnchor("playback.fullscreen_aspect_ratio") {
                             .setFullscreenGestureReverse(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2671,7 +2674,7 @@ SettingsItemAnchor("playback.fullscreen_aspect_ratio") {
                 subtitle = "在播放器周边显示随画面变化的柔和光晕；HDR、Anime4K 和小窗下不启用",
                 checked = videoAmbientSettings.enabled,
                 onCheckedChange = { enabled -> scope.launch { SettingsManager.setVideoAmbientEnabled(context, enabled) } },
-                iconTint = com.android.purebilibili.core.theme.iOSTeal,
+                iconTint = AppContentColors.secondaryText(),
             )
         }
         if (videoAmbientSettings.enabled) {
@@ -2720,7 +2723,7 @@ SettingsItemAnchor("playback.video_ambient_settings.power_saving") {
                             .setHideVideoPageStatusBar(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2743,7 +2746,7 @@ SettingsItemAnchor("playback.video_ambient_settings.power_saving") {
                             .setPortraitLetterboxAmbientHaze(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppPreferenceDivider()
@@ -2759,7 +2762,7 @@ SettingsItemAnchor("playback.video_ambient_settings.power_saving") {
                             .setAutoEnterFullscreen(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSGreen
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2787,7 +2790,7 @@ SettingsItemAnchor("playback.video_ambient_settings.power_saving") {
                         )
                     }
                 },
-                iconTint = iOSOrange
+                iconTint = AppContentColors.secondaryText()
             )
             }
         if (
@@ -2830,7 +2833,7 @@ SettingsItemAnchor("playback.video_ambient_settings.power_saving") {
                             .setShowFullscreenLockButton(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2846,7 +2849,7 @@ SettingsItemAnchor("playback.video_ambient_settings.power_saving") {
                             .setShowFullscreenScreenshotButton(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2861,7 +2864,7 @@ SettingsItemAnchor("playback.video_ambient_settings.power_saving") {
                         SettingsManager.setAppGestureScreenshotEnabled(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2905,7 +2908,7 @@ SettingsItemAnchor("playback.app_screenshot_capture_mode") {
                             .setShowFullscreenBatteryLevel(context, it)
                     }
                 },
-                iconTint = iOSGreen
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2921,7 +2924,7 @@ SettingsItemAnchor("playback.app_screenshot_capture_mode") {
                             .setShowFullscreenTime(context, it)
                     }
                 },
-                iconTint = iOSTeal
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2941,7 +2944,7 @@ SettingsItemAnchor("playback.app_screenshot_capture_mode") {
                             .setShowFullscreenActionItems(context, it)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPink
+                iconTint = AppContentColors.secondaryText()
             )
             }
         AppPreferenceDivider()
@@ -2981,7 +2984,7 @@ SettingsItemAnchor("playback.bottom_progress_behavior") {
                         SettingsManager.setProgressPeakDanmakuEnabled(context, enabled)
                     }
                 },
-                iconTint = com.android.purebilibili.core.theme.iOSPurple,
+                iconTint = AppContentColors.secondaryText(),
             )
         }
         AppPreferenceDivider()
@@ -3052,7 +3055,7 @@ SettingsItemAnchor("playback.player_insight_mode") {
                                     SettingsManager.setPlayerInsightMode(context, mode)
                                 }
                             },
-                            iconTint = iOSSystemGray,
+                            iconTint = AppContentColors.secondaryText(),
                         )
 }
                         AppPreferenceDivider()
@@ -3067,7 +3070,7 @@ SettingsItemAnchor("playback.player_insight_mode") {
                                         SettingsManager.setPlayerDiagnosticLoggingEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSOrange
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                         AppPreferenceDivider()
@@ -3086,7 +3089,7 @@ SettingsItemAnchor("playback.player_insight_mode") {
                                         SettingsManager.setDashSegmentRequestsEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                         AppPreferenceDivider()
@@ -3101,7 +3104,7 @@ SettingsItemAnchor("playback.player_insight_mode") {
                                         SettingsManager.setQualitySwitchFailureDialogEnabled(context, enabled)
                                     }
                                 },
-                                iconTint = iOSOrange
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                         AppPreferenceDivider()
@@ -3121,7 +3124,7 @@ SettingsItemAnchor("playback.player_insight_mode") {
                                         SettingsManager.setQualitySwitchFailureDialogOnceEnabled(context, enabled)
                                     }
                                 },
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                             }
                     }

@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.audio.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.navigation.animatePagerSelection
 
 import androidx.compose.foundation.background
@@ -99,6 +101,7 @@ internal fun ListenVideoRoute(
     onPlayTracks: (List<ListenVideoTrack>, String) -> Unit,
     onNowPlayingClick: (bvid: String, coverUrl: String) -> Unit,
     onLogin: () -> Unit,
+    onPlayCollection: (mediaId: Long, seasonId: Long, title: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ListenVideoViewModel = viewModel()
 ) {
@@ -117,10 +120,11 @@ internal fun ListenVideoRoute(
         }
     }
 
-    LaunchedEffect(viewModel) {
-        if (viewModel.uiState.value.generation == 0L) {
-            viewModel.refresh()
-        }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        viewModel.resumeBackgroundLoading()
+    }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_PAUSE) {
+        viewModel.pauseBackgroundLoading()
     }
 
     ListenVideoScreen(
@@ -129,9 +133,20 @@ internal fun ListenVideoRoute(
         onNowPlayingClick = onNowPlayingClick,
         onRefresh = viewModel::refresh,
         onSectionSelected = viewModel::selectSection,
-        onPlaylistSelected = viewModel::openPlaylist,
-        onAlbumSelected = viewModel::openAlbum,
-        onArtistSelected = viewModel::openArtist,
+        onPlaylistSelected = { playlist ->
+            viewModel.pauseBackgroundLoading()
+            onPlayCollection(playlist.mediaId, 0L, playlist.title)
+        },
+        onAlbumSelected = { album ->
+            viewModel.pauseBackgroundLoading()
+            onPlayCollection(0L, album.seasonId, album.title)
+        },
+        onArtistSelected = { artist ->
+            artist.tracks.firstOrNull()?.let { first ->
+                viewModel.pauseBackgroundLoading()
+                onPlayTracks(artist.tracks, first.bvid)
+            }
+        },
         onCloseDetail = viewModel::closeDetail,
         onRetryDetail = viewModel::retryDetail,
         onRetryIndex = viewModel::retryFailedIndex,
@@ -253,6 +268,7 @@ internal fun ListenVideoScreen(
                     onAlbumSelected = onAlbumSelected,
                     onArtistSelected = onArtistSelected,
                     onRetryIndex = onRetryIndex,
+                    onRefresh = onRefresh,
                     onLogin = onLogin,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -297,7 +313,7 @@ private fun ListenVideoHeader(
                 AppText(
                     text = "收藏夹是播放列表，视频集是专辑，UP 主是歌手",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
             AppIconButton(onClick = onRefresh, modifier = Modifier.size(40.dp)) {
@@ -314,7 +330,7 @@ private fun ListenVideoHeader(
                 // primary 描边区分「正在播放」与下方实体卡
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+                    AppContentColors.accent().copy(alpha = 0.45f)
                 )
             ) {
                 Row(
@@ -335,14 +351,14 @@ private fun ListenVideoHeader(
                             AppIcon(
                                 Icons.Filled.MusicNote,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = AppContentColors.accent(),
                                 modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             AppText(
                                 text = "正在播放",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = AppContentColors.accent()
                             )
                         }
                         AppText(
@@ -356,7 +372,7 @@ private fun ListenVideoHeader(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }
@@ -374,6 +390,7 @@ private fun ListenVideoPage(
     onAlbumSelected: (ListenVideoAlbum) -> Unit,
     onArtistSelected: (ListenVideoArtist) -> Unit,
     onRetryIndex: () -> Unit,
+    onRefresh: () -> Unit,
     onLogin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -392,7 +409,7 @@ private fun ListenVideoPage(
         state.error != null && state.playlists.isEmpty() -> ListenVideoMessage(
             title = state.error,
             actionLabel = "重试",
-            onAction = onRetryIndex,
+            onAction = onRefresh,
             modifier = modifier
         )
 
@@ -619,7 +636,7 @@ private fun ListenVideoIndexProgress(
         AppText(
             text = "正在整理收藏夹 $indexedCount/$totalCount",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
     }
 }
@@ -642,7 +659,7 @@ private fun MusicEntityCard(
         color = AppSurfaceTokens.surface().copy(alpha = 0.62f),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+            AppContentColors.primaryText().copy(alpha = 0.12f)
         )
     ) {
         Row(
@@ -688,7 +705,7 @@ private fun MusicEntityCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
             AppIcon(Icons.Filled.PlayArrow, contentDescription = null)
@@ -712,7 +729,7 @@ private fun ListenVideoMessage(
             Icons.Filled.LibraryMusic,
             contentDescription = null,
             modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.primary
+            tint = AppContentColors.accent()
         )
         Spacer(modifier = Modifier.height(12.dp))
         AppText(title, style = MaterialTheme.typography.titleMedium)
@@ -814,7 +831,7 @@ private fun ListenVideoTrackSheet(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                         }
                         AppIcon(Icons.Filled.PlayArrow, contentDescription = "播放 ${track.title}")

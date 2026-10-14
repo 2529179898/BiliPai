@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -1075,7 +1077,7 @@ internal fun LiveHomeLoadMoreFooter(
             AppText(
                 text = if (isLoadingMore) "加载更多…" else "",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
             )
         }
     }

@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -33,7 +35,7 @@ internal fun SettingsSearchHistorySection(
             AppText(
                 "暂无搜索历史，搜索设置功能后会显示在这里",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 modifier = Modifier.padding(vertical = 16.dp),
             )
         } else AppPreferenceGroup {

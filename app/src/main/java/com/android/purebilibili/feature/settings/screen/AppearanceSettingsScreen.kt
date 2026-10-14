@@ -2,6 +2,8 @@
 
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.components.AppColorPicker
 import coil3.request.crossfade
 import com.android.purebilibili.core.ui.AppIconStyle
@@ -137,7 +139,7 @@ fun AppearanceSettingsScreen(
             if (state.isBottomBarFloating) 0.1f else 0f
         ).coerceIn(0f, 1f)
     val appearanceAnimationSpeed = if (state.dynamicColor) 1.1f else 1f
-    
+
     val bottomContentPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     //  [修复] 设置导航栏透明，确保底部手势栏沉浸式效果
@@ -276,7 +278,7 @@ fun AppearanceSettingsContent(
     val listState = rememberLazyListState()
     val focusRequest by SettingsSearchFocusController.request.collectAsStateWithLifecycle()
     // Animation Trigger
-    val displayModeTint = rememberAdaptiveSemanticIconTint(iOSBlue)
+    val displayModeTint = rememberAdaptiveSemanticIconTint(AppContentColors.accent())
 
     val displayMetricsSnapshot = LocalDisplayMetricsSnapshot.current
     val windowSizeClass = LocalWindowSizeClass.current
@@ -624,7 +626,7 @@ fun AppearanceSettingsContent(
                                     checked = effectiveLiquidGlassEnabled,
                                     onCheckedChange = { viewModel.toggleAndroidNativeLiquidGlass(it) },
                                     enabled = isLiquidGlassAvailable,
-                                    iconTint = iOSBlue
+                                    iconTint = AppContentColors.secondaryText()
                                 )
                             }
                         }
@@ -802,7 +804,7 @@ fun AppearanceSettingsContent(
                                                 )
                                             }
                                         },
-                                        iconTint = MaterialTheme.colorScheme.primary
+                                        iconTint = AppContentColors.accent()
                                     )
                                 }
 
@@ -824,7 +826,7 @@ fun AppearanceSettingsContent(
                                     selectedValue = state.colorStyle,
                                     options = colorStyleOptions,
                                     onSelectionChange = viewModel::setThemeColorStyle,
-                                    iconTint = iOSPurple
+                                    iconTint = AppContentColors.secondaryText()
                                 )
 
                                 AppPreferenceDivider()
@@ -834,7 +836,7 @@ fun AppearanceSettingsContent(
                                     selectedValue = state.colorSpec,
                                     options = colorSpecOptions,
                                     onSelectionChange = viewModel::setThemeColorSpec,
-                                    iconTint = iOSBlue
+                                    iconTint = AppContentColors.secondaryText()
                                 )
                             }
                         }
@@ -866,13 +868,13 @@ fun AppearanceSettingsContent(
                                     exit = shrinkVertically() + fadeOut(),
                                 ) {
                                     Column(modifier = Modifier.padding(top = 12.dp)) {
-                                
+
                                 // 直接预览最终 MaterialTheme ColorScheme，不再用原始种子色手工画渐变。
                                 Md3ThemeColorPreview(colorHex = state.md3CustomColorHex)
 
                                 //  [Redesign] Theme Color Grid - Strict 2 Rows x 5 Columns
                                 val spacing = 12.dp
-                                
+
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(16.dp) // 增加行间距以容纳文字
@@ -885,7 +887,7 @@ fun AppearanceSettingsContent(
                                             rowColors.forEach { color ->
                                                 val index = ThemeColors.indexOf(color)
                                                 val isSelected = selectedCustomThemeColor == color
-                                                
+
                                                 Column(
                                                     modifier = Modifier.weight(1f),
                                                     horizontalAlignment = Alignment.CenterHorizontally
@@ -896,7 +898,7 @@ fun AppearanceSettingsContent(
                                                         label = "scale",
                                                         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
                                                     )
-                                                    
+
                                                     Box(
                                                         modifier = Modifier
                                                             .aspectRatio(1f) // Ensure square aspect ratio for perfect circles
@@ -952,19 +954,19 @@ fun AppearanceSettingsContent(
                                                             )
                                                         }
                                                     }
-                                                    
+
                                                     // 颜色名称
                                                     Spacer(modifier = Modifier.height(8.dp))
                                                     AppText(
                                                         text = ThemeColorNames.getOrElse(index) { "" },
                                                         style = MaterialTheme.typography.labelSmall,
-                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        color = if (isSelected) AppContentColors.accent() else AppContentColors.secondaryText(),
                                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                                         maxLines = 1
                                                     )
                                                 }
                                             }
-                                            
+
                                             // Fill empty spots if last row has fewer than 5 items
                                             if (rowColors.size < 5) {
                                                 repeat(5 - rowColors.size) {
@@ -1029,7 +1031,7 @@ fun AppearanceSettingsContent(
                             onClick = {
                                 fontPickerLauncher.launch(arrayOf("*/*"))
                             },
-                            iconTint = iOSPurple
+                            iconTint = AppContentColors.secondaryText()
                         )
 
                         AnimatedVisibility(
@@ -1048,7 +1050,7 @@ fun AppearanceSettingsContent(
                                         viewModel.clearAppFontFile()
                                         Toast.makeText(context, "已恢复默认字体", Toast.LENGTH_SHORT).show()
                                     },
-                                    iconTint = iOSOrange,
+                                    iconTint = AppContentColors.secondaryText(),
                                     showChevron = false
                                 )
                             }
@@ -1084,7 +1086,7 @@ fun AppearanceSettingsContent(
                                     if (enabled) DEFAULT_APP_DPI_OVERRIDE_PERCENT else 0
                                 )
                             },
-                            iconTint = iOSTeal
+                            iconTint = AppContentColors.secondaryText()
                         )
 
                         AnimatedVisibility(
@@ -1107,7 +1109,7 @@ fun AppearanceSettingsContent(
                                 AppText(
                                     text = resolveDisplayMetricsSummary(displayMetricsSnapshot),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = AppContentColors.secondaryText()
                                 )
                             }
                         }
@@ -1117,7 +1119,7 @@ fun AppearanceSettingsContent(
                 }
             }
         }
-        
+
         //  开屏与图标
         item(key = "appearance_splash_icon_title") {
             Box(modifier = Modifier.entrance()) {
@@ -1162,7 +1164,7 @@ fun AppearanceSettingsContent(
                             else -> "蓝雪女仆"
                         },
                         onClick = onNavigateToIconSettings,
-                        iconTint = iOSPurple
+                        iconTint = AppContentColors.secondaryText()
                     )
 
                     AppPreferenceDivider()
@@ -1175,7 +1177,7 @@ fun AppearanceSettingsContent(
                             subtitle = "应用启动时显示官方或相册壁纸",
                             checked = isSplashEnabled,
                             onCheckedChange = { viewModel.toggleSplashEnabled(it) },
-                            iconTint = com.android.purebilibili.core.theme.iOSBlue
+                            iconTint = AppContentColors.secondaryText()
                         )
                     }
 
@@ -1187,7 +1189,7 @@ fun AppearanceSettingsContent(
                             subtitle = "启动时从可见官方壁纸中随机展示",
                             checked = splashRandomEnabled,
                             onCheckedChange = { viewModel.toggleSplashRandomEnabled(it) },
-                            iconTint = com.android.purebilibili.core.theme.iOSGreen
+                            iconTint = AppContentColors.secondaryText()
                         )
                     }
 
@@ -1208,13 +1210,13 @@ fun AppearanceSettingsContent(
                                 AppText(
                                     text = "参与随机的壁纸",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = AppContentColors.primaryText()
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
                                 AppText(
                                     text = "${splashRandomPoolPreview.totalCount} 张",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = AppContentColors.accent()
                                 )
                             }
 
@@ -1224,7 +1226,7 @@ fun AppearanceSettingsContent(
                                 AppText(
                                     text = "暂无可见壁纸，请先进入“选择开屏壁纸”加载列表",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = AppContentColors.secondaryText()
                                 )
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1248,7 +1250,7 @@ fun AppearanceSettingsContent(
                                     AppText(
                                         text = "还有 ${splashRandomPoolPreview.totalCount - splashRandomPoolPreview.previewUris.size} 张",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = AppContentColors.secondaryText()
                                     )
                                 }
                             }
@@ -1263,10 +1265,10 @@ fun AppearanceSettingsContent(
                             subtitle = "关闭后不播放图标飞出或蓝雪女仆动画",
                             checked = splashIconAnimationEnabled,
                             onCheckedChange = { viewModel.toggleSplashIconAnimationEnabled(it) },
-                            iconTint = com.android.purebilibili.core.theme.iOSPink
+                            iconTint = AppContentColors.secondaryText()
                         )
                     }
-                    
+
                     SettingsItemAnchor("appearance.startup_animation_style") {
                         SettingsSingleChoicePreference(
                             title = settingItemTitle("appearance.startup_animation_style"),
@@ -1288,9 +1290,9 @@ fun AppearanceSettingsContent(
                     ) {
                         Column {
                             AppPreferenceDivider()
-                            
+
                             var showWallpaperPicker by remember { mutableStateOf(false) }
-                            
+
                             // 选择壁纸按钮
                             Row(
                                 modifier = Modifier
@@ -1324,36 +1326,36 @@ fun AppearanceSettingsContent(
                                             AppIcon(
                                                 com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_photo_24),
                                                 contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                tint = AppContentColors.secondaryText(),
                                                 modifier = Modifier.size(24.dp)
                                             )
                                         }
                                     }
                                 }
-                                
+
                                 Spacer(modifier = Modifier.width(16.dp))
-                                
+
                                 Column(modifier = Modifier.weight(1f)) {
                                     AppText(
                                         text = "选择开屏壁纸",
                                         style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = AppContentColors.primaryText()
                                     )
                                     AppText(
                                         text = if (hasSplashWallpaper) "已设置壁纸，可从官方库或相册更换" else "从官方壁纸库或相册选择",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = AppContentColors.secondaryText()
                                     )
                                 }
-                                
+
                                 AppIcon(
                                     com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_keyboard_arrow_right_24),
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    tint = AppContentColors.secondaryText().copy(alpha = 0.5f),
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
-                            
+
                             // 壁纸选择 Sheet
                             if (showWallpaperPicker) {
                                 com.android.purebilibili.feature.profile.SplashWallpaperPickerSheet(
@@ -1365,7 +1367,7 @@ fun AppearanceSettingsContent(
                 }
             }
         }
-        
+
         //  语言
         item(key = "appearance_language_title") {
             Box(modifier = Modifier.entrance()) {
@@ -1378,7 +1380,7 @@ fun AppearanceSettingsContent(
                     Column(modifier = Modifier.padding(16.dp)) {
                         SettingsSingleChoicePreference(
                             icon = rememberSettingsSemanticIcon(SettingsIconRole.APP_LANGUAGE),
-                            iconTint = iOSBlue,
+                            iconTint = AppContentColors.secondaryText(),
                             title = "${appLanguageTitle}：$selectedAppLanguageLabel",
                             subtitle = appLanguageSubtitle,
                             options = appLanguageOptions,
@@ -1429,7 +1431,7 @@ fun AppearanceSettingsContent(
                                 SettingsItemAnchor("appearance.grid_column_count") {
                                     SettingsSingleChoicePreference(
                                         icon = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_format_list_bulleted_24),
-                                        iconTint = com.android.purebilibili.core.theme.iOSBlue,
+                                        iconTint = AppContentColors.secondaryText(),
                                         title = settingItemTitle("appearance.grid_column_count"),
                                         subtitle = if (state.gridColumnCount == 0) {
                                             "自适应（默认）；折叠屏外屏与窄屏独立记忆，可用双指缩放调整"
@@ -1492,7 +1494,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setFullVideoCardContentVisible(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -1529,7 +1531,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setCompactVideoStatsOnCover(context, it)
                                     }
                                 },
-                                iconTint = iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -1566,7 +1568,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setHomePublishTimeVisible(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -1586,7 +1588,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setHomeUpAvatarsVisible(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -1606,7 +1608,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setHomeUpBadgesVisible(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -1626,7 +1628,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setHomeRefreshTipVisible(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -1642,7 +1644,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setHomeRefreshUndoVisible(context, enabled)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -1662,7 +1664,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setShowOnlineCount(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                     }
@@ -1710,7 +1712,7 @@ fun AppearanceSettingsContent(
                                         AppIcon(
                                             rememberSettingsSemanticIcon(SettingsIconRole.HOME_WALLPAPER),
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            tint = AppContentColors.secondaryText(),
                                             modifier = Modifier.size(24.dp)
                                         )
                                     }
@@ -1723,7 +1725,7 @@ fun AppearanceSettingsContent(
                                 AppText(
                                     text = "选择首页壁纸",
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = AppContentColors.primaryText()
                                 )
                                 AppText(
                                     text = when {
@@ -1732,14 +1734,14 @@ fun AppearanceSettingsContent(
                                         else -> "从官方壁纸库或相册选择"
                                     },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = AppContentColors.secondaryText()
                                 )
                             }
 
                             AppIcon(
                                 com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_keyboard_arrow_right_24),
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                tint = AppContentColors.secondaryText().copy(alpha = 0.5f),
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -1813,7 +1815,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setHomeCardFrostedGlassEnabled(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                         AppPreferenceDivider(modifier = Modifier.padding(start = 16.dp))
@@ -1832,7 +1834,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setHomeCardDynamicTintEnabled(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                     }
@@ -1863,7 +1865,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setHomeHeroCarouselEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -1885,7 +1887,7 @@ fun AppearanceSettingsContent(
                                                 SettingsManager.setHomeHeroCarouselAutoplayEnabled(context, it)
                                             }
                                         },
-                                        iconTint = iOSBlue
+                                        iconTint = AppContentColors.secondaryText()
                                     )
                                 }
                             }
@@ -1903,7 +1905,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setShowPgcTimeline(context, value)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSPurple
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                     }
@@ -1928,7 +1930,7 @@ fun AppearanceSettingsContent(
                                 onCheckedChange = { value ->
                                     viewModel.toggleHeaderCollapse(value)
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSTeal
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -1970,7 +1972,7 @@ fun AppearanceSettingsContent(
                                         BackToTopSettingsStore.setEnabled(context, it)
                                     }
                                 },
-                                iconTint = iOSBlue,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                         if (backToTopButtonEnabled && hasCustomBackToTopOffset) {
@@ -1985,7 +1987,7 @@ fun AppearanceSettingsContent(
                                         android.widget.Toast.makeText(context, "已恢复回顶按钮默认位置", android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                 },
-                                iconTint = iOSBlue,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
 
@@ -2005,7 +2007,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setVideoCardLongPressActionEnabled(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -2025,7 +2027,7 @@ fun AppearanceSettingsContent(
                                         SettingsManager.setShowProfileEditButton(context, it)
                                     }
                                 },
-                                iconTint = com.android.purebilibili.core.theme.iOSBlue
+                                iconTint = AppContentColors.secondaryText()
                             )
                         }
                     }
@@ -2200,14 +2202,14 @@ internal fun ThemeRoleModeEditor(
                 primaryContrast,
                 secondaryContrast
             ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp)
         )
         if (warning) {
             AppText(
                 text = "文字与背景过于接近，可能难以阅读；仍可保存。",
-                color = MaterialTheme.colorScheme.error,
+                color = AppContentColors.error(),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 8.dp)
             )
@@ -2331,7 +2333,7 @@ private fun ThemeCustomColorPickerDialog(
                                 .border(
                                     width = if (normalizeMd3CustomColorHex(pendingHex) == hex) 2.dp else 1.dp,
                                     color = if (normalizeMd3CustomColorHex(pendingHex) == hex) {
-                                        MaterialTheme.colorScheme.primary
+                                        AppContentColors.accent()
                                     } else {
                                         MaterialTheme.colorScheme.outlineVariant
                                     },
@@ -2512,7 +2514,7 @@ private fun Md3ThemeColorPreview(
 @Composable
 fun DynamicColorPreview() {
     val colorScheme = MaterialTheme.colorScheme
-    
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -2521,10 +2523,10 @@ fun DynamicColorPreview() {
         AppText(
             text = "当前取色预览",
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             modifier = Modifier.padding(bottom = 8.dp)
         )
-        
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -2577,7 +2579,7 @@ fun ColorPreviewItem(
         AppText(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
     }
 }

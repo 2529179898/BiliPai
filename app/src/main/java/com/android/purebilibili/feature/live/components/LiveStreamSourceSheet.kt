@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -72,14 +74,14 @@ internal fun LiveStreamSourceSheet(
         ) {
             AppText(
                 text = "直播线路",
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
             if (candidates.isEmpty()) {
                 AppText(
                     text = "暂无可用线路，请稍后重试",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(vertical = AppSpacingTokens.Large)
                 )

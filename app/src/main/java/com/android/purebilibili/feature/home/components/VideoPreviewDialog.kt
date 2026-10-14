@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 import com.android.purebilibili.core.ui.AdaptiveLoadingIndicator
@@ -30,7 +32,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
-import com.android.purebilibili.core.theme.iOSBlue
 import com.android.purebilibili.core.ui.rememberAppClearIcon
 import com.android.purebilibili.core.ui.rememberAppPhotoIcon
 import com.android.purebilibili.core.ui.rememberAppPlayIcon
@@ -114,12 +115,12 @@ fun VideoPreviewDialog(
         allowBackgroundBlur && hazeState != null -> Modifier.unifiedBlur(hazeState = hazeState)
         else -> Modifier
     }
-    
+
     // Playback State
     var isPlaying by remember { androidx.compose.runtime.mutableStateOf(false) }
     var videoUrl by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     var isLoading by remember { androidx.compose.runtime.mutableStateOf(false) }
-    
+
     // Fetch URL when isPlaying becomes true
     androidx.compose.runtime.LaunchedEffect(isPlaying) {
         if (isPlaying && videoUrl == null) {
@@ -130,7 +131,7 @@ fun VideoPreviewDialog(
                 // Failed to get URL, fallback to full screen navigation or toast?
                 // For now, just reset isPlaying or show error
                 android.widget.Toast.makeText(context, "无法获取预览地址", android.widget.Toast.LENGTH_SHORT).show()
-                isPlaying = false 
+                isPlaying = false
             }
         }
     }
@@ -146,8 +147,8 @@ fun VideoPreviewDialog(
         modifier = modifier
             .clickable(
                 enabled = !isNotInterestedDissolving,
-                interactionSource = null, 
-                indication = null, 
+                interactionSource = null,
+                indication = null,
                 onClick = { onDismiss() } // Always dismiss on background click
             ),
         contentAlignment = Alignment.Center
@@ -246,7 +247,7 @@ fun VideoPreviewDialog(
                                 AppText(
                                     text = "${video.owner.name} · ${FormatUtils.formatStat(video.stat.view.toLong())}播放",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = AppContentColors.secondaryText()
                                 )
                             }
 
@@ -344,7 +345,7 @@ fun VideoPreviewDialog(
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 fun DisposableVideoPlayer(url: String) {
     val context = LocalContext.current
-    
+
     // Create Player
     val player = androidx.compose.runtime.remember {
         androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
@@ -403,12 +404,12 @@ private fun PreviewMenuItem(
                 text = text,
                 fontSize = MaterialTheme.typography.titleMedium.fontSize,
                 fontWeight = FontWeight.Normal,
-                color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                color = if (isDestructive) AppContentColors.error() else AppContentColors.primaryText()
             )
             AppIcon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                tint = if (isDestructive) AppContentColors.error() else AppContentColors.accent(),
                 modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro)
             )
         }

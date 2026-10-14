@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.audio.screen
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
@@ -202,7 +204,7 @@ fun ExternalPlaylistImportDialog(
                 ),
             shape = panelShape,
             color = Color.Transparent,
-            contentColor = MaterialTheme.colorScheme.onSurface,
+            contentColor = AppContentColors.primaryText(),
             tonalElevation = 0.dp,
         ) {
             Column(
@@ -228,7 +230,7 @@ fun ExternalPlaylistImportDialog(
                     Text(
                         text = "支持网易云音乐和 QQ 音乐歌单。复制公开歌单的分享链接，粘贴到下面。",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                     )
                     Spacer(Modifier.height(16.dp))
                     OutlinedTextField(
@@ -240,7 +242,7 @@ fun ExternalPlaylistImportDialog(
                     )
                     fetchError?.let { message ->
                         Spacer(Modifier.height(8.dp))
-                        Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        Text(message, color = AppContentColors.error(), style = MaterialTheme.typography.bodySmall)
                     }
                     Spacer(Modifier.height(12.dp))
                     Button(
@@ -307,7 +309,7 @@ fun ExternalPlaylistImportDialog(
                             Text(
                                 text = "${meta.author} · ${meta.tracks.size} 首",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                             )
                         }
                         if (completed) {
@@ -349,7 +351,7 @@ fun ExternalPlaylistImportDialog(
                                 "已匹配 $matchCompleted/$matchTotal 首"
                             },
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(top = 4.dp, bottom = 6.dp),
@@ -358,7 +360,7 @@ fun ExternalPlaylistImportDialog(
                         Text(
                             text = "匹配 ${matchResults.count { it.video != null }}/${matchResults.size} 首",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             modifier = Modifier.padding(top = 4.dp, bottom = 6.dp),
                         )
                     }
@@ -402,8 +404,8 @@ fun ExternalPlaylistImportDialog(
                                                 text = outcome.video?.let { "${it.author} · ${it.title}" }
                                                     ?: outcome.track.artists.joinToString("/").ifBlank { "未匹配" },
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = if (outcome.video != null) MaterialTheme.colorScheme.onSurfaceVariant
-                                                else MaterialTheme.colorScheme.error.copy(alpha = 0.86f),
+                                                color = if (outcome.video != null) AppContentColors.secondaryText()
+                                                else AppContentColors.error().copy(alpha = 0.86f),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                             )
@@ -505,7 +507,7 @@ fun ExternalPlaylistImportDialog(
                                                 Column {
                                                     Text(video.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                     Text(video.author, style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                        color = AppContentColors.secondaryText())
                                                 }
                                             }
                                         }
@@ -518,7 +520,7 @@ fun ExternalPlaylistImportDialog(
                         Text(
                             text = "未匹配的曲目将被跳过，保存后可稍后再添加。",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             modifier = Modifier.padding(top = 8.dp),
                         )
                     }

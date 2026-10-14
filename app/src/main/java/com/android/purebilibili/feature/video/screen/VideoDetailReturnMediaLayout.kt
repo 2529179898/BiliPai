@@ -4,6 +4,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
@@ -239,6 +240,20 @@ internal data class VideoDetailReturnMediaLayoutFrame(
     val heightPx: Int,
 )
 
+/** Source geometry is entry-relative; a split-pane player starts in a smaller local slot. */
+internal fun resolveVideoDetailReturnMediaFrameInSlot(
+    frame: VideoDetailReturnMediaLayoutFrame,
+    slotOrigin: Offset,
+    handoffProgress: Float,
+): VideoDetailReturnMediaLayoutFrame {
+    val progress = handoffProgress.coerceIn(0f, 1f)
+    if (slotOrigin == Offset.Zero || progress == 0f) return frame
+    return frame.copy(
+        offsetXPx = (frame.offsetXPx - slotOrigin.x * progress).roundToInt(),
+        offsetYPx = (frame.offsetYPx - slotOrigin.y * progress).roundToInt(),
+    )
+}
+
 internal fun resolveVideoDetailReturnMediaLayoutFrame(
     containerWidthPx: Int,
     containerHeightPx: Int,
@@ -306,6 +321,7 @@ internal fun Modifier.videoDetailReturnMediaLayout(
     contentTopInset: Dp = 0.dp,
     clipCornerDp: Dp = 0.dp,
     nativeSnapshotBoundsProvider: (() -> Rect?)? = null,
+    slotOriginProvider: () -> Offset = { Offset.Zero },
 ): Modifier = layout { measurable, constraints ->
     if (!constraints.hasBoundedWidth || !constraints.hasBoundedHeight) {
         val placeable = measurable.measure(constraints)
@@ -313,16 +329,18 @@ internal fun Modifier.videoDetailReturnMediaLayout(
             placeable.place(0, 0)
         }
     } else {
-        val frame = resolveVideoDetailReturnMediaLayoutFrame(
+        val progress = handoffProgressProvider()
+        val entryFrame = resolveVideoDetailReturnMediaLayoutFrame(
             containerWidthPx = constraints.maxWidth,
             containerHeightPx = constraints.maxHeight,
             landingLayout = landingLayout,
-            handoffProgress = handoffProgressProvider(),
+            handoffProgress = progress,
             inverseScaleX = inverseScaleXProvider(),
             inverseScaleY = inverseScaleYProvider(),
             contentTopInsetPx = contentTopInset.roundToPx(),
             nativeSnapshotBounds = nativeSnapshotBoundsProvider?.invoke(),
         )
+        val frame = resolveVideoDetailReturnMediaFrameInSlot(entryFrame, slotOriginProvider(), progress)
         val placeable = measurable.measure(
             Constraints.fixed(width = frame.widthPx, height = frame.heightPx),
         )
@@ -373,6 +391,7 @@ internal fun Modifier.videoDetailReturnPlayerLayout(
     inverseScaleYProvider: () -> Float,
     clipCornerDp: Dp = 0.dp,
     nativeSnapshotBoundsProvider: (() -> Rect?)? = null,
+    slotOriginProvider: () -> Offset = { Offset.Zero },
 ): Modifier {
     // Layout and draw both need the frame for the same node size within one frame; memoize it so
     // the interpolation, inverse-scale and snapshot-bounds reads run once instead of twice.
@@ -382,6 +401,7 @@ internal fun Modifier.videoDetailReturnPlayerLayout(
     var memoInverseScaleX = Float.NaN
     var memoInverseScaleY = Float.NaN
     var memoNativeBounds: Rect? = null
+    var memoSlotOrigin = Offset.Unspecified
     var memoFrame: VideoDetailReturnMediaLayoutFrame? = null
 
     fun frame(width: Int, height: Int): VideoDetailReturnMediaLayoutFrame {
@@ -389,18 +409,19 @@ internal fun Modifier.videoDetailReturnPlayerLayout(
         val inverseScaleX = inverseScaleXProvider()
         val inverseScaleY = inverseScaleYProvider()
         val nativeBounds = nativeSnapshotBoundsProvider?.invoke()
+        val slotOrigin = slotOriginProvider()
         memoFrame?.let { cached ->
             if (width == memoWidth &&
                 height == memoHeight &&
                 progress == memoProgress &&
                 inverseScaleX == memoInverseScaleX &&
                 inverseScaleY == memoInverseScaleY &&
-                nativeBounds == memoNativeBounds
+                nativeBounds == memoNativeBounds && slotOrigin == memoSlotOrigin
             ) {
                 return cached
             }
         }
-        val resolved = resolveVideoDetailReturnMediaLayoutFrame(
+        val entryFrame = resolveVideoDetailReturnMediaLayoutFrame(
             containerWidthPx = width,
             containerHeightPx = height,
             landingLayout = landingLayout,
@@ -409,12 +430,14 @@ internal fun Modifier.videoDetailReturnPlayerLayout(
             inverseScaleY = inverseScaleY,
             nativeSnapshotBounds = nativeBounds,
         )
+        val resolved = resolveVideoDetailReturnMediaFrameInSlot(entryFrame, slotOrigin, progress)
         memoWidth = width
         memoHeight = height
         memoProgress = progress
         memoInverseScaleX = inverseScaleX
         memoInverseScaleY = inverseScaleY
         memoNativeBounds = nativeBounds
+        memoSlotOrigin = slotOrigin
         memoFrame = resolved
         return resolved
     }

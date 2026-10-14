@@ -896,6 +896,14 @@ fun AppNavigation(
         var lastLiveAreaDetailOpenId by remember { mutableLongStateOf(0L) }
         var lastSearchOpenId by remember { mutableLongStateOf(0L) }
         fun pushNavigation3KeyDirect(key: BiliPaiNavKey) {
+            val currentSearch = navigation3BackStack.lastOrNull() as? BiliPaiNavKey.Search
+            val requestedSearchKeyword = when (key) {
+                BiliPaiNavKey.Search -> ""
+                is BiliPaiNavKey.Search -> key.keyword
+                else -> null
+            }
+            // Guard before allocating openId: repeated entrance taps belong to the same page.
+            if (currentSearch != null && requestedSearchKeyword == currentSearch.keyword) return
             val sessionScopedKey = when (key) {
                 is BiliPaiNavKey.VideoDetail -> {
                     if (key.openId > 0L) {
@@ -2462,7 +2470,9 @@ fun AppNavigation(
                                 viewModel = homeViewModel,
                                 onWeeklySeriesClick = { pushNavigation3Key(BiliPaiNavKey.WeeklySeries()) },
                                 onVideoClick = { request -> navigateToHomeVideoInNavigation3(request) },
-                                onSearchClick = { pushNavigation3Key(BiliPaiNavKey.Search) },
+                                onSearchClick = {
+                                    if (canNavigate(false)) pushNavigation3Key(BiliPaiNavKey.Search)
+                                },
                                 onAvatarClick = { pushNavigation3Key(BiliPaiNavKey.Login) },
                                 onProfileClick = { pushNavigation3Route(ScreenRoutes.Profile.route) },
                                 onLogout = {
@@ -2549,6 +2559,15 @@ fun AppNavigation(
                             )
                         BiliPaiNavEntryContentRole.LISTEN_VIDEO ->
                             ListenVideoRoute(
+                                onPlayCollection = { mediaId, seasonId, title ->
+                                    pushNavigation3Key(
+                                        BiliPaiNavKey.AudioMode(
+                                            collectionMediaId = mediaId,
+                                            collectionSeasonId = seasonId,
+                                            collectionTitle = title,
+                                        )
+                                    )
+                                },
                                 onNowPlayingClick = { bvid, _ ->
                                     pushNavigation3Key(
                                         BiliPaiNavKey.AudioMode(sourceBvid = bvid)
@@ -3899,20 +3918,34 @@ fun AppNavigation(
                                         viewModel.uiState.value is
                                             com.android.purebilibili.feature.video.viewmodel.VideoPlaybackUiState.Success
                                 )
-                                com.android.purebilibili.feature.video.screen.AudioModeScreen(
-                                    viewModel = viewModel,
-                                    onBack = { performSystemBackAction() },
-                                    onVideoModeClick = { currentBvid, currentCid ->
-                                        replaceNavigation3BackStack(
-                                            popBiliPaiNavKey(navigation3BackStack)
-                                        )
-                                        navigateToVideoInNavigation3(currentBvid, currentCid, "")
-                                    },
-                                    isInPipMode = isInPipMode,
-                                    initialBvid = initialLoadRequest?.bvid.orEmpty(),
-                                    initialCid = initialLoadRequest?.cid ?: 0L,
-                                    initialResumePositionMs = initialLoadRequest?.resumePositionMs ?: 0L
-                                )
+                                val renderAudioPlayer: @Composable (String, Long) -> Unit = { bvid, cid ->
+                                    com.android.purebilibili.feature.video.screen.AudioModeScreen(
+                                        viewModel = viewModel,
+                                        onBack = { performSystemBackAction() },
+                                        onVideoModeClick = { currentBvid, currentCid ->
+                                            replaceNavigation3BackStack(
+                                                popBiliPaiNavKey(navigation3BackStack)
+                                            )
+                                            navigateToVideoInNavigation3(currentBvid, currentCid, "")
+                                        },
+                                        isInPipMode = isInPipMode,
+                                        initialBvid = bvid,
+                                        initialCid = cid,
+                                        initialResumePositionMs = initialLoadRequest?.resumePositionMs ?: 0L,
+                                        titleOverride = audioModeKey.collectionTitle.takeIf { bvid.isBlank() && it.isNotBlank() },
+                                    )
+                                }
+                                if (audioModeKey.collectionMediaId > 0L || audioModeKey.collectionSeasonId > 0L) {
+                                    com.android.purebilibili.feature.audio.screen.ListenVideoCollectionPlayer(
+                                        mediaId = audioModeKey.collectionMediaId,
+                                        seasonId = audioModeKey.collectionSeasonId,
+                                        title = audioModeKey.collectionTitle,
+                                        onBack = { performSystemBackAction() },
+                                        player = renderAudioPlayer,
+                                    )
+                                } else {
+                                    renderAudioPlayer(initialLoadRequest?.bvid.orEmpty(), initialLoadRequest?.cid ?: 0L)
+                                }
                             }
                         BiliPaiNavEntryContentRole.PARTITION -> com.android.purebilibili.feature.partition.PartitionScreen(
                                 onBack = { performSystemBackAction() },

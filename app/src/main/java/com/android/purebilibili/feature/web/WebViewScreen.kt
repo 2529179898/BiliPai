@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.web
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 import com.android.purebilibili.core.ui.components.AppIcon
@@ -34,7 +36,7 @@ import com.android.purebilibili.core.util.BilibiliNavigationTarget
 
 /**
  * WebViewScreen - 应用内浏览器
- * 
+ *
  * 支持拦截 Bilibili 链接并跳转到原生界面：
  * - 视频: bilibili.com/video/BV... 或 av...
  * - UP主空间: space.bilibili.com/{mid}
@@ -85,7 +87,7 @@ fun WebViewScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                    titleContentColor = AppContentColors.primaryText()
                 )
             )
         }

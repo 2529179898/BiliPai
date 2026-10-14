@@ -1,6 +1,8 @@
 // 文件路径: feature/video/ui/components/CollectionSheet.kt
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -30,10 +32,7 @@ import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.MyLocation
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.VerticalAlignBottom
-import androidx.compose.material.icons.outlined.VerticalAlignTop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -193,7 +192,7 @@ fun CollectionSheet(
                     text = "合集",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 CollectionSubscriptionButton(
@@ -207,30 +206,13 @@ fun CollectionSheet(
                     fontSize = MaterialTheme.typography.labelMedium.fontSize
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                AppIconButton(onClick = { scrollToEpisode(0) }) {
-                    Icon(
-                        Icons.Outlined.VerticalAlignTop,
-                        contentDescription = "跳至顶部",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                AppIconButton(onClick = { scrollToEpisode(sortedEpisodes.lastIndex) }) {
-                    Icon(
-                        Icons.Outlined.VerticalAlignBottom,
-                        contentDescription = "跳至底部",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                AppIconButton(onClick = { scrollToEpisode(currentIndex) }) {
-                    Icon(
-                        Icons.Outlined.MyLocation,
-                        contentDescription = "定位当前播放",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                EpisodeListNavigationActions(
+                    onTopClick = { scrollToEpisode(0) },
+                    onBottomClick = { scrollToEpisode(sortedEpisodes.lastIndex) },
+                    onCurrentClick = { scrollToEpisode(currentIndex) },
+                    hasItems = sortedEpisodes.isNotEmpty(),
+                    hasCurrent = currentIndex >= 0,
+                )
                 AppIconButton(
                     onClick = {
                         com.android.purebilibili.core.util.ShareUtils.shareCollection(
@@ -244,7 +226,7 @@ fun CollectionSheet(
                     Icon(
                         Icons.Outlined.Share,
                         contentDescription = "分享合集",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -257,7 +239,7 @@ fun CollectionSheet(
                     Icon(
                         sortIcon,
                         contentDescription = "排序：${sortMode.label}",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -265,7 +247,7 @@ fun CollectionSheet(
                     AppIcon(
                         clearIcon,
                         contentDescription = "关闭",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = AppContentColors.secondaryText()
                     )
                 }
             }
@@ -296,7 +278,7 @@ fun CollectionSheet(
                                 tapToCopyEnabled = false,
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = AppContentColors.primaryText(),
                                 modifier = Modifier.alignByBaseline()
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -304,7 +286,7 @@ fun CollectionSheet(
                                 text = collectionIntro,
                                 tapToCopyEnabled = false,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 maxLines = if (introExpanded) Int.MAX_VALUE else 1,
                                 overflow = TextOverflow.Ellipsis,
                                 onTextLayout = { result ->
@@ -319,7 +301,7 @@ fun CollectionSheet(
                             tapToCopyEnabled = false,
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                     }
                     if (introCanExpand || introExpanded) AppIconButton(
@@ -333,7 +315,7 @@ fun CollectionSheet(
                                 Icons.Outlined.KeyboardArrowDown
                             },
                             contentDescription = if (introExpanded) "收起简介" else "展开简介",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppContentColors.secondaryText(),
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -404,7 +386,7 @@ fun CollectionSheet(
  * 单集多分 P 时在条目下方展示分 P chips。
  */
 @Composable
-private fun CollectionEpisodeRow(
+internal fun CollectionEpisodeRow(
     episode: UgcEpisode,
     isCurrentEpisode: Boolean,
     onClick: () -> Unit,
@@ -454,9 +436,9 @@ private fun CollectionEpisodeRow(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (isCurrentEpisode) FontWeight.Bold else FontWeight.Normal,
                     color = if (isCurrentEpisode) {
-                        MaterialTheme.colorScheme.primary
+                        AppContentColors.accent()
                     } else {
-                        MaterialTheme.colorScheme.onSurface
+                        AppContentColors.primaryText()
                     },
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -466,7 +448,7 @@ private fun CollectionEpisodeRow(
                     AppText(
                         text = publishTimeText,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Clip
                     )
@@ -500,7 +482,7 @@ private fun CollectionEpisodeRow(
                     AppText(
                         text = "${pageIndex + 1}.${page.part}",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier

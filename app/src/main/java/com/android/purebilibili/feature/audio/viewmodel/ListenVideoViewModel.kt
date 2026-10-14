@@ -18,6 +18,8 @@ import com.android.purebilibili.feature.audio.library.mapListenVideoArtists
 import com.android.purebilibili.feature.audio.library.mapListenVideoPlaylists
 import com.android.purebilibili.feature.audio.library.toListenVideoTrackOrNull
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,11 +49,15 @@ internal class ListenVideoViewModel(
     private val dataSource: ListenVideoLibraryDataSource = BilibiliListenVideoLibraryDataSource(),
     private val currentMid: () -> Long = { TokenManager.midCache ?: 0L }
 ) : ViewModel() {
-    private val loader = ListenVideoLibraryLoader(dataSource)
+    private var loader = ListenVideoLibraryLoader(dataSource)
     private val _uiState = MutableStateFlow(ListenVideoUiState())
     val uiState = _uiState.asStateFlow()
 
     private var refreshJob: Job? = null
+    private var previewJob: Job? = null
+    private var backgroundPaused = false
+    private var loadedMid = 0L
+    private var isFoldersLoading = false
     private var indexJob: Job? = null
     private var detailJob: Job? = null
     private var ownedFolders: List<FavFolder> = emptyList()
@@ -63,10 +69,21 @@ internal class ListenVideoViewModel(
 
     fun refresh() {
         refreshJob?.cancel()
+        previewJob?.cancel()
         indexJob?.cancel()
         detailJob?.cancel()
+        backgroundPaused = false
+        loader = ListenVideoLibraryLoader(dataSource)
+        ownedFolders = emptyList()
+        collectedFolders = emptyList()
+        indexedResources = emptyList()
+        indexCompleted = false
+        lastDetailTitle = ""
+        lastDetailRequest = null
         val generation = _uiState.value.generation + 1L
         val mid = currentMid()
+        loadedMid = mid
+        isFoldersLoading = mid > 0L
         if (mid <= 0L) {
             ownedFolders = emptyList()
             collectedFolders = emptyList()
@@ -83,6 +100,7 @@ internal class ListenVideoViewModel(
 
         _uiState.value = ListenVideoUiState(
             generation = generation,
+            section = _uiState.value.section,
             isLoggedIn = true,
             isLoading = true
         )
@@ -91,15 +109,25 @@ internal class ListenVideoViewModel(
                 val foldersResult = dataSource.ownedFolders(mid)
                 if (_uiState.value.generation != generation) return@launch
                 val folders = foldersResult.getOrElse { error ->
+                    isFoldersLoading = false
                     _uiState.update {
                         it.copy(isLoading = false, error = error.userMessage("收藏夹加载失败"))
                     }
                     return@launch
                 }
+                ownedFolders = folders
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        playlists = mapListenVideoPlaylists(folders),
+                        totalFolderCount = folders.size,
+                    )
+                }
                 val collectedResult = loader.loadCollectedFolders(mid)
                 if (_uiState.value.generation != generation) return@launch
                 ownedFolders = folders
                 collectedFolders = collectedResult.getOrDefault(emptyList())
+                isFoldersLoading = false
                 indexedResources = emptyList()
                 indexCompleted = false
                 _uiState.update {
@@ -112,22 +140,48 @@ internal class ListenVideoViewModel(
                         error = collectedResult.exceptionOrNull()?.userMessage("部分合集加载失败")
                     )
                 }
-                val previewCovers = loader.loadPlaylistPreviewCovers(ownedFolders)
-                if (_uiState.value.generation != generation) return@launch
-                if (previewCovers.isNotEmpty()) {
-                    _uiState.update { state ->
-                        state.copy(
-                            playlists = state.playlists.map { playlist ->
-                                previewCovers[playlist.mediaId]?.let { cover ->
-                                    playlist.copy(coverUrl = cover)
-                                } ?: playlist
+                if (_uiState.value.section != ListenVideoSection.PLAYLISTS) indexLibrary()
+                if (!backgroundPaused) {
+                    previewJob = viewModelScope.launch {
+                        val previewCovers = loader.loadPlaylistPreviewCovers(ownedFolders)
+                        if (_uiState.value.generation != generation) return@launch
+                        if (previewCovers.isNotEmpty()) {
+                            _uiState.update { state ->
+                                state.copy(
+                                    playlists = state.playlists.map { playlist ->
+                                        previewCovers[playlist.mediaId]?.let { cover ->
+                                            playlist.copy(coverUrl = cover)
+                                        } ?: playlist
+                                    }
+                                )
                             }
-                        )
+                        }
                     }
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
+            } catch (error: Exception) {
+                if (_uiState.value.generation == generation) {
+                    isFoldersLoading = false
+                    _uiState.update { it.copy(isLoading = false, error = error.userMessage("收藏夹加载失败")) }
+                }
             }
+        }
+    }
+
+    fun pauseBackgroundLoading() {
+        backgroundPaused = true
+        previewJob?.cancel()
+        indexJob?.cancel()
+        _uiState.update { it.copy(isIndexing = false) }
+    }
+
+    fun resumeBackgroundLoading() {
+        backgroundPaused = false
+        if (_uiState.value.generation == 0L || loadedMid != currentMid()) {
+            refresh()
+        } else if (_uiState.value.section != ListenVideoSection.PLAYLISTS && !indexCompleted) {
+            indexLibrary()
         }
     }
 
@@ -141,7 +195,7 @@ internal class ListenVideoViewModel(
     fun openPlaylist(playlist: ListenVideoPlaylist) {
         // Playlist covers are best-effort. Stop their background requests before loading
         // the user-selected folder so the favorite endpoint does not trip HTTP 412.
-        refreshJob?.cancel()
+        pauseBackgroundLoading()
         loadDetail(playlist.title) { loader.loadFolder(playlist.mediaId) }
     }
 
@@ -184,7 +238,7 @@ internal class ListenVideoViewModel(
     }
 
     private fun indexLibrary(onlyFailed: Boolean = false) {
-        indexJob?.cancel()
+        if (backgroundPaused || isFoldersLoading || indexJob?.isActive == true || _uiState.value.isLoading) return
         val generation = _uiState.value.generation
         val targets = if (onlyFailed) {
             ownedFolders.filter { it.id in _uiState.value.failedFolderIds }
@@ -203,28 +257,46 @@ internal class ListenVideoViewModel(
             )
         }
         indexJob = viewModelScope.launch {
-            val result = loader.indexFolders(targets) { completed, total ->
-                if (_uiState.value.generation == generation) {
-                    _uiState.update {
-                        it.copy(indexedFolderCount = completed, totalFolderCount = total)
+            val previousResources = indexedResources
+            val result = loader.indexFolders(
+                folders = targets,
+                onFolderIndexed = { completed, total ->
+                    if (_uiState.value.generation == generation) {
+                        _uiState.update {
+                            it.copy(indexedFolderCount = completed, totalFolderCount = total)
+                        }
                     }
+                },
+                onResourcesIndexed = { resources ->
+                    val allResources = withContext(Dispatchers.Default) {
+                        (previousResources + resources).distinctBy { resource ->
+                            if (resource.type == 21) "album:${resource.season_id.takeIf { it > 0L } ?: resource.id}"
+                            else "track:${resource.bvid.ifBlank { resource.bv_id }}"
+                        }
+                    }
+                    val artists = withContext(Dispatchers.Default) { mapListenVideoArtists(allResources) }
+                    val albums = withContext(Dispatchers.Default) { mapListenVideoAlbums(collectedFolders, allResources) }
+                    if (_uiState.value.generation == generation) {
+                        indexedResources = allResources
+                        _uiState.update { it.copy(artists = artists, albums = albums) }
+                    }
+                },
+            )
+            if (_uiState.value.generation != generation) return@launch
+            indexedResources = withContext(Dispatchers.Default) {
+                (indexedResources + result.resources).distinctBy { resource ->
+                    if (resource.type == 21) "album:${resource.season_id.takeIf { it > 0L } ?: resource.id}"
+                    else "track:${resource.bvid.ifBlank { resource.bv_id }}"
                 }
             }
-            if (_uiState.value.generation != generation) return@launch
-            indexedResources = (indexedResources + result.resources)
-                .distinctBy { resource ->
-                    if (resource.type == 21) {
-                        "album:${resource.season_id.takeIf { it > 0L } ?: resource.id}"
-                    } else {
-                        "track:${resource.bvid.ifBlank { resource.bv_id }}"
-                    }
-                }
+            val albums = withContext(Dispatchers.Default) { mapListenVideoAlbums(collectedFolders, indexedResources) }
+            val artists = withContext(Dispatchers.Default) { mapListenVideoArtists(indexedResources) }
             indexCompleted = result.failedFolderIds.isEmpty()
             _uiState.update {
                 it.copy(
                     isIndexing = false,
-                    albums = mapListenVideoAlbums(collectedFolders, indexedResources),
-                    artists = mapListenVideoArtists(indexedResources),
+                    albums = albums,
+                    artists = artists,
                     failedFolderIds = result.failedFolderIds,
                     error = result.failedFolderIds.takeIf(Set<Long>::isNotEmpty)?.let {
                         if (result.haltedByRiskControl) {

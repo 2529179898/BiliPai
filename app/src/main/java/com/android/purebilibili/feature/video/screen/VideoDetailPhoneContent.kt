@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.content.Context
 import android.os.Build
 import androidx.compose.ui.graphics.graphicsLayer
@@ -581,12 +583,12 @@ private fun ExternalPlaylistQueueCollapsedBarContent(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
             Spacer(modifier = Modifier.weight(1f))
             AppText(
                 text = "${videoCount}个视频",
-                color = MaterialTheme.colorScheme.primary,
+                color = AppContentColors.accent(),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium
             )
@@ -594,7 +596,7 @@ private fun ExternalPlaylistQueueCollapsedBarContent(
             AppIcon(
                 imageVector = rememberAppChevronUpIcon(),
                 contentDescription = "展开${title}队列",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = AppContentColors.secondaryText()
             )
         }
 }

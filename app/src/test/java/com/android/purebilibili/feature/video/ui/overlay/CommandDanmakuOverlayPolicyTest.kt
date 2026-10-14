@@ -1,5 +1,9 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.feature.video.ui.feedback.canSubmitVideoFollowAction
+import com.android.purebilibili.feature.video.ui.feedback.canSubmitVideoTripleAction
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -55,6 +59,22 @@ class CommandDanmakuOverlayPolicyTest {
 
         assertEquals(false, action.shouldFollow)
         assertEquals(false, action.shouldTriple)
+    }
+
+    @Test
+    fun `attention follow is disabled while unknown submitting or already followed`() {
+        assertFalse(canSubmitVideoFollowAction(false, false, false))
+        assertTrue(canSubmitVideoFollowAction(true, false, false))
+        assertFalse(canSubmitVideoFollowAction(true, false, true))
+        assertFalse(canSubmitVideoFollowAction(true, true, false))
+    }
+
+    @Test
+    fun `partial triple permits retry but pending and complete states block submission`() {
+        assertFalse(canSubmitVideoTripleAction(false, true, false, true, false))
+        assertTrue(canSubmitVideoTripleAction(true, true, false, true, false))
+        assertFalse(canSubmitVideoTripleAction(true, true, false, true, true))
+        assertFalse(canSubmitVideoTripleAction(true, true, true, true, false))
     }
 
     @Test

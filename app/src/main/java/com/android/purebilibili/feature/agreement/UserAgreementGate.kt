@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.agreement
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -58,7 +60,7 @@ private fun UserAgreementGateScreen(onAgree: () -> Unit) {
     val activity = LocalActivity.current
     val darkTheme = com.android.purebilibili.core.ui.isAppInDarkTheme()
     val titleColor = if (darkTheme) MaterialTheme.colorScheme.onBackground
-    else MaterialTheme.colorScheme.onSurface
+    else AppContentColors.primaryText()
     // The agree button unlocks only after the user has scrolled the full text to the bottom
     // (sticky: it stays enabled afterwards even if they scroll back up).
     // must observe layoutInfo through derivedStateOf: canScrollForward is not snapshot state
@@ -102,7 +104,7 @@ private fun UserAgreementGateScreen(onAgree: () -> Unit) {
                         AppText(
                             "— 已阅读至协议末尾 —",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center,
                         )
@@ -128,7 +130,7 @@ fun UserAgreementBody(modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         UserAgreementText.SECTIONS.forEach { section ->
             AppText(section.title, style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary)
+                color = AppContentColors.accent())
             section.bodyLines.forEach { line ->
                 LinkifiedText(line, style = MaterialTheme.typography.bodyMedium)
             }
@@ -145,7 +147,7 @@ private fun LinkifiedText(
     style: androidx.compose.ui.text.TextStyle,
 ) {
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-    val linkColor = MaterialTheme.colorScheme.primary
+    val linkColor = AppContentColors.accent()
     val linkStyle = androidx.compose.ui.text.SpanStyle(
         color = linkColor,
         textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,

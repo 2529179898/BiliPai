@@ -35,3 +35,29 @@ BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR P
 NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
 DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Nagram profile header
+
+The centered avatar/name geometry, scroll-driven avatar scaling (24–96dp), name scaling
+(1–1.12), 60% expanded-height snap threshold, 1000px/s upward-fling threshold, and
+EASE_OUT_QUINT curve (0.23, 1, 0.32, 1) are adapted from
+[NextAlone/Nagram ProfileActivity.java](https://github.com/NextAlone/Nagram/blob/fb56ea9801e5de68c60f0152b444bbe2a0fda520/TMessagesProj/src/main/java/org/telegram/ui/ProfileActivity.java)
+and its CubicBezierInterpolator.java at the same revision.
+
+The active avatar/camera fusion rendering, GPU alpha-threshold composition and CPU
+fallback are adapted from
+[ProfileGooeyView.java](https://github.com/NextAlone/Nagram/blob/fb56ea9801e5de68c60f0152b444bbe2a0fda520/TMessagesProj/src/main/java/org/telegram/ui/Components/ProfileGooeyView.java),
+with camera cutout parsing from
+[NotchInfoUtils.java](https://github.com/NextAlone/Nagram/blob/fb56ea9801e5de68c60f0152b444bbe2a0fda520/TMessagesProj/src/main/java/org/telegram/messenger/NotchInfoUtils.java).
+The Telegram native bitmap blur dependency is replaced by a separable triangular
+kernel for the small software buffer. View lifecycle and Compose hosting are adapted
+to this application.
+The app-owned Compose implementations are `ProfileIdentityHeader.kt`,
+`ProfileHeaderMotion.kt`, `ProfileAvatarEffect.kt`, `ProfileAvatarFusionView.java`
+and `ProfileCameraCutout.java`.
+
+Upstream Telegram source copyright Nikolai Kudashov, 2013–2018, licensed under
+GPL-2.0-or-later; Nagram modifications by Nagram contributors, distributed under GPL-3.0.
+This Compose adaptation is distributed under this repository's [GPL-3.0 license](LICENSE).
+It uses BiliPai account data, colors, badges, editing and navigation actions.
+See [port details](docs/nagram-profile-header-port.md).

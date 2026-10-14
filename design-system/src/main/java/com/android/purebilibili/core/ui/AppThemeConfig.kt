@@ -26,6 +26,7 @@ data class AppThemeConfig(
     val hapticFeedbackEnabled: Boolean = true,
     val globalTextTapCopyEnabled: Boolean = false,
     val uiEntranceAnimationEnabled: Boolean = true,
+    val globalDragFeedbackEnabled: Boolean = true,
     val runtimeVisualGuardEnabled: Boolean = true,
     val nativeMiuixPopupsEnabled: Boolean = true,
     // Matches the persisted default; each application host supplies the observed preference.

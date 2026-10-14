@@ -5424,7 +5424,13 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         val likeVersion = repository.likeStatusVersion(aid)
         viewModelScope.launch(Dispatchers.IO) {
             launch {
-                repository.queryFollowStatus(ownerMid).onSuccess { following ->
+                queryVideoInteractionStatusWithRetry(
+                    isCurrent = {
+                        currentLoadRequestToken == requestToken && repository.interactionSession() == session &&
+                            repository.followStatusVersion(ownerMid) == followVersion
+                    },
+                    query = { repository.queryFollowStatus(ownerMid) },
+                ).onSuccess { following ->
                     withContext(Dispatchers.Main.immediate) {
                         if (currentLoadRequestToken != requestToken || repository.interactionSession() != session ||
                             repository.followStatusVersion(ownerMid) != followVersion) return@withContext
@@ -5438,7 +5444,13 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                 }
             }
             launch {
-                repository.queryLikeStatus(aid).onSuccess { liked ->
+                queryVideoInteractionStatusWithRetry(
+                    isCurrent = {
+                        currentLoadRequestToken == requestToken && repository.interactionSession() == session &&
+                            repository.likeStatusVersion(aid) == likeVersion
+                    },
+                    query = { repository.queryLikeStatus(aid) },
+                ).onSuccess { liked ->
                     withContext(Dispatchers.Main.immediate) {
                         if (currentLoadRequestToken != requestToken || repository.interactionSession() != session ||
                             repository.likeStatusVersion(aid) != likeVersion) return@withContext

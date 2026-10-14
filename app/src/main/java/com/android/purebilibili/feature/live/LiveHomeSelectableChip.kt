@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -31,7 +33,7 @@ fun LiveHomeSelectableChip(
         Color.Transparent
     }
     val content = if (selected) {
-        MaterialTheme.colorScheme.onSurface
+        AppContentColors.primaryText()
     } else {
         AppSurfaceTokens.onSurfaceVariantSummary()
     }

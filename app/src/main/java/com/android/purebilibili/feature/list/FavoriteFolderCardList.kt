@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.list
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -94,7 +96,7 @@ internal fun FavoriteFolderCardList(
                 .padding(top = padding.calculateTopPadding()),
             contentAlignment = Alignment.Center,
         ) {
-            AppText(text = message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AppText(text = message, color = AppContentColors.secondaryText())
         }
         return
     }
@@ -172,7 +174,7 @@ private fun FavoriteFolderCard(
                 AppIcon(
                     imageVector = rememberAppFolderIcon(),
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = AppContentColors.accent(),
                 )
             }
         }
@@ -193,7 +195,7 @@ private fun FavoriteFolderCard(
                 AppText(
                     text = folder.intro,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -202,7 +204,7 @@ private fun FavoriteFolderCard(
             AppText(
                 text = metaLine,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 1,
             )
         }
@@ -227,7 +229,7 @@ private fun FavoriteSubscribedEntryRow(
         AppIcon(
             imageVector = rememberAppBookmarkIcon(),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = AppContentColors.accent(),
         )
         AppText(
             text = "订阅收藏夹（追更）",
@@ -237,7 +239,7 @@ private fun FavoriteSubscribedEntryRow(
         AppIcon(
             imageVector = rememberAppChevronForwardIcon(),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = AppContentColors.secondaryText(),
         )
     }
 }

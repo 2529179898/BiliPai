@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.plugin
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.content.ActivityNotFoundException
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -235,7 +237,7 @@ private fun HomeFeedAnonymizerSettingsContent(enabled: Boolean) {
             AppText(
                 text = "BiliPai 仅实现 Android 端内置插件形态，保留原项目与 Plus 改版来源说明。",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -259,7 +261,7 @@ private fun HomeFeedAnonymizerSection(
         AppText(
             text = title,
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
+            color = AppContentColors.accent(),
             fontWeight = FontWeight.Medium
         )
         AppSurface(
@@ -305,7 +307,7 @@ private fun HomeFeedAnonymizerInfoRowView(
         AppText(
             text = row.label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.width(86.dp)
@@ -315,9 +317,9 @@ private fun HomeFeedAnonymizerInfoRowView(
             text = row.summary,
             style = MaterialTheme.typography.bodySmall,
             color = if (row.url == null) {
-                MaterialTheme.colorScheme.onSurface
+                AppContentColors.primaryText()
             } else {
-                MaterialTheme.colorScheme.primary
+                AppContentColors.accent()
             },
             maxLines = row.maxLines,
             overflow = TextOverflow.Ellipsis,
@@ -340,7 +342,7 @@ private fun HomeFeedAnonymizerDetailDialog(
                 AppText(
                     text = "长按并拖拽选择需要复制的内容",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 SelectionContainer {

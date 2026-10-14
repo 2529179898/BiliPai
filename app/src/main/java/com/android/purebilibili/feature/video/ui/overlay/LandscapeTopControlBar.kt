@@ -1,5 +1,7 @@
 // 文件路径: feature/video/ui/overlay/LandscapeTopControlBar.kt
 package com.android.purebilibili.feature.video.ui.overlay
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -21,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-//  已改用 MaterialTheme.colorScheme.primary
+//  已改用 AppContentColors.accent()
 import com.android.purebilibili.core.ui.rememberAppCoinIcon
 import com.android.purebilibili.core.ui.components.AppIconButton
 import com.android.purebilibili.core.ui.components.AppSurface
@@ -35,7 +37,7 @@ import com.android.purebilibili.core.ui.ContainerLevel
 
 /**
  *  横屏顶部控制栏（官方 B 站样式）
- * 
+ *
  * 布局结构：
  * - 左侧：返回按钮 + 标题 + 观看人数
  * - 右侧：点赞(带数字) + 投币 + 分享 + 更多
@@ -85,9 +87,9 @@ fun LandscapeTopControlBar(
                 tint = Color.White
             )
         }
-        
+
         Spacer(modifier = Modifier.width(8.dp))
-        
+
         Column(modifier = Modifier.weight(1f)) {
             // 标题
             AppText(
@@ -98,7 +100,7 @@ fun LandscapeTopControlBar(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            
+
             // 观看人数
             if (onlineCount.isNotEmpty()) {
                 AppText(
@@ -109,9 +111,9 @@ fun LandscapeTopControlBar(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.width(16.dp))
-        
+
         //  右侧：操作按钮（官方样式：图标+数字，横向排列）
         Row(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -122,19 +124,19 @@ fun LandscapeTopControlBar(
                 icon = if (isLiked) likeFilledIcon else likeIcon,
                 label = FormatUtils.formatStat(likeCount),
                 isActive = isLiked,
-                activeColor = MaterialTheme.colorScheme.primary,
+                activeColor = AppContentColors.accent(),
                 onClick = onLikeClick
             )
-            
+
             // 投币按钮
             TopBarActionButton(
                 icon = coinIcon,
                 label = if (hasCoin) "已投" else "",
                 isActive = hasCoin,
-                activeColor = Color(0xFFFFCA28),
+                activeColor = AppContentColors.accent(),
                 onClick = onCoinClick
             )
-            
+
             // 分享按钮
             AppIconButton(onClick = onShareClick, modifier = Modifier.size(36.dp)) {
                 AppIcon(
@@ -144,7 +146,7 @@ fun LandscapeTopControlBar(
                     modifier = Modifier.size(22.dp)
                 )
             }
-            
+
             // 更多按钮
             AppIconButton(onClick = onMoreClick, modifier = Modifier.size(36.dp)) {
                 AppIcon(
@@ -181,14 +183,14 @@ private fun TopBarActionButton(
             AppIcon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isActive) (if (activeColor == Color.Unspecified) MaterialTheme.colorScheme.primary else activeColor) else Color.White,
+                tint = if (isActive) (if (activeColor == Color.Unspecified) AppContentColors.accent() else activeColor) else Color.White,
                 modifier = Modifier.size(22.dp)
             )
             if (label.isNotEmpty()) {
                 Spacer(modifier = Modifier.width(4.dp))
                 AppText(
                     text = label,
-                    color = if (isActive) (if (activeColor == Color.Unspecified) MaterialTheme.colorScheme.primary else activeColor) else Color.White,
+                    color = if (isActive) (if (activeColor == Color.Unspecified) AppContentColors.accent() else activeColor) else Color.White,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
                 )

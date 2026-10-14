@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
@@ -32,7 +34,7 @@ private val PiliPlusIconFont = FontFamily(Font(R.font.piliplus_custom_icons))
 fun PiliPlusDanmakuSendIcon(
     modifier: Modifier = Modifier,
     size: Dp = 24.dp,
-    tint: Color = MaterialTheme.colorScheme.primary,
+    tint: Color = AppContentColors.neutralAction(),
 ) {
     Box(modifier = modifier.size(size).clearAndSetSemantics { contentDescription = "发弹幕" }) {
         Canvas(Modifier.matchParentSize()) {
@@ -90,7 +92,7 @@ fun PiliPlusDanmakuSendIcon(
 fun PiliPlusDanmakuSettingsIcon(
     modifier: Modifier = Modifier,
     size: Dp = 24.dp,
-    tint: Color = MaterialTheme.colorScheme.primary,
+    tint: Color = AppContentColors.accent(),
 ) = PiliPlusDanmakuGlyph("\uE804", "弹幕设置", tint, size, modifier)
 
 @Composable

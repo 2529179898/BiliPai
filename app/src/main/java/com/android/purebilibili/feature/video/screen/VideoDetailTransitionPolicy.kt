@@ -58,40 +58,16 @@ internal fun shouldConsumeMiuixTransitionVisualAssets(
 }
 
 /**
- * 重建板与详情正文「串行化」的阈值。
- *
- * 返回方向上两层会在**同一块信息槽**里叠画：正文还没让位完成时画重建板，就会得到
- * 「半透明白板 + 简介/评论鬼影」的观感。两层必须串行 —— 正文让位到该阈值以下才画重建板。
- */
-internal const val VIDEO_CARD_SOURCE_CHROME_SERIAL_BODY_ALPHA = 0.02f
-
-/**
- * The flying detail entry is opaque. Cover and info have to be painted on it or the
- * morph is cover-only and list chrome stays behind. Opening and return both need this.
+ * Keep source chrome mounted through the morph. Its draw-phase alpha shares the detail
+ * body's handoff timeline, so ordinary return and predictive return reveal the same pixels.
  */
 internal fun shouldDrawFlyingReconstructedSourceChrome(
     phase: VideoCardTransitionBackgroundPhase,
     isReturnGestureInProgress: Boolean,
     isGestureRestoreInProgress: Boolean = false,
-    /**
-     * 详情页正文/覆盖层 chrome 的当前 alpha（[resolveVideoCardDetailChromeAlpha]）。
-     *
-     * 默认 0f = 正文已完全让位，兼容旧调用点；OPENING 方向不受此参数影响。
-     */
-    detailBodyChromeAlpha: Float = 0f,
 ): Boolean {
     if (isReturnGestureInProgress || isGestureRestoreInProgress) return true
-    return when (phase) {
-        // 进场方向：列表卡已隐藏，重建壳是唯一可见的卡面，必须画。
-        VideoCardTransitionBackgroundPhase.OPENING -> true
-        // 返回方向（含 HELD 下的预测 seek）：正文尚未让位完成时不画重建板，
-        // 避免两层在同一块信息槽里叠画成「半透明白板 + 正文鬼影」。
-        VideoCardTransitionBackgroundPhase.RETURNING,
-        VideoCardTransitionBackgroundPhase.HELD ->
-            detailBodyChromeAlpha <= VIDEO_CARD_SOURCE_CHROME_SERIAL_BODY_ALPHA
-        // IDLE：morph 已 settle，entry 可能仍在退场，但视觉所有权已交回列表卡。
-        VideoCardTransitionBackgroundPhase.IDLE -> false
-    }
+    return phase != VideoCardTransitionBackgroundPhase.IDLE
 }
 
 /** Frozen cover overlay pixels are usable only after the list card actually recorded them. */

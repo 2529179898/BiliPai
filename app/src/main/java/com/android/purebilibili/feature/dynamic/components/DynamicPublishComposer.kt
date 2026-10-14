@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.dynamic.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -307,7 +309,7 @@ fun DynamicPublishComposer(
                             }
                         }
                     }
-                    errorMessage?.let { AppText(it, color = MaterialTheme.colorScheme.error) }
+                    errorMessage?.let { AppText(it, color = AppContentColors.error()) }
                 }
             }
 

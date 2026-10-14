@@ -168,6 +168,8 @@ class DanmakuManager private constructor(
     private var sourceCommandDanmakuList: List<CommandDanmakuItem> = emptyList()
     private var mergedAdvancedDanmakuList: List<AdvancedDanmakuData> = emptyList()
     private var rawDanmakuList: List<DanmakuItem>? = null
+    private var hotDanmakuIds: Set<Long> = emptySet()
+    private var hotDanmakuTexts: Set<String> = emptySet()
     // [新增] 高级弹幕数据流
     private val _advancedDanmakuFlow = kotlinx.coroutines.flow.MutableStateFlow<List<AdvancedDanmakuData>>(emptyList())
     val advancedDanmakuFlow: kotlinx.coroutines.flow.StateFlow<List<AdvancedDanmakuData>> = _advancedDanmakuFlow.asStateFlow()
@@ -259,13 +261,10 @@ class DanmakuManager private constructor(
         return sourceDanmakuList ?: cachedDanmakuList ?: emptyList()
     }
     
-    /** 使用渲染前、合并前的已过滤快照，保留原文并遵守插件及原生屏蔽规则。 */
+    /** 合并前的已过滤快照，交给悬浮条按时间和宽度选择，不复制弹幕对象。 */
     fun getHotDanmakuList(expectedCid: Long): List<DanmakuItem> {
         if (cachedCid != expectedCid || cachedDanmakuList == null) return emptyList()
-        return rawDanmakuList.orEmpty().asSequence()
-            .filter { it.likeCount >= 10L && it.danmakuId > 0L }
-            .map { it.copy() }
-            .toList()
+        return rawDanmakuList.orEmpty()
     }
 
     var opacity: Float
@@ -1241,12 +1240,18 @@ class DanmakuManager private constructor(
 
     private var viewport: DanmakuViewport? = null
 
-    fun reserveHotDanmakuBarHeight(heightPx: Float) {
-        val height = heightPx.coerceAtLeast(0f)
+    fun updateHotDanmakuPresentation(items: List<DanmakuItem>, heightPx: Int) {
+        val idsChanged = items.size != hotDanmakuIds.size || items.any { it.danmakuId !in hotDanmakuIds }
+        val textsChanged = items.size != hotDanmakuTexts.size || items.any { it.text.orEmpty() !in hotDanmakuTexts }
+        if (idsChanged) hotDanmakuIds = items.mapTo(HashSet(items.size)) { it.danmakuId }
+        if (textsChanged) hotDanmakuTexts = items.mapTo(HashSet(items.size)) { it.text.orEmpty() }
+        if (idsChanged || textsChanged) {
+            controller?.setHiddenDanmaku(hotDanmakuIds, hotDanmakuTexts)
+        }
+        val height = if (items.isEmpty()) 0f else heightPx.coerceAtLeast(0).toFloat()
         if (config.hotBarReservedHeightPx == height) return
         config.hotBarReservedHeightPx = height
-        // Massive mode overlays the count bar without changing the engine's layout.
-        // Retain the requested height for a later switch back to normal mode.
+        // 海量模式仅隐藏对应弹幕，不改变轨道；普通模式按浮层实测高度避让。
         if (!config.massiveMode) applyConfigToController("hot_bar_space")
     }
 
@@ -1412,6 +1417,7 @@ class DanmakuManager private constructor(
         danmakuView = view
         controller = view.engine
         controller?.upOwnerUserHash = pendingUpOwnerUserHash
+        controller?.setHiddenDanmaku(hotDanmakuIds, hotDanmakuTexts)
         if (!isRenderingEnabled) {
             controller?.pause()
             view.visibility = android.view.View.INVISIBLE
@@ -1918,6 +1924,7 @@ class DanmakuManager private constructor(
         val requestGeneration = ++loadGeneration
         val requestWindowGeneration = ++windowGeneration
         clearExplicitSeekResyncMarker()
+        updateHotDanmakuPresentation(emptyList(), 0)
         cachedDanmakuList = null
         sourceDanmakuList = null
         sourceAdvancedDanmakuList = null
@@ -2526,6 +2533,7 @@ class DanmakuManager private constructor(
         val requestGeneration = ++loadGeneration
         val requestWindowGeneration = ++windowGeneration
         clearExplicitSeekResyncMarker()
+        updateHotDanmakuPresentation(emptyList(), 0)
         cachedDanmakuList = null
         sourceDanmakuList = null
         sourceAdvancedDanmakuList = null
@@ -2627,6 +2635,7 @@ class DanmakuManager private constructor(
     fun clearForVideoChange() {
         isSeekScrubbing = false
         Log.d(TAG, "clearForVideoChange() - canceling active load and clearing displayed danmakus")
+        updateHotDanmakuPresentation(emptyList(), 0)
         loadJob?.cancel()
         windowLoadJob?.cancel()
         maskLoadJob?.cancel()
@@ -3039,6 +3048,7 @@ class DanmakuManager private constructor(
      */
     fun release() {
         Log.d(TAG, " release")
+        updateHotDanmakuPresentation(emptyList(), 0)
         clearViewReference()
         loadJob?.cancel()
         loadJob = null

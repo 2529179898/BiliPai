@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.video.screen
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.resolveFilledButtonContainerColor
 import com.android.purebilibili.core.ui.resolveFilledButtonContentColor
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
@@ -106,7 +108,7 @@ import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.appContentDialogWidth
 import com.android.purebilibili.core.store.PortraitPlayerCollapseMode
-//  已改用 MaterialTheme.colorScheme.primary
+//  已改用 AppContentColors.accent()
 
 import com.android.purebilibili.data.model.response.RelatedVideo
 import com.android.purebilibili.data.model.response.ReplyItem
@@ -287,7 +289,7 @@ internal fun VideoDetailFollowGroupDialog(
                     if (followGroupTags.isEmpty()) {
                         AppText(
                             text = "暂无可用分组（不勾选即为默认分组）",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             style = MaterialTheme.typography.bodySmall
                         )
                     } else {
@@ -306,14 +308,14 @@ internal fun VideoDetailFollowGroupDialog(
                                 AppText(
                                     text = "${tag.name} (${tag.count})",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = AppContentColors.primaryText()
                                 )
                             }
                         }
                     }
                     AppText(
                         text = "可多选，确定后覆盖原分组设置。",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 8.dp)
                     )
@@ -329,7 +331,7 @@ internal fun VideoDetailFollowGroupDialog(
                     AppCircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = AppContentColors.onAccent()
                     )
                 } else {
                     AppText("确定")
@@ -386,7 +388,7 @@ internal fun VideoDetailPlaybackEndedDialog(
                 AppText(
                     text = "选择接下来的操作",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
                 AppButton(
                     onClick = {
@@ -397,7 +399,7 @@ internal fun VideoDetailPlaybackEndedDialog(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        contentColor = MaterialTheme.colorScheme.onSurface
+                        contentColor = AppContentColors.primaryText()
                     )
                 ) {
                     AppText("🔄 重播当前视频")
@@ -769,7 +771,7 @@ internal fun ExternalPlaylistQueueSheetContent(
             Spacer(modifier = Modifier.weight(1f))
             AppText(
                 text = "${playlist.size}个视频",
-                color = MaterialTheme.colorScheme.primary,
+                color = AppContentColors.accent(),
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium
             )
@@ -816,9 +818,9 @@ internal fun ExternalPlaylistQueueSheetContent(
                     AppText(
                         text = "${index + 1}",
                         color = if (selected) {
-                            MaterialTheme.colorScheme.primary
+                            AppContentColors.accent()
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            AppContentColors.secondaryText()
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
@@ -846,7 +848,7 @@ internal fun ExternalPlaylistQueueSheetContent(
                                 AppText(
                                     text = "无封面",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                                    color = AppContentColors.secondaryText()
                                 )
                             }
                         }
@@ -859,12 +861,12 @@ internal fun ExternalPlaylistQueueSheetContent(
                             text = item.title,
                             maxLines = 1,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                         AppText(
                             text = item.owner,
                             maxLines = 1,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -872,7 +874,7 @@ internal fun ExternalPlaylistQueueSheetContent(
                         AppIcon(
                             imageVector = rememberAppPlayIcon(),
                             contentDescription = "当前播放",
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = AppContentColors.accent()
                         )
                     }
                 }

@@ -2,6 +2,8 @@
 
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -46,8 +48,8 @@ fun AppPrimaryButton(
         val hapticEnabled = LocalAppThemeConfig.current.hapticFeedbackEnabled
         val interactionSource = remember { MutableInteractionSource() }
         val primaryContentColor = resolveButtonContentColor(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
+            containerColor = AppContentColors.accent(),
+            contentColor = AppContentColors.onAccent(),
             colorScheme = MaterialTheme.colorScheme,
         )
 
@@ -61,10 +63,10 @@ fun AppPrimaryButton(
                 enabled = enabled && !isLoading,
                 shapes = ButtonDefaults.shapes(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = AppContentColors.accent(),
                     contentColor = primaryContentColor,
-                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                    disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                    disabledContainerColor = AppContentColors.primaryText().copy(alpha = 0.12f),
+                    disabledContentColor = AppContentColors.primaryText().copy(alpha = 0.38f),
                 ),
                 contentPadding = AppButtonDefaults.ContentPadding,
                 interactionSource = interactionSource,

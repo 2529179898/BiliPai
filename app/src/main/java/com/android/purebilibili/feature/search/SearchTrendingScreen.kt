@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.search
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppIconButton
@@ -109,7 +111,7 @@ fun SearchTrendingScreen(
             ) {
                 AppText(
                     text = state.error ?: "加载失败，点击重试",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
 
@@ -145,7 +147,7 @@ fun SearchTrendingScreen(
 
 @Composable
 private fun SearchTrendingHero() {
-    val heroPrimary = MaterialTheme.colorScheme.primary
+    val heroPrimary = AppContentColors.accent()
     val heroPrimaryContainer = MaterialTheme.colorScheme.primaryContainer
     val heroTertiary = MaterialTheme.colorScheme.tertiary
     Box(
@@ -264,13 +266,13 @@ private fun SearchTrendingRow(
 
                     item.showLiveBadge -> SearchKeywordBadge(
                         text = "直播中",
-                        containerColor = MaterialTheme.colorScheme.error,
+                        containerColor = AppContentColors.error(),
                         contentColor = MaterialTheme.colorScheme.onError
                     )
 
                     !item.subtitle.isNullOrBlank() -> AppText(
                         text = item.subtitle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -292,7 +294,7 @@ private fun SearchTrendingRank(
         AppIcon(
             imageVector = Icons.Rounded.North,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.error,
+            tint = AppContentColors.error(),
             modifier = Modifier.size(20.dp)
         )
         return
@@ -304,8 +306,8 @@ private fun SearchTrendingRank(
         color = when (rank) {
             1 -> MaterialTheme.colorScheme.tertiary
             2 -> MaterialTheme.colorScheme.secondary
-            3 -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+            3 -> AppContentColors.accent()
+            else -> AppContentColors.secondaryText().copy(alpha = 0.72f)
         },
         style = MaterialTheme.typography.titleLarge.copy(
             fontWeight = FontWeight.Black,

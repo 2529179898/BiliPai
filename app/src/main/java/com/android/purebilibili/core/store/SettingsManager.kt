@@ -997,7 +997,7 @@ data class DanmakuSettings(
     val staticDanmakuToScroll: Boolean = false,
     val massiveMode: Boolean = false,
     val mergeDuplicates: Boolean = true,
-    val duplicateMergeWindowMs: Int = 500,
+    val duplicateMergeWindowMs: Int = 15_000,
     val duplicateMergeCountThreshold: Int = 2,
     val allowScroll: Boolean = true,
     val allowTop: Boolean = true,
@@ -1606,6 +1606,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private val KEY_VIDEO_SHARED_TRANSITION_CUSTOM_DURATION_MILLIS =
         intPreferencesKey("video_shared_transition_custom_duration_millis")
     //  [新增] 界面入场动画 master 开关(全 App 统一入场动效),默认开启
+    private val KEY_GLOBAL_DRAG_FEEDBACK_ENABLED = booleanPreferencesKey("global_drag_feedback_enabled")
     private val KEY_UI_ENTRANCE_ANIMATION_ENABLED =
         booleanPreferencesKey("ui_entrance_animation_enabled")
     // [New] 运行时视觉降级守卫开关
@@ -3366,6 +3367,13 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     }
 
     //  [新增] --- 界面入场动画 master 开关(全 App 统一入场动效) ---
+    fun getGlobalDragFeedbackEnabled(context: Context): Flow<Boolean> = context.settingsDataStore.data
+        .map { preferences -> preferences[KEY_GLOBAL_DRAG_FEEDBACK_ENABLED] ?: true }
+
+    suspend fun setGlobalDragFeedbackEnabled(context: Context, value: Boolean) {
+        context.settingsDataStore.edit { preferences -> preferences[KEY_GLOBAL_DRAG_FEEDBACK_ENABLED] = value }
+    }
+
     fun getUiEntranceAnimationEnabled(context: Context): Flow<Boolean> = context.settingsDataStore.data
         .map { preferences -> preferences[KEY_UI_ENTRANCE_ANIMATION_ENABLED] ?: true }  // 默认开启
 
@@ -4652,7 +4660,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private const val DEFAULT_DANMAKU_LINE_HEIGHT = 1.6f
     private const val DEFAULT_DANMAKU_SCROLL_DURATION_SECONDS = 7.0f
     private const val DEFAULT_DANMAKU_STATIC_DURATION_SECONDS = 4.0f
-    private const val DEFAULT_DANMAKU_DUPLICATE_MERGE_WINDOW_MS = 500
+    private const val DEFAULT_DANMAKU_DUPLICATE_MERGE_WINDOW_MS = 15_000
     private const val DEFAULT_DANMAKU_DUPLICATE_MERGE_COUNT_THRESHOLD = 2
 
     private fun normalizeDanmakuFontWeight(value: Int?): Int {
@@ -4685,7 +4693,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
 
     private fun normalizeDanmakuDuplicateMergeWindowMs(value: Int?): Int {
         val raw = value ?: DEFAULT_DANMAKU_DUPLICATE_MERGE_WINDOW_MS
-        return raw.coerceIn(100, 3000)
+        return raw.coerceIn(1_000, 15_000)
     }
 
     private fun normalizeDanmakuDuplicateMergeCountThreshold(value: Int?): Int {
@@ -4720,7 +4728,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         booleanPreferencesKey("danmaku_scroll_fixed_velocity")
     private val KEY_DANMAKU_STATIC_TO_SCROLL =
         booleanPreferencesKey("danmaku_static_to_scroll")
-    private val KEY_HOT_DANMAKU_EXPANDED_MODE = booleanPreferencesKey("hot_danmaku_expanded_mode")
     private val KEY_DANMAKU_MASSIVE_MODE = booleanPreferencesKey("danmaku_massive_mode")
     private val KEY_DANMAKU_ALLOW_SCROLL = booleanPreferencesKey("danmaku_allow_scroll")
     private val KEY_DANMAKU_ALLOW_TOP = booleanPreferencesKey("danmaku_allow_top")
@@ -5014,16 +5021,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             blockRulesRaw = blockRulesRaw,
             blockRules = parseDanmakuBlockRules(blockRulesRaw)
         )
-    }
-
-    /** 计数弹幕扩展模式：最多三条，允许滚动与省略，横竖屏共用。 */
-    fun getHotDanmakuExpandedMode(context: Context): Flow<Boolean> =
-        context.settingsDataStore.data
-            .map { it[KEY_HOT_DANMAKU_EXPANDED_MODE] ?: false }
-            .distinctUntilChanged()
-
-    suspend fun setHotDanmakuExpandedMode(context: Context, enabled: Boolean) {
-        context.settingsDataStore.edit { it[KEY_HOT_DANMAKU_EXPANDED_MODE] = enabled }
     }
 
     fun getDanmakuSettings(
@@ -5725,7 +5722,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                     DEFAULT_DANMAKU_STATIC_DURATION_SECONDS
                 preferences[KEY_DANMAKU_SCROLL_FIXED_VELOCITY] = false
                 preferences[KEY_DANMAKU_STATIC_TO_SCROLL] = false
-                preferences[KEY_HOT_DANMAKU_EXPANDED_MODE] = false
                 preferences[KEY_DANMAKU_MASSIVE_MODE] = false
                 preferences[KEY_DANMAKU_DUPLICATE_MERGE_WINDOW_MS] =
                     DEFAULT_DANMAKU_DUPLICATE_MERGE_WINDOW_MS
@@ -8241,6 +8237,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             BooleanShareablePreferenceDefinition(KEY_CARD_ANIMATION_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_MAID_LOTTIE_ANIMATION_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_UI_ENTRANCE_ANIMATION_ENABLED, SettingsShareSection.APPEARANCE),
+            BooleanShareablePreferenceDefinition(KEY_GLOBAL_DRAG_FEEDBACK_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_CARD_TRANSITION_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(
                 KEY_LIVE_SURFACE_CARD_TRANSITION_ENABLED,
@@ -8425,7 +8422,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 KEY_DANMAKU_STATIC_TO_SCROLL,
                 SettingsShareSection.DANMAKU
             ),
-            BooleanShareablePreferenceDefinition(KEY_HOT_DANMAKU_EXPANDED_MODE, SettingsShareSection.DANMAKU),
             BooleanShareablePreferenceDefinition(KEY_DANMAKU_MASSIVE_MODE, SettingsShareSection.DANMAKU),
             BooleanShareablePreferenceDefinition(KEY_DANMAKU_ALLOW_SCROLL, SettingsShareSection.DANMAKU),
             BooleanShareablePreferenceDefinition(KEY_DANMAKU_ALLOW_TOP, SettingsShareSection.DANMAKU),

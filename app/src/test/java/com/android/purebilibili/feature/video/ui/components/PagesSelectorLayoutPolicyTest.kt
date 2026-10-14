@@ -11,11 +11,11 @@ class PagesSelectorLayoutPolicyTest {
     @Test
     fun `page cards reserve two title lines so items stay equal height`() {
         val source = listOf(
-            java.io.File("app/src/main/java/com/android/purebilibili/feature/video/ui/components/PagesSelector.kt"),
-            java.io.File("src/main/java/com/android/purebilibili/feature/video/ui/components/PagesSelector.kt"),
+            java.io.File("app/src/main/java/com/android/purebilibili/feature/video/ui/components/PageCoverList.kt"),
+            java.io.File("src/main/java/com/android/purebilibili/feature/video/ui/components/PageCoverList.kt"),
         ).first { it.exists() }.readText()
         val itemBlock = source
-            .substringAfter("private fun PageSelectorItem(")
+            .substringAfter("private fun PageCoverRow(")
 
         assertTrue(itemBlock.contains("minLines = 2"))
         assertTrue(itemBlock.contains("maxLines = 2"))

@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.plugin
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
 import android.content.Context
@@ -348,12 +350,12 @@ class CdnRegionPlugin : PlaybackCdnPlugin {
             AppText(
                 text = "安全签名选线",
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
             AppText(
                 text = "打开视频后会自动比较 B 站当前返回的签名主/备线路；不会改写 Host，也不会保存过期链接。",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             Spacer(modifier = Modifier.height(10.dp))
             CdnTransferPanel(
@@ -408,7 +410,7 @@ class CdnRegionPlugin : PlaybackCdnPlugin {
             AppText(
                 text = "仅在 DASH 可读取分片索引且播放器已有至少 15 秒缓冲时下载未来分片；默认关闭以避免额外流量、电量和磁盘消耗。",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -432,7 +434,7 @@ class CdnRegionPlugin : PlaybackCdnPlugin {
             AppText(
                 text = "兼容旧版地域 Host 表和高级 URL 替换。它不参与安全自动选线或预缓存，可能因签名与线路策略变化而不可用。",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             if (experimentalRewriteEnabled) {
                 val hostDiagnostics = buildCdnHostDiagnostics(
@@ -444,19 +446,19 @@ class CdnRegionPlugin : PlaybackCdnPlugin {
                 AppText(
                     text = "实验性属地检测",
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
                 AppText(
                     text = "属地：${snapshot.location.province.ifBlank { "未知" }} / ${snapshot.location.city.ifBlank { "未知" }}；运营商：${snapshot.location.isp.ifBlank { "未知" }}；命中区域：$regionText",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 hostDiagnostics.forEachIndexed { index, diagnostic ->
                     AppText(
                         text = "${index + 1}. ${diagnostic.host} · ${formatCdnHostDiagnostic(diagnostic)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
@@ -477,12 +479,12 @@ class CdnRegionPlugin : PlaybackCdnPlugin {
                 AppText(
                     text = "高级 URL 替换",
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 )
                 AppText(
                     text = "规则按顺序匹配完整播放 URL，仅应用首条命中规则。替换结果必须是 HTTPS 且指向 B 站或当前候选 CDN。",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
@@ -499,7 +501,7 @@ class CdnRegionPlugin : PlaybackCdnPlugin {
             AppText(
                 text = "开启后，只要有自定义规则成功生成播放地址，就不再加入属地和原始线路；没有规则命中时仍会自动回退，避免无法播放。",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             customRules.forEachIndexed { index, rule ->
                 Spacer(modifier = Modifier.height(8.dp))
@@ -561,7 +563,7 @@ class CdnRegionPlugin : PlaybackCdnPlugin {
                 AppText(
                     text = error,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = AppContentColors.error()
                 )
             }
             AppHorizontalDivider(modifier = Modifier.padding(top = 10.dp))

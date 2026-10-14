@@ -2,6 +2,8 @@
 
 package com.android.purebilibili.feature.plugin
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -287,7 +289,7 @@ internal fun EyeProtectionSettings(
             text = "关怀强度",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary
+            color = AppContentColors.accent()
         )
         AppText(
             text = presetDescription(uiConfig.carePreset),
@@ -320,7 +322,7 @@ internal fun EyeProtectionSettings(
             text = "显示调节",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
+            color = AppContentColors.accent(),
             modifier = Modifier.padding(bottom = 4.dp)
         )
         AppText(
@@ -373,7 +375,7 @@ internal fun EyeProtectionSettings(
             AppIcon(
                 imageVector = Icons.Outlined.FavoriteBorder,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
+                tint = AppContentColors.error(),
                 modifier = Modifier.size(16.dp)
             )
             AppText(
@@ -392,7 +394,7 @@ private fun EyeProtectionStatusCard(status: EyeProtectionStatusCopy) {
     } else {
         AppSurfaceTokens.cardContainer()
     }
-    val content = MaterialTheme.colorScheme.onSurface
+    val content = AppContentColors.primaryText()
     AppSurface(
         modifier = Modifier.fillMaxWidth(),
         shape = AppShapes.container(ContainerLevel.Card),
@@ -406,7 +408,7 @@ private fun EyeProtectionStatusCard(status: EyeProtectionStatusCopy) {
             AppIcon(
                 imageVector = if (status.isActive) Icons.Outlined.DarkMode else Icons.Outlined.AutoAwesome,
                 contentDescription = null,
-                tint = if (status.isActive) content else MaterialTheme.colorScheme.primary,
+                tint = if (status.isActive) content else AppContentColors.accent(),
                 modifier = Modifier.size(22.dp)
             )
             Column(modifier = Modifier.weight(1f)) {
@@ -483,7 +485,7 @@ private fun SliderRow(
             AppIcon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = AppContentColors.accent(),
                 modifier = Modifier.size(22.dp)
             )
             Spacer(modifier = Modifier.padding(horizontal = 6.dp))
@@ -587,7 +589,7 @@ private fun TimePickerDropdown(
                             AppText(
                                 text = "当前",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = AppContentColors.accent()
                             )
                         }
                     },

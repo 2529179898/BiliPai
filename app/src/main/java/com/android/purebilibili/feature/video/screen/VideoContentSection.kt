@@ -1,6 +1,8 @@
 // 文件路径: feature/video/screen/VideoContentSection.kt
 package com.android.purebilibili.feature.video.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.material.icons.outlined.Edit
 
 import com.android.purebilibili.navigation.animatePagerSelection
@@ -1644,7 +1646,7 @@ internal fun VideoCommentTab(
                     ) {
                         AppText(
                             text = repliesError,
-                            color = MaterialTheme.colorScheme.error,
+                            color = AppContentColors.error(),
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -2121,7 +2123,9 @@ private fun VideoHeaderContent(
         if (info.pages.size > 1) {
             PagesSelector(
                 pages = info.pages,
+                coverUrl = info.pic,
                 currentPageIndex = currentPageIndex,
+                isPlaying = isVideoPlaying,
                 onPageSelect = onPageSelect
             )
         }
@@ -2243,8 +2247,8 @@ private fun VideoContentTabBar(
                     NativeDanmakuToggleButton(
                         enabled = danmakuEnabled,
                         onToggle = onDanmakuToggle,
-                        activeTint = MaterialTheme.colorScheme.primary,
-                        inactiveTint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        activeTint = AppContentColors.accent(),
+                        inactiveTint = AppContentColors.secondaryText(),
                         modifier = Modifier
                             .padding(end = danmakuActionLayoutPolicy.toggleTrailingPaddingDp.dp)
                             .width(40.dp)
@@ -2278,7 +2282,7 @@ private fun VideoRecommendationHeader() {
                 text = "相关推荐",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
         }
     }
@@ -2329,7 +2333,7 @@ fun VideoTagChip(
         AppText(
             text = tagName,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             modifier = Modifier
                 .padding(horizontal = 12.dp, vertical = 6.dp)
                 .copyOnLongPress(tagName, "标签")

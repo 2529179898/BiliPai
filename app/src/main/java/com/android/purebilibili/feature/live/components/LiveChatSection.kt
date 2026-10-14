@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.live.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
@@ -136,7 +138,7 @@ fun LiveChatSection(
             pendingScroll = false
         }
     }
-    
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -267,7 +269,7 @@ fun LiveChatSection(
                 }
             }
         }
-        
+
         // 2. 底部输入栏
         if (showInputBar) {
             LiveChatInputBar(
@@ -563,7 +565,7 @@ private fun SuperChatMessageItem(
                     ) {
                         AppText(
                             text = item.superChatPrice,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = AppContentColors.primaryText(),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(
@@ -594,7 +596,7 @@ private fun MedalBadge(name: String, level: Int, colorInt: Int) {
     val color = resolveLiveMedalColor(colorInt)
     val badgeColors = com.android.purebilibili.feature.live.readableLiveBadgeColors(color)
     val visualSpec = remember { resolveLiveMedalBadgeVisualSpec() }
-    
+
     AppSurface(
         color = badgeColors.containerColor,
         shape = AppShapes.container(ContainerLevel.Tag),
@@ -638,7 +640,7 @@ private fun UserLevelBadge(level: Int) {
     // 简单的胶囊样式
     // 颜色根据等级变化 (简化处理：低等级灰/蓝，高等级橙/红)
     val color = MaterialTheme.colorScheme.secondary
-    
+
     AppSurface(
                 border = androidx.compose.foundation.BorderStroke(AppSpacingTokens.Micro / 2, color),
         shape = AppShapes.borderedContainer(ContainerLevel.Tag),
@@ -678,7 +680,7 @@ internal fun LiveChatInputBar(
             Row(Modifier.fillMaxWidth().height(2.dp)) {
                 repeat(2) { page ->
                     Box(Modifier.weight(1f).fillMaxHeight().background(
-                        if (page == selectedPage) MaterialTheme.colorScheme.primary else Color.Transparent
+                        if (page == selectedPage) AppContentColors.accent() else Color.Transparent
                     ))
                 }
             }

@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.feature.video.ambient.PlayerAmbientLayout
 import com.android.purebilibili.feature.video.danmaku.DanmakuManager
 import com.android.purebilibili.navigation.animatePagerSelection
@@ -579,6 +581,8 @@ private fun CinemaStagePlayer(
                         ugcSeason = success?.info?.ugc_season,
                         isFollowed = engagementState.isFollowing,
                         followStatusKnown = engagementState.followStatusKnown,
+                        isFollowSubmitting = engagementState.isFollowSubmitting,
+                        isTripleSubmitting = engagementState.isTripleSubmitting,
                         isLiked = engagementState.isLiked,
                         likeStatusKnown = engagementState.likeStatusKnown,
                         isCoined = engagementState.coinCount > 0,
@@ -613,6 +617,7 @@ private fun CinemaStagePlayer(
                         onPlayModeClick = onPlayModeClick,
                         onRelatedVideoClick = onRelatedVideoClick,
                         onToggleFollow = engagementActions.toggleFollow,
+                        onFollow = engagementActions.followOwner,
                         onToggleLike = engagementActions.toggleLike,
                         onDislike = playbackActions.markVideoNotInterested,
                         onCoin = engagementActions.openCoinDialog,
@@ -887,6 +892,7 @@ private fun CinemaMetaPanel(
                         if (success.info.pages.size > 1) {
                             PagesSelector(
                                 pages = success.info.pages,
+                                coverUrl = success.info.pic,
                                 currentPageIndex = currentPageIndex,
                                 onPageSelect = onPageSelect,
                                 forceGridMode = true
@@ -1158,7 +1164,7 @@ private fun CinemaSideCurtain(
                             Icons.Outlined.KeyboardDoubleArrowLeft
                         },
                         contentDescription = "切换侧栏",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = AppContentColors.secondaryText()
                     )
                 }
             }
@@ -1458,7 +1464,7 @@ private fun CinemaCommentsPane(
                     ) {
                         AppText(
                             text = repliesError,
-                            color = MaterialTheme.colorScheme.error,
+                            color = AppContentColors.error(),
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -1682,7 +1688,7 @@ private fun CinemaRelatedPane(
                         AppText(
                             text = "暂时没有推荐视频",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }

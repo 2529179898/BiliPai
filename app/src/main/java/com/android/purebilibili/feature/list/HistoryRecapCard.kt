@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.list
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -126,7 +128,7 @@ private fun HistoryRecapCardContent(
                         AppText(
                             text = entry.label,
                             style = MaterialTheme.typography.labelMedium,
-                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (selected) AppContentColors.accent() else AppContentColors.secondaryText(),
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                             modifier = Modifier
                                 .clip(CircleShape)
@@ -146,7 +148,7 @@ private fun HistoryRecapCardContent(
                     text = if (videoUnavailable) "暂时无法读取观看记录，可稍后刷新历史记录重试。"
                     else "这段时间还没有阅读或观看记录。",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -159,7 +161,7 @@ private fun HistoryRecapCardContent(
                             AppIcon(
                                 Icons.AutoMirrored.Outlined.MenuBook,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = AppContentColors.accent(),
                                 modifier = Modifier.size(22.dp),
                             )
                             Column {
@@ -174,7 +176,7 @@ private fun HistoryRecapCardContent(
                                     AppText(
                                         text = "最常读：$sourceTitle",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = AppContentColors.secondaryText(),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
@@ -191,7 +193,7 @@ private fun HistoryRecapCardContent(
                             AppIcon(
                                 Icons.Outlined.SmartDisplay,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = AppContentColors.accent(),
                                 modifier = Modifier.size(22.dp),
                             )
                             Column {
@@ -203,7 +205,7 @@ private fun HistoryRecapCardContent(
                                 AppText(
                                     text = formatRecapDuration(currentVideoStats.totalDurationSec),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = AppContentColors.secondaryText(),
                                 )
                             }
                         }
@@ -219,7 +221,7 @@ private fun HistoryRecapCardContent(
                     AppText(
                         "较早的观看记录尚未全部载入，视频统计仅包含已载入记录。",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                     )
                 }
                 if (currentVideoStats != null && currentVideoStats.videoCount > 0) {
@@ -240,7 +242,7 @@ private fun HistoryRecapCardContent(
                             AppText(
                                 text = "最近爱看",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                             )
                             if (currentVideoStats.topUps.size > 5) {
                                 AppTextButton(onClick = { showAllUps = true }) {
@@ -291,7 +293,7 @@ private fun HistoryRecapCardContent(
                                     AppText(
                                         text = up.name,
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = AppContentColors.secondaryText(),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )

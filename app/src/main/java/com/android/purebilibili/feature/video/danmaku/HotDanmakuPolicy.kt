@@ -16,24 +16,52 @@ internal fun selectHotDanmaku(
     .take(maxItems.coerceAtLeast(0))
     .toList()
 
-/** Select short entries that fit in one centered row; never truncate a comment. */
+/** Fit up to three complete entries, reserving an equal gap between entries and at both edges. */
 internal fun selectFittingHotDanmaku(
     items: List<DanmakuItem>,
     availableWidthPx: Float,
-    spacingPx: Float,
+    minimumGapPx: Float,
     measureWidthPx: (DanmakuItem) -> Float,
 ): List<DanmakuItem> {
-    val candidates = items.map { it to measureWidthPx(it) }
-        .filter { (_, width) -> width.isFinite() && width > 0f && width <= availableWidthPx }
-        .sortedBy { (_, width) -> width }
-    val selected = mutableListOf<DanmakuItem>()
-    var usedWidth = 0f
-    for ((item, width) in candidates) {
-        val required = width + if (selected.isEmpty()) 0f else spacingPx
-        if (usedWidth + required > availableWidthPx) continue
-        selected += item
-        usedWidth += required
-        if (selected.size == 2) break
+    var first: DanmakuItem? = null
+    var second: DanmakuItem? = null
+    var third: DanmakuItem? = null
+    var firstWidth = Float.POSITIVE_INFINITY
+    var secondWidth = Float.POSITIVE_INFINITY
+    var thirdWidth = Float.POSITIVE_INFINITY
+    for (item in items) {
+        val width = measureWidthPx(item)
+        if (!width.isFinite() || width <= 0f || width > availableWidthPx) continue
+        when {
+            width < firstWidth -> {
+                third = second
+                thirdWidth = secondWidth
+                second = first
+                secondWidth = firstWidth
+                first = item
+                firstWidth = width
+            }
+            width < secondWidth -> {
+                third = second
+                thirdWidth = secondWidth
+                second = item
+                secondWidth = width
+            }
+            width < thirdWidth -> {
+                third = item
+                thirdWidth = width
+            }
+        }
     }
-    return selected
+    val shortest = first ?: return emptyList()
+    val next = second
+    val last = third
+    return when {
+        next != null && last != null &&
+            firstWidth + secondWidth + thirdWidth + 4 * minimumGapPx <= availableWidthPx ->
+            listOf(shortest, next, last)
+        next != null && firstWidth + secondWidth + 3 * minimumGapPx <= availableWidthPx ->
+            listOf(shortest, next)
+        else -> listOf(shortest)
+    }
 }

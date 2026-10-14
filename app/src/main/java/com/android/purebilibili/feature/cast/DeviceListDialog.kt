@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.cast
+
+import com.android.purebilibili.core.ui.AppContentColors
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -162,7 +164,7 @@ fun DeviceListDialog(
                         AppText(
                             "请前往 设置 > 插件，启用 DLNA 或 Google Cast",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                         )
                     }
                 }
@@ -184,7 +186,7 @@ fun DeviceListDialog(
                             "仅在搜索局域网中的 DLNA 电视时使用，不会上传局域网信息。"
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                     )
                     Spacer(Modifier.height(8.dp))
                     AppTextButton(
@@ -234,7 +236,7 @@ fun DeviceListDialog(
                                 "5. 小米自带投屏多为 Miracast，不一定支持 DLNA\n" +
                                 "6. Google Cast 需接收端支持 Chromecast 且手机有 GMS",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                         )
                     }
                 }
@@ -256,7 +258,7 @@ fun DeviceListDialog(
                             AppText(
                                 "Google Cast 已可用；授权后可继续搜索 DLNA",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 modifier = Modifier.weight(1f)
                             )
                             AppTextButton(

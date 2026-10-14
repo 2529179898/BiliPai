@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.video.ui.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
 import androidx.compose.foundation.background
@@ -114,12 +116,12 @@ private fun SheetSectionHeader(
         AppText(
             text = title,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
         AppText(
             text = subtitle,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -145,7 +147,7 @@ private fun SheetActionRow(
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = if (emphasize) FontWeight.Medium else FontWeight.Normal
             ),
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
     }
 }
@@ -207,7 +209,7 @@ private fun ReasonChip(
         AppText(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis

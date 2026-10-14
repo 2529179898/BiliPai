@@ -168,14 +168,21 @@ class VideoCardNativeSnapshotPolicyTest {
     @Test
     fun coveredSourceCardStopsReRecordingItsDisplayList() {
         // 覆盖期停止重录：这是源页在详情往返期间最大的可避免开销。
-        assertFalse(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.SettledHidden))
-        assertFalse(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.BackPreview))
-        assertFalse(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.Returning))
-        assertFalse(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.Restoring))
+        assertFalse(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.SettledHidden, isSharedMorphSourceCard = true))
+        assertFalse(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.BackPreview, isSharedMorphSourceCard = true))
+        assertFalse(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.Returning, isSharedMorphSourceCard = true))
+        assertFalse(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.Restoring, isSharedMorphSourceCard = true))
         // 仍可见/刚被覆盖：保持点击时像素最新。
-        assertTrue(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.Idle))
-        assertTrue(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.Opening))
-        assertTrue(shouldRecordNativeVideoCardLayer(null))
+        assertTrue(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.Idle, isSharedMorphSourceCard = true))
+        assertTrue(shouldRecordNativeVideoCardLayer(VideoCardTransitionExposure.Opening, isSharedMorphSourceCard = true))
+        assertTrue(shouldRecordNativeVideoCardLayer(null, isSharedMorphSourceCard = true))
+    }
+
+    @Test
+    fun visibleRelatedCardsKeepTheirSnapshotsWhileAnotherCardOwnsTheTransition() {
+        for (exposure in VideoCardTransitionExposure.entries) {
+            assertTrue(shouldRecordNativeVideoCardLayer(exposure, isSharedMorphSourceCard = false))
+        }
     }
 
     @Test
@@ -190,7 +197,7 @@ class VideoCardNativeSnapshotPolicyTest {
         )
 
         assertTrue(snapshotSource.contains("freezeProvider: () -> Boolean"))
-        assertTrue(snapshotSource.contains("shouldRecordNativeVideoCardLayer(exposure) && !freezeProvider()"))
+        assertTrue(snapshotSource.contains("shouldRecordNativeVideoCardLayer(exposure, isSharedMorphSourceCard) && !freezeProvider()"))
         assertFalse(snapshotSource.contains("if (!freeze)"))
         assertTrue(snapshotSource.contains("isNativeVideoCardLayerCurrentOwner("))
         assertTrue(homeCardSource.contains("freezeNativeCardLayer.value = true"))

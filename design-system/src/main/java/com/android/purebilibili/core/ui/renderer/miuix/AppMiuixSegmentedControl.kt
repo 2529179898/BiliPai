@@ -241,7 +241,7 @@ internal fun <T> AppMiuixTabRow(
         maxWidth = Dp.Infinity,
         height = height ?: geometry.height,
         cornerRadius = geometry.cornerRadius,
-        itemSpacing = AppSpacingTokens.Small,
+        itemSpacing = 12.dp,
         listState = if (scrollable) scrollState else null,
     )
 }
@@ -378,7 +378,7 @@ private fun <T> AppMiuixNonGlassTabs(
         maxWidth = tabRowMaxWidth,
         height = height ?: geometry.height,
         cornerRadius = geometry.cornerRadius,
-        itemSpacing = AppSpacingTokens.Small,
+        itemSpacing = 12.dp,
         listState = listState,
     )
 }
@@ -458,7 +458,7 @@ private fun <T> AppMiuixContentSizedNonGlassTabs(
                 .fillMaxWidth()
                 .semantics { collectionInfo = CollectionInfo(rowCount = 1, columnCount = options.size) },
             horizontalArrangement = Arrangement.spacedBy(
-                AppSpacingTokens.Small,
+                12.dp,
                 if (centerContent) Alignment.CenterHorizontally else Alignment.Start,
             ),
             verticalAlignment = Alignment.CenterVertically,

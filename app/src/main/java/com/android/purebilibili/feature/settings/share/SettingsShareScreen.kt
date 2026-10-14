@@ -2,6 +2,8 @@
 
 package com.android.purebilibili.feature.settings.share
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -44,11 +46,6 @@ import com.android.purebilibili.feature.settings.rememberThemeAwareSettingsIcon
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Report
 import top.yukonga.miuix.kmp.icon.extended.Tasks
-import com.android.purebilibili.core.theme.iOSBlue
-import com.android.purebilibili.core.theme.iOSGreen
-import com.android.purebilibili.core.theme.iOSOrange
-import com.android.purebilibili.core.theme.iOSPink
-import com.android.purebilibili.core.theme.iOSPurple
 import com.android.purebilibili.feature.settings.SettingsPageScrollHost
 import com.android.purebilibili.feature.settings.ui.SettingsPageScaffold
 import com.android.purebilibili.feature.settings.ui.settingsScrollContentPadding
@@ -139,7 +136,7 @@ fun SettingsShareScreen(
                         title = if (uiState.isBusy) "正在处理" else "最近状态",
                         subtitle = uiState.statusMessage ?: "尚未执行导入导出操作",
                         onClick = if (uiState.statusMessage != null) ({ viewModel.clearStatus() }) else null,
-                        iconTint = if (uiState.isBusy) iOSOrange else iOSGreen,
+                        iconTint = if (uiState.isBusy) AppContentColors.warning() else AppContentColors.success(),
                         showChevron = false
                     )
                 }
@@ -156,7 +153,7 @@ fun SettingsShareScreen(
                         title = "包含的设置",
                         subtitle = "外观、播放、手势、弹幕和导航等不含隐私的设置",
                         onClick = null,
-                        iconTint = iOSGreen,
+                        iconTint = AppContentColors.secondaryText(),
                         showChevron = false
                     )
                     AppPreferenceDivider(startIndent = 66.dp)
@@ -165,7 +162,7 @@ fun SettingsShareScreen(
                         title = "不包含的设置",
                         subtitle = "账号、保存路径、云备份账号、隐私和设备专属配置",
                         onClick = null,
-                        iconTint = iOSPurple,
+                        iconTint = AppContentColors.secondaryText(),
                         showChevron = false
                     )
                 }
@@ -183,7 +180,7 @@ fun SettingsShareScreen(
                             materialSymbolResource = R.drawable.ms_report_24,
                             miuixIcon = MiuixIcons.Report,
                         ),
-                        iconTint = iOSOrange,
+                        iconTint = AppContentColors.secondaryText(),
                     )
                 }
             }
@@ -221,7 +218,7 @@ fun SettingsShareScreen(
                                 )
                             )
                         },
-                        iconTint = iOSBlue
+                        iconTint = AppContentColors.secondaryText()
                     )
                     AppPreferenceDivider(startIndent = 66.dp)
                     AppPreference(
@@ -229,7 +226,7 @@ fun SettingsShareScreen(
                         title = "分享导出文件",
                         subtitle = "生成设置文件后打开系统分享面板",
                         onClick = { viewModel.prepareShare() },
-                        iconTint = iOSGreen
+                        iconTint = AppContentColors.secondaryText()
                     )
                     AppPreferenceDivider(startIndent = 66.dp)
                     AppPreference(
@@ -237,7 +234,7 @@ fun SettingsShareScreen(
                         title = "从文件导入",
                         subtitle = "先查看会修改哪些内容，确认后再应用",
                         onClick = { importLauncher.launch(arrayOf("application/json", "text/plain")) },
-                        iconTint = iOSPink
+                        iconTint = AppContentColors.secondaryText()
                     )
                 }
             }
@@ -256,7 +253,7 @@ fun SettingsShareScreen(
                                 profileName = ""
                                 showSaveProfileDialog = true
                             },
-                            iconTint = iOSBlue,
+                            iconTint = AppContentColors.secondaryText(),
                         )
                     }
                     if (com.android.purebilibili.core.theme.LocalAppUiStyle.current == com.android.purebilibili.core.theme.AppUiStyle.MATERIAL3) {
@@ -288,7 +285,7 @@ fun SettingsShareScreen(
                                 title = profile.name,
                                 subtitle = "点击立即恢复此配置",
                                 onClick = { viewModel.restoreSavedProfile(profile) },
-                                iconTint = iOSGreen,
+                                iconTint = AppContentColors.secondaryText(),
                             )
                         }
                     }
@@ -304,7 +301,7 @@ fun SettingsShareScreen(
                         subtitle = "通用文本格式，可直接查看，也可在 BiliPai 中导入",
                         value = "格式版本 v$SETTINGS_SHARE_SCHEMA_VERSION",
                         onClick = null,
-                        iconTint = iOSOrange,
+                        iconTint = AppContentColors.secondaryText(),
                         showChevron = false
                     )
                 }
@@ -365,13 +362,13 @@ fun SettingsShareScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     AppText(
                         text = buildImportPreviewSummary(pendingImportSession),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                     if (showRawKeys && pendingImportSession.preview.skippedKeys.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(12.dp))
                         AppText(
                             text = pendingImportSession.preview.skippedKeys.joinToString(separator = "\n"),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }

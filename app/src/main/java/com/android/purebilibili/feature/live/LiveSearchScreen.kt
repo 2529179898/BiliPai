@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.live
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import com.android.purebilibili.core.ui.components.AppLazyColumn as LazyColumn
@@ -297,7 +299,7 @@ fun LiveSearchScreen(
 @Composable
 private fun LiveSearchState(message: String, modifier: Modifier = Modifier.fillMaxSize(), onRetry: (() -> Unit)? = null) {
     Column(modifier, verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        AppText(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AppText(message, color = AppContentColors.secondaryText())
         if (onRetry != null) AppTextButton(onClick = onRetry) { AppText("重新加载") }
     }
 }
@@ -316,12 +318,12 @@ private fun LiveSearchUserCard(item: SearchLiveUserItem, onClick: () -> Unit, on
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AppText(item.uname, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (item.liveStatus == 1 || item.isLive) AppText("直播中", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                    if (item.liveStatus == 1 || item.isLive) AppText("直播中", color = AppContentColors.accent(), style = MaterialTheme.typography.labelSmall)
                 }
                 AppText(
                     "分区：${item.areaName.ifBlank { item.tags.ifBlank { "未分类" } }} · 关注数：${item.attentions}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

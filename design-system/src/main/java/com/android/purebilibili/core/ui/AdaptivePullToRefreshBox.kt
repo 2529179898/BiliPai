@@ -65,7 +65,6 @@ fun AdaptivePullToRefreshBox(
 
     when (rememberPresetPrimitiveRenderer()) {
         PresetPrimitiveRenderer.MIUIX_BRIDGED -> {
-            val miuixState = rememberMiuixPullToRefreshState()
             // MIUIX has no gesture-enabled flag. Move, rather than remount, the list
             // when bypassing its refresh container so comment row state is retained.
             val stableContent = remember {
@@ -78,6 +77,11 @@ fun AdaptivePullToRefreshBox(
                 }
             }
             if (enabled) {
+                // The native container owns its drag/refresh animation scope. Discard that
+                // state with the container when player expansion temporarily disables refresh;
+                // otherwise a cancelled Pulling/RefreshComplete session can consume later
+                // comment drags. movableContent below still preserves the list and its offset.
+                val miuixState = rememberMiuixPullToRefreshState()
                 MiuixPullToRefresh(
                     isRefreshing = isRefreshing,
                     onRefresh = onRefresh,

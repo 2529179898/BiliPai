@@ -16,6 +16,8 @@ internal class ByteDanceDanmakuEngine(
     private val view: DanmakuView
 ) : DanmakuEngine {
     private val controller = view.controller
+    private val visibility = DanmakuVisibility()
+    @Volatile
     private var closed = false
     private val currentItems = ArrayList<DanmakuItem>()
     private var currentSegmentIndices: List<Int> = emptyList()
@@ -97,6 +99,11 @@ internal class ByteDanceDanmakuEngine(
                 }
             }
         }
+    }
+
+    override fun setHiddenDanmaku(ids: Set<Long>, texts: Set<String>) {
+        if (closed) return
+        if (visibility.setHiddenItems(ids, texts)) controller.invalidateView()
     }
 
     override fun replaceWindow(window: DanmakuWindow, currentPositionMs: Long) {
@@ -248,6 +255,7 @@ internal class ByteDanceDanmakuEngine(
                     itemRect: android.graphics.RectF,
                     clickPoint: android.graphics.PointF
                 ) {
+                    if (!data.isVisible) return
                     (data as? SourceBackedDanmakuData)?.sourceItem?.let {
                         callback(it, itemRect, clickPoint)
                     }
@@ -258,23 +266,24 @@ internal class ByteDanceDanmakuEngine(
 
     override fun close() {
         if (closed) return
+        closed = true
+        visibility.close()
         controller.itemClickListener = null
         controller.stop()
         currentItems.clear()
         currentMaskFrames.clear()
         playbackState = DanmakuPlaybackState.CLOSED
-        closed = true
     }
 
     private fun toEngineData(item: DanmakuItem): DanmakuData {
         val sourceData = if (item.bitmap != null) {
-            EngineBitmapData(item).apply {
+            EngineBitmapData(item, visibility).apply {
                 bitmap = item.bitmap
                 width = item.bitmapWidth
                 height = item.bitmapHeight
             }
         } else {
-            EngineTextData(item).apply {
+            EngineTextData(item, visibility).apply {
                 text = item.text
                 textSize = item.textSize ?: item.textSizeScale
                     .takeUnless { it == 1f }
@@ -318,17 +327,25 @@ private const val SEGMENT_DURATION_MS = 360_000L
 private fun segmentIndexForTime(positionMs: Long): Int =
     (positionMs.coerceAtLeast(0L) / SEGMENT_DURATION_MS).toInt() + 1
 
-private interface SourceBackedDanmakuData {
+internal interface SourceBackedDanmakuData {
     val sourceItem: DanmakuItem
 }
 
-private class EngineTextData(
-    override val sourceItem: DanmakuItem
-) : TextData(), SourceBackedDanmakuData
+internal class EngineTextData(
+    override val sourceItem: DanmakuItem,
+    private val visibility: DanmakuVisibility
+) : TextData(), SourceBackedDanmakuData {
+    override val isVisible: Boolean
+        get() = visibility.isVisible(sourceItem.danmakuId, sourceItem.mergedOriginalText ?: sourceItem.text)
+}
 
-private class EngineBitmapData(
-    override val sourceItem: DanmakuItem
-) : BitmapData(), SourceBackedDanmakuData
+internal class EngineBitmapData(
+    override val sourceItem: DanmakuItem,
+    private val visibility: DanmakuVisibility
+) : BitmapData(), SourceBackedDanmakuData {
+    override val isVisible: Boolean
+        get() = visibility.isVisible(sourceItem.danmakuId, sourceItem.mergedOriginalText ?: sourceItem.text)
+}
 
 private inline fun <T> traceDanmakuEngineSection(name: String, block: () -> T): T {
     Trace.beginSection(name)

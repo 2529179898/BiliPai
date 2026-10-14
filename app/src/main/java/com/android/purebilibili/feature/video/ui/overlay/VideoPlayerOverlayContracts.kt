@@ -151,6 +151,8 @@ data class VideoPlayerOverlayState(
     val endDrawerVisible: Boolean = false,
     val endDrawerInitialTab: Int = 0,
     val endDrawerReservedWidth: androidx.compose.ui.unit.Dp = 0.dp,
+    val endDrawerCloseProgress: androidx.compose.runtime.MutableFloatState? = null,
+    val endDrawerReservedWidthProvider: () -> androidx.compose.ui.unit.Dp = { endDrawerReservedWidth },
     val relatedVideos: List<com.android.purebilibili.data.model.response.RelatedVideo> = emptyList(),
     val ugcSeason: com.android.purebilibili.data.model.response.UgcSeason? = null,
     val isFollowed: Boolean = false,

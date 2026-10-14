@@ -76,15 +76,17 @@ import com.android.purebilibili.feature.live.resolveLivePlayerControlVisualSpec
 
 @Composable
 private fun LiveLandscapePlayerIconButton(
-    icon: ImageVector,
+    icon: ImageVector?,
     label: String,
     selected: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
     stateDescription: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    iconContent: (@Composable (Color) -> Unit)? = null,
 ) {
     require(label.isNotBlank()) { "Live player icon button label must not be blank" }
+    require(icon != null || iconContent != null)
 
     val palette = rememberLiveChromePalette()
     val playerChromeProfile = rememberAppPlayerChromeProfile()
@@ -125,11 +127,16 @@ private fun LiveLandscapePlayerIconButton(
                 )
         ) {
             Box(contentAlignment = Alignment.Center) {
+                val tint = if (selected) palette.accentStrong else LiveStatusPalette.MediaContent
+                if (iconContent != null) {
+                    iconContent(tint)
+                } else {
                 AppIcon(
-                    imageVector = icon,
+                    imageVector = requireNotNull(icon),
                     contentDescription = null,
-                    tint = if (selected) palette.accentStrong else LiveStatusPalette.MediaContent
+                    tint = tint
                 )
+                }
             }
         }
     }
@@ -593,11 +600,14 @@ fun LiveLandscapePlayerControls(
                 Spacer(Modifier.width(AppSpacingTokens.Medium))
 
                 LiveLandscapePlayerIconButton(
-                    icon = Icons.AutoMirrored.Outlined.Send,
+                    icon = null,
                     label = "发送弹幕",
                     selected = false,
                     enabled = true,
-                    onClick = onOpenSend
+                    onClick = onOpenSend,
+                    iconContent = { tint ->
+                        com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSendIcon(tint = tint)
+                    },
                 )
 
                 if (onLike != null) {

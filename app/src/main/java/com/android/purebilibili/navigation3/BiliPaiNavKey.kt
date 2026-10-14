@@ -353,7 +353,10 @@ internal sealed interface BiliPaiNavKey : NavKey {
     data class AudioMode(
         val sourceBvid: String = "",
         val sourceCid: Long = 0L,
-        val sourceResumePositionMs: Long = 0L
+        val sourceResumePositionMs: Long = 0L,
+        val collectionMediaId: Long = 0L,
+        val collectionSeasonId: Long = 0L,
+        val collectionTitle: String = "",
     ) : BiliPaiNavKey {
         override val routeBase: String = "audio_mode"
     }

@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.video.ui.overlay
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
 import androidx.compose.foundation.background
@@ -501,7 +503,7 @@ private fun PortraitSubtitlePanel(
                         enabled = option.enabled,
                         shape = AppShapes.container(ContainerLevel.Field),
                         color = if (selected) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                            AppContentColors.accent().copy(alpha = 0.22f)
                         } else {
                             Color.Transparent
                         },
@@ -510,7 +512,7 @@ private fun PortraitSubtitlePanel(
                         AppText(
                             text = option.label,
                             color = if (selected) {
-                                MaterialTheme.colorScheme.primary
+                                AppContentColors.accent()
                             } else {
                                 Color.White.copy(alpha = if (option.enabled) 1f else 0.4f)
                             },
@@ -534,7 +536,7 @@ private fun PortraitSubtitlePanel(
                             onClick = { onTrackSelected(option.trackKey) },
                             shape = AppShapes.container(ContainerLevel.Field),
                             color = if (option.selected) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                                AppContentColors.accent().copy(alpha = 0.22f)
                             } else {
                                 Color.Transparent
                             },
@@ -543,7 +545,7 @@ private fun PortraitSubtitlePanel(
                             AppText(
                                 text = option.label,
                                 color = if (option.selected) {
-                                    MaterialTheme.colorScheme.primary
+                                    AppContentColors.accent()
                                 } else {
                                     Color.White
                                 },

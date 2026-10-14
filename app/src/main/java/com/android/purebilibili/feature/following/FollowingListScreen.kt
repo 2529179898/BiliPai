@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.following
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -225,7 +227,7 @@ class FollowingListViewModel : ViewModel() {
     private var nextFollowingPage = 1
     private var loadRemainingPagesJob: Job? = null
     private var followingCacheSaveJob: Job? = null
-    
+
     fun loadFollowingList(mid: Long, forceRefresh: Boolean = false) {
         if (mid <= 0) return
         if (shouldSkipFollowingReload(currentMid, mid, _uiState.value, forceRefresh)) return
@@ -245,12 +247,12 @@ class FollowingListViewModel : ViewModel() {
         _isFollowGroupMetaLoading.value = false
 
         val restoredFromCache = restoreFollowingListFromPersistentCache(mid, forceRefresh)
-        
+
         viewModelScope.launch {
             if (!restoredFromCache) {
                 _uiState.value = FollowingListUiState.Loading
             }
-            
+
             try {
                 // 缓存只负责首屏快速展示，服务器第一页始终作为最新关注关系的真源。
                 val response = NetworkModule.api.getFollowings(mid, pn = 1, ps = 50)
@@ -320,7 +322,7 @@ class FollowingListViewModel : ViewModel() {
         refreshFollowGroupMetadata(users)
         return true
     }
-    
+
     // 全量加载只允许由用户显式触发；普通滚动每次仅请求一页。
     fun loadAllForSearch() {
         if (followingRequestActive || loadRemainingPagesJob?.isActive == true) return
@@ -852,7 +854,7 @@ fun FollowingListScreen(
                                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                                     AppText("😢", fontSize = MaterialTheme.typography.displaySmall.fontSize)
                                                     Spacer(Modifier.height(AppSpacingTokens.Large))
-                                                    AppText(errorState.message, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    AppText(errorState.message, color = AppContentColors.secondaryText())
                                                     Spacer(Modifier.height(AppSpacingTokens.Large))
                                                     AppButton(onClick = { viewModel.loadFollowingList(mid, forceRefresh = true) }) {
                                                         AppText("重试")
@@ -871,7 +873,7 @@ fun FollowingListScreen(
                                                         .fillParentMaxHeight(0.6f),
                                                     contentAlignment = Alignment.Center
                                                 ) {
-                                                    AppText("没有找到相关 UP 主", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    AppText("没有找到相关 UP 主", color = AppContentColors.secondaryText())
                                                 }
                                             }
                                         } else {
@@ -890,7 +892,7 @@ fun FollowingListScreen(
                                             AppText(
                                                 text = text,
                                                 fontSize = MaterialTheme.typography.labelMedium.fontSize,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = AppContentColors.secondaryText(),
                                                 modifier = animatedModifier
                                             )
                                         }
@@ -925,7 +927,7 @@ fun FollowingListScreen(
                                             AppText(
                                                 text = "分组信息加载中...($followGroupMetaLoadedCount/${followedUsers.size})",
                                                 fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = AppContentColors.secondaryText(),
                                                 modifier = Modifier.padding(horizontal = AppSpacingTokens.Large, vertical = AppSpacingTokens.ExtraSmall)
                                             )
                                         }
@@ -980,7 +982,7 @@ fun FollowingListScreen(
                                                 ) {
                                                     AppText(
                                                         "加载更多",
-                                                        color = MaterialTheme.colorScheme.primary,
+                                                        color = AppContentColors.accent(),
                                                         fontSize = MaterialTheme.typography.labelMedium.fontSize
                                                     )
                                                 }
@@ -1050,7 +1052,7 @@ fun FollowingListScreen(
                                             AppCircularProgressIndicator(
                                                 modifier = Modifier.size(AppSpacingTokens.Large),
                                                 strokeWidth = AppSpacingTokens.Micro,
-                                                color = MaterialTheme.colorScheme.onPrimary
+                                                color = AppContentColors.onAccent()
                                             )
                                         } else {
                                             AppText("取消关注 ($selectedCount)")
@@ -1128,7 +1130,7 @@ fun FollowingListScreen(
                                             if (groupDialogMixed) {
                                                 AppText(
                                                     text = "检测到已选 UP 主原分组不一致，已默认全部不选。",
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    color = AppContentColors.secondaryText(),
                                                     fontSize = MaterialTheme.typography.labelSmall.fontSize,
                                                     modifier = Modifier.padding(bottom = AppSpacingTokens.Small)
                                                 )
@@ -1136,7 +1138,7 @@ fun FollowingListScreen(
                                             if (groupDialogTags.isEmpty()) {
                                                 AppText(
                                                     text = "暂无可用分组（不勾选即回到默认分组）",
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    color = AppContentColors.secondaryText(),
                                                     fontSize = MaterialTheme.typography.labelMedium.fontSize
                                                 )
                                             } else {
@@ -1167,14 +1169,14 @@ fun FollowingListScreen(
                                                         AppText(
                                                             text = "${tag.name} (${tag.count})",
                                                             fontSize = MaterialTheme.typography.labelMedium.fontSize,
-                                                            color = MaterialTheme.colorScheme.onSurface
+                                                            color = AppContentColors.primaryText()
                                                         )
                                                     }
                                                 }
                                             }
                                             AppText(
                                                 text = "确定后会完全覆盖原分组设置。",
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = AppContentColors.secondaryText(),
                                                 fontSize = MaterialTheme.typography.labelSmall.fontSize,
                                                 modifier = Modifier.padding(top = AppSpacingTokens.Small)
                                             )
@@ -1205,7 +1207,7 @@ fun FollowingListScreen(
                                             AppCircularProgressIndicator(
                                                 modifier = Modifier.size(AppSpacingTokens.Large),
                                                 strokeWidth = AppSpacingTokens.Micro,
-                                                color = MaterialTheme.colorScheme.onPrimary
+                                                color = AppContentColors.onAccent()
                                             )
                                         } else {
                                             AppText("确定")
@@ -1372,9 +1374,9 @@ private fun FollowingUserItem(
                 )
             }
         }
-        
+
         Spacer(Modifier.width(AppSpacingTokens.Medium))
-        
+
         // 用户信息
         Column(modifier = Modifier.weight(1f)) {
             Row(
@@ -1385,7 +1387,7 @@ private fun FollowingUserItem(
                     text = user.uname,
                     fontSize = MaterialTheme.typography.bodyMedium.fontSize,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
@@ -1396,7 +1398,7 @@ private fun FollowingUserItem(
                 AppText(
                     text = followingSinceLabel,
                     fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1406,7 +1408,7 @@ private fun FollowingUserItem(
                 AppText(
                     text = user.sign,
                     fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

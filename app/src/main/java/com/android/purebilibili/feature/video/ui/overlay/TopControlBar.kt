@@ -1,5 +1,9 @@
 // File: feature/video/ui/overlay/TopControlBar.kt
 package com.android.purebilibili.feature.video.ui.overlay
+
+import com.android.purebilibili.core.ui.MediaContrastPalette
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -8,6 +12,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -32,6 +38,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clipToBounds
+import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
+import com.android.purebilibili.core.ui.components.appPressHighlightPressSpec
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -246,6 +256,14 @@ fun TopControlBar(
             currentTimeText = currentTimeText
         )
     }
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val leftSectionStartOffset = if (isFullscreen && backButtonStartPaddingDp != null) {
+        val cutoutStart = with(density) {
+            displayCutoutInsets.getLeft(density, layoutDirection).toDp()
+        }
+        backButtonStartPaddingDp.dp - cutoutStart - layoutPolicy.horizontalPaddingDp.dp
+    } else 0.dp
 
     Column(
         modifier = modifier
@@ -304,23 +322,14 @@ fun TopControlBar(
             // --- Left Section: Back & Info ---
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f) // Text takes remaining space
+                modifier = Modifier
+                    .weight(1f)
+                    .absoluteOffset(x = leftSectionStartOffset)
             ) {
                 // Back Button
                 PlayerControlGlassDock(
                     enabled = isFullscreen,
                     shape = androidx.compose.foundation.shape.CircleShape,
-                    modifier = if (isFullscreen && backButtonStartPaddingDp != null) {
-                        val density = LocalDensity.current
-                        val layoutDirection = LocalLayoutDirection.current
-                        val cutoutStart = with(density) {
-                            WindowInsets.displayCutout.getLeft(density, layoutDirection).toDp()
-                        }
-                        // Move only the back target; keep the title's measured slot unchanged.
-                        Modifier.absoluteOffset(
-                            x = backButtonStartPaddingDp.dp - cutoutStart - layoutPolicy.horizontalPaddingDp.dp,
-                        )
-                    } else Modifier,
                 ) {
                     AppIconButton(
                         onClick = onBack,
@@ -338,13 +347,11 @@ fun TopControlBar(
                 Spacer(modifier = Modifier.width(layoutPolicy.backToTitleSpacingDp.dp))
 
                 if (isFullscreen) {
-                    PlayerTitleInfoDock(
+                    AdaptivePlayerTitleInfoDock(
                         title = title,
                         statusInfo = statusInfo,
                         onlineCount = onlineCount,
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .widthIn(max = 420.dp),
+                        modifier = Modifier.weight(1f),
                     )
                 } else {
                     // 标题与右侧图标保持同一行
@@ -367,13 +374,23 @@ fun TopControlBar(
             // --- Right Section: Actions ---
             PlayerControlGlassDock(
                 enabled = isFullscreen,
-                modifier = if (isFullscreen && onDanmakuInputClick != null) {
+                modifier = (if (isFullscreen) Modifier.layout { measurable, constraints ->
+                    // Reserve both left circles and the trailing send button before measuring actions.
+                    val sendButtonWidthDp = if (onDanmakuInputClick != null) {
+                        layoutPolicy.buttonSizeDp + PlayerChromeLayout.ActionGapDp
+                    } else 0
+                    val reservedWidth = (layoutPolicy.buttonSizeDp * 2 + sendButtonWidthDp +
+                        layoutPolicy.backToTitleSpacingDp + layoutPolicy.sectionGapDp).dp.roundToPx()
+                    val actionWidth = (constraints.maxWidth - reservedWidth).coerceAtLeast(0)
+                    val placeable = measurable.measure(constraints.copy(minWidth = 0, maxWidth = actionWidth))
+                    layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+                } else Modifier).then(if (isFullscreen && onDanmakuInputClick != null) {
                     Modifier.widthIn(max = (configuration.screenWidthDp * 0.38f).dp)
-                } else Modifier,
+                } else Modifier),
             ) {
                 Row(
                     modifier = if (isFullscreen) Modifier
-                        .then(if (onDanmakuInputClick != null) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
+                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 4.dp)
                     else Modifier,
                     verticalAlignment = Alignment.CenterVertically,
@@ -386,7 +403,6 @@ fun TopControlBar(
                                 icon = if (likeStatusKnown && isLiked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
                                 contentDescription = if (likeStatusKnown) "点赞" else "点赞状态尚未确认",
                                 isActive = likeStatusKnown && isLiked,
-                                enabled = likeStatusKnown,
                                 onClick = onLikeClick,
                                 buttonSizeDp = layoutPolicy.buttonSizeDp,
                                 iconSizeDp = layoutPolicy.iconSizeDp
@@ -536,6 +552,85 @@ fun TopControlBar(
     }
 }
 
+/** Collapse the whole horizontal title capsule before the action dock squeezes its content. */
+@Composable
+private fun AdaptivePlayerTitleInfoDock(
+    title: String,
+    statusInfo: LandscapeTopStatusInfo,
+    onlineCount: String,
+    modifier: Modifier = Modifier,
+) {
+    val motionEnabled = LocalComponentMotionEnabled.current
+    val layoutDirection = LocalLayoutDirection.current
+    BoxWithConstraints(
+        modifier = modifier.heightIn(min = 48.dp),
+        contentAlignment = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) {
+            Alignment.CenterEnd
+        } else {
+            Alignment.CenterStart
+        },
+    ) {
+        // Use the actual player slot: side panes can leave much less room than the window.
+        // Keep a circular glass affordance at the collapsed endpoint so the title does not
+        // vanish into an unexplained gap beside the back button.
+        val hasRoom = maxWidth >= 160.dp
+        val collapsedSize = PlayerChromeLayout.CircularButtonSizeDp.dp
+        val targetWidth = if (hasRoom) maxWidth.coerceAtMost(420.dp) else collapsedSize
+        val animatedWidth = animateFloatAsState(
+            targetValue = targetWidth.value,
+            animationSpec = if (motionEnabled) appPressHighlightPressSpec() else snap(),
+            label = "playerTitleHorizontalWidth",
+        )
+        val expandedFraction = animateFloatAsState(
+            targetValue = if (hasRoom) 1f else 0f,
+            animationSpec = if (motionEnabled) appPressHighlightPressSpec() else snap(),
+            label = "playerTitleHorizontalContent",
+        )
+        val dockWidth = animatedWidth.value
+            .coerceIn(collapsedSize.value, maxWidth.coerceAtLeast(collapsedSize).value)
+            .dp
+        Box(
+            modifier = Modifier
+                .width(dockWidth)
+                .heightIn(min = 48.dp)
+                .clipToBounds(),
+            contentAlignment = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) {
+                Alignment.CenterEnd
+            } else {
+                Alignment.CenterStart
+            },
+        ) {
+            PlayerTitleInfoDock(
+                title = title,
+                statusInfo = statusInfo,
+                onlineCount = onlineCount,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer { alpha = expandedFraction.value.coerceIn(0f, 1f) },
+            )
+            PlayerControlGlassDock(
+                enabled = true,
+                modifier = Modifier
+                    .requiredSize(collapsedSize)
+                    .graphicsLayer { alpha = (1f - expandedFraction.value).coerceIn(0f, 1f) },
+                shape = androidx.compose.foundation.shape.CircleShape,
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AppIcon(
+                        imageVector = Icons.Outlined.MoreHoriz,
+                        contentDescription = "视频标题",
+                        tint = Color.White.copy(alpha = 0.82f),
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 /** A finite width lets long titles ellipsize without sizing or displacing the action dock. */
 @Composable
 private fun PlayerTitleInfoDock(
@@ -670,8 +765,8 @@ private fun resolveBatteryStatusTint(
     state: LandscapeBatteryVisualState
 ): Color {
     return when (state.chargeTone) {
-        BatteryChargeTone.CRITICAL -> Color(0xFFFF5A5F)
-        BatteryChargeTone.LOW -> Color(0xFFFFB347)
+        BatteryChargeTone.CRITICAL -> MediaContrastPalette.Error
+        BatteryChargeTone.LOW -> MediaContrastPalette.Warning
         BatteryChargeTone.NORMAL -> Color.White.copy(alpha = 0.92f)
     }
 }
@@ -694,7 +789,7 @@ private fun ActionIcon(
         AppIcon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (!enabled) Color.White.copy(alpha = 0.38f) else if (isActive) MaterialTheme.colorScheme.primary else Color.White,
+            tint = if (!enabled) Color.White.copy(alpha = 0.38f) else if (isActive) AppContentColors.accent() else Color.White,
             modifier = Modifier.size(iconSizeDp.dp)
         )
     }

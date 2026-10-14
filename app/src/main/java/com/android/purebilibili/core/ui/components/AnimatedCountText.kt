@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import android.os.Build
 import android.graphics.RenderEffect
 import android.graphics.Shader
@@ -46,6 +47,7 @@ fun AnimatedCountText(
     formatter: (Long) -> String = { it.toString() },
     animateFromZero: Boolean = false,
     blurOnChange: Boolean = false,
+    blurPadding: Dp = 4.dp,
 ) {
     val target = count.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
     var countAnimationStarted by remember { mutableStateOf(!animateFromZero) }
@@ -107,6 +109,6 @@ fun AnimatedCountText(
             renderEffect = if (blurEffects.isNotEmpty() && blurProgress.value > 0.02f) {
                 blurEffects[((blurProgress.value * blurEffects.size).toInt() - 1).coerceIn(blurEffects.indices)]
             } else null
-        }.padding(if (blurOnChange) 4.dp else 0.dp),
+        }.padding(if (blurOnChange) blurPadding else 0.dp),
     )
 }

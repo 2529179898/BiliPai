@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import coil3.request.crossfade
 
 import com.android.purebilibili.core.ui.AppSpacingTokens
@@ -132,7 +134,7 @@ internal fun HomeTopUnreadBadge(
                 minWidth = layout.minWidth,
                 minHeight = layout.minHeight
             )
-            .background(com.android.purebilibili.core.theme.iOSRed, CircleShape)
+            .background(AppContentColors.error(), CircleShape)
             .border(width = AppSpacingTokens.Micro / 2, color = borderColor, shape = CircleShape)
             .padding(
                 horizontal = layout.horizontalPadding,

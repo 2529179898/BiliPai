@@ -1,6 +1,8 @@
 // 文件路径: feature/home/components/BottomBar.kt
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.resolveMatchedLiquidIndicatorHeightDp
 import com.android.purebilibili.core.ui.AppIconStyle
 import com.android.purebilibili.core.ui.rememberResolvedAppIconStyle
@@ -935,7 +937,8 @@ internal fun resolveBiliPaiBottomBarShellColor(
     return if (liquidGlassEnabled) {
         resolveBiliPaiBottomBarContainerColor(
             darkTheme = darkTheme,
-            liquidGlassTuning = liquidGlassTuning
+            liquidGlassTuning = liquidGlassTuning,
+            surfaceColor = containerColor,
         )
     } else {
         containerColor
@@ -1295,9 +1298,10 @@ internal fun resolveAndroidNativeIdleIndicatorSurfaceColor(
 
 internal fun resolveBiliPaiBottomBarContainerColor(
     darkTheme: Boolean,
-    liquidGlassTuning: LiquidGlassTuning = resolveLiquidGlassTuning(progress = 0.5f)
+    liquidGlassTuning: LiquidGlassTuning = resolveLiquidGlassTuning(progress = 0.5f),
+    surfaceColor: Color? = null,
 ): Color {
-    val surfaceContainer = if (darkTheme) {
+    val surfaceContainer = surfaceColor ?: if (darkTheme) {
         HomeVisualPalette.BiliPaiDarkSurface
     } else {
         OpticalContrastPalette.Highlight
@@ -2139,7 +2143,7 @@ internal fun resolveBottomBarLayoutPolicy(
 
 /**
  *  iOS 风格磨砂玻璃底部导航栏
- * 
+ *
  * 特性：
  * - 实时磨砂玻璃效果 (使用 Haze 库)
  * - 悬浮圆角设计
@@ -2399,8 +2403,8 @@ private fun MaterialBottomBar(
         )
     }
     val dockedItemColors = resolveMaterialDockedBottomBarItemColors(
-        themePrimary = MaterialTheme.colorScheme.primary,
-        onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant,
+        themePrimary = AppContentColors.accent(),
+        onSurfaceVariant = AppContentColors.secondaryText(),
         secondaryContainer = MaterialTheme.colorScheme.secondaryContainer
     )
     val skinDockedItemColors = resolveBottomBarSkinContentColors(
@@ -3071,8 +3075,8 @@ private fun MiuixBottomBar(
             defaultWindowInsetsPadding = true,
             mode = displayMode
         ) {
-            val selectedItemColor = MaterialTheme.colorScheme.primary
-            val unselectedItemColor = MaterialTheme.colorScheme.onSurfaceVariant
+            val selectedItemColor = AppContentColors.accent()
+            val unselectedItemColor = AppContentColors.secondaryText()
             val dockedIndicatorColor = resolveDockedBottomBarIndicatorColor(
                 defaultColor = MaterialTheme.colorScheme.secondaryContainer,
                 hasUiSkinDecoration = uiSkinDecoration != null,
@@ -3193,9 +3197,9 @@ internal fun IllustratedSkinBottomBar(
 ) {
     val colors = resolveBottomBarSkinContentColors(
         selectedColor = decoration.bottomSelectedTint.takeUnless { it == Color.Unspecified }
-            ?: MaterialTheme.colorScheme.primary,
+            ?: AppContentColors.accent(),
         unselectedColor = decoration.bottomUnselectedTint.takeUnless { it == Color.Unspecified }
-            ?: MaterialTheme.colorScheme.onSurface,
+            ?: AppContentColors.primaryText(),
         skinTrimTint = decoration.bottomTrimTint,
     )
     BoxWithConstraints(modifier = modifier) {
@@ -3652,14 +3656,14 @@ private fun BiliPaiFloatingBottomBarChrome(
     val neutralMiuixSelection = LocalAppUiStyle.current == AppUiStyle.MIUIX &&
         !effectiveGlassEnabled && uiSkinDecoration == null
     val baseSelectedColor = if (neutralMiuixSelection) {
-        MaterialTheme.colorScheme.onSurface
+        AppContentColors.primaryText()
     } else {
-        MaterialTheme.colorScheme.primary
+        AppContentColors.accent()
     }
-    val baseUnselectedColor = if (neutralMiuixSelection || iconStyle == SharedFloatingBottomBarIconStyle.MATERIAL) {
-        MaterialTheme.colorScheme.onSurfaceVariant
+    val baseUnselectedColor = if (!effectiveGlassEnabled && (neutralMiuixSelection || iconStyle == SharedFloatingBottomBarIconStyle.MATERIAL)) {
+        AppContentColors.secondaryText()
     } else {
-        MaterialTheme.colorScheme.onSurface
+        AppContentColors.primaryText()
     }
     val skinContentColors = resolveBottomBarSkinContentColors(
         selectedColor = uiSkinDecoration?.bottomSelectedTint
@@ -3670,7 +3674,7 @@ private fun BiliPaiFloatingBottomBarChrome(
             ?: baseUnselectedColor,
         skinTrimTint = uiSkinDecoration?.bottomTrimTint
     )
-    val readableContentColor = MaterialTheme.colorScheme.onSurface
+    val readableContentColor = AppContentColors.primaryText()
     val selectedColor = lerpColor(
         skinContentColors.selectedColor,
         readableContentColor,
@@ -4220,8 +4224,8 @@ private fun ColumnScope.FloatingBottomBarTabVisual(
     val contentColor = when {
         selected && selectedContentColor != Color.Unspecified -> selectedContentColor
         localColor != Color.Unspecified -> localColor
-        selected -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+        selected -> AppContentColors.accent()
+        else -> AppContentColors.secondaryText()
     }
     val selectedAlpha = if (selected) 1f else 0f
     val selectionScale = LocalFloatingBottomBarItemSelectionScale.current
@@ -4410,33 +4414,14 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                         shape = { shellShape },
                         effects = {
                             if (shouldUseBottomBarIndicatorLens(liquidGlassPreset)) {
-                                miuixLens(
-                                    refractionHeight = indicatorLensSpec.refractionHeightDp.dp.toPx(),
-                                    refractionAmount = indicatorLensSpec.refractionAmountDp.dp.toPx(),
-                                    depthEffect = true,
-                                    chromaticAberration =
-                                        resolveLiquidGlassIndicatorChromaticAberration(
-                                            liquidGlassTuning
-                                        )
-                                )
+                                homeIndicatorLens(indicatorHeight.value, effectivePressProgress, liquidGlassTuning)
                             }
                         },
                         highlight = {
                             pillHighlight?.value?.copy(alpha = effectivePressProgress)
                         },
                         onDrawSurface = {
-                            val surfaceFade = (1f - effectivePressProgress).coerceIn(0f, 1f)
-                            if (surfaceFade > 0f) {
-                                drawRect(
-                                    color = indicatorIdleSurfaceColor,
-                                    alpha = surfaceFade
-                                )
-                            }
-                            if (effectivePressProgress > 0f) {
-                                drawRect(
-                                    OpticalContrastPalette.Shadow.copy(alpha = 0.03f * effectivePressProgress)
-                                )
-                            }
+                            drawHomeIndicatorSurface(effectivePressProgress, isDarkTheme, indicatorIdleSurfaceColor)
                         },
                         layerBlock = {
                             if (effectiveIndicatorEffectsEnabled) {
@@ -4446,7 +4431,7 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                         }
                     ).miuixInnerShadow(shape = shellShape) {
                         MiuixInnerShadow(
-                            radius = AppSpacingTokens.Small * effectivePressProgress,
+                            radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * effectivePressProgress,
                             color = OpticalContrastPalette.Shadow.copy(alpha = 0.15f),
                             alpha = effectivePressProgress
                         )
@@ -5073,17 +5058,20 @@ private fun BottomBarBlendedMiuixIcon(
             if (idleIcon == activeIcon) {
                 AppIcon(
                     imageVector = idleIcon,
-                    contentDescription = contentDescription
+                    contentDescription = contentDescription,
+                    tint = contentColor,
                 )
             } else {
                 AppIcon(
                     imageVector = idleIcon,
                     contentDescription = contentDescription,
+                    tint = contentColor,
                     modifier = Modifier.alpha(1f - clampedSelectedAlpha)
                 )
                 AppIcon(
                     imageVector = activeIcon,
                     contentDescription = null,
+                    tint = contentColor,
                     modifier = Modifier.alpha(clampedSelectedAlpha)
                 )
             }

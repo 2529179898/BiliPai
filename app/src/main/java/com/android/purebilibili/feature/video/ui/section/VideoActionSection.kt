@@ -1,9 +1,12 @@
 // File: feature/video/ui/section/VideoActionSection.kt
 package com.android.purebilibili.feature.video.ui.section
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -12,7 +15,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.ThumbUp
@@ -181,7 +183,9 @@ fun ActionButtonsRow(
     val itemSpacing = resolveVideoDetailActionRowItemSpacing(actionCount)
     val buttonHorizontalPadding = resolveVideoDetailActionButtonHorizontalPadding(actionCount)
 
-    Box(modifier = modifier.animateContentSize()) {
+    // 不再对整行做 animateContentSize：状态回填时动画尺寸会放大“跳动”观感，
+    // 行高本身由各按钮的固定尺寸保证稳定。
+    Box(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth()
                 .padding(horizontal = 4.dp, vertical = 2.dp),
@@ -195,60 +199,52 @@ fun ActionButtonsRow(
                     .heightIn(min = 48.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (likeStatusKnown) {
-                    TripleProgressActionButton(
-                        icon = if (isLiked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
-                        text = FormatUtils.formatStat(info.stat.like.toLong()),
-                        isActive = isLiked,
-                        activeColor = activeColors.primaryAction,
-                        progress = tripleProgress,
-                        onClick = onLikeClick,
-                        horizontalPadding = buttonHorizontalPadding,
-                        modifier = Modifier
-                            .likeBurstAnchor()
-                            .pointerInput(
-                            isLiked,
-                            tripleCompleted,
-                            tripleProgress
-                        ) {
-                            detectTapGestures(
-                                onTap = {
-                                    onLikeClick()
-                                },
-                                onLongPress = {
-                                    tripleCompleted = false
-                                    isTriplePressing = shouldStartTriplePress(
-                                        longPressConfirmed = true
+                // 点赞状态未确认时不再渲染空图标占位：直接按“未点赞”的默认样式渲染，
+                // 图标/文案使用主题未激活色，状态回填后由 Crossfade 平滑切换。
+                // 这样首帧就是一个完整可读的按钮，避免空白→图标 pop-in 造成的闪烁。
+                TripleProgressActionButton(
+                    icon = if (isLiked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
+                    text = FormatUtils.formatStat(info.stat.like.toLong()),
+                    isActive = isLiked,
+                    activeColor = activeColors.primaryAction,
+                    progress = tripleProgress,
+                    onClick = { if (likeStatusKnown) onLikeClick() },
+                    horizontalPadding = buttonHorizontalPadding,
+                    modifier = Modifier
+                        .likeBurstAnchor()
+                        .pointerInput(
+                        likeStatusKnown,
+                        isLiked,
+                        tripleCompleted,
+                        tripleProgress
+                    ) {
+                        // 状态未知时只保留默认外观，不接管手势，避免误触发出错的操作。
+                        if (!likeStatusKnown) return@pointerInput
+                        detectTapGestures(
+                            onTap = {
+                                onLikeClick()
+                            },
+                            onLongPress = {
+                                tripleCompleted = false
+                                isTriplePressing = shouldStartTriplePress(
+                                    longPressConfirmed = true
+                                )
+                            },
+                            onPress = {
+                                tryAwaitRelease()
+                                if (
+                                    shouldCancelTriplePressOnRelease(
+                                        isTriplePressing = isTriplePressing,
+                                        tripleCompleted = tripleCompleted
                                     )
-                                },
-                                onPress = {
-                                    tryAwaitRelease()
-                                    if (
-                                        shouldCancelTriplePressOnRelease(
-                                            isTriplePressing = isTriplePressing,
-                                            tripleCompleted = tripleCompleted
-                                        )
-                                    ) {
-                                        isTriplePressing = false
-                                    }
+                                ) {
+                                    isTriplePressing = false
                                 }
-                            )
-                        },
-                        disableInternalClick = true
-                    )
-                } else {
-                    TripleProgressActionButton(
-                        icon = Icons.Outlined.Circle,
-                        text = FormatUtils.formatStat(info.stat.like.toLong()),
-                        isActive = false,
-                        activeColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        progress = 0f,
-                        onClick = {},
-                        horizontalPadding = buttonHorizontalPadding,
-                        disableInternalClick = true,
-                        showIcon = false,
-                    )
-                }
+                            }
+                        )
+                    },
+                    disableInternalClick = true
+                )
             }
 
             // Dislike - 点踩（与点赞互斥，官方不展示点踩数，固定显示文字）
@@ -405,11 +401,10 @@ private fun TripleProgressActionButton(
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
     disableInternalClick: Boolean = false,
-    showIcon: Boolean = true,
     horizontalPadding: Dp = 4.dp
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val inactiveTint = MaterialTheme.colorScheme.onSurfaceVariant
+    val inactiveTint = AppContentColors.secondaryText()
     val iconTint = resolveVideoActionTint(
         isActive = isActive,
         activeColor = activeColor,
@@ -476,15 +471,19 @@ private fun TripleProgressActionButton(
                 }
             }
 
-            if (showIcon) {
+            // 图标按主题色渲染；状态回填导致图标变化(如点赞/点踩/收藏)时用 Crossfade 过渡，
+            // 避免图标硬切造成的闪烁感。
+            Crossfade(
+                targetState = icon,
+                animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                label = "videoActionIcon"
+            ) { targetIcon ->
                 AppIcon(
-                    imageVector = icon,
+                    imageVector = targetIcon,
                     contentDescription = null,
                     tint = iconTint,
                     modifier = Modifier.size(24.dp)
                 )
-            } else {
-                Spacer(modifier = Modifier.size(24.dp))
             }
         }
         Spacer(modifier = Modifier.height(2.dp))
@@ -575,7 +574,7 @@ private fun TripleLikeActionButton(
             icon = if (isLiked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
             text = likeCount,
             progress = longPressProgress,
-            progressColor = MaterialTheme.colorScheme.primary,
+            progressColor = AppContentColors.accent(),
             isActive = isLiked
         )
 
@@ -589,7 +588,7 @@ private fun TripleLikeActionButton(
                 icon = AppIcons.BiliCoin,
                 text = coinCount,
                 progress = longPressProgress,
-                progressColor = MaterialTheme.colorScheme.primary,
+                progressColor = AppContentColors.accent(),
                 isActive = hasCoin
             )
         }
@@ -604,7 +603,7 @@ private fun TripleLikeActionButton(
                 icon = if (isFavorited) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                 text = favoriteCount,
                 progress = longPressProgress,
-                progressColor = MaterialTheme.colorScheme.primary,
+                progressColor = AppContentColors.accent(),
                 isActive = isFavorited
             )
         }
@@ -623,7 +622,7 @@ fun TripleProgressIcon(
     isActive: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val inactiveTint = MaterialTheme.colorScheme.onSurfaceVariant
+    val inactiveTint = AppContentColors.secondaryText()
     val iconTint = resolveVideoActionTint(
         isActive = isActive,
         activeColor = progressColor,
@@ -730,7 +729,7 @@ private fun BiliActionButton(
         if (enableActivePulse && isActive) shouldPulse = true
     }
 
-    val inactiveTint = MaterialTheme.colorScheme.onSurfaceVariant
+    val inactiveTint = AppContentColors.secondaryText()
     val iconTint = resolveVideoActionTint(
         isActive = isActive,
         activeColor = activeColor,
@@ -798,7 +797,7 @@ fun ActionButton(
     onClick: () -> Unit = {}
 ) {
     val resolvedIconColor = iconColor.takeOrElse {
-        if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        if (isActive) AppContentColors.accent() else AppContentColors.secondaryText()
     }
     val isDark = com.android.purebilibili.core.ui.isAppInDarkTheme()
 
@@ -857,7 +856,7 @@ fun ActionButton(
         AppText(
             text = text,
             style = MaterialTheme.typography.labelSmall,
-            color = if (isActive) resolvedIconColor else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (isActive) resolvedIconColor else AppContentColors.secondaryText(),
             fontWeight = FontWeight.Normal,
             maxLines = 1
         )

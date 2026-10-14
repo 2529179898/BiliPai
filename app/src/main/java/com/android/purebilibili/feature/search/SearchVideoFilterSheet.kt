@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.search
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -106,7 +108,10 @@ fun SearchVideoFilterBar(
                     text = resolveSearchOrderChipLabel(order),
                     style = MaterialTheme.typography.labelMedium,
                     color = if (selected) {
-                        if (LocalAppUiStyle.current == com.android.purebilibili.core.theme.AppUiStyle.MIUIX) {
+                        if (
+                            LocalAppUiStyle.current == com.android.purebilibili.core.theme.AppUiStyle.MIUIX &&
+                            !LocalAppThemeConfig.current.liquidGlassEnabled
+                        ) {
                             com.android.purebilibili.core.ui.AppSurfaceTokens.onSurface()
                         } else {
                             com.android.purebilibili.core.ui.AppSurfaceTokens.primary()
@@ -185,9 +190,9 @@ fun SearchVideoFilterActions(
                     imageVector = Icons.Outlined.FilterList,
                     contentDescription = "筛选",
                     tint = if (filterActive) {
-                        MaterialTheme.colorScheme.primary
+                        AppContentColors.accent()
                     } else {
-                        MaterialTheme.colorScheme.onSurface
+                        AppContentColors.primaryText()
                     },
                     modifier = Modifier.size(iconSize)
                 )
@@ -338,7 +343,7 @@ private fun SearchVideoFilterSheetContent(
             AppText(
                 text = "至",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             SearchFilterSelectableChip(
                 label = dateFormat.format(Date(TimeUnit.SECONDS.toMillis(defaultEnd))),
@@ -442,11 +447,11 @@ private fun SearchFilterSelectableChip(
         },
         colors = FilterChipDefaults.filterChipColors(
             selectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            selectedLabelColor = MaterialTheme.colorScheme.onSurface,
+            selectedLabelColor = AppContentColors.primaryText(),
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(
                 alpha = if (glassEnabled) 0.88f else 0.55f
             ),
-            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            labelColor = AppContentColors.secondaryText()
         ),
         border = FilterChipDefaults.filterChipBorder(
             enabled = true,

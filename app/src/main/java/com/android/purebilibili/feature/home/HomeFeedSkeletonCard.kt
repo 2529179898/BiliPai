@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.AppSpacingTokens
 
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -91,7 +93,7 @@ internal fun HomeFeedSkeletonCard(
             isDataSaverActive = isDataSaverActive
         )
     }
-    val blockBaseColor = MaterialTheme.colorScheme.onSurface
+    val blockBaseColor = AppContentColors.primaryText()
     val coverShape = remember(cardCornerRadius, infoSurfaceAppearance.useTintedSurface) {
         if (infoSurfaceAppearance.useTintedSurface) {
             resolveHomeSkeletonCoverShape(cardCornerRadius)
@@ -126,7 +128,7 @@ internal fun HomeFeedSkeletonCard(
                 .border(
                     border = BorderStroke(
                         width = AppSpacingTokens.Micro * 0.4f,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = AppContentColors.primaryText()
                             .copy(alpha = infoSurfaceAppearance.borderAlpha)
                     ),
                     shape = infoSurfaceShape
@@ -252,7 +254,7 @@ internal fun HomeFeedHeroCarouselSkeleton(
 ) {
     val cardShape = AppShapes.container(ContainerLevel.Card)
     val isDarkCardTheme = AppSurfaceTokens.chromeBackground().luminance() < 0.5f
-    val blockBaseColor = MaterialTheme.colorScheme.onSurface
+    val blockBaseColor = AppContentColors.primaryText()
     val windowSizeClass = com.android.purebilibili.core.util.LocalWindowSizeClass.current
     BoxWithConstraints(
         modifier = modifier

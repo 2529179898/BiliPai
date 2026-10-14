@@ -1,6 +1,8 @@
 // 文件路径: feature/home/components/HomeOverlayPillButton.kt
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
@@ -33,7 +35,7 @@ internal fun HomeOverlayPillButton(
         modifier = modifier,
         shape = AppShapes.container(ContainerLevel.Pill),
         containerColor = overlayPillColors.containerColor,
-        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentColor = AppContentColors.primaryText(),
         border = BorderStroke(AppSpacingTokens.Micro * 0.4f, overlayPillColors.borderColor),
         defaultElevation = AppSpacingTokens.ExtraSmall,
         pressedElevation = AppSpacingTokens.Micro,

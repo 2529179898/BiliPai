@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.dynamic.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -82,7 +84,7 @@ internal fun DynamicFeedSkeletonCard(
     val textPlaceholderShape = AppShapes.container(ContainerLevel.Tag)
     val actionPlaceholderShape = AppShapes.container(ContainerLevel.Tag)
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+    val onSurfaceVariant = AppContentColors.secondaryText()
     // 传入固定色时用固定色（「骨架与真实卡片共用同一列表、靠 item 身份原地替换」的页面）；
     // 否则退回脉冲色，供独立骨架列表使用。
     val resolvedBlockColor: () -> Color = if (blockColor != null) {

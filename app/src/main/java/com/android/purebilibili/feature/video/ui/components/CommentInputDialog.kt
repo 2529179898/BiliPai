@@ -1,6 +1,8 @@
 // 文件路径: feature/video/ui/components/CommentInputDialog.kt
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.components.appSearchElasticPress
 import com.android.purebilibili.core.ui.resolveFilledButtonContainerColor
 import com.android.purebilibili.core.ui.resolveFilledButtonContentColor
@@ -208,7 +210,7 @@ internal fun canPublishCommentDraft(
 
 /**
  * 评论输入对话框
- * 
+ *
  * 提供评论输入功能，支持回复指定评论
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -289,7 +291,7 @@ fun CommentInputDialog(
         canInputComment = canInputComment,
         isSending = isSending
     )
-    
+
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -337,7 +339,7 @@ fun CommentInputDialog(
         updateTextFieldValue(TextFieldValue(nextText, TextRange(nextCursor)))
     }
 
-    
+
     // 重置状态
     LaunchedEffect(visible) {
         if (!visible) {
@@ -362,8 +364,8 @@ fun CommentInputDialog(
         mentionSearchText = ""
         selectedImageUris = initialImageUris
     }
-    
-    
+
+
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn() + slideInVertically { it },
@@ -468,18 +470,18 @@ fun CommentInputDialog(
                                 hint = inputHint.ifBlank { "进来唠会嗑呗~" }.let { resolvedHint ->
                                     if (replyToName != null) "回复 @$replyToName: $resolvedHint" else resolvedHint
                                 },
-                                hintColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                cursorColor = MaterialTheme.colorScheme.primary,
+                                hintColor = AppContentColors.secondaryText().copy(alpha = 0.7f),
+                                cursorColor = AppContentColors.accent(),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .fillMaxHeight() // 填满 Box
                                     .focusRequester(focusRequester)
                                     .testTag("comment_composer_input"),
                                 textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = AppContentColors.primaryText()
                                 ),
                             )
-                            
+
                             // 右上角全屏图标 (装饰)
                             AppIcon(
                                 imageVector = Icons.Filled.Fullscreen,
@@ -488,7 +490,7 @@ fun CommentInputDialog(
                                     .align(Alignment.TopEnd)
                                     .size(16.dp)
                                     .alpha(0.5f),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = AppContentColors.secondaryText()
                             )
                         }
 
@@ -531,7 +533,7 @@ fun CommentInputDialog(
                                 AppText(
                                     text = "已选 ${selectedImageUris.size}/9 张",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = AppContentColors.secondaryText()
                                 )
                             }
                             LazyRow(
@@ -577,14 +579,14 @@ fun CommentInputDialog(
                                                 modifier = Modifier
                                                     .size(14.dp)
                                                     .padding(1.dp),
-                                                tint = MaterialTheme.colorScheme.onSurface
+                                                tint = AppContentColors.primaryText()
                                             )
                                         }
                                     }
                                 }
                             }
                         }
-                        
+
                         // 2. 底部工具栏
                         Row(
                             modifier = Modifier
@@ -618,14 +620,14 @@ fun CommentInputDialog(
                                     AppIcon(
                                         imageVector = if (isForwardToDynamic) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
                                         contentDescription = null,
-                                        tint = if (isForwardToDynamic) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = if (isForwardToDynamic) AppContentColors.accent() else AppContentColors.secondaryText(),
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     AppText(
                                         text = "转发到动态",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = AppContentColors.secondaryText(),
                                         maxLines = 1
                                     )
                                 }
@@ -647,7 +649,7 @@ fun CommentInputDialog(
                                     AppIcon(
                                         imageVector = Icons.Filled.Face,
                                         contentDescription = "表情",
-                                        tint = if (showEmojiPanel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = if (showEmojiPanel) AppContentColors.accent() else AppContentColors.secondaryText(),
                                         modifier = Modifier.size(26.dp)
                                     )
                                 }
@@ -666,7 +668,7 @@ fun CommentInputDialog(
                                     AppIcon(
                                         imageVector = Icons.Outlined.AlternateEmail,
                                         contentDescription = "提及用户",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = AppContentColors.secondaryText(),
                                         modifier = Modifier.size(26.dp)
                                     )
                                 }
@@ -683,7 +685,7 @@ fun CommentInputDialog(
                                     AppIcon(
                                         imageVector = Icons.Outlined.Schedule,
                                         contentDescription = "插入当前播放进度",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = AppContentColors.secondaryText(),
                                         modifier = Modifier.size(26.dp)
                                     )
                                 }
@@ -700,7 +702,7 @@ fun CommentInputDialog(
                                     AppIcon(
                                         imageVector = Icons.Outlined.Image,
                                         contentDescription = "图片",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = AppContentColors.secondaryText(),
                                         modifier = Modifier.size(26.dp)
                                     )
                                 }
@@ -724,7 +726,7 @@ fun CommentInputDialog(
                                     containerColor = resolveFilledButtonContainerColor(MaterialTheme.colorScheme),
 
                                     contentColor = resolveFilledButtonContentColor(MaterialTheme.colorScheme), // 应该是粉色
-                                    disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                    disabledContainerColor = AppContentColors.accent().copy(alpha = 0.3f)
                                 ),
                                 contentPadding = PaddingValues(horizontal = layoutPolicy.sendButtonHorizontalPaddingDp.dp, vertical = 0.dp),
                                 modifier = Modifier.height(36.dp)
@@ -733,7 +735,7 @@ fun CommentInputDialog(
                                     AppCircularProgressIndicator(
                                         modifier = Modifier.size(16.dp),
                                         strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.onPrimary
+                                        color = AppContentColors.onAccent()
                                     )
                                 } else {
                                     AppText(
@@ -748,12 +750,12 @@ fun CommentInputDialog(
                         if (!canInputComment) {
                             AppText(
                                 text = "当前评论区暂不可评论",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(top = 6.dp)
                             )
                         }
-                        
+
                         // 3. 表情面板區域
                         if (showEmojiPanel) {
                             val apiKaomojiPackage = remember(emotePackages) {
@@ -842,7 +844,7 @@ fun CommentInputDialog(
                                                     AppText(
                                                         text = emoteText.removePrefix("[").removeSuffix("]"),
                                                         style = MaterialTheme.typography.labelSmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        color = AppContentColors.secondaryText(),
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis,
                                                     )
@@ -858,7 +860,7 @@ fun CommentInputDialog(
                                             ) {
                                                 AppText(
                                                     text = "暂无表情包",
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    color = AppContentColors.secondaryText(),
                                                 )
                                             }
                                         } else {
@@ -912,7 +914,7 @@ fun CommentInputDialog(
                                                                 AppText(
                                                                     text = emote.text.removePrefix("[").removeSuffix("]"),
                                                                     style = MaterialTheme.typography.labelSmall,
-                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                    color = AppContentColors.secondaryText(),
                                                                     maxLines = 1,
                                                                     overflow = TextOverflow.Ellipsis,
                                                                 )
@@ -1015,7 +1017,7 @@ private fun CommentMentionSearchPanel(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
                     unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.56f),
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedBorderColor = AppContentColors.accent(),
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                 )
             )
@@ -1036,7 +1038,7 @@ private fun CommentMentionSearchPanel(
                         AppText(
                             text = "正在搜索好友",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                 }
@@ -1045,7 +1047,7 @@ private fun CommentMentionSearchPanel(
                     AppText(
                         text = errorMessage,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                     )
                 }
@@ -1054,7 +1056,7 @@ private fun CommentMentionSearchPanel(
                     AppText(
                         text = if (query.isBlank()) "输入好友昵称搜索" else "没有找到匹配的用户",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                     )
                 }
@@ -1087,14 +1089,14 @@ private fun CommentMentionSearchPanel(
                                     AppText(
                                         text = user.name,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        color = AppContentColors.primaryText(),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     AppText(
                                         text = "${FormatUtils.formatStat(user.fans.toLong())} 粉丝",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = AppContentColors.secondaryText(),
                                         maxLines = 1
                                     )
                                 }

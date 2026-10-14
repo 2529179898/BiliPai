@@ -1,4 +1,6 @@
 package com.android.purebilibili.feature.video.ui.overlay
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -147,19 +149,19 @@ fun PortraitInteractionBar(
         verticalArrangement = Arrangement.spacedBy(layoutPolicy.itemSpacingDp.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        
+
         // 点赞
         InteractionButton(
             icon = if (likeStatusKnown && isLiked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
             countText = if (!likeStatusKnown) "待确认" else if (likeCount > 0) FormatUtils.formatStat(likeCount.toLong()) else "点赞",
             isActive = likeStatusKnown && isLiked,
-            enabled = likeStatusKnown,
-            contentDescription = if (likeStatusKnown) "点赞" else "点赞状态待确认",
-            activeColor = MaterialTheme.colorScheme.primary,
+            contentDescription = if (likeStatusKnown) "点赞" else "重新确认状态并点赞",
+            activeColor = AppContentColors.accent(),
             layoutPolicy = layoutPolicy,
             progress = tripleProgress,
             onClick = onLikeClick,
             onLongClick = {
+                if (!likeStatusKnown) return@InteractionButton
                 tripleCompleted = false
                 isTriplePressing = shouldStartPortraitTriplePress(
                     longPressConfirmed = true
@@ -187,11 +189,11 @@ fun PortraitInteractionBar(
                 else -> "投币"
             },
             isActive = isCoined,
-            activeColor = MaterialTheme.colorScheme.primary,
+            activeColor = AppContentColors.accent(),
             layoutPolicy = layoutPolicy,
             onClick = onCoinClick
         )
-        
+
         // 评论
         InteractionButton(
             icon = Icons.AutoMirrored.Rounded.Comment,
@@ -200,18 +202,18 @@ fun PortraitInteractionBar(
             layoutPolicy = layoutPolicy,
             onClick = onCommentClick
         )
-        
+
         // 收藏
         InteractionButton(
             icon = if (isFavorited) Icons.Rounded.Star else Icons.Rounded.StarBorder,
             countText = if (favoriteCount > 0) FormatUtils.formatStat(favoriteCount.toLong()) else "收藏",
             isActive = isFavorited,
-            activeColor = MaterialTheme.colorScheme.primary,
+            activeColor = AppContentColors.accent(),
             layoutPolicy = layoutPolicy,
             onClick = onFavoriteClick,
             onLongClick = onFavoriteLongClick,
         )
-        
+
         // 分享
         InteractionButton(
             icon = Icons.Rounded.Share,
@@ -233,7 +235,7 @@ private fun InteractionButton(
     isActive: Boolean,
     enabled: Boolean = true,
     contentDescription: String? = null,
-    activeColor: Color = MaterialTheme.colorScheme.primary,
+    activeColor: Color = AppContentColors.accent(),
     layoutPolicy: PortraitInteractionBarLayoutPolicy,
     progress: Float = 0f,
     onClick: () -> Unit,

@@ -1,5 +1,9 @@
 // 文件路径: feature/video/MiniPlayerOverlay.kt
 package com.android.purebilibili.feature.video.ui.overlay
+
+import com.android.purebilibili.core.ui.MediaContrastPalette
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -70,7 +74,7 @@ private const val MINI_PLAYER_VISIBILITY_DURATION_MILLIS = 280
 
 /**
  *  小窗播放器覆盖层
- * 
+ *
  * 交互说明：
  * - 拖动顶部标题栏区域 → 移动小窗位置
  * - 在视频区域左右滑动 → 调节播放进度
@@ -96,7 +100,7 @@ fun MiniPlayerOverlay(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateAsState()
     val hostLifecycleStarted = lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
-    
+
     //  [调试] 仅在状态变化时记录，避免组合阶段高频日志
     val currentMode = miniPlayerManager.getCurrentMode()
     LaunchedEffect(currentMode, miniPlayerManager.isMiniMode, miniPlayerManager.isActive) {
@@ -105,11 +109,11 @@ fun MiniPlayerOverlay(
             "Overlay state changed: mode=$currentMode, isMiniMode=${miniPlayerManager.isMiniMode}, isActive=${miniPlayerManager.isActive}"
         )
     }
-    
+
     //  [简化] 小窗可见性由 AnimatedVisibility 的 isMiniMode && isActive 控制
     // 不再需要额外的模式检查
 
-    
+
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val playerChromeProfile = rememberAppPlayerChromeProfile()
@@ -128,7 +132,7 @@ fun MiniPlayerOverlay(
     val accentColor = if (shellVisual.useThemePrimaryAccent) {
         AppSurfaceTokens.primary()
     } else {
-        MaterialTheme.colorScheme.primary
+        AppContentColors.accent()
     }
 
     val padding = layoutPolicy.outerPaddingDp.dp
@@ -179,7 +183,7 @@ fun MiniPlayerOverlay(
     val cardBounds = com.android.purebilibili.core.util.CardPositionManager.lastClickedCardBounds
     val cardPosition = com.android.purebilibili.core.util.CardPositionManager.cardHorizontalPosition
     val entryFromLeft = miniPlayerManager.entryFromLeft
-    
+
     val initialOverlayOffset = remember(
         entryFromLeft,
         cardBounds,
@@ -207,7 +211,7 @@ fun MiniPlayerOverlay(
     //  [修复] 首次打开前先夹进可见区域，避免右侧按钮跑出屏幕
     var offsetX by remember(initialOverlayOffset) { mutableFloatStateOf(initialOverlayOffset.x) }
     var offsetY by remember(initialOverlayOffset) { mutableFloatStateOf(initialOverlayOffset.y) }
-    
+
     // 控制按钮显示状态
     var showControls by remember { mutableStateOf(true) }
     var lastInteractionTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -216,17 +220,17 @@ fun MiniPlayerOverlay(
     var isStashed by remember { mutableStateOf(false) }
     // 记录隐藏在哪一侧 (Left or Right), 默认为 Right，后续根据位置计算
     var stashSide by remember { mutableStateOf(com.android.purebilibili.core.util.CardPositionManager.CardHorizontalPosition.RIGHT) }
-    
+
     // [新增] Stashed 状态下的 Y 轴偏移量（允许在隐藏时上下拖动）
     var stashedOffsetY by remember(initialOverlayOffset) { mutableFloatStateOf(initialOverlayOffset.y) }
 
-    
+
     // 进度拖动状态
     var isDraggingProgress by remember { mutableStateOf(false) }
     var dragProgressDelta by remember { mutableFloatStateOf(0f) }
     var dragProgressStartPosition by remember { mutableLongStateOf(0L) }
     var seekPreviewPosition by remember { mutableLongStateOf(0L) }
-    
+
     // 位置拖动状态
     var isDraggingPosition by remember { mutableStateOf(false) }
     var isResizing by remember { mutableStateOf(false) }
@@ -239,22 +243,22 @@ fun MiniPlayerOverlay(
         isDraggingPosition = isDraggingPosition,
         isResizing = isResizing
     )
-    
+
     // 播放器状态
     //  [修复] 在退出动画期间保持旧 Player 引用，防止画面跳变
     // 当 isMiniMode 为 false (正在退出) 时，不再更新 player，保持最后一帧画面
     val rawPlayer = miniPlayerManager.player
     var player by remember { mutableStateOf(rawPlayer) }
-    
+
     if (miniPlayerManager.isMiniMode && rawPlayer != null) {
         player = rawPlayer
     }
-    
+
     var isPlaying by remember { mutableStateOf(player?.isPlaying ?: false) }
     var currentProgress by remember { mutableFloatStateOf(0f) }
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
-    
+
     val shouldPollProgress = shouldPollMiniPlayerProgress(
         playerExists = player != null,
         hostLifecycleStarted = hostLifecycleStarted,
@@ -277,7 +281,7 @@ fun MiniPlayerOverlay(
             delay(resolveMiniPlayerPollingIntervalMs(isPlaying = currentIsPlaying))
         }
     }
-    
+
     // 自动隐藏控制按钮
     LaunchedEffect(showControls, lastInteractionTime) {
         if (showControls && !isDraggingPosition && !isDraggingProgress && !isResizing) {
@@ -803,7 +807,7 @@ fun MiniPlayerOverlay(
                                 onClick = { miniPlayerManager.dismiss() },
                                 modifier = Modifier.size(layoutPolicy.headerButtonSizeDp.dp),
                                 shape = CircleShape,
-                                color = com.android.purebilibili.core.theme.iOSRed.copy(alpha = 0.7f)
+                                color = MediaContrastPalette.ControlScrim
                             ) {
                                 AppIcon(
                                     imageVector = clearIcon,
@@ -835,7 +839,7 @@ fun MiniPlayerOverlay(
 
                     // 播放/暂停按钮
                     AppSurface(
-                        onClick = { 
+                        onClick = {
                             lastInteractionTime = System.currentTimeMillis()
                             player?.let { if (it.isPlaying) it.pause() else it.play() }
                         },
@@ -852,7 +856,7 @@ fun MiniPlayerOverlay(
                                 .size(layoutPolicy.centerPlayIconSizeDp.dp)
                         )
                     }
-                    
+
                     // 底部提示
                     if (chrome.showSeekHint) {
                         AppSurface(
@@ -884,7 +888,7 @@ fun MiniPlayerOverlay(
                                 .padding(bottom = layoutPolicy.dragHintBottomPaddingDp.dp)
                         )
                     }
-                    
+
                     // 📺 [新增] 直播角标
                     if (miniPlayerManager.isLiveMode) {
                         androidx.compose.foundation.layout.Row(

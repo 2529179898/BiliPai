@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.space
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.os.Build
 import com.android.purebilibili.core.ui.components.videoListItemModifier
 import com.android.purebilibili.core.ui.components.AnimatedVideoListItem
@@ -601,7 +603,7 @@ fun SpaceScreen(
                                             AppWindowAction(
                                                 label = "举报",
                                                 icon = Icons.Outlined.VisibilityOff,
-                                                iconTint = MaterialTheme.colorScheme.error,
+                                                iconTint = AppContentColors.error(),
                                                 onClick = {
                                                     onWebClick(
                                                         "https://www.bilibili.com/appeal/?prefid=0&mid=$mid",
@@ -613,9 +615,9 @@ fun SpaceScreen(
                                                 label = if (isBlocked) unblockUserLabel else blockUserLabel,
                                                 icon = if (isBlocked) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
                                                 iconTint = if (isBlocked) {
-                                                    MaterialTheme.colorScheme.primary
+                                                    AppContentColors.accent()
                                                 } else {
-                                                    MaterialTheme.colorScheme.error
+                                                    AppContentColors.error()
                                                 },
                                                 onClick = { showBlockConfirmDialog = true },
                                             ),
@@ -1001,7 +1003,7 @@ fun SpaceScreen(
                         if (followGroupTags.isEmpty()) {
                             AppText(
                                 text = "暂无可用分组（不勾选即为默认分组）",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         } else {
@@ -1020,14 +1022,14 @@ fun SpaceScreen(
                                     AppText(
                                         text = "${tag.name} (${tag.count})",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = AppContentColors.primaryText()
                                     )
                                 }
                             }
                         }
                         AppText(
                             text = "可多选，确定后覆盖原分组设置。",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(top = 8.dp)
                         )
@@ -1043,7 +1045,7 @@ fun SpaceScreen(
                         AppCircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
                             strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            color = AppContentColors.onAccent()
                         )
                     } else {
                         AppText("确定")
@@ -1101,7 +1103,7 @@ private fun SpacePlayedVideoLocatePrompt(
                     text = "是否定位到视频投稿",
                     modifier = Modifier.padding(top = 2.dp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1548,6 +1550,7 @@ private fun SpaceContent(
                     upStat = state.headerState.upStat ?: state.upStat,
                     collapseFractionProvider = { headerCollapseFraction.value },
                     bannerScrollOffsetPxProvider = { bannerScrollOffsetPx.value },
+                    bannerScrollState = gridState,
                     chargeGroup = state.chargeGroup,
                     guardGroup = state.guardGroup,
                     onWebClick = onWebClick,
@@ -2614,6 +2617,42 @@ private fun SpaceContent(
                 }
             }
         }
+        // Short overview/empty tabs must still have enough scroll travel to finish the
+        // header-to-cutout handoff. Measure only the missing tail space, not a fixed footer.
+        item(key = "space_header_collapse_tail", span = { GridItemSpan(maxLineSpan) }) {
+            // Keep the derived measurement stable when LazyGrid publishes a new layout result.
+            val retainedHeight = remember { intArrayOf(0) }
+            val tailHeight = remember(gridState, headerCollapseRangePx, spaceSkeletonBannerHeightDp, density) {
+                derivedStateOf {
+                    val info = gridState.layoutInfo
+                    val tail = info.visibleItemsInfo.firstOrNull { it.key == "space_header_collapse_tail" }
+                    val requiredTravelPx = maxOf(
+                        headerCollapseRangePx,
+                        with(density) { spaceSkeletonBannerHeightDp.dp.toPx() },
+                    )
+                    if (gridState.firstVisibleItemIndex == 0) {
+                        if (tail == null) requiredTravelPx.toInt() else {
+                            val naturalTailTop = tail.offset.y + gridState.firstVisibleItemScrollOffset
+                            (info.viewportEndOffset - info.afterContentPadding + requiredTravelPx - naturalTailTop)
+                                .toInt().coerceAtLeast(0)
+                        }
+                    } else {
+                        // Do not remove reserved travel as the header leaves the viewport.
+                        retainedHeight[0]
+                    }
+                }
+            }
+            Spacer(
+                Modifier.fillMaxWidth().layout { measurable, constraints ->
+                    val missingHeight = tailHeight.value
+                    retainedHeight[0] = missingHeight
+                    val placeable = measurable.measure(
+                        constraints.copy(minHeight = missingHeight, maxHeight = missingHeight)
+                    )
+                    layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+                }
+            )
+        }
     }
 
         // 投稿视频悬浮工具条（对齐 PiliPlus 的 SliverFloatingHeaderWidget）：
@@ -2680,6 +2719,7 @@ private fun SpaceHeader(
     upStat: UpStatData?,
     collapseFractionProvider: () -> Float,
     bannerScrollOffsetPxProvider: () -> Float = { 0f },
+    bannerScrollState: androidx.compose.foundation.gestures.ScrollableState,
     chargeGroup: SpaceSupporterGroup? = null,
     guardGroup: SpaceSupporterGroup? = null,
     onWebClick: (String, String) -> Unit = { _, _ -> },
@@ -2781,6 +2821,7 @@ private fun SpaceHeader(
         val bannerTotalHeightDp = bannerMetrics.heightDp.dp
         val heroHeight = bannerMetrics.heroHeightDp.dp
         val avatarTopPadding = (heroHeight - avatarBannerOverlap).coerceAtLeast(0.dp)
+        val density = LocalDensity.current
         // 视差余量 = 背景图向上溢出窗口的量（chromeTopInset）。平移钳在该范围内，
         // 图片永远不会滑出窗口顶部露底；效果为背景以约 1/4 速率跟随滚动。
         val maxBannerParallaxTranslationPx = with(LocalDensity.current) {
@@ -2807,8 +2848,6 @@ private fun SpaceHeader(
                         translationY = (bannerScrollOffsetPxProvider() * 0.75f)
                             .coerceIn(0f, maxBannerParallaxTranslationPx)
                     }
-                    .imagePreviewSourceBounds(topPhotoRect)
-                    .alpha(if (topPhotoHidden) 0f else 1f)
                     .layout { measurable, constraints ->
                         val horizontalInsetPx = outerPadding.coerceAtLeast(0.dp).roundToPx()
                         val topInsetPx = chromeTopInset.coerceAtLeast(0.dp).roundToPx()
@@ -2828,34 +2867,51 @@ private fun SpaceHeader(
                         }
                     }
                     .align(Alignment.TopCenter)
-                    .clickable(
-                        interactionSource = null,
-                        indication = null,
-                        enabled = skinSpaceBackgroundPaths.isEmpty() &&
-                            (shouldEnableSpaceTopPhotoPreview(topPhotoUrl) || userInfo.topImages.isNotEmpty()),
-                        onClick = { onTopPhotoClick(topPhotoRect.value, currentBannerUrl) }
-                    )
             ) {
-                SpaceHeaderBanner(
-                    topImages = userInfo.topImages,
-                    fallbackTopPhotoUrl = topPhotoUrl,
-                    onCurrentBannerUrlChange = { currentBannerUrl = it },
-                    skinBackgroundPaths = skinSpaceBackgroundPaths,
-                    isDarkTheme = isDarkTheme,
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(chromeTopInset.coerceAtLeast(48.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                0.0f to Color.Black.copy(alpha = 0.18f),
-                                1.0f to Color.Transparent
+                SpaceBannerFusionEffect(
+                    collapseFractionProvider = {
+                        val rangePx = maxBannerParallaxTranslationPx + with(density) { heroHeight.toPx() }
+                        (bannerScrollOffsetPxProvider() / rangePx.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                    },
+                    scrollOffsetPxProvider = bannerScrollOffsetPxProvider,
+                    maxParallaxTranslationPx = maxBannerParallaxTranslationPx,
+                    scrollState = bannerScrollState,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    Box(
+                        Modifier.fillMaxSize()
+                            .imagePreviewSourceBounds(topPhotoRect)
+                            .alpha(if (topPhotoHidden) 0f else 1f)
+                            .clickable(
+                                interactionSource = null,
+                                indication = null,
+                                enabled = skinSpaceBackgroundPaths.isEmpty() &&
+                                    (shouldEnableSpaceTopPhotoPreview(topPhotoUrl) || userInfo.topImages.isNotEmpty()),
+                                onClick = { onTopPhotoClick(topPhotoRect.value, currentBannerUrl) },
                             )
+                    ) {
+                        SpaceHeaderBanner(
+                            topImages = userInfo.topImages,
+                            fallbackTopPhotoUrl = topPhotoUrl,
+                            onCurrentBannerUrlChange = { currentBannerUrl = it },
+                            skinBackgroundPaths = skinSpaceBackgroundPaths,
+                            isDarkTheme = isDarkTheme,
+                            modifier = Modifier.fillMaxSize()
                         )
-                )
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(chromeTopInset.coerceAtLeast(48.dp))
+                                .background(
+                                    Brush.verticalGradient(
+                                        0.0f to Color.Black.copy(alpha = 0.18f),
+                                        1.0f to Color.Transparent
+                                    )
+                                )
+                        )
+                    }
+                }
             }
 
             // PiliPlus 风格头部结构：
@@ -3060,7 +3116,7 @@ private fun SpaceHeaderIdentityInfo(
                     color = resolveUpNameColor(
                         vipStatus = userInfo.vip.status,
                         vipType = userInfo.vip.type,
-                        onSurface = MaterialTheme.colorScheme.onSurface,
+                        onSurface = AppContentColors.primaryText(),
                         secondary = MaterialTheme.colorScheme.secondary,
                     ),
                     maxLines = 1,
@@ -3120,7 +3176,7 @@ private fun SpaceHeaderIdentityInfo(
                     text = userInfo.sign.trim(),
                     modifier = Modifier.copyOnLongPress(userInfo.sign, "UP主简介"),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = AppContentColors.primaryText(),
                     maxLines = 4,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -3141,7 +3197,7 @@ private fun SpaceHeaderIdentityInfo(
                             text = "UID: ${userInfo.mid}",
                             modifier = Modifier.copyOnLongPress(userInfo.mid.toString(), "UID"),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                     displayTags.forEach { tag ->
@@ -3162,7 +3218,7 @@ private fun SpaceHeaderIdentityInfo(
                             color = if (hasUri) {
                                 MaterialTheme.colorScheme.secondary
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f)
+                                AppContentColors.secondaryText().copy(alpha = 0.82f)
                             }
                         )
                     }
@@ -3217,12 +3273,12 @@ private fun SpaceSearchEntryChip(
             AppIcon(
                 imageVector = Icons.Outlined.Search,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = AppContentColors.secondaryText(),
                 modifier = Modifier.size(18.dp)
             )
             AppText(
                 text = label,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.bodyMedium
             )
         }
@@ -3392,7 +3448,7 @@ private fun SpaceContributionVideoSummaryBar(
         AppText(
             text = "共${totalCount}视频",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         Spacer(modifier = Modifier.width(14.dp))
         Row(
@@ -3407,12 +3463,12 @@ private fun SpaceContributionVideoSummaryBar(
                 imageVector = Icons.Outlined.PlayCircleOutline,
                 contentDescription = "播放全部",
                 modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = AppContentColors.secondaryText()
             )
             AppText(
                 text = "播放全部",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
         }
         Spacer(modifier = Modifier.weight(1f))
@@ -3431,12 +3487,12 @@ private fun SpaceContributionVideoSummaryBar(
                     imageVector = Icons.AutoMirrored.Outlined.Sort,
                     contentDescription = "排序",
                     modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = AppContentColors.secondaryText()
                 )
                 AppText(
                     text = resolveSpaceVideoSortCompactLabel(currentOrder) + "发布",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
             DropdownMenu(
@@ -3481,7 +3537,7 @@ private fun SpaceChargeGuardRow(
                 AppText(
                     text = "${FormatUtils.formatStat(group.count)}人为TA充电",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
                 AppIcon(
                     imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
@@ -3501,7 +3557,7 @@ private fun SpaceChargeGuardRow(
                 AppText(
                     text = "${FormatUtils.formatStat(group.count)}人加入大航海",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -3551,13 +3607,13 @@ private fun SpaceSectionHeader(
         AppText(
             text = title,
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
         Spacer(modifier = Modifier.width(8.dp))
         AppText(
             text = count.toString(),
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         Spacer(modifier = Modifier.weight(1f))
         if (onActionClick != null && !actionLabel.isNullOrBlank()) {
@@ -3641,7 +3697,7 @@ private fun SpaceHomeVideoCard(
     val context = LocalContext.current
     val locateHighlightColor by animateColorAsState(
         targetValue = if (isLocateHighlight) {
-            MaterialTheme.colorScheme.primary
+            AppContentColors.accent()
         } else {
             Color.Transparent
         },
@@ -3794,13 +3850,13 @@ private fun SpaceHomeVideoCard(
                         .align(Alignment.TopStart)
                         .padding(8.dp),
                     shape = AppShapes.container(ContainerLevel.Chip),
-                    color = MaterialTheme.colorScheme.primary
+                    color = AppContentColors.accent()
                 ) {
                     AppText(
                         text = badgeLabel,
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = AppContentColors.onAccent()
                     )
                 }
             }
@@ -3840,7 +3896,7 @@ private fun SpaceHomeVideoCard(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .height(3.dp),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     trackColor = Color.White.copy(alpha = 0.28f)
                 )
             }
@@ -3858,7 +3914,7 @@ private fun SpaceHomeVideoCard(
             AppText(
                 text = video.title,
                 style = feedContentTypography().title.copy(
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = AppContentColors.primaryText()
                 ),
                 minLines = 2,
                 maxLines = videoCardTitleMaxLines(),
@@ -3875,7 +3931,7 @@ private fun SpaceHomeVideoCard(
                 AppText(
                     text = metadata,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     overflow = TextOverflow.Visible
                 )
             }
@@ -4008,7 +4064,7 @@ private fun SpaceAggregateMediaCard(
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
             maxLines = videoCardTitleMaxLines(),
             overflow = videoCardTitleOverflow(),
-            color = MaterialTheme.colorScheme.onSurface
+            color = AppContentColors.primaryText()
         )
     }
 }
@@ -4054,7 +4110,7 @@ private fun SpaceAggregatePosterCard(
             AppText(
                 text = item.subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 overflow = TextOverflow.Visible
             )
         }
@@ -4106,7 +4162,7 @@ private fun SpaceNoticeCard(notice: String) {
             AppText(
                 text = notice,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
         }
     }
@@ -4216,7 +4272,7 @@ private fun SpaceArchiveListItemRow(
     val context = LocalContext.current
     val locateHighlightColor by animateColorAsState(
         targetValue = if (isLocateHighlight) {
-            MaterialTheme.colorScheme.primary
+            AppContentColors.accent()
         } else {
             Color.Transparent
         },
@@ -4356,13 +4412,13 @@ private fun SpaceArchiveListItemRow(
                         .align(Alignment.TopStart)
                         .padding(6.dp),
                     shape = AppShapes.container(ContainerLevel.Chip),
-                    color = MaterialTheme.colorScheme.primary
+                    color = AppContentColors.accent()
                 ) {
                     AppText(
                         text = badgeLabel,
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = AppContentColors.onAccent()
                     )
                 }
             }
@@ -4381,7 +4437,7 @@ private fun SpaceArchiveListItemRow(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .height(3.dp),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     trackColor = Color.White.copy(alpha = 0.28f)
                 )
             }
@@ -4398,12 +4454,12 @@ private fun SpaceArchiveListItemRow(
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                 maxLines = videoCardTitleMaxLines(),
                 overflow = videoCardTitleOverflow(),
-                color = MaterialTheme.colorScheme.onSurface
+                color = AppContentColors.primaryText()
             )
             AppText(
                 text = if (progressState?.progressSec == -1) "$publishTime · 已看完" else publishTime,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             HorizontalVideoStatRow(
                 playText = FormatUtils.formatStat(play),
@@ -4415,7 +4471,7 @@ private fun SpaceArchiveListItemRow(
                 AppIcon(
                     imageVector = Icons.Outlined.MoreVert,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    tint = AppContentColors.secondaryText().copy(alpha = 0.72f),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(8.dp)
@@ -4479,13 +4535,13 @@ private fun SpaceAudioListItem(
                     FormatUtils.formatDuration(audio.duration)
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
         }
         AppIcon(
             imageVector = Icons.Outlined.PlayCircleOutline,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = AppContentColors.accent(),
             modifier = Modifier.size(28.dp)
         )
     }
@@ -4555,7 +4611,7 @@ private fun SpaceArticleListItem(
         AppText(
             text = buildSpaceArticleStatsText(article),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         AppHorizontalDivider(
             modifier = Modifier.padding(top = 12.dp),
@@ -4595,13 +4651,13 @@ private fun SpaceFavoriteFolderRow(
                 AppText(
                     text = "${folder.media_count} 个视频",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
             AppText(
                 text = "查看",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
+                color = AppContentColors.accent()
             )
         }
     }
@@ -4652,7 +4708,7 @@ private fun SpaceBangumiCard(
         AppText(
             text = item.newEp?.indexShow?.ifBlank { item.progress }.orEmpty().ifBlank { item.evaluate },
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -4730,7 +4786,7 @@ private fun SpaceCheeseCard(
                     AppText(
                         text = item.status.orEmpty(),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -4865,14 +4921,14 @@ private fun SpaceCollectionSummaryCard(
                 AppText(
                     text = "$total 个内容",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
+                    color = AppContentColors.accent()
                 )
                 if (subtitle.isNotBlank()) {
                     Spacer(modifier = Modifier.height(6.dp))
                     AppText(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -4938,14 +4994,14 @@ private fun SpaceCollectionWithPreviewCard(
                     AppText(
                         text = "$total 个内容",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = AppContentColors.accent()
                     )
                     if (subtitle.isNotBlank()) {
                         Spacer(modifier = Modifier.height(6.dp))
                         AppText(
                             text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -4975,7 +5031,7 @@ private fun SpaceCollectionWithPreviewCard(
                             AppText(
                                 text = preview.title,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -5020,7 +5076,7 @@ private fun SpaceOfficialTag(
             AppText(
                 text = badge.text,
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                color = AppContentColors.secondaryText(),
             )
         }
     }
@@ -5082,7 +5138,7 @@ private fun SpaceHeaderRelationActions(
                     AppIcon(
                         imageVector = Icons.Outlined.Email,
                         contentDescription = "私信",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -5158,7 +5214,7 @@ private fun SpaceHeaderStat(
         AppText(
             text = FormatUtils.formatStat(value),
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurface,
+            color = AppContentColors.primaryText(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -5166,7 +5222,7 @@ private fun SpaceHeaderStat(
         AppText(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -5219,7 +5275,7 @@ private fun SpaceHeaderBanner(
                         .height(3.5.dp)
                         .align(Alignment.BottomCenter),
                     color = Color.White,
-                    trackColor = Color(0x669E9E9E),
+                    trackColor = MediaContrastPalette.Track,
                 )
             }
         }
@@ -5276,7 +5332,7 @@ private fun SpaceHeaderBanner(
                     .height(3.5.dp)
                     .align(Alignment.BottomCenter),
                 color = Color.White,
-                trackColor = Color(0x669E9E9E)
+                trackColor = MediaContrastPalette.Track
             )
         }
     } else if (topImages.size == 1) {
@@ -5433,7 +5489,7 @@ private fun SpaceFollowedUpSection(
         AppText(
             text = namesText,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = AppContentColors.secondaryText(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false)
@@ -5520,14 +5576,14 @@ private fun SpaceSectionEmptyState(
         AppText(
             text = title,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            color = AppContentColors.secondaryText()
         )
         Spacer(modifier = Modifier.height(titleGap))
         AppText(
             text = subtitle,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
     }
 }
@@ -5553,7 +5609,7 @@ private fun SpaceErrorSection(
         AppText(
             text = message,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         Spacer(modifier = Modifier.height(actionGap))
         AppButton(onClick = onRetry) {
@@ -5575,7 +5631,7 @@ private fun SpaceErrorState(
             AppText(
                 text = message,
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             Spacer(modifier = Modifier.height(12.dp))
             AppButton(onClick = onRetry) {
@@ -5608,4 +5664,5 @@ private fun handleAggregateArchiveClick(
 }
 
 // [重构] 空间页 header 折叠滚动范围约 320dp（具体像素在 SpaceContent 内按 density 换算）
+
 

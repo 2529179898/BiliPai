@@ -1,5 +1,7 @@
 // 文件路径: feature/video/screen/VideoDetailScreen.kt
 package com.android.purebilibili.feature.video.screen
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
@@ -134,7 +136,7 @@ import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.ui.AppWindowSystemUiController
 import com.android.purebilibili.core.ui.setWindowNavigationBarColor
 import com.android.purebilibili.core.ui.setWindowStatusBarColor
-//  已改用 MaterialTheme.colorScheme.primary
+//  已改用 AppContentColors.accent()
 
 import com.android.purebilibili.data.model.response.RelatedVideo
 import com.android.purebilibili.data.model.response.ReplyItem
@@ -345,7 +347,7 @@ private fun CollapsedPlayerNavigationBar(
                                 AppIcon(
                                     Icons.Filled.ArrowBack,
                                     contentDescription = "返回",
-                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    tint = AppContentColors.primaryText(),
                                 )
                             }
                         } else {
@@ -353,7 +355,7 @@ private fun CollapsedPlayerNavigationBar(
                                 Icon(
                                     Icons.Filled.ArrowBack,
                                     contentDescription = "返回",
-                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    tint = AppContentColors.primaryText(),
                                 )
                             }
                         }
@@ -365,7 +367,7 @@ private fun CollapsedPlayerNavigationBar(
                                 AppIcon(
                                     Icons.Filled.Home,
                                     contentDescription = "首页",
-                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    tint = AppContentColors.primaryText(),
                                 )
                             }
                         } else {
@@ -373,7 +375,7 @@ private fun CollapsedPlayerNavigationBar(
                                 Icon(
                                     Icons.Filled.Home,
                                     contentDescription = "首页",
-                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    tint = AppContentColors.primaryText(),
                                 )
                             }
                         }
@@ -387,16 +389,16 @@ private fun CollapsedPlayerNavigationBar(
                             AppIcon(
                                 imageVector = Icons.Filled.PlayArrow,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = AppContentColors.accent(),
                             )
-                            AppText("立即播放", color = MaterialTheme.colorScheme.primary)
+                            AppText("立即播放", color = AppContentColors.accent())
                         } else {
                             Icon(
                                 imageVector = Icons.Filled.PlayArrow,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = AppContentColors.accent(),
                             )
-                            Text("立即播放", color = MaterialTheme.colorScheme.primary)
+                            Text("立即播放", color = AppContentColors.accent())
                         }
                     }
                     if (useMiuixNonGlassChrome) {
@@ -409,7 +411,7 @@ private fun CollapsedPlayerNavigationBar(
                             AppIcon(
                                 Icons.Filled.MoreVert,
                                 contentDescription = "更多设置",
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = AppContentColors.primaryText(),
                             )
                         }
                     } else {
@@ -422,7 +424,7 @@ private fun CollapsedPlayerNavigationBar(
                             Icon(
                                 Icons.Filled.MoreVert,
                                 contentDescription = "更多设置",
-                                tint = MaterialTheme.colorScheme.onSurface,
+                                tint = AppContentColors.primaryText(),
                             )
                         }
                     }
@@ -677,6 +679,7 @@ internal fun VideoDetailScreenStateHolder(
     val engagementActions = remember(engagementViewModel, viewModel) {
         VideoDetailEngagementActions(
             toggleFollow = engagementViewModel::toggleFollow,
+            followOwner = engagementViewModel::followOwner,
             toggleFavorite = engagementViewModel::toggleFavorite,
             onFavoriteAction = { isLongPress ->
                 when (
@@ -3503,6 +3506,8 @@ internal fun VideoDetailScreenStateHolder(
             isFullscreen = layout.isFullscreen,
             playerState = playerState,
             uiState = uiState,
+            engagementState = engagementState,
+            engagementActions = engagementActions,
             isPipMode = isPipMode,
             transitionEnabled = detailChildTransitionEnabled,
             transitionChromeAlphaProvider = videoCardDetailChromeAlphaProvider,
@@ -3583,11 +3588,14 @@ internal fun VideoDetailScreenStateHolder(
                 ugcSeason = uiSuccessState?.info?.ugc_season,
                 isFollowed = engagementState.isFollowing,
                 followStatusKnown = engagementState.followStatusKnown,
+                isFollowSubmitting = engagementState.isFollowSubmitting,
+                isTripleSubmitting = engagementState.isTripleSubmitting,
                 isLiked = engagementState.isLiked,
                 likeStatusKnown = engagementState.likeStatusKnown,
                 isCoined = engagementState.coinCount > 0,
                 isFavorited = engagementState.isFavorited,
                 onToggleFollow = engagementViewModel::toggleFollow,
+                onFollow = engagementActions.followOwner,
                 onToggleLike = engagementViewModel::toggleLike,
                 onDislike = viewModel::markVideoNotInterested,
                 onCoin = engagementViewModel::openCoinDialog,
@@ -3791,6 +3799,8 @@ internal fun VideoDetailScreenStateHolder(
                         ugcSeason = (uiState as? VideoPlaybackUiState.Success)?.info?.ugc_season,
                         isFollowed = engagementState.isFollowing,
                         followStatusKnown = engagementState.followStatusKnown,
+                        isFollowSubmitting = engagementState.isFollowSubmitting,
+                        isTripleSubmitting = engagementState.isTripleSubmitting,
                         isLiked = engagementState.isLiked,
                         likeStatusKnown = engagementState.likeStatusKnown,
                         isCoined = engagementState.coinCount > 0,
@@ -3879,6 +3889,7 @@ internal fun VideoDetailScreenStateHolder(
                         onSaveCover = { viewModel.saveCover(context) },
                         onDownloadAudio = { viewModel.downloadAudio(context) },
                         onToggleFollow = { engagementViewModel.toggleFollow() },
+                        onFollow = engagementActions.followOwner,
                         onToggleLike = { engagementViewModel.toggleLike() },
                         onDislike = { viewModel.markVideoNotInterested() },
                         onCoin = { engagementViewModel.openCoinDialog() },
@@ -4005,19 +4016,39 @@ internal fun VideoDetailScreenStateHolder(
 
                     // Full-viewport host for Miuix landing chrome (stacked home + side-by-side
                     // related). Anchors are entry-space; never nest under the player column.
-                    Box(modifier = Modifier.fillMaxSize()) {
+                    val largeScreenGeometry = remember { LargeScreenVideoTransitionGeometry() }
+                    val largeScreenTransition = com.android.purebilibili.core.ui.transition
+                        .LocalMiuixVideoCardTransitionState.current
+                    Box(modifier = Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned(largeScreenGeometry::recordRoot)) {
                     // Shared movable player content for tablet and large screen.
                     // onPortraitFullscreen = { enterPortraitFullscreen() }
                     val continuousPlayerSlot: @Composable (Modifier) -> Unit = remember(
-                        continuousPlayerContent,
-                        continuousPlayerUnitState,
+                        continuousPlayerContent, continuousPlayerUnitState,
+                        largeScreenGeometry, largeScreenTransition, videoCardDepthBackgroundState,
+                        entryOwnsMiuixCardTransition, isCommittedCardReturn, residentCoverSource,
+                        uiState is VideoPlaybackUiState.Loading,
                     ) {
                         { playerModifier ->
-                            BoxWithConstraints(modifier = playerModifier) {
+                            LargeScreenVideoPlayerTransitionHost(
+                                geometry = largeScreenGeometry,
+                                transition = largeScreenTransition.copy(
+                                    enabled = largeScreenTransition.enabled && entryOwnsMiuixCardTransition,
+                                ),
+                                phaseProvider = videoCardDepthBackgroundState.phaseProvider,
+                                isReturningProvider = {
+                                    videoCardDepthBackgroundState.isReturnGestureInProgressProvider() ||
+                                        videoCardDepthBackgroundState.isGestureRestoreInProgressProvider()
+                                },
+                                isCommittedReturn = isCommittedCardReturn,
+                                coverSource = residentCoverSource,
+                                modifier = playerModifier,
+                            ) { viewportWidth ->
                                 continuousPlayerContent(
                                     ContinuousPlayerHostLayout(
                                         modifier = Modifier.fillMaxSize(),
-                                        viewportWidth = maxWidth,
+                                        viewportWidth = viewportWidth,
                                         alpha = continuousPlayerUnitState,
                                         scale = continuousPlayerUnitState,
                                         isFullscreen = false,
@@ -4098,6 +4129,7 @@ internal fun VideoDetailScreenStateHolder(
                                 videoNoteEnabled = videoNoteEnabled,
                                 videoNoteDefaultCollapsed = videoNoteDefaultCollapsed,
                                 playerContent = continuousPlayerSlot,
+                                transitionChromeAlphaProvider = videoCardDetailChromeAlphaProvider,
                             )
                         } else {
                             LargeScreenVideoLayout(
@@ -4173,6 +4205,7 @@ internal fun VideoDetailScreenStateHolder(
                             videoNoteEnabled = videoNoteEnabled,
                             videoNoteDefaultCollapsed = videoNoteDefaultCollapsed,
                             playerContent = continuousPlayerSlot,
+                            transitionChromeAlphaProvider = videoCardDetailChromeAlphaProvider,
                             )
                         }
                     } else {
@@ -4240,6 +4273,18 @@ internal fun VideoDetailScreenStateHolder(
                                 inlinePlayerCollapseState.restore()
                             }
                         }
+                        val expandedPortraitInlineSpec = remember(
+                            configuration.screenWidthDp,
+                            configuration.screenHeightDp,
+                            displayContext.isFoldableCoverWindow,
+                        ) {
+                            resolvePortraitInlinePlayerLayoutSpec(
+                                screenWidthDp = configuration.screenWidthDp.toFloat(),
+                                screenHeightDp = configuration.screenHeightDp.toFloat(),
+                                isCollapsed = false,
+                                isFoldableCoverWindow = displayContext.isFoldableCoverWindow,
+                            )
+                        }
                         val compactInlinePlayerForCommentTab =
                             shouldUseCompactInlinePortraitPlayerForCommentTab(
                                 useOfficialInlinePortraitDetailExperience = useOfficialInlinePortraitDetailExperience,
@@ -4251,6 +4296,9 @@ internal fun VideoDetailScreenStateHolder(
                                 isPlaybackPaused = isPlaybackPaused,
                                 isCompactFoldableCoverWindow = displayContext.isFoldableCoverWindow &&
                                     configuration.screenHeightDp < FOLDABLE_COVER_COMPACT_HEIGHT_MAX_DP,
+                                availableCommentHeightDp = configuration.screenHeightDp.toFloat() -
+                                    expandedPortraitInlineSpec.heightDp - stableStatusBarHeight.value -
+                                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().value,
                             )
                         val compactInlinePlayerForIntroScroll = !hidePausedPlayerForComments &&
                             shouldUseCompactInlinePortraitPlayerForIntroScroll(
@@ -4265,18 +4313,6 @@ internal fun VideoDetailScreenStateHolder(
                             )
 
                         // 📏 [Collapsing Player] 上滑隐藏播放器逻辑
-                        val expandedPortraitInlineSpec = remember(
-                            configuration.screenWidthDp,
-                            configuration.screenHeightDp,
-                            displayContext.isFoldableCoverWindow,
-                        ) {
-                            resolvePortraitInlinePlayerLayoutSpec(
-                                screenWidthDp = configuration.screenWidthDp.toFloat(),
-                                screenHeightDp = configuration.screenHeightDp.toFloat(),
-                                isCollapsed = false,
-                                isFoldableCoverWindow = displayContext.isFoldableCoverWindow,
-                            )
-                        }
                         val collapsedPortraitInlineSpec = remember(
                             configuration.screenWidthDp,
                             configuration.screenHeightDp,
@@ -5260,7 +5296,7 @@ internal fun VideoDetailScreenStateHolder(
                                                     Spacer(Modifier.height(16.dp))
                                                     AppText(
                                                         text = "正在重试 ${loadingState.retryAttempt}/${loadingState.maxAttempts}...",
-                                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                                        color = AppContentColors.secondaryText(),
                                                         style = MaterialTheme.typography.bodyMedium
                                                     )
                                                 }
@@ -5367,7 +5403,7 @@ internal fun VideoDetailScreenStateHolder(
                                             Spacer(Modifier.height(16.dp))
                                             AppText(
                                                 text = errorState.msg,
-                                                color = MaterialTheme.colorScheme.onSurface,
+                                                color = AppContentColors.primaryText(),
                                                 style = MaterialTheme.typography.titleMedium,
                                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                             )
@@ -5379,7 +5415,7 @@ internal fun VideoDetailScreenStateHolder(
                                                     Spacer(Modifier.height(8.dp))
                                                     AppText(
                                                         text = " 建议：切换 WiFi/移动数据 或 清除缓存后重试",
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        color = AppContentColors.secondaryText(),
                                                         style = MaterialTheme.typography.bodySmall,
                                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                                     )
@@ -5388,7 +5424,7 @@ internal fun VideoDetailScreenStateHolder(
                                                     Spacer(Modifier.height(8.dp))
                                                     AppText(
                                                         text = " 该视频可能暂时不可用，请尝试其他视频",
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        color = AppContentColors.secondaryText(),
                                                         style = MaterialTheme.typography.bodySmall,
                                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                                     )
@@ -5461,7 +5497,7 @@ internal fun VideoDetailScreenStateHolder(
                                                     Spacer(Modifier.height(8.dp))
                                                     AppText(
                                                         text = "可在「我的 - 账号与播放」中更换播放账号",
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        color = AppContentColors.secondaryText(),
                                                         style = MaterialTheme.typography.bodySmall,
                                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                                     )
@@ -5473,8 +5509,8 @@ internal fun VideoDetailScreenStateHolder(
                     }  // Detail body
                     }  // 📱 手机竖屏布局结束（Column）
                     }  // phone portrait branch of useTabletLayout
-                    // Opening still paints a card-shaped facade (list card is hidden).
-                    // Return punches through to the stationary list card instead.
+                    // Keep the flying source facade mounted through opening and return.
+                    // Its draw-phase alpha hands pixels back to the list at the endpoint.
                     val miuixCardTransitionState =
                         com.android.purebilibili.core.ui.transition
                             .LocalMiuixVideoCardTransitionState.current
@@ -5494,9 +5530,6 @@ internal fun VideoDetailScreenStateHolder(
                             isGestureRestoreInProgress =
                                 videoCardDepthBackgroundState
                                     .isGestureRestoreInProgressProvider(),
-                            // 串行化：正文/覆盖层 chrome 让位完成后才画重建板，
-                            // 避免两层在同一块信息槽里叠画。
-                            detailBodyChromeAlpha = videoCardDetailChromeAlphaProvider(),
                         ) &&
                         (sourceCardInfo != null ||
                             miuixCardTransitionState.sourceChromeSnapshot != null)

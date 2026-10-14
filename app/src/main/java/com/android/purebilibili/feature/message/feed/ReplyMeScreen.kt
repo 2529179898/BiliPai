@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.message.feed
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -306,7 +308,7 @@ private fun ReplyMeCard(
                     AppText(
                         text = "| $it",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = AppContentColors.secondaryText(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -316,14 +318,14 @@ private fun ReplyMeCard(
                     AppText(
                         text = formatMessageFeedTime(item.replyTime),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     AppText(
                         text = "删除",
                         modifier = Modifier.clickable(onClick = onRemove),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = AppContentColors.accent()
                     )
                 }
             }

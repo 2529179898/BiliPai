@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.search
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -297,7 +299,7 @@ fun SearchSuggestionDropdown(
                     AppIcon(
                         imageVector = Icons.Rounded.Search,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        tint = AppContentColors.secondaryText().copy(alpha = 0.7f),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))
@@ -306,7 +308,7 @@ fun SearchSuggestionDropdown(
                             richText = suggestion.richText,
                             fallback = suggestion.keyword
                         ),
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = AppContentColors.primaryText(),
                         style = MaterialTheme.typography.bodyLarge,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -421,7 +423,7 @@ private fun SearchKeywordSection(
                 AppText(
                     text = resolveSearchKeywordSectionHiddenText(title),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -444,20 +446,19 @@ private fun SearchInlineMessage(
         AppText(
             text = title,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         if (!message.isNullOrBlank()) {
             AppText(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                color = AppContentColors.secondaryText()
             )
         }
         if (actionLabel != null && onAction != null) {
             AppTextButton(onClick = onAction) {
                 AppText(
                     text = actionLabel,
-                    color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.labelLarge
                 )
             }
@@ -504,7 +505,6 @@ private fun SearchKeywordSectionHeader(
                 AppTextButton(onClick = onOpenTrending) {
                     AppText(
                         text = "完整榜单",
-                        color = outline,
                         style = MaterialTheme.typography.labelMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -512,7 +512,6 @@ private fun SearchKeywordSectionHeader(
                     AppIcon(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                         contentDescription = null,
-                        tint = outline,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -528,7 +527,7 @@ private fun SearchKeywordSectionHeader(
                     AppIcon(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                         contentDescription = "完整榜单",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                         modifier = Modifier.size(20.dp),
                     )
                 }
@@ -539,7 +538,7 @@ private fun SearchKeywordSectionHeader(
                         AppIcon(
                             imageVector = Icons.Rounded.Refresh,
                             contentDescription = "刷新",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppContentColors.secondaryText(),
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -548,13 +547,11 @@ private fun SearchKeywordSectionHeader(
                         AppIcon(
                             imageVector = Icons.Rounded.Refresh,
                             contentDescription = "刷新",
-                            tint = secondary,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         AppText(
                             text = "刷新",
-                            color = secondary,
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
@@ -571,7 +568,7 @@ private fun SearchKeywordSectionHeader(
                             enabled = enabled,
                             title = title,
                         ),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = AppContentColors.secondaryText(),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -625,7 +622,7 @@ private fun SearchDiscoverOriginalCell(
                         Spacer(modifier = Modifier.width(AppSpacingTokens.ExtraSmall))
                         SearchKeywordBadge(
                             text = "直播中",
-                            containerColor = MaterialTheme.colorScheme.error,
+                            containerColor = AppContentColors.error(),
                             contentColor = MaterialTheme.colorScheme.onError
                         )
                     }
@@ -673,7 +670,7 @@ private fun SearchKeywordCell(
             )
             item.showLiveBadge -> SearchKeywordBadge(
                 text = "直播中",
-                containerColor = MaterialTheme.colorScheme.error,
+                containerColor = AppContentColors.error(),
                 contentColor = MaterialTheme.colorScheme.onError
             )
             !item.subtitle.isNullOrBlank() -> AppText(
@@ -739,13 +736,11 @@ private fun SearchHistorySectionModern(
                 AppIcon(
                     imageVector = Icons.Outlined.ClearAll,
                     contentDescription = "清空",
-                    tint = secondary,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(2.dp))
                 AppText(
                     text = "清空",
-                    color = secondary,
                     style = MaterialTheme.typography.labelMedium
                 )
             }
@@ -772,7 +767,7 @@ private fun SearchHistorySectionModern(
                             text = history.keyword,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = AppContentColors.primaryText(),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.weight(1f)
                         )
@@ -786,7 +781,7 @@ private fun SearchHistorySectionModern(
                             AppIcon(
                                 imageVector = Icons.Outlined.Close,
                                 contentDescription = "删除",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                                tint = AppContentColors.secondaryText().copy(0.5f),
                                 modifier = Modifier.size(14.dp)
                             )
                         }
@@ -805,7 +800,7 @@ private fun rememberSuggestionAnnotatedText(
     richText: String,
     fallback: String
 ): AnnotatedString {
-    val highlightColor = MaterialTheme.colorScheme.primary
+    val highlightColor = AppContentColors.accent()
     return remember(richText, fallback, highlightColor) {
         buildSuggestionAnnotatedString(
             richText = richText,

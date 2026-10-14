@@ -1393,6 +1393,9 @@ open class MainActivity : AppCompatActivity() {
             val detailedCommentTimeEnabled by remember(context) {
                 SettingsManager.getDetailedCommentTimeEnabled(context)
             }.collectAsStateWithLifecycle(initialValue = false)
+            val globalDragFeedbackEnabled by SettingsManager
+                .getGlobalDragFeedbackEnabled(context)
+                .collectAsStateWithLifecycle(initialValue = true)
             val uiEntranceAnimationEnabled by SettingsManager
                 .getUiEntranceAnimationEnabled(context)
                 .collectAsStateWithLifecycle(initialValue = true)
@@ -1417,6 +1420,7 @@ open class MainActivity : AppCompatActivity() {
                 hapticFeedbackEnabled,
                 globalTextTapCopyEnabled,
                 uiEntranceAnimationEnabled,
+                globalDragFeedbackEnabled,
                 runtimeVisualGuardEnabled,
                 nativeMiuixPopupsEnabled,
             ) {
@@ -1431,6 +1435,7 @@ open class MainActivity : AppCompatActivity() {
                     hapticFeedbackEnabled = hapticFeedbackEnabled,
                     globalTextTapCopyEnabled = globalTextTapCopyEnabled,
                     uiEntranceAnimationEnabled = uiEntranceAnimationEnabled,
+                    globalDragFeedbackEnabled = globalDragFeedbackEnabled,
                     runtimeVisualGuardEnabled = runtimeVisualGuardEnabled,
                     nativeMiuixPopupsEnabled = nativeMiuixPopupsEnabled,
                 )

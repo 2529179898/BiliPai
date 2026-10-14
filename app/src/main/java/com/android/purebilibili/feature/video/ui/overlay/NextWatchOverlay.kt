@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -128,7 +130,7 @@ private fun NextWatchCard(
     val container = if (miuix) top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainerHigh
         else MaterialTheme.colorScheme.surfaceContainerHigh
     val content = if (miuix) top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.onSurface
-        else MaterialTheme.colorScheme.onSurface
+        else AppContentColors.primaryText()
     AppSurface(modifier = modifier, shape = shape, color = container, tonalElevation = 3.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(

@@ -30,6 +30,7 @@ fun AppLiquidAwareSearchField(
     liquidContentContainerColor: Color = Color.Transparent,
     isScrollInProgressProvider: () -> Boolean = { false },
     leadingIconHorizontalOffset: Dp = 0.dp,
+    presentation: AppSearchFieldPresentation = AppSearchFieldPresentation.STANDARD,
 ) {
     BottomBarMatchedReusableLiquidDock(
         shape = CircleShape,
@@ -52,6 +53,7 @@ fun AppLiquidAwareSearchField(
             placeholder = placeholder,
             onSearch = onSearch,
             onClear = onClear,
+            presentation = presentation,
             autoFocusEnabled = autoFocusEnabled,
             focusRequester = focusRequester,
             interactionSource = interactionSource,

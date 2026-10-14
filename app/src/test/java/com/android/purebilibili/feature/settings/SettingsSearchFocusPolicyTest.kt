@@ -1,11 +1,52 @@
 package com.android.purebilibili.feature.settings
 
 import kotlin.test.Test
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SettingsSearchFocusPolicyTest {
+
+    @Test
+    fun concreteDecoderResultResolvesItsCardKey() {
+        assertEquals(SettingsSearchFocusIds.PLAYBACK_DECODER, resolveSettingsItemScrollKey("playback.hw_decode"))
+        assertNull(resolveSettingsItemScrollKey(null))
+        assertNull(resolveSettingsItemScrollKey("missing.setting"))
+    }
+
+    @Test
+    fun pageTimeoutDoesNotClearRowThatAlreadyOwnsRequest() {
+        try {
+            SettingsSearchFocusController.submit(SettingsSearchTarget.PLAYBACK, SettingsSearchFocusIds.PLAYBACK_DECODER, "playback.hw_decode")
+            val request = assertNotNull(SettingsSearchFocusController.request.value)
+            assertTrue(SettingsSearchFocusController.claim(request.token))
+            SettingsSearchFocusController.clearIfUnclaimed(request.token)
+            assertEquals(request, SettingsSearchFocusController.request.value)
+            SettingsSearchFocusController.clear(request.token)
+            assertNull(SettingsSearchFocusController.request.value)
+        } finally {
+            SettingsSearchFocusController.clear()
+        }
+    }
+
+    @Test
+    fun oldRequestCannotClaimOrClearNewSearch() {
+        try {
+            SettingsSearchFocusController.submit(SettingsSearchTarget.PLAYBACK, SettingsSearchFocusIds.PLAYBACK_DECODER, "playback.hw_decode")
+            val oldRequest = assertNotNull(SettingsSearchFocusController.request.value)
+            SettingsSearchFocusController.submit(SettingsSearchTarget.PLAYBACK, SettingsSearchFocusIds.PLAYBACK_SPEED, "playback.remember_last_playback_speed")
+            val newRequest = assertNotNull(SettingsSearchFocusController.request.value)
+            assertFalse(SettingsSearchFocusController.claim(oldRequest.token))
+            SettingsSearchFocusController.clearIfUnclaimed(oldRequest.token)
+            assertEquals(newRequest, SettingsSearchFocusController.request.value)
+            SettingsSearchFocusController.clearIfUnclaimed(newRequest.token)
+            assertNull(SettingsSearchFocusController.request.value)
+        } finally {
+            SettingsSearchFocusController.clear()
+        }
+    }
 
     @Test
     fun appearanceFocusIndex_noLongerHostsTabletNavigationSection() {

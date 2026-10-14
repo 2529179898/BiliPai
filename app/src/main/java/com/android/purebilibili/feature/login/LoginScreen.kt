@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.login
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.components.appSearchElasticPress
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
@@ -335,7 +337,7 @@ internal fun LoginPage(
                             AppText(
                                 text = "继续即表示你同意用户协议和隐私政策，点击查看全文。",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 textAlign = TextAlign.Center,
                             )
                         }
@@ -359,7 +361,7 @@ private fun LoginHeader(authorizingOtherDevice: Boolean = false, modifier: Modif
             text = if (authorizingOtherDevice) "使用本机已登录的 B 站账号，确认其他设备的登录请求。"
                 else "选择一种方式继续，你的观看进度和账号信息会同步到当前设备。",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
     }
 }
@@ -414,7 +416,7 @@ private fun BiliPaiTransferEntry(onOpen: () -> Unit) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             AppText("在两台 BiliPai 设备之间迁移登录会话、设置与插件", style = MaterialTheme.typography.titleMedium)
-            AppText("内容只在设备端加密和解密，不经过服务器。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            AppText("内容只在设备端加密和解密，不经过服务器。", color = AppContentColors.secondaryText())
             AppButton(onClick = onOpen, modifier = Modifier.fillMaxWidth()) { AppText("开始传输") }
         }
     }
@@ -468,8 +470,8 @@ private fun BiliPaiTransferDialog(onDismiss: () -> Unit) {
                                 (if (item.success) "✓ " else "✗ ") + item.name +
                                     (item.message?.let { "（$it）" } ?: ""),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = if (item.success) MaterialTheme.colorScheme.onSurfaceVariant
-                                else MaterialTheme.colorScheme.error,
+                                color = if (item.success) AppContentColors.secondaryText()
+                                else AppContentColors.error(),
                             )
                         }
                     }
@@ -513,7 +515,7 @@ private fun BiliPaiTransferDialog(onDismiss: () -> Unit) {
                             }
                             AppText(
                                 "请按顺序让对方依次扫描全部分块",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 style = MaterialTheme.typography.labelSmall,
                             )
                         }
@@ -664,7 +666,7 @@ private fun TransferGroup(
 ) {
     if (items.isEmpty()) return
     AppText("$label（${selected.size}/${items.size}）", style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
+        color = AppContentColors.secondaryText())
     items.forEach { item ->
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             androidx.compose.material3.Checkbox(
@@ -735,7 +737,7 @@ private fun TvQrLoginContent(
             AppText(
                 text = resolveQrLoginReason(),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = AppContentColors.secondaryText(),
                 textAlign = TextAlign.Center
             )
             when (state) {
@@ -752,7 +754,7 @@ private fun TvQrLoginContent(
                     if (state is LoginState.Scanned) {
                         AppText(
                             text = "已扫码，请在手机上确认登录。",
-                            color = MaterialTheme.colorScheme.primary,
+                            color = AppContentColors.accent(),
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center
                         )
@@ -763,7 +765,7 @@ private fun TvQrLoginContent(
                     imageVector = Icons.Outlined.QrCode2,
                     contentDescription = null,
                     modifier = Modifier.size(232.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = AppContentColors.secondaryText()
                 )
             }
             AppOutlinedButton(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) {
@@ -803,7 +805,7 @@ private fun PasswordLoginContent(
                 text = riskRequired?.message
                     ?: "本次登录环境存在风险，需验证绑定手机号。",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             AppText(
                 text = "绑定手机：${riskHideTel.orEmpty()}",
@@ -830,7 +832,7 @@ private fun PasswordLoginContent(
                     AppText(
                         text = err,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = AppContentColors.error()
                     )
                 }
                 AppButton(
@@ -855,7 +857,7 @@ private fun PasswordLoginContent(
                     AppText(
                         text = err,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = AppContentColors.error()
                     )
                 }
                 AppButton(
@@ -868,7 +870,7 @@ private fun PasswordLoginContent(
                 AppText(
                     text = "将向绑定手机发送验证码。若收不到短信，请改用扫码或 Cookie 导入。",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
         } else {
@@ -904,7 +906,7 @@ private fun PasswordLoginContent(
             AppText(
                 text = "提交前需要完成安全验证。若触发环境风控，将引导绑定手机二次验证。",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = AppContentColors.secondaryText()
             )
             AppButton(
                 onClick = { onSubmit(username, password) },
@@ -1003,7 +1005,7 @@ private fun SmsLoginContent(
         AppText(
             text = "发送验证码前需要完成安全验证。验证码有效期与发送频率以服务端规则为准。",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         if (codeSent || code.isNotEmpty()) {
             AppButton(
@@ -1086,7 +1088,7 @@ private fun PhoneRegionPickerSheet(
                         AppText(
                             text = "常用",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             modifier = Modifier.padding(vertical = 4.dp),
                         )
                     }
@@ -1104,7 +1106,7 @@ private fun PhoneRegionPickerSheet(
                         AppText(
                             text = "全部",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                         )
                     }
@@ -1122,7 +1124,7 @@ private fun PhoneRegionPickerSheet(
                         AppText(
                             text = "无匹配地区",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = AppContentColors.secondaryText(),
                             modifier = Modifier.padding(vertical = 24.dp),
                         )
                     }
@@ -1139,7 +1141,7 @@ private fun PhoneRegionPickerRow(
     onClick: () -> Unit,
 ) {
     val bg = if (selected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        AppContentColors.accent().copy(alpha = 0.12f)
     } else {
         AppSurfaceTokens.surface()
     }
@@ -1165,14 +1167,14 @@ private fun PhoneRegionPickerRow(
                 AppText(
                     text = region.dialingCode,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                 )
             }
             if (selected) {
                 AppText(
                     text = "已选",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                 )
             }
         }
@@ -1192,7 +1194,7 @@ private fun CookieImportContent(
         AppText(
             text = "粘贴浏览器中的完整 Cookie 字符串。导入前会先验证账号，验证失败不会覆盖当前登录状态。",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = AppContentColors.secondaryText()
         )
         AppOutlinedTextField(
             value = cookieHeader,

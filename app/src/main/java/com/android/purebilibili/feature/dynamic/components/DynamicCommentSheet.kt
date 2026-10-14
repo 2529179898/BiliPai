@@ -1,5 +1,7 @@
 // 文件路径: feature/dynamic/components/DynamicCommentSheet.kt
 package com.android.purebilibili.feature.dynamic.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
@@ -376,7 +378,7 @@ fun DynamicCommentSheet(
             }
         }
     }
-    
+
     AppModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -565,7 +567,7 @@ fun DynamicCommentSheet(
                                                     rememberAppCommentIcon(),
                                                     contentDescription = null,
                                                     modifier = Modifier.size(AppSpacingTokens.DoubleExtraLarge),
-                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    tint = AppContentColors.accent(),
                                                 )
                                             }
                                             Spacer(modifier = Modifier.height(AppSpacingTokens.Large))
@@ -807,7 +809,7 @@ fun DynamicInlineCommentHeader(
                 AppText(
                     text = "赞和转发 ›",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     modifier = Modifier
                         .clickable(onClick = onShowReactions)
                         .padding(vertical = 6.dp),
@@ -922,7 +924,7 @@ fun LazyListScope.dynamicInlineCommentItems(
             ) {
                 AppText(
                     resolveDynamicCommentEmptyLabel(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    color = AppContentColors.secondaryText()
                 )
             }
         }
@@ -1102,11 +1104,11 @@ private fun DynamicCommentComposer(
                 shellLensIntensity = composerLensIntensity,
             ) { liquidChromeActive ->
                 val fieldColor = if (liquidChromeActive) Color.Transparent else commentFieldContainerColor
-                val fieldTextColor = MaterialTheme.colorScheme.onSurface
+                val fieldTextColor = AppContentColors.primaryText()
                 val placeholderColor = if (liquidChromeActive) {
                     fieldTextColor.copy(alpha = 0.82f)
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    AppContentColors.secondaryText()
                 }
                 val keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send)
                 val keyboardActions = KeyboardActions(
@@ -1256,7 +1258,7 @@ private fun CommentItem(
                         confirmDelete = false
                         onDelete(reply)
                     },
-                ) { AppText("删除", color = MaterialTheme.colorScheme.error) }
+                ) { AppText("删除", color = AppContentColors.error()) }
             },
             dismissButton = {
                 AppDialogAction(onClick = { confirmDelete = false }) { AppText("取消") }
@@ -1318,9 +1320,9 @@ private fun CommentItem(
             modifier = Modifier.size(AppSpacingTokens.DoubleExtraLarge + AppSpacingTokens.ExtraSmall),
             onClick = memberMid?.let { mid -> { onUserClick(mid) } }
         )
-        
+
         Spacer(modifier = Modifier.width(AppSpacingTokens.Medium))
-        
+
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -1335,7 +1337,7 @@ private fun CommentItem(
                     color = resolveUpNameColor(
                         vipStatus = member.vip?.vipStatus ?: 0,
                         vipType = member.vip?.vipType ?: 0,
-                        onSurface = MaterialTheme.colorScheme.onSurface,
+                        onSurface = AppContentColors.primaryText(),
                         secondary = MaterialTheme.colorScheme.secondary,
                     ),
                     maxLines = 1,
@@ -1357,13 +1359,13 @@ private fun CommentItem(
                         detailedTimeEnabled = detailedCommentTimeEnabled
                     ),
                     fontSize = VideoCommentTypographyTokens.metadata,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                    color = AppContentColors.secondaryText().copy(0.5f)
                 )
                 if (locationLabel != null) {
                     AppText(
                         text = " • $locationLabel",
                         fontSize = VideoCommentTypographyTokens.metadata,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                        color = AppContentColors.secondaryText().copy(0.5f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1414,7 +1416,7 @@ private fun CommentItem(
                             }
                             if (actionCapabilities.canDelete) {
                                 AppDropdownMenuItem(
-                                    text = { AppText("删除评论", color = MaterialTheme.colorScheme.error) },
+                                    text = { AppText("删除评论", color = AppContentColors.error()) },
                                     onClick = {
                                         showActions = false
                                         confirmDelete = true
@@ -1439,9 +1441,9 @@ private fun CommentItem(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
-            
+
             // 评论内容 - 使用 RichCommentText 渲染表情
             val emoteMap = remember(reply.content.emote) {
                 reply.content.emote?.mapValues { it.value.url } ?: emptyMap()
@@ -1449,7 +1451,7 @@ private fun CommentItem(
             RichCommentText(
                 text = reply.content.message,
                 fontSize = VideoCommentTypographyTokens.body,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 emoteMap = emoteMap,
                 content = reply.content,
                 onUserClick = onUserClick,
@@ -1475,7 +1477,7 @@ private fun CommentItem(
             }
 
             Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
-            
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -1488,13 +1490,13 @@ private fun CommentItem(
                         Icons.AutoMirrored.Outlined.Reply,
                         contentDescription = "回复",
                         modifier = Modifier.size(AppSpacingTokens.Large),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f)
+                        tint = AppContentColors.secondaryText().copy(0.7f)
                     )
                     Spacer(modifier = Modifier.width(AppSpacingTokens.ExtraSmall))
                     AppText(
                         text = "回复",
                         fontSize = VideoCommentTypographyTokens.action,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f)
+                        color = AppContentColors.secondaryText().copy(0.7f)
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
@@ -1509,7 +1511,7 @@ private fun CommentItem(
                         tint = if (liked) {
                             DynamicStatusPalette.liked()
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                            AppContentColors.secondaryText().copy(0.5f)
                         }
                     )
                     Spacer(modifier = Modifier.width(AppSpacingTokens.ExtraSmall))
@@ -1519,7 +1521,7 @@ private fun CommentItem(
                         color = if (liked) {
                             DynamicStatusPalette.liked()
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                            AppContentColors.secondaryText().copy(0.5f)
                         }
                     )
                 }
@@ -1552,7 +1554,7 @@ private fun CommentItem(
                                         color = resolveUpNameColor(
                                             vipStatus = subReply.member.vip?.vipStatus ?: 0,
                                             vipType = subReply.member.vip?.vipType ?: 0,
-                                            onSurface = MaterialTheme.colorScheme.onSurface,
+                                            onSurface = AppContentColors.primaryText(),
                                             secondary = MaterialTheme.colorScheme.secondary,
                                         ),
                                         maxLines = 1,
@@ -1562,7 +1564,7 @@ private fun CommentItem(
                                         RichCommentText(
                                             text = subReply.content.message,
                                             fontSize = VideoCommentTypographyTokens.subReply,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = AppContentColors.secondaryText(),
                                             emoteMap = subEmoteMap,
                                             content = subReply.content,
                                             maxLines = 2,
@@ -1593,7 +1595,7 @@ private fun CommentItem(
                             AppText(
                                 text = resolveInlineSubReplyToggleLabel(expanded = isSubPreviewExpanded),
                                 fontSize = VideoCommentTypographyTokens.subReply,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = AppContentColors.accent(),
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.clickable { isSubPreviewExpanded = !isSubPreviewExpanded }
                             )
@@ -1613,7 +1615,6 @@ private fun CommentItem(
                             "查看回复(${maxOf(resolveDynamicSubReplyCount(reply), subReplyState.totalCount)})"
                         },
                         fontSize = VideoCommentTypographyTokens.subReply,
-                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }

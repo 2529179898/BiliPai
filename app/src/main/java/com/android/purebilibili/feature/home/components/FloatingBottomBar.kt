@@ -529,13 +529,6 @@ fun FloatingBottomBar(
         ).dp.toPx()
     }
     val pressBloomPx = with(density) { pressBloomDp.dp.toPx() }
-    val indicatorLensHeightPx = with(density) {
-        resolveCompactDockIndicatorLensHeightDp(shellHeight.value).dp.toPx()
-    }
-    val indicatorLensAmountPx = with(density) {
-        resolveCompactDockIndicatorLensAmountDp(shellHeight.value).dp.toPx()
-    }
-    val innerShadowRadius = resolveCompactDockInnerShadowRadiusDp(shellHeight.value).dp
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     val layoutDirection = LocalLayoutDirection.current
     val configuration = LocalConfiguration.current
@@ -568,13 +561,6 @@ fun FloatingBottomBar(
         )
     } else {
         pillShape
-    }
-    // Scale lens reach when a compact slot reduces the indicator's actual height.
-    val indicatorLensHeightRatio = if (segmentedGeometry) {
-        (fittedIndicatorHeight.value / indicatorHeight.value.coerceAtLeast(0.001f))
-            .coerceIn(0f, 1f)
-    } else {
-        1f
     }
     // Match the home top dock: capture unscaled labels at indicator height.
     // The consuming glass layer owns the capsule and label deformation together.
@@ -1106,9 +1092,11 @@ fun FloatingBottomBar(
                                 }
                             },
                         )
-                        // Capture content without replaying the shell's press light.
-                        // The moving capsule owns its separate edge highlight.
+                        // Upstream records the shell's press light into the tinted material.
+                        // The indicator refracts this light even over a uniform page backdrop.
+                        .then(interactiveHighlight?.modifier ?: Modifier)
                         .height(capturedContentHeight)
+                        .align(Alignment.CenterStart)
                         .padding(horizontal = horizontalPadding),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -1153,19 +1141,7 @@ fun FloatingBottomBar(
                                     isDragging = dampedDragAnimation.isDragging,
                                     isPagerScrolling = isScrollInProgressLatest(),
                                 )
-                                lens(
-                                    refractionHeight = indicatorLensHeightPx * progress * indicatorLensHeightRatio *
-                                        liquidGlassTuning.indicatorLensBoost *
-                                        liquidGlassTuning.contentDistortionScale,
-                                    refractionAmount = indicatorLensAmountPx * progress * indicatorLensHeightRatio *
-                                        liquidGlassTuning.indicatorEdgeWarpBoost *
-                                        liquidGlassTuning.contentDistortionScale,
-                                    depthEffect = true,
-                                    chromaticAberration =
-                                        resolveLiquidGlassIndicatorChromaticAberration(
-                                            liquidGlassTuning
-                                        ),
-                                )
+                                homeIndicatorLens(fittedIndicatorHeight.value, progress, liquidGlassTuning)
                             },
                             highlight = {
                                 pillHighlight?.value?.copy(alpha = dampedDragAnimation.pressProgress)
@@ -1181,21 +1157,16 @@ fun FloatingBottomBar(
                                 )
                             },
                             onDrawSurface = {
-                                val progress = dampedDragAnimation.pressProgress
-                                drawRect(
-                                    color = indicatorIdleSurfaceColorOverride ?: if (!isInDark) {
-                                        Color.Black.copy(alpha = 0.1f)
-                                    } else {
-                                        Color.White.copy(alpha = 0.1f)
-                                    },
-                                    alpha = 1f - progress,
+                                drawHomeIndicatorSurface(
+                                    dampedDragAnimation.pressProgress,
+                                    isInDark,
+                                    indicatorIdleSurfaceColorOverride,
                                 )
-                                drawRect(Color.Black.copy(alpha = 0.03f * progress))
                             },
                         )
                         .innerShadow(shape = indicatorShape) {
                             InnerShadow(
-                                radius = innerShadowRadius * dampedDragAnimation.pressProgress,
+                                radius = 8.dp * homeIndicatorOpticalScale(fittedIndicatorHeight.value) * dampedDragAnimation.pressProgress,
                                 color = Color.Black.copy(alpha = 0.15f),
                                 alpha = dampedDragAnimation.pressProgress,
                             )

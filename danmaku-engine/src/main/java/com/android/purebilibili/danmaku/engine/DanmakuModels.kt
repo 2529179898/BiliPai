@@ -12,6 +12,8 @@ const val DANMAKU_LAYER_REVERSE = 2001
 /** Renderer-neutral standard danmaku model used by the app and parser layers. */
 open class DanmakuItem {
     var danmakuId: Long = 0L
+    /** Original merged content before adding a display count suffix. */
+    var mergedOriginalText: String? = null
     var userHash: String = ""
     var text: String? = null
     var showAtTime: Long = 0L
@@ -40,6 +42,7 @@ open class DanmakuItem {
 
     fun copy(): DanmakuItem = DanmakuItem().also { target ->
         target.danmakuId = danmakuId
+        target.mergedOriginalText = mergedOriginalText
         target.userHash = userHash
         target.text = text
         target.showAtTime = showAtTime

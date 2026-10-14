@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.aicu
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -230,7 +232,7 @@ internal fun AicuScreen(
                                         AppTextButton(onClick = onCancel, modifier = Modifier.heightIn(min = 48.dp)) { AppText("取消") }
                                     }
                                 }
-                                state.error?.let { AppText(it, color = MaterialTheme.colorScheme.error) }
+                                state.error?.let { AppText(it, color = AppContentColors.error()) }
                                 if (state.loadState == AicuLoadState.ERROR || state.retrySeconds > 0) {
                                     AppTextButton(onClick = onRetry, enabled = state.retrySeconds == 0 && !state.busy, modifier = Modifier.heightIn(min = 48.dp)) {
                                         AppText(if (state.retrySeconds > 0) "${state.retrySeconds} 秒后可重试" else "重试")
@@ -288,7 +290,7 @@ internal fun AicuScreen(
                         AdaptiveLoadingIndicator()
                     }
                 }
-                else if (state.trendingError != null) AppText(state.trendingError, color = MaterialTheme.colorScheme.error)
+                else if (state.trendingError != null) AppText(state.trendingError, color = AppContentColors.error())
                 else Column(Modifier.verticalScroll(rememberScrollState())) {
                     state.trending.forEachIndexed { index, item ->
                         Row(
@@ -435,7 +437,7 @@ private fun AicuDisclaimerDialog(seconds: Int, saving: Boolean, error: String?, 
                 SelectionContainer {
                     AppText(AICU_DISCLAIMER_TEXT)
                 }
-                error?.let { AppText(it, color = MaterialTheme.colorScheme.error) }
+                error?.let { AppText(it, color = AppContentColors.error()) }
             }
         },
         confirmButton = { AppTextButton(onClick = onAccept, enabled = seconds == 0 && !saving, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -466,7 +468,7 @@ private fun AicuRecordCard(
             RichCommentText(
                 text = record.text.ifBlank { "（正文缺失）" },
                 fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 emoteMap = emoteMap,
             )
             if (target != null && category == AicuCategory.COMMENT && (record.objectType == 12 || (record.rank == 2 && record.rootId.toLongOrNull() == null))) {

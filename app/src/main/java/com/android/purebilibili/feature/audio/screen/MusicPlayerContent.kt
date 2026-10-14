@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.audio.screen
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import com.android.purebilibili.core.ui.components.appSearchElasticPress
 import top.yukonga.miuix.kmp.window.WindowListPopup
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
@@ -341,7 +343,7 @@ internal fun resolveMusicGlassBorderColor(
     val materialColor = LocalMusicPlayerMaterial.current.borderColor
     if (materialColor != Color.Unspecified) return materialColor
     val base = glassTintColor.takeOrElse { MaterialTheme.colorScheme.surface }
-    val edge = if (isDark) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
+    val edge = if (isDark) AppContentColors.primaryText() else MaterialTheme.colorScheme.outline
     return lerp(base, edge, if (isDark) 0.42f else 0.28f)
         .copy(alpha = if (isDark) 0.30f else 0.22f)
 }
@@ -552,7 +554,7 @@ internal fun MusicPlayerContent(
     val pageBackground = backgroundColor
     val resolvedContentColor = Color.White
     val resolvedAccentColor = resolveMusicPlayerAccentColor(
-        MaterialTheme.colorScheme.primary,
+        AppContentColors.accent(),
         MaterialTheme.colorScheme.inversePrimary,
     )
     val isDarkEnvironment = true
@@ -571,7 +573,7 @@ internal fun MusicPlayerContent(
         accentColor = resolvedAccentColor,
         borderColor = materialBorderColor,
         shadowColor = MaterialTheme.colorScheme.scrim,
-        likeColor = MaterialTheme.colorScheme.error,
+        likeColor = AppContentColors.error(),
     )
 
     CompositionLocalProvider(
@@ -1065,8 +1067,8 @@ internal fun MusicPlayerContent(
                             height = 48.dp,
                             indicatorHeight = 36.dp,
                             containerVerticalPadding = 6.dp,
-                            selectedTextColorOverride = MaterialTheme.colorScheme.onSurface,
-                            unselectedTextColorOverride = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                            selectedTextColorOverride = AppContentColors.primaryText(),
+                            unselectedTextColorOverride = AppContentColors.primaryText().copy(alpha = 0.72f),
                             liquidGlassEffectsEnabled = liquidGlassEffectsEnabled,
                             preferInlineContentStyle = false,
                             miuixBackdrop = musicBackdrop,
@@ -1329,7 +1331,10 @@ internal fun MusicPlayerContent(
                     onPrevious = onPrevious,
                     onNext = onNext,
                     onLikeClick = onLikeClick,
-                    onQueueItemSelected = onQueueItemSelected,
+                    onQueueItemSelected = { index ->
+                        showQueue = false
+                        onQueueItemSelected(index)
+                    },
                     onImportClick = { showImportDialog = true },
                     onClose = { showQueue = false },
                     isQueueCoverFlow = isQueueCoverFlow,
@@ -1360,7 +1365,7 @@ internal fun MusicPlayerContent(
                 actionsPopup = {
                     if (showActions) {
                         // 菜单使用主题文字色，与动态封面背景解耦。
-                        val sheetContentColor = MaterialTheme.colorScheme.onSurface
+                        val sheetContentColor = AppContentColors.primaryText()
                         WindowListPopup(
                             show = showActions,
                             onDismissRequest = { showActions = false },
@@ -1632,13 +1637,13 @@ internal fun MusicPlayerContent(
         AppModalBottomSheet(
             onDismissRequest = { showLyricsSearch = false },
             containerColor = AppSurfaceTokens.surface(),
-            contentColor = MaterialTheme.colorScheme.onSurface
+            contentColor = AppContentColors.primaryText()
         ) {
             AppText(
                 text = "手动匹配歌词",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = AppContentColors.primaryText(),
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
             )
             Row(
@@ -1661,7 +1666,7 @@ internal fun MusicPlayerContent(
             }
             if (state.isLyricsSearching) {
                 AppCircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary,
+                    color = AppContentColors.accent(),
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .padding(24.dp)
@@ -1669,7 +1674,7 @@ internal fun MusicPlayerContent(
             } else if (state.lyricCandidates.isEmpty()) {
                 AppText(
                     text = "输入歌名后搜索网易云、QQ 音乐与酷狗",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = AppContentColors.secondaryText(),
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)
                 )
             } else {
@@ -1690,12 +1695,12 @@ internal fun MusicPlayerContent(
                         ) {
                             AppText(
                                 candidate.title,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = AppContentColors.primaryText(),
                                 fontWeight = FontWeight.SemiBold
                             )
                             AppText(
                                 text = "${candidate.artist} · ${candidate.sourceLabel}",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                         }
                     }
@@ -1708,7 +1713,7 @@ internal fun MusicPlayerContent(
         AppModalBottomSheet(
             onDismissRequest = { showLyricsOffsetSettings = false },
             containerColor = AppSurfaceTokens.surface(),
-            contentColor = MaterialTheme.colorScheme.onSurface,
+            contentColor = AppContentColors.primaryText(),
         ) {
             LyricsOffsetSettingsContent(
                 offsetMs = state.lyrics?.offsetMs ?: 0L,
@@ -2261,7 +2266,7 @@ private fun PlayerPage(
                         )
                     }
                     state.error?.let {
-                        AppText(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        AppText(it, color = AppContentColors.error(), style = MaterialTheme.typography.bodySmall)
                     }
                     }
                 }
@@ -2631,7 +2636,7 @@ private fun MusicProgress(
     }
     val inactiveTrackColor = lerp(
         glassTintColor.takeOrElse { MaterialTheme.colorScheme.surface },
-        MaterialTheme.colorScheme.onSurface,
+        AppContentColors.primaryText(),
         if (isDarkEnvironment) 0.34f else 0.22f,
     ).copy(alpha = if (isDarkEnvironment) 0.36f else 0.24f)
     Column(modifier = modifier.fillMaxWidth()) {
@@ -2711,7 +2716,7 @@ private fun MusicVolumeSlider(
 
     val inactiveTrackColor = lerp(
         glassTintColor.takeOrElse { MaterialTheme.colorScheme.surface },
-        MaterialTheme.colorScheme.onSurface,
+        AppContentColors.primaryText(),
         if (isDarkEnvironment) 0.34f else 0.22f,
     ).copy(alpha = if (isDarkEnvironment) 0.36f else 0.24f)
 
@@ -3300,8 +3305,8 @@ private fun LyricsPage(
     }
 
     if (showLyricsSettings) {
-        val sheetContentColor = MaterialTheme.colorScheme.onSurface
-        val sheetSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+        val sheetContentColor = AppContentColors.primaryText()
+        val sheetSecondaryColor = AppContentColors.secondaryText()
         AppModalBottomSheet(
             onDismissRequest = { showLyricsSettings = false },
             containerColor = AppSurfaceTokens.surface(),
@@ -3445,8 +3450,8 @@ private fun LyricsOffsetSettingsContent(
     selectedSubtitleTrackKey: String? = null,
     onSubtitleTrackSelected: (String) -> Unit = {},
 ) {
-    val contentColor = MaterialTheme.colorScheme.onSurface
-    val secondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val contentColor = AppContentColors.primaryText()
+    val secondaryColor = AppContentColors.secondaryText()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -3473,7 +3478,7 @@ private fun LyricsOffsetSettingsContent(
                 ) {
                     AppText(
                         text = if (trackKey == selectedSubtitleTrackKey) "✓  $label" else label,
-                        color = if (trackKey == selectedSubtitleTrackKey) MaterialTheme.colorScheme.primary else contentColor,
+                        color = if (trackKey == selectedSubtitleTrackKey) AppContentColors.accent() else contentColor,
                     )
                 }
             }
@@ -3606,8 +3611,8 @@ private fun LyricsSettingsContent(
     showTranslations: Boolean,
     lyricsOffsetMs: Long,
     sourceLabel: String = "",
-    contentColor: Color = MaterialTheme.colorScheme.onSurface,
-    secondaryColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    contentColor: Color = AppContentColors.primaryText(),
+    secondaryColor: Color = AppContentColors.secondaryText(),
     onToggleTranslations: () -> Unit,
     onLyricsOffsetChange: (Long) -> Unit,
     onLyricsRetry: () -> Unit,
@@ -4387,7 +4392,7 @@ private fun ExpandedQueuePane(
 @Composable
 private fun MusicActionSheetItem(
     label: String,
-    contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    contentColor: Color = AppContentColors.primaryText(),
     onClick: () -> Unit
 ) {
     Box(

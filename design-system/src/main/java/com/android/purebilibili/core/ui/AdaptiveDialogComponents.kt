@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.theme.LocalAppUiStyle
+import com.android.purebilibili.core.ui.components.ProvideAppActionContentColor
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 enum class AppAlertDialogRenderer {
@@ -186,9 +187,13 @@ internal fun AdaptiveAlertDialog(
                 text = text,
                 confirmButton = {
                     ModalWindowBlurBehindEffect()
-                    confirmButton?.invoke() ?: Spacer(modifier = Modifier)
+                    ProvideAppActionContentColor(AppSurfaceTokens.primary()) {
+                        confirmButton?.invoke() ?: Spacer(modifier = Modifier)
+                    }
                 },
-                dismissButton = dismissButton,
+                dismissButton = dismissButton?.let { dismiss ->
+                    { ProvideAppActionContentColor(AppSurfaceTokens.onSurface(), dismiss) }
+                },
                 properties = properties,
                 shape = shape ?: MaterialTheme.shapes.extraLarge,
                 containerColor = containerColor ?: MaterialTheme.colorScheme.surface,
@@ -252,7 +257,7 @@ private fun MiuixAlertDialogBody(
             ) {
                 ProvideTextStyle(
                     value = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 ) {
                     text()
@@ -267,12 +272,12 @@ private fun MiuixAlertDialogBody(
         ) {
             if (dismissButton != null) {
                 Box(modifier = Modifier.padding(horizontal = 4.dp)) {
-                    dismissButton()
+                    ProvideAppActionContentColor(AppSurfaceTokens.onSurface(), dismissButton)
                 }
             }
             if (confirmButton != null) {
                 Box(modifier = Modifier.padding(horizontal = 4.dp)) {
-                    confirmButton()
+                    ProvideAppActionContentColor(AppSurfaceTokens.primary(), confirmButton)
                 }
             }
         }

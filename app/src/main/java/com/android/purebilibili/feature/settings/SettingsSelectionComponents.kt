@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -18,7 +20,7 @@ internal fun <T> SettingsSingleChoicePreference(
     subtitle: String? = null,
     enabled: Boolean = true,
     icon: ImageVector? = null,
-    iconTint: Color = MaterialTheme.colorScheme.primary,
+    iconTint: Color = AppContentColors.accent(),
     onSelectionChange: (T) -> Unit,
 ) {
     AppSingleChoicePreference(

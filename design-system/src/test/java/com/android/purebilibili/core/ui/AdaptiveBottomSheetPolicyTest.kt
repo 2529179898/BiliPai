@@ -17,7 +17,7 @@ class AdaptiveBottomSheetPolicyTest {
             ?.readText()
             ?: error("Cannot locate AppSheetComponents.kt from ${File(".").absolutePath}")
 
-        assertTrue(source.contains("contentColor: Color = MaterialTheme.colorScheme.onSurface"))
+        assertTrue(source.contains("contentColor: Color = AppContentColors.primaryText()"))
         assertTrue(source.contains("contentColor = contentColor"))
         assertTrue(source.contains("content: @Composable ColumnScope.() -> Unit"))
     }

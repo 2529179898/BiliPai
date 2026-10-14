@@ -1,5 +1,7 @@
 package com.android.purebilibili.core.ui.renderer.material3
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
@@ -159,8 +161,8 @@ internal fun <T> AppMaterial3TabRow(
                 modifier = Modifier
                     .then(if (slotWidth != null) Modifier.width(slotWidth).clipToBounds() else Modifier)
                     .then(if (height != null) Modifier.height(height) else Modifier),
-                selectedContentColor = MaterialTheme.colorScheme.primary,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                selectedContentColor = AppContentColors.accent(),
+                unselectedContentColor = AppContentColors.secondaryText(),
                 text = {
                     Text(
                         text = option.label,

@@ -1,5 +1,7 @@
 // 文件路径: feature/video/ui/components/VideoSettingsPanel.kt
 package com.android.purebilibili.feature.video.ui.components
+
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.feature.video.screen.AudioModeSleepTimerDialog
 import com.android.purebilibili.core.ui.components.AppTextButton
 import com.android.purebilibili.core.ui.components.AppIcon
@@ -194,7 +196,7 @@ private fun videoSettingsChipContainerColor(isSelected: Boolean): Color {
     return if (usesTonalContainerTreatment) {
         if (isSelected) AppSurfaceTokens.secondaryContainer() else AppSurfaceTokens.surfaceContainerHigh()
     } else {
-        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+        if (isSelected) AppContentColors.accent() else MaterialTheme.colorScheme.surfaceVariant
     }
 }
 
@@ -206,7 +208,7 @@ private fun videoSettingsChipContentColor(isSelected: Boolean): Color {
     return if (usesTonalContainerTreatment) {
         if (isSelected) AppSurfaceTokens.onSecondaryContainer() else AppSurfaceTokens.onSurfaceVariantSummary()
     } else {
-        if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+        if (isSelected) AppContentColors.onAccent() else AppContentColors.secondaryText()
     }
 }
 
@@ -219,12 +221,12 @@ fun VideoSettingsPanel(
     // 定时关闭
     sleepTimerMinutes: Int?,
     onSleepTimerChange: (Int?) -> Unit,
-    
+
     // 视频控制
     onReload: () -> Unit,
     onDanmakuSettingsClick: () -> Unit = {},
     onShowDanmakuPool: (() -> Unit)? = null,
-    
+
     // 画质 - 内联选择
     currentQualityLabel: String,
     qualityLabels: List<String> = emptyList(),
@@ -233,21 +235,21 @@ fun VideoSettingsPanel(
     isLoggedIn: Boolean = false,
     isVip: Boolean = false,
     onQualitySelected: (Int) -> Unit = {},
-    
+
     // 倍速
     currentSpeed: Float = 1.0f,
     onSpeedChange: (Float) -> Unit = {},
-    
+
     // 镜像翻转
     isFlippedHorizontal: Boolean = false,
     isFlippedVertical: Boolean = false,
     onFlipHorizontal: () -> Unit = {},
     onFlipVertical: () -> Unit = {},
-    
+
     // 音频模式
     isAudioOnly: Boolean = false,
     onAudioOnlyToggle: () -> Unit = {},
-    
+
     //  CDN 线路切换
     currentCdnIndex: Int = 0,
     cdnCount: Int = 1,
@@ -259,7 +261,7 @@ fun VideoSettingsPanel(
 
     // [New] Codec & Audio Quality
     // Passed from VideoPlaybackViewModel/SettingsManager
-    currentCodec: String = "hev1", 
+    currentCodec: String = "hev1",
     onCodecChange: (String) -> Unit = {},
     currentSecondCodec: String = "avc1",
     onSecondCodecChange: (String) -> Unit = {},
@@ -280,12 +282,12 @@ fun VideoSettingsPanel(
     aiAudioInfo: AiAudioInfo? = null,
     currentAudioLang: String? = null,
     onAudioLangChange: (String) -> Unit = {},
-    
+
     // 资源下载
     onSaveCover: () -> Unit = {},
     onCaptureScreenshot: () -> Unit = {},
     onDownloadAudio: () -> Unit = {},
-    
+
     // 关闭面板
     onDismiss: () -> Unit
 ) {
@@ -380,7 +382,7 @@ fun VideoSettingsPanel(
     val speedIcon = rememberAppSpeedIcon()
     val gestureTapIcon = rememberAppGestureTapIcon()
     val settingsIcon = rememberAppSettingsIcon()
-    
+
     AppModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
@@ -419,7 +421,7 @@ fun VideoSettingsPanel(
                             tint = if (usesTonalContainerTreatment) {
                                 AppSurfaceTokens.onSurfaceVariantActions()
                             } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                                AppContentColors.secondaryText()
                             },
                             modifier = Modifier.size(panelSpec.iconSize)
                         )
@@ -429,7 +431,7 @@ fun VideoSettingsPanel(
                             role = VideoSettingsPanelTextRole.TITLE,
 
                             legacyFontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                     }
                     Spacer(modifier = Modifier.height(customTitleToOptionsGap))
@@ -539,7 +541,7 @@ fun VideoSettingsPanel(
                         AppIcon(
                             imageVector = downloadIcon,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppContentColors.secondaryText(),
                             modifier = Modifier.size(customSectionIconSize)
                         )
                         Spacer(modifier = Modifier.width(customSectionIconGap))
@@ -548,11 +550,11 @@ fun VideoSettingsPanel(
                             role = VideoSettingsPanelTextRole.TITLE,
 
                             legacyFontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                     }
                     Spacer(modifier = Modifier.height(customTitleToOptionsGap))
-                    
+
                     Row(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(actionPolicy.rowItemSpacingDp.dp)
@@ -612,7 +614,7 @@ fun VideoSettingsPanel(
                         },
                         policy = actionPolicy
                     )
-                    
+
                     // 上下翻转
                     FlipButton(
                         icon = flipVerticalIcon,
@@ -624,7 +626,7 @@ fun VideoSettingsPanel(
                         },
                         policy = actionPolicy
                     )
-                    
+
                     // 听视频（音频模式）
                     FlipButton(
                         icon = headphonesIcon,
@@ -657,7 +659,7 @@ fun VideoSettingsPanel(
                             AppIcon(
                                 imageVector = qualityIcon,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = AppContentColors.secondaryText(),
                                 modifier = Modifier.size(customSectionIconSize)
                             )
                             Spacer(modifier = Modifier.width(customSectionIconGap))
@@ -666,14 +668,14 @@ fun VideoSettingsPanel(
                                 role = VideoSettingsPanelTextRole.TITLE,
 
                                 legacyFontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = AppContentColors.primaryText()
                             )
                             Spacer(modifier = Modifier.width(customInlineTextGap))
                             VideoSettingsPanelText(
                                 text = "当前 $currentQualityLabel",
                                 role = VideoSettingsPanelTextRole.BODY,
 
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                         }
                         Spacer(modifier = Modifier.height(customTitleToOptionsGap))
@@ -728,7 +730,7 @@ fun VideoSettingsPanel(
                     SettingsDivider()
                 }
             }
-            
+
             // [New] 编码格式选择
             item {
                 Column(
@@ -743,7 +745,7 @@ fun VideoSettingsPanel(
                         AppIcon(
                             imageVector = codecIcon,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppContentColors.secondaryText(),
                             modifier = Modifier.size(customSectionIconSize)
                         )
                         Spacer(modifier = Modifier.width(customSectionIconGap))
@@ -752,10 +754,10 @@ fun VideoSettingsPanel(
                             role = VideoSettingsPanelTextRole.TITLE,
 
                             legacyFontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                         Spacer(modifier = Modifier.width(customInlineTextGap))
-                        
+
                         val codecLabel = when(currentCodec) {
                             "avc1" -> "AVC (兼容)"
                             "hev1" -> "HEVC (推荐)"
@@ -766,7 +768,7 @@ fun VideoSettingsPanel(
                             text = codecLabel,
                             role = VideoSettingsPanelTextRole.BODY,
 
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                     Spacer(modifier = Modifier.height(customTitleToOptionsGap))
@@ -782,7 +784,7 @@ fun VideoSettingsPanel(
                             AppSurface(
                                 onClick = { onCodecChange(codec) },
                                 shape = AppShapes.container(ContainerLevel.Card),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                color = if (isSelected) AppContentColors.accent() else MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier.height(
                                     if (useMiuixNonGlassPresentation) panelSpec.chipHeight else 32.dp
                                 )
@@ -801,7 +803,7 @@ fun VideoSettingsPanel(
                                         text = label,
                                         role = VideoSettingsPanelTextRole.OPTION,
 
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (isSelected) AppContentColors.onAccent() else AppContentColors.secondaryText()
                                     )
                                 }
                             }
@@ -825,7 +827,7 @@ fun VideoSettingsPanel(
                         AppIcon(
                             imageVector = codecIcon,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppContentColors.secondaryText(),
                             modifier = Modifier.size(customSectionIconSize)
                         )
                         Spacer(modifier = Modifier.width(customSectionIconGap))
@@ -834,7 +836,7 @@ fun VideoSettingsPanel(
                             role = VideoSettingsPanelTextRole.TITLE,
 
                             legacyFontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                         Spacer(modifier = Modifier.width(customInlineTextGap))
 
@@ -848,7 +850,7 @@ fun VideoSettingsPanel(
                             text = secondCodecLabel,
                             role = VideoSettingsPanelTextRole.BODY,
 
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                     Spacer(modifier = Modifier.height(customTitleToOptionsGap))
@@ -864,7 +866,7 @@ fun VideoSettingsPanel(
                             AppSurface(
                                 onClick = { onSecondCodecChange(codec) },
                                 shape = AppShapes.container(ContainerLevel.Card),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                color = if (isSelected) AppContentColors.accent() else MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier.height(
                                     if (useMiuixNonGlassPresentation) panelSpec.chipHeight else 32.dp
                                 )
@@ -883,7 +885,7 @@ fun VideoSettingsPanel(
                                         text = label,
                                         role = VideoSettingsPanelTextRole.OPTION,
 
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (isSelected) AppContentColors.onAccent() else AppContentColors.secondaryText()
                                     )
                                 }
                             }
@@ -907,7 +909,7 @@ fun VideoSettingsPanel(
                         AppIcon(
                             imageVector = musicIcon,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppContentColors.secondaryText(),
                             modifier = Modifier.size(customSectionIconSize)
                         )
                         Spacer(modifier = Modifier.width(customSectionIconGap))
@@ -916,10 +918,10 @@ fun VideoSettingsPanel(
                             role = VideoSettingsPanelTextRole.TITLE,
 
                             legacyFontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                         Spacer(modifier = Modifier.width(customInlineTextGap))
-                        
+
                         val audioLabel = availableAudioQualities
                             .firstOrNull { it.preferenceId == currentAudioQuality }
                             ?.label
@@ -928,7 +930,7 @@ fun VideoSettingsPanel(
                             text = audioLabel,
                             role = VideoSettingsPanelTextRole.BODY,
 
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                     Spacer(modifier = Modifier.height(customTitleToOptionsGap))
@@ -943,7 +945,7 @@ fun VideoSettingsPanel(
                             AppSurface(
                                 onClick = { onAudioQualityChange(option.preferenceId) },
                                 shape = AppShapes.container(ContainerLevel.Card),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                color = if (isSelected) AppContentColors.accent() else MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier.height(48.dp)
                             ) {
                                 Row(
@@ -955,7 +957,7 @@ fun VideoSettingsPanel(
                                         text = option.label,
                                         role = VideoSettingsPanelTextRole.OPTION,
 
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (isSelected) AppContentColors.onAccent() else AppContentColors.secondaryText()
                                     )
                                     if (option.isHiRes) {
                                         HiResBadge()
@@ -988,18 +990,18 @@ fun VideoSettingsPanel(
                                 role = VideoSettingsPanelTextRole.TITLE,
 
                                 legacyFontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = AppContentColors.primaryText()
                             )
                             Spacer(modifier = Modifier.width(customInlineTextGap))
-                            
+
                             val currentLangItem = aiAudioInfo.items.find { it.langCode == currentAudioLang }
                             val langLabel = currentLangItem?.langDoc ?: "原声"
-                            
+
                             VideoSettingsPanelText(
                                 text = langLabel,
                                 role = VideoSettingsPanelTextRole.BODY,
 
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = AppContentColors.secondaryText()
                             )
                         }
                         Spacer(modifier = Modifier.height(customTitleToOptionsGap))
@@ -1014,7 +1016,7 @@ fun VideoSettingsPanel(
                                 AppSurface(
                                     onClick = { onAudioLangChange(item.langCode) },
                                     shape = AppShapes.container(ContainerLevel.Card),
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                    color = if (isSelected) AppContentColors.accent() else MaterialTheme.colorScheme.surfaceVariant,
                                     modifier = Modifier.height(
                                         if (useMiuixNonGlassPresentation) panelSpec.chipHeight else 32.dp
                                     )
@@ -1033,7 +1035,7 @@ fun VideoSettingsPanel(
                                             text = item.langDoc,
                                             role = VideoSettingsPanelTextRole.OPTION,
 
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = if (isSelected) AppContentColors.onAccent() else AppContentColors.secondaryText()
                                         )
                                     }
                                 }
@@ -1062,7 +1064,7 @@ fun VideoSettingsPanel(
                             AppIcon(
                                 imageVector = wifiIcon,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = AppContentColors.secondaryText(),
                                 modifier = Modifier.size(customSectionIconSize)
                             )
                             Spacer(modifier = Modifier.width(customSectionIconGap))
@@ -1071,7 +1073,7 @@ fun VideoSettingsPanel(
                                 role = VideoSettingsPanelTextRole.TITLE,
 
                                 legacyFontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = AppContentColors.primaryText()
                             )
                             Spacer(modifier = Modifier.width(customInlineTextGap))
                             VideoSettingsPanelText(
@@ -1079,7 +1081,7 @@ fun VideoSettingsPanel(
                                     ?: "当前线路${currentCdnIndex + 1}",
                                 role = VideoSettingsPanelTextRole.BODY,
 
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 modifier = Modifier.weight(1f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -1141,7 +1143,7 @@ fun VideoSettingsPanel(
                         AppIcon(
                             imageVector = speedIcon,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppContentColors.secondaryText(),
                             modifier = Modifier.size(customSectionIconSize)
                         )
                         Spacer(modifier = Modifier.width(customSectionIconGap))
@@ -1150,14 +1152,14 @@ fun VideoSettingsPanel(
                             role = VideoSettingsPanelTextRole.TITLE,
 
                             legacyFontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = AppContentColors.primaryText()
                         )
                         Spacer(modifier = Modifier.width(customInlineTextGap))
                         VideoSettingsPanelText(
                             text = PlaybackSpeed.formatSpeedFull(currentSpeed),
                             role = VideoSettingsPanelTextRole.BODY,
 
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = AppContentColors.secondaryText()
                         )
                     }
                     Spacer(modifier = Modifier.height(customTitleToOptionsGap))
@@ -1171,7 +1173,7 @@ fun VideoSettingsPanel(
                         text = "可在播放设置中调整倍速列表",
                         role = VideoSettingsPanelTextRole.BODY,
 
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = AppContentColors.secondaryText()
                     )
                 }
                 SettingsDivider()
@@ -1252,13 +1254,13 @@ fun VideoSettingsPanel(
                     ) {
                         Column(modifier = Modifier.padding(horizontal = customSectionHorizontalPadding)) {
                             Spacer(modifier = Modifier.height(customTitleToOptionsGap))
-                            
+
                             // 快进秒数选择
                             VideoSettingsPanelText(
                                 text = "快进秒数（双击右侧）",
                                 role = VideoSettingsPanelTextRole.BODY,
 
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 modifier = Modifier.padding(bottom = AppSpacingTokens.Small)
                             )
                             SeekSecondsOptions(
@@ -1269,15 +1271,15 @@ fun VideoSettingsPanel(
                                     }
                                 }
                             )
-                            
+
                             Spacer(modifier = Modifier.height(customTitleToOptionsGap))
-                            
+
                             // 后退秒数选择
                             VideoSettingsPanelText(
                                 text = "后退秒数（双击左侧）",
                                 role = VideoSettingsPanelTextRole.BODY,
 
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = AppContentColors.secondaryText(),
                                 modifier = Modifier.padding(bottom = AppSpacingTokens.Small)
                             )
                             SeekSecondsOptions(
@@ -1314,7 +1316,7 @@ fun VideoSettingsPanel(
                         AppIcon(
                             imageVector = gestureTapIcon,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = AppContentColors.secondaryText(),
                             modifier = Modifier.size(customSectionIconSize)
                         )
                         Spacer(modifier = Modifier.width(customSectionIconGap))
@@ -1324,7 +1326,7 @@ fun VideoSettingsPanel(
                                 role = VideoSettingsPanelTextRole.TITLE,
 
                                 legacyFontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = AppContentColors.primaryText()
                             )
                         }
                     }
@@ -1413,8 +1415,8 @@ fun VideoSettingsPanel(
             item {
                 VideoSettingsSwitchRow(
                     icon = rememberSettingsSemanticIcon(SettingsIconRole.PROGRESS_PEAK_DANMAKU),
-                    title = "顶部计数弹幕",
-                    subtitle = if (danmakuHotBarEnabled) "顶部居中展示高赞计数弹幕，海量模式不占用普通弹幕轨道" else "已关闭，顶部空间交还普通弹幕",
+                    title = "显示计数弹幕",
+                    subtitle = if (danmakuHotBarEnabled) "按内容长度自动显示 1～3 条完整横幅，均匀排布" else "已关闭，普通弹幕照常显示",
                     checked = danmakuHotBarEnabled,
                     onCheckedChange = { checked ->
                         scope.launch {
@@ -1565,7 +1567,7 @@ private fun SleepTimerOptions(
         60 to "1小时",
         90 to "1.5小时"
     )
-    
+
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(spec.chipSpacing)
@@ -1671,9 +1673,9 @@ private fun FlipButton(
             AppIcon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isActive) 
+                tint = if (isActive)
                     videoSettingsChipContentColor(true)
-                else 
+                else
                     videoSettingsChipContentColor(false),
                 modifier = Modifier.size(policy.pillIconSizeDp.dp)
             )
@@ -1683,9 +1685,9 @@ private fun FlipButton(
                 role = VideoSettingsPanelTextRole.OPTION,
 
                 legacyFontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
-                color = if (isActive) 
+                color = if (isActive)
                     videoSettingsChipContentColor(true)
-                else 
+                else
                     videoSettingsChipContentColor(false)
             )
         }
@@ -1750,7 +1752,7 @@ private fun SeekSecondsOptions(
 ) {
     val spec = rememberVideoSettingsPanelVisualSpec()
     val options = listOf(5, 10, 15, 20, 30)
-    
+
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(spec.chipSpacing)

@@ -2,6 +2,8 @@
 
 package com.android.purebilibili.feature.plugin.js
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -207,7 +209,7 @@ fun ExternalMediaPlayerScreen(
             ) {
                 AppText(
                     text = "播放请求已失效，请从插件内容重新打开",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = AppContentColors.secondaryText()
                 )
             }
             return@AppScaffold

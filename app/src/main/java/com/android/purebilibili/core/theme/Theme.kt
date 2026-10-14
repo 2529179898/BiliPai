@@ -840,7 +840,7 @@ fun PureBiliBiliTheme(
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    
+
     //  获取 MD3 主题种子色。跟随壁纸时仍保留旧预设色作为非 S 设备后备。
     val customPrimaryColor = resolveMd3ThemeSeedColor(
         source = md3ColorSource,
@@ -1023,7 +1023,7 @@ fun PureBiliBiliTheme(
                 typography = materialTypography,
                 shapes = shapes,
                 motionScheme = materialMotionScheme,
-                content = content
+                content = { com.android.purebilibili.core.ui.ProvideAppContentColors(content) }
             )
         }
     }

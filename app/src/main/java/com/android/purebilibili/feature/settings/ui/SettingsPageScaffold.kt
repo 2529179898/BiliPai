@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings.ui
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -235,9 +237,9 @@ internal fun SettingsPageScaffold(
                             } else {
                                 Color.Transparent
                             },
-                            titleContentColor = MaterialTheme.colorScheme.onSurface,
-                            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                            actionIconContentColor = MaterialTheme.colorScheme.onSurface,
+                            titleContentColor = AppContentColors.primaryText(),
+                            navigationIconContentColor = AppContentColors.primaryText(),
+                            actionIconContentColor = AppContentColors.primaryText(),
                         ),
                         style = topBarStyle,
                         collapseBehavior = collapseBehavior,

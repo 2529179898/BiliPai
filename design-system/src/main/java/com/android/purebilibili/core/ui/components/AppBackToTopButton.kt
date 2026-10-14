@@ -1,5 +1,7 @@
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.AppContentColors
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -39,7 +41,7 @@ fun AppBackToTopButton(
             onClick = onClick,
             modifier = buttonModifier,
             containerColor = containerColor,
-            contentColor = MaterialTheme.colorScheme.primary,
+            contentColor = AppContentColors.accent(),
         ) {
             AppIcon(
                 imageVector = rememberAppChevronUpIcon(),

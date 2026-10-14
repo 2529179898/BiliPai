@@ -175,6 +175,20 @@ object AppSurfaceTokens {
 
     @Composable
     @ReadOnlyComposable
+    fun primaryContainer(): Color = resolveMiuixSemanticColorComposable(
+        miuixColor = MiuixTheme.colorScheme.primaryContainer,
+        materialFallback = MaterialTheme.colorScheme.primaryContainer,
+    )
+
+    @Composable
+    @ReadOnlyComposable
+    fun onPrimaryContainer(): Color = resolveMiuixSemanticColorComposable(
+        miuixColor = MiuixTheme.colorScheme.onPrimaryContainer,
+        materialFallback = MaterialTheme.colorScheme.onPrimaryContainer,
+    )
+
+    @Composable
+    @ReadOnlyComposable
     fun outline(): Color = resolveMiuixSemanticColorComposable(
         miuixColor = MiuixTheme.colorScheme.outline,
         materialFallback = MaterialTheme.colorScheme.outline

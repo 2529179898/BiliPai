@@ -113,6 +113,7 @@ internal fun LargeScreenVideoLayout(
     videoNoteEnabled: Boolean = true,
     videoNoteDefaultCollapsed: Boolean = true,
     playerContent: (@Composable (Modifier) -> Unit)? = null,
+    transitionChromeAlphaProvider: () -> Float = { 1f },
 ) {
     val pageColor = AppSurfaceTokens.chromeBackground()
     val danmakuChrome = rememberTabletDanmakuChromeState(danmakuManager)
@@ -202,55 +203,59 @@ internal fun LargeScreenVideoLayout(
                     videoAiSummaryEntryEnabled = videoAiSummaryEntryEnabled,
                     videoNoteEnabled = videoNoteEnabled,
                     videoNoteDefaultCollapsed = videoNoteDefaultCollapsed,
-                    modifier = modifier,
+                    modifier = modifier.videoDetailTransitionChrome(transitionChromeAlphaProvider),
                     showRelatedVideos = showRelatedInIntro,
+                    showSupportingInfo = metrics.mode == LargeScreenVideoLayoutMode.VerticalThreePane,
+                    onSearchKeywordClick = onSearchKeywordClick,
                 )
             } else if (uiState is VideoPlaybackUiState.Loading) {
                 com.android.purebilibili.feature.video.ui.components.VideoDetailInfoPaneSkeleton(
-                    modifier = modifier,
+                    modifier = modifier.videoDetailTransitionChrome(transitionChromeAlphaProvider),
                 )
             }
         }
         val side: @Composable (Boolean) -> Unit = { includeIntro ->
-            if (success != null) {
-                TabletSecondaryContent(
-                    success = success,
-                    commentState = commentState,
-                    subReplyState = subReplyState,
-                    playbackActions = playbackActions,
-                    engagementState = engagementState,
-                    engagementActions = engagementActions,
-                    commentActions = commentActions,
-                    playerState = playerState,
-                    onUpClick = onUpClick,
-                    paneMode = TabletSecondaryPaneMode.EXPANDED,
-                    onPaneModeChange = {},
-                    onRelatedVideoClick = onRelatedVideoClick,
-                    onSearchKeywordClick = onSearchKeywordClick,
-                    showUpBadge = showUpBadge,
-                    showIdentityDecorations = commentMemberDecorationsEnabled,
-                    onOpenBilibiliLink = onOpenBilibiliLink,
-                    requestedTabName = null,
-                    onRequestedTabConsumed = {},
-                    danmakuEnabled = danmakuChrome.enabled,
-                    onDanmakuSendClick = playbackActions.showDanmakuSendDialog,
-                    onDanmakuToggle = danmakuChrome.onToggle,
-                    introContent = if (includeIntro) {
-                        { intro(Modifier.fillMaxSize()) }
-                    } else {
-                        null
-                    },
-                    applyStatusBarPadding = applySideStatusBarPadding,
-                    includeRelatedTab = includeRelatedTab,
-                    includeOwnerUploadsTab = true,
-                    relatedTabFirst = relatedTabFirst,
-                )
-            } else if (uiState is VideoPlaybackUiState.Loading) {
-                com.android.purebilibili.feature.video.ui.components.VideoDetailSecondaryPaneSkeleton(
-                    showComments = !relatedTabFirst || !includeRelatedTab,
-                    modifier = Modifier.fillMaxSize(),
-                    showIntro = includeIntro,
-                )
+            Box(Modifier.fillMaxSize().videoDetailTransitionChrome(transitionChromeAlphaProvider)) {
+                if (success != null) {
+                    TabletSecondaryContent(
+                        success = success,
+                        commentState = commentState,
+                        subReplyState = subReplyState,
+                        playbackActions = playbackActions,
+                        engagementState = engagementState,
+                        engagementActions = engagementActions,
+                        commentActions = commentActions,
+                        playerState = playerState,
+                        onUpClick = onUpClick,
+                        paneMode = TabletSecondaryPaneMode.EXPANDED,
+                        onPaneModeChange = {},
+                        onRelatedVideoClick = onRelatedVideoClick,
+                        onSearchKeywordClick = onSearchKeywordClick,
+                        showUpBadge = showUpBadge,
+                        showIdentityDecorations = commentMemberDecorationsEnabled,
+                        onOpenBilibiliLink = onOpenBilibiliLink,
+                        requestedTabName = null,
+                        onRequestedTabConsumed = {},
+                        danmakuEnabled = danmakuChrome.enabled,
+                        onDanmakuSendClick = playbackActions.showDanmakuSendDialog,
+                        onDanmakuToggle = danmakuChrome.onToggle,
+                        introContent = if (includeIntro) {
+                            { intro(Modifier.fillMaxSize()) }
+                        } else {
+                            null
+                        },
+                        applyStatusBarPadding = applySideStatusBarPadding,
+                        includeRelatedTab = includeRelatedTab,
+                        includeOwnerUploadsTab = true,
+                        relatedTabFirst = relatedTabFirst,
+                    )
+                } else if (uiState is VideoPlaybackUiState.Loading) {
+                    com.android.purebilibili.feature.video.ui.components.VideoDetailSecondaryPaneSkeleton(
+                        showComments = !relatedTabFirst || !includeRelatedTab,
+                        modifier = Modifier.fillMaxSize(),
+                        showIntro = includeIntro,
+                    )
+                }
             }
         }
         when (metrics.mode) {
@@ -265,7 +270,8 @@ internal fun LargeScreenVideoLayout(
                         intro(Modifier.fillMaxSize())
                     }
                     VerticalDivider(
-                        modifier = Modifier.fillMaxHeight(),
+                        modifier = Modifier.fillMaxHeight()
+                            .videoDetailTransitionChrome(transitionChromeAlphaProvider),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
                         thickness = 1.dp,
                     )
@@ -276,7 +282,8 @@ internal fun LargeScreenVideoLayout(
                             .background(Color.Black),
                     )
                     VerticalDivider(
-                        modifier = Modifier.fillMaxHeight(),
+                        modifier = Modifier.fillMaxHeight()
+                            .videoDetailTransitionChrome(transitionChromeAlphaProvider),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
                         thickness = 1.dp,
                     )
@@ -304,7 +311,8 @@ internal fun LargeScreenVideoLayout(
                         )
                     }
                     VerticalDivider(
-                        modifier = Modifier.fillMaxHeight(),
+                        modifier = Modifier.fillMaxHeight()
+                            .videoDetailTransitionChrome(transitionChromeAlphaProvider),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
                         thickness = 1.dp,
                     )
@@ -338,7 +346,8 @@ internal fun LargeScreenVideoLayout(
                             intro(Modifier.fillMaxSize())
                         }
                         VerticalDivider(
-                            modifier = Modifier.fillMaxHeight(),
+                            modifier = Modifier.fillMaxHeight()
+                                .videoDetailTransitionChrome(transitionChromeAlphaProvider),
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
                             thickness = 1.dp,
                         )
@@ -376,7 +385,8 @@ internal fun LargeScreenVideoLayout(
                         }
                     }
                     VerticalDivider(
-                        modifier = Modifier.fillMaxHeight(),
+                        modifier = Modifier.fillMaxHeight()
+                            .videoDetailTransitionChrome(transitionChromeAlphaProvider),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
                         thickness = 1.dp,
                     )
@@ -524,6 +534,10 @@ private fun LargeScreenPlayerHost(
                     likeStatusKnown = engagementState.likeStatusKnown,
                     isFollowed = engagementState.isFollowing,
                     followStatusKnown = engagementState.followStatusKnown,
+                    isFollowSubmitting = engagementState.isFollowSubmitting,
+                    isTripleSubmitting = engagementState.isTripleSubmitting,
+                    isCoined = engagementState.coinCount > 0,
+                    isFavorited = engagementState.isFavorited,
                     isFullscreen = false,
                     isInPipMode = isInPipMode,
                     useTextureSurfaceForNavigation = resolveNavigationLiveSurfaceTextureEnabled(
@@ -562,6 +576,9 @@ private fun LargeScreenPlayerHost(
                     onBack = onBack,
                     onHomeClick = onHomeClick,
                     onDoubleTapLike = engagementActions.toggleLike,
+                    onToggleFollow = engagementActions.toggleFollow,
+                    onFollow = engagementActions.followOwner,
+                    onTriple = engagementActions.doTripleAction,
                     onReloadVideo = playbackActions.reloadVideo,
                     onSwitchCdn = playbackActions.switchCdn,
                     onSwitchCdnTo = playbackActions.switchCdnTo,

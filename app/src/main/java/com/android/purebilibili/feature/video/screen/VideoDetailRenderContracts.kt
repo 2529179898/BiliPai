@@ -70,6 +70,7 @@ internal data class VideoDetailPlaybackActions(
 @Immutable
 internal data class VideoDetailEngagementActions(
     val toggleFollow: () -> Unit,
+    val followOwner: () -> Unit,
     val toggleFavorite: () -> Unit,
     val onFavoriteAction: (isLongPress: Boolean) -> Unit,
     val toggleLike: () -> Unit,
