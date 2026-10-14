@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCompositionContext
 import androidx.compose.runtime.rememberUpdatedState
@@ -55,11 +57,18 @@ internal fun ProfileAvatarEffect(
     val latestClick = rememberUpdatedState(onAvatarClick)
     val latestFling = rememberUpdatedState(flingBehavior)
     val lowBudget = isLowBlurBudgetForced()
+    val latestLowBudget = rememberUpdatedState(lowBudget)
     val motionEnabled = LocalComponentMotionEnabled.current && !rememberSystemReduceMotion() && !lowBudget
     val latestMotion = rememberUpdatedState(motionEnabled)
     val latestProvider = rememberUpdatedState(expandedFractionProvider)
     val latestTop = rememberUpdatedState(with(density) { statusBarTopPadding.toPx() })
     val host = remember { arrayOfNulls<ProfileAvatarFusionView>(1) }
+    // Refresh the native display list even when Compose reuses its cached draw layer,
+    // or the fully absorbed view has no visible child to invalidate it.
+    LaunchedEffect(Unit) {
+        snapshotFlow { Triple(latestProvider.value(), latestMotion.value, latestTop.value to latestLowBudget.value) }
+            .collect { host[0]?.prepareFrame() }
+    }
     AndroidView(
         modifier = modifier
             .onGloballyPositioned { coordinates ->
@@ -96,6 +105,7 @@ internal fun ProfileAvatarEffect(
                 val baseSize = (100f * context.resources.displayMetrics.density).toInt()
                 addView(avatar, FrameLayout.LayoutParams(baseSize, baseSize))
                 setFrameUpdater {
+                    setHardwareEffectsEnabled(!latestLowBudget.value)
                     val expanded = latestProvider.value().coerceIn(0f, 1f)
                     val deviceDensity = context.resources.displayMetrics.density
                     val cutout = notchInfo

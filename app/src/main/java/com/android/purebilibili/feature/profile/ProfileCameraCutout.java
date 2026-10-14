@@ -12,6 +12,10 @@ import android.graphics.RectF;
 import android.os.Build;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
+import android.view.View;
+import android.view.WindowInsets;
+import android.view.DisplayCutout;
+import android.graphics.Rect;
 
 import androidx.core.graphics.PathParser;
 
@@ -20,6 +24,50 @@ public class ProfileCameraCutout {
     private static final String DP_MARKER = "@dp";
     private static final String RIGHT_MARKER = "@right";
     private static final String LEFT_MARKER = "@left";
+
+    /** Prefer the current window's cutout, including off-centre cameras and rotated displays. */
+    public static Info getInfo(View host) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WindowInsets insets = host.getRootWindowInsets();
+            if (insets != null) {
+                DisplayCutout cutout = insets.getDisplayCutout();
+                if (cutout == null) return null;
+                Rect camera = null;
+                for (Rect bounds : cutout.getBoundingRects()) {
+                    if (bounds.top <= 0 && bounds.width() > 0 && bounds.height() > 0 &&
+                            (camera == null || bounds.width() < camera.width())) camera = bounds;
+                }
+                if (camera == null) return null;
+                Info info = new Info();
+                info.bounds = new RectF(camera);
+                info.path = new Path();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && cutout.getCutoutPath() != null) {
+                    info.path.set(cutout.getCutoutPath());
+                    Path cameraRegion = new Path();
+                    cameraRegion.addRect(info.bounds, Path.Direction.CW);
+                    info.path.op(cameraRegion, Path.Op.INTERSECT);
+                    info.isAccurate = !info.path.isEmpty();
+                    if (info.isAccurate) {
+                        RectF contourBounds = new RectF();
+                        info.path.computeBounds(contourBounds, true);
+                        if (contourBounds.width() > 0 && contourBounds.height() > 0) info.bounds.set(contourBounds);
+                    }
+                } else {
+                    info.path.addRoundRect(info.bounds, camera.width() / 2f, camera.height() / 2f, Path.Direction.CW);
+                }
+                if (info.path.isEmpty()) {
+                    info.path.addRoundRect(info.bounds, camera.width() / 2f, camera.height() / 2f, Path.Direction.CW);
+                }
+                float density = host.getResources().getDisplayMetrics().density;
+                info.isLikelyCircle = info.bounds.width() <= 32f * density || info.bounds.width() <= info.bounds.height();
+                float center = host.getRootView().getWidth() / 2f;
+                info.gravity = Math.abs(info.bounds.centerX() - center) <= 2f * density
+                        ? Gravity.CENTER : (info.bounds.centerX() < center ? Gravity.LEFT : Gravity.RIGHT);
+                return info;
+            }
+        }
+        return getInfo(host.getContext());
+    }
 
     @SuppressLint("DiscouragedApi")
     public static Info getInfo(Context ctx) {
