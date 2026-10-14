@@ -1631,7 +1631,7 @@ fun ReplyItemView(
                                     vipStatus = item.member.vip?.vipStatus ?: 0,
                                     vipType = item.member.vip?.vipType ?: 0,
                                     onSurface = appearance.primaryTextColor.copy(alpha = 0.9f),
-                                    secondary = MaterialTheme.colorScheme.secondary,
+                                    secondary = com.android.purebilibili.core.ui.components.userVipPink(),
                                 ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -1933,7 +1933,12 @@ fun ReplyItemView(
                                     officialVerifyTone = subReplyOfficialBadge?.tone
                                 )
                             }
-                            val prefixTextColor = appearance.primaryTextColor.copy(alpha = 0.8f)
+                            val prefixTextColor = resolveUpNameColor(
+                                vipStatus = subReply.member.vip?.vipStatus ?: 0,
+                                vipType = subReply.member.vip?.vipType ?: 0,
+                                onSurface = appearance.primaryTextColor.copy(alpha = 0.8f),
+                                secondary = com.android.purebilibili.core.ui.components.userVipPink(),
+                            )
                             val prefixSeparatorColor = appearance.secondaryTextColor
                             val upTagColor = appearance.accentColor
                             val prefix = remember(prefixTokens, prefixTextColor, prefixSeparatorColor, upTagColor) {
@@ -2560,7 +2565,36 @@ fun LevelTag(level: Int, isSeniorMember: Boolean = false) {
 
 @Composable
 private fun FansMedalTag(detail: ReplyFansDetail) {
-    val accentColor = resolveFansMedalColor(detail.level)
+    val accentColor = detail.medalColor.takeIf { it > 0 }?.let {
+        Color((it and 0xFFFFFFL).toInt() or 0xFF000000.toInt())
+    } ?: resolveFansMedalColor(detail.level)
+    val nameColor = detail.medalColorName.takeIf { detail.medalColor > 0 }?.let {
+        Color((it and 0xFFFFFFL).toInt() or 0xFF000000.toInt())
+    } ?: accentColor.copy(alpha = 0.95f)
+    if (detail.medalColor > 0) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(AppShapes.container(ContainerLevel.Tag))
+                .background(accentColor)
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        ) {
+            AppText(
+                text = detail.medalName,
+                style = MaterialTheme.typography.labelSmall,
+                color = nameColor,
+                maxLines = 1,
+            )
+            AppText(
+                text = " ${detail.level}",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = nameColor,
+                maxLines = 1,
+            )
+        }
+        return
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -2576,7 +2610,7 @@ private fun FansMedalTag(detail: ReplyFansDetail) {
             text = detail.medalName,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Medium,
-            color = accentColor.copy(alpha = 0.95f),
+            color = nameColor,
             maxLines = 1,
             modifier = Modifier.padding(start = 4.dp, end = 3.dp, top = 1.dp, bottom = 1.dp)
         )

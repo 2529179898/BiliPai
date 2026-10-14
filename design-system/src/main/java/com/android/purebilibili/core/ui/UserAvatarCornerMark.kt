@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.android.purebilibili.core.ui.components.userVipPink
 import androidx.compose.ui.unit.sp
 
 /**
@@ -81,12 +82,12 @@ fun UserAvatarCornerMarkBadge(
                         .fillMaxSize()
                         .padding(1.dp)
                         .clip(CircleShape)
-                        .background(AppContentColors.accent()),
+                        .background(userVipPink()),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = "大",
-                        color = AppContentColors.onAccent(),
+                        color = Color.White,
                         fontSize = (badgeSize.value * 0.58f).sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
@@ -100,9 +101,9 @@ fun UserAvatarCornerMarkBadge(
                     imageVector = Icons.Outlined.Bolt,
                     contentDescription = null,
                     tint = if (mark == UserAvatarCornerMark.Personal) {
-                        MaterialTheme.colorScheme.tertiary
+                        officialVerifyColor(OfficialVerifyBadgeTone.PERSONAL)
                     } else {
-                        AppContentColors.accent()
+                        officialVerifyColor(OfficialVerifyBadgeTone.ORGANIZATION)
                     },
                     modifier = Modifier.fillMaxSize(),
                 )

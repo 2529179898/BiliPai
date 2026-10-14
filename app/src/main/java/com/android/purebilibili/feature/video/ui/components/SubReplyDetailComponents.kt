@@ -1126,7 +1126,7 @@ private fun SubReplyDetailItem(
         vipStatus = item.member.vip?.vipStatus ?: 0,
         vipType = item.member.vip?.vipType ?: 0,
         onSurface = appearance.primaryTextColor,
-        secondary = MaterialTheme.colorScheme.secondary,
+        secondary = com.android.purebilibili.core.ui.components.userVipPink(),
     )
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

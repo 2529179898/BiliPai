@@ -506,6 +506,8 @@ object CommentGrpcRepository {
         var garbCardIsFan = 0
         var fansMedalName = ""
         var fansMedalLevel = 0
+        var fansMedalColor = 0L
+        var fansMedalColorName = 0L
         var isSeniorMember = 0
 
         ProtoWire.parseFields(bytes).forEach { field ->
@@ -525,6 +527,8 @@ object CommentGrpcRepository {
                 17 -> garbCardIsFan = if (field.varint != 0L) 1 else 0
                 18 -> fansMedalName = ProtoWire.stringValue(field)
                 19 -> fansMedalLevel = field.varint.toInt()
+                20 -> fansMedalColor = field.varint
+                27 -> fansMedalColorName = field.varint
                 32 -> isSeniorMember = field.varint.toInt()
             }
         }
@@ -541,7 +545,13 @@ object CommentGrpcRepository {
                 ReplySailingPendant(image = it)
             },
             fansDetail = if (fansMedalName.isNotBlank() && fansMedalLevel > 0) {
-                ReplyFansDetail(uid = mid, medalName = fansMedalName, level = fansMedalLevel)
+                ReplyFansDetail(
+                    uid = mid,
+                    medalName = fansMedalName,
+                    level = fansMedalLevel,
+                    medalColor = fansMedalColor,
+                    medalColorName = fansMedalColorName,
+                )
             } else {
                 null
             },

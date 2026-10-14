@@ -1338,7 +1338,7 @@ private fun CommentItem(
                         vipStatus = member.vip?.vipStatus ?: 0,
                         vipType = member.vip?.vipType ?: 0,
                         onSurface = AppContentColors.primaryText(),
-                        secondary = MaterialTheme.colorScheme.secondary,
+                        secondary = com.android.purebilibili.core.ui.components.userVipPink(),
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1555,7 +1555,7 @@ private fun CommentItem(
                                             vipStatus = subReply.member.vip?.vipStatus ?: 0,
                                             vipType = subReply.member.vip?.vipType ?: 0,
                                             onSurface = AppContentColors.primaryText(),
-                                            secondary = MaterialTheme.colorScheme.secondary,
+                                            secondary = com.android.purebilibili.core.ui.components.userVipPink(),
                                         ),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis

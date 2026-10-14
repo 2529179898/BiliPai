@@ -563,10 +563,15 @@ fun VideoTitleWithDesc(
                 maxLines = 2,
             )
         }
-        // Title row (expandable); top-aligned so the sponsor badge lines up with the first title line
+        // Tap the full title row, including its spacing; long-press selection stays available.
         Row(
             modifier = Modifier
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .clickable(
+                    onClickLabel = if (expanded) "收起简介" else "展开简介",
+                    onClick = toggleExpanded,
+                )
+                .padding(bottom = if (isMaterial3) 4.dp else 3.dp),
             verticalAlignment = Alignment.Top
         ) {
             //  共享元素过渡 - 标题
@@ -605,33 +610,14 @@ fun VideoTitleWithDesc(
                     text = info.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = if (expanded) Int.MAX_VALUE else 2,
+                    maxLines = Int.MAX_VALUE,
                     overflow = TextOverflow.Ellipsis,
                     color = AppContentColors.primaryText(),
                     modifier = titleModifier,
                     tapToCopyEnabled = false,
                 )
             }
-
-            val rotateAngle by animateFloatAsState(
-                targetValue = if (expanded) 180f else 0f, // 展开时旋转180度
-                animationSpec = tween(durationMillis = 300), // 设置动画时长和曲线
-                label = "IconRotation"
-            )
-            com.android.purebilibili.core.ui.components.AppIconButton(
-                onClick = toggleExpanded,
-                modifier = Modifier.align(Alignment.CenterVertically).size(40.dp),
-            ) {
-                AppIcon(
-                    imageVector = Icons.Outlined.KeyboardArrowDown,
-                    contentDescription = if (expanded) "收起标题" else "展开标题",
-                    tint = AppContentColors.secondaryText(),
-                    modifier = Modifier.rotate(rotateAngle).size(20.dp),
-                )
-            }
         }
-
-        Spacer(Modifier.height(if (isMaterial3) 4.dp else 3.dp))
 
         val argueMsg = info.argueInfo?.argueMsg.orEmpty()
         val noReprint = info.rights.noReprint == 1
@@ -640,7 +626,12 @@ fun VideoTitleWithDesc(
 
         // Stats row
         Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier.weight(1f).clickable(
+                onClickLabel = if (expanded) "收起简介" else "展开简介",
+                onClick = toggleExpanded,
+            ),
+        ) {
         androidx.compose.foundation.layout.FlowRow(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -1237,7 +1228,7 @@ fun UpInfoSection(
                 val fallbackVipStatus = ownerStaff?.vip?.status ?: 0
                 val fallbackVipType = ownerStaff?.vip?.type ?: 0
                 val onSurfaceColor = AppContentColors.primaryText()
-                val secondaryColor = MaterialTheme.colorScheme.secondary
+                val secondaryColor = com.android.purebilibili.core.ui.components.userVipPink()
                 val ownerNameColor by produceState<Color>(
                     initialValue = resolveUpNameColor(
                         vipStatus = fallbackVipStatus,

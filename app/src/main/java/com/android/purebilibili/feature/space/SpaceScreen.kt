@@ -3117,7 +3117,7 @@ private fun SpaceHeaderIdentityInfo(
                         vipStatus = userInfo.vip.status,
                         vipType = userInfo.vip.type,
                         onSurface = AppContentColors.primaryText(),
-                        secondary = MaterialTheme.colorScheme.secondary,
+                        secondary = com.android.purebilibili.core.ui.components.userVipPink(),
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

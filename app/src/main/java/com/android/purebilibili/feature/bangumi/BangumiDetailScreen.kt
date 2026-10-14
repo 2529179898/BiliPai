@@ -1586,7 +1586,8 @@ private fun EpisodeChip(
 
                 // 角标（如：会员）
                 if (episode.badge.isNotEmpty()) {
-                    val badgeColors = resolveAdaptivePrimaryAccentColors(MaterialTheme.colorScheme)
+                    val badgeColors = com.android.purebilibili.feature.bangumi.bangumiBrandBadgeColors(episode.badge)
+                        ?: resolveAdaptivePrimaryAccentColors(MaterialTheme.colorScheme)
                     AppSurface(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -1887,7 +1888,8 @@ private fun EpisodeListItem(
 
             // VIP 角标
             if (episode.badge.isNotEmpty()) {
-                val badgeColors = resolveAdaptivePrimaryAccentColors(MaterialTheme.colorScheme)
+                val badgeColors = com.android.purebilibili.feature.bangumi.bangumiBrandBadgeColors(episode.badge)
+                        ?: resolveAdaptivePrimaryAccentColors(MaterialTheme.colorScheme)
                 AppSurface(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
