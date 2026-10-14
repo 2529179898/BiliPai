@@ -22,7 +22,6 @@ fun AppSwitch(
         if (useAppLiquidValueControls()) {
             AppLiquidSwitch(
                 checked, onCheckedChange, modifier, enabled, thumbContent, interactionSource,
-                showThumbIcon,
             )
         } else when (LocalAppUiStyle.current) {
         AppUiStyle.MATERIAL3 -> AppMaterial3Switch(

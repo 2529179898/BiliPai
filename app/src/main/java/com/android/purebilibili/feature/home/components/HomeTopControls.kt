@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppPressShiftContent
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
 import com.android.purebilibili.core.ui.components.AppText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -49,7 +51,6 @@ internal fun HomeTopAvatarContent(
     user: UserState,
     shape: Shape,
     fallbackBackgroundColor: Color,
-    fallbackTextColor: Color,
     modifier: Modifier = Modifier
 ) {
     if (user.isLogin && user.face.isNotEmpty()) {
@@ -73,11 +74,11 @@ internal fun HomeTopAvatarContent(
                 .background(fallbackBackgroundColor),
             contentAlignment = Alignment.Center
         ) {
-            AppText(
-                text = "未",
-                fontSize = MaterialTheme.typography.labelSmall.fontSize,
-                fontWeight = FontWeight.Bold,
-                color = fallbackTextColor
+            AppIcon(
+                imageVector = Icons.Filled.Person,
+                contentDescription = if (user.isLogin) "用户头像" else "未登录，点击登录",
+                tint = AppContentColors.accent(),
+                modifier = Modifier.fillMaxSize(0.6f),
             )
         }
     }

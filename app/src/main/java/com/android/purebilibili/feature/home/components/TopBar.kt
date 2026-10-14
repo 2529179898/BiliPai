@@ -869,7 +869,12 @@ fun FluidHomeTopBar(
                                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center
                             ) {
-                                AppText("未", fontSize = MaterialTheme.typography.labelSmall.fontSize, fontWeight = FontWeight.Bold, color = AppContentColors.secondaryText())
+                                AppIcon(
+                                    imageVector = Icons.Filled.Person,
+                                    contentDescription = if (user.isLogin) "用户头像" else "未登录，点击登录",
+                                    tint = AppContentColors.accent(),
+                                    modifier = Modifier.fillMaxSize(0.6f),
+                                )
                             }
                         }
                     }
@@ -2458,6 +2463,7 @@ private fun BoxScope.LightweightTopTabIndicatorOverlay(
                 panelOffsetPx = topTabIndicatorPanelOffsetPx,
                 width = indicatorWidth,
                 height = dockIndicatorHeight,
+                dockHeight = rowHeight,
                 combinedBackdrop = indicatorCombinedBackdrop,
                 pressProgress = topTabLensProgress,
                 scaleX = indicatorScaleX,
@@ -2479,6 +2485,7 @@ private fun BoxScope.LightweightTopTabIndicatorOverlay(
                 panelOffsetPx = topTabIndicatorPanelOffsetPx,
                 width = md3LiquidCapsuleWidth,
                 height = dockIndicatorHeight,
+                dockHeight = rowHeight,
                 combinedBackdrop = indicatorCombinedBackdrop,
                 pressProgress = topTabLensProgress,
                 scaleX = indicatorScaleX,
@@ -2500,6 +2507,7 @@ private fun BoxScope.LightweightTopTabIndicatorOverlay(
                 panelOffsetPx = topTabIndicatorPanelOffsetPx,
                 width = md3LiquidCapsuleWidth,
                 height = dockIndicatorHeight,
+                dockHeight = rowHeight,
                 combinedBackdrop = indicatorCombinedBackdrop,
                 pressProgress = topTabLensProgress,
                 scaleX = indicatorScaleX,

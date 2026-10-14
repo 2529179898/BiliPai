@@ -386,13 +386,23 @@ internal fun BackdropEffectScope.homeIndicatorLens(
     restHeightDp: Float,
     progress: Float,
     tuning: LiquidGlassTuning,
+    shellHeightDp: Float = restHeightDp * 64f / 56f,
+    indicatorScaleY: Float = 1f,
+    shellScaleY: Float = 1f,
 ) {
+    val gapBandDp = resolveFloatingDockChromaticGapBand(
+        indicatorHeight = restHeightDp,
+        shellHeight = shellHeightDp,
+        indicatorScaleY = indicatorScaleY,
+        shellScaleY = shellScaleY,
+    )
     val reach = homeIndicatorOpticalScale(restHeightDp) * progress.coerceIn(0f, 1f)
     lens(
         refractionHeight = 10.dp.toPx() * reach * tuning.indicatorLensBoost * tuning.contentDistortionScale,
         refractionAmount = 14.dp.toPx() * reach * tuning.indicatorEdgeWarpBoost * tuning.contentDistortionScale,
         depthEffect = true,
         chromaticAberration = resolveLiquidGlassIndicatorChromaticAberration(tuning),
+        chromaticEdgeBand = gapBandDp.dp.toPx(),
     )
 }
 
@@ -420,6 +430,7 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
     panelOffsetPx: Float,
     width: Dp,
     height: Dp,
+    dockHeight: Dp = height * 64f / 56f,
     combinedBackdrop: Backdrop?,
     pressProgress: Float,
     scaleX: Float,
@@ -449,14 +460,18 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
                             shape = { shape },
                             effects = {
                                 val progress = pressProgress
-                                homeIndicatorLens(height.value, progress, liquidGlassTuning)
+                                homeIndicatorLens(
+                                    restHeightDp = height.value,
+                                    progress = progress,
+                                    tuning = liquidGlassTuning,
+                                    shellHeightDp = dockHeight.value,
+                                    indicatorScaleY = scaleY,
+                                )
                             },
                             highlight = { pillHighlight.value.copy(alpha = pressProgress) },
                             layerBlock = {
-                                this.scaleX = scaleX
-                                this.scaleY = scaleY
-                                val v = velocity / 10f
-                                this.scaleX /= 1f - (abs(v) * 0.75f).fastCoerceIn(0f, 0.2f)
+                                this.scaleX = com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.scaleX(scaleX, velocity)
+                                this.scaleY = com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.scaleY(scaleY, velocity)
                             },
                             onDrawSurface = {
                                 drawHomeIndicatorSurface(pressProgress, isDark)

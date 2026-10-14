@@ -47,6 +47,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -59,9 +60,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
@@ -94,6 +97,8 @@ import kotlin.math.sign
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.blur
@@ -109,6 +114,8 @@ internal val LocalFloatingBottomBarSelectedContentColor =
     staticCompositionLocalOf { Color.Unspecified }
 
 val LocalFloatingBottomBarTabScale = staticCompositionLocalOf { { 1f } }
+
+private val LocalFloatingBottomBarTapFeedback = staticCompositionLocalOf<(Int) -> Unit> { { _ -> } }
 
 internal val LocalFloatingBottomBarIndicatorPosition = staticCompositionLocalOf { { 0f } }
 
@@ -344,6 +351,18 @@ internal fun shouldAnimateIndicatorToSelectedIndex(
     return true
 }
 
+/** A scroll mutation without page displacement must not start a lens press pulse. */
+internal fun shouldStartExternalPagerIndicatorPress(
+    effectsEnabled: Boolean,
+    isPagerScrolling: Boolean,
+    externalPosition: Float?,
+): Boolean {
+    if (!effectsEnabled || !isPagerScrolling || externalPosition == null ||
+        !externalPosition.isFinite()
+    ) return false
+    return abs(externalPosition - externalPosition.fastRoundToInt().toFloat()) > 0.001f
+}
+
 internal fun resolveFloatingDockVisualIndicatorPosition(
     internalPosition: Float,
     externalPosition: Float?,
@@ -384,6 +403,7 @@ fun RowScope.FloatingBottomBarItem(
     val baseContentAlpha = LocalFloatingBottomBarBaseContentAlpha.current
     val indicatorStretchX = LocalFloatingBottomBarIndicatorStretchX.current
     val activeContent = LocalFloatingBottomBarActiveContent.current
+    val tapFeedback = LocalFloatingBottomBarTapFeedback.current
     val contentColor = LocalFloatingBottomBarContentColor.current
     val selectionScale = remember(itemIndex, indicatorPosition, iconCrossScaleEnabled) {
         {
@@ -408,7 +428,10 @@ fun RowScope.FloatingBottomBarItem(
                 interactionSource = null,
                 indication = null,
                 role = Role.Tab,
-                onClick = onClick
+                onClick = {
+                    if (!selected && !activeContent) itemIndex?.let(tapFeedback)
+                    onClick()
+                }
             )
             .semantics {
                 this.selected = selected
@@ -568,10 +591,11 @@ fun FloatingBottomBar(
     // Match the home top dock: capture unscaled labels at indicator height.
     // The consuming glass layer owns the capsule and label deformation together.
     val capturedContentHeight = fittedIndicatorHeight
-    val matchedGeometry = remember(shellHeight, fittedIndicatorHeight) {
-        resolveMatchedLiquidIndicatorGeometry(
-            dockHeightDp = shellHeight.value,
+    val matchedGeometry = remember(shellHeight, fittedIndicatorHeight, geometryMode) {
+        resolveFloatingDockIndicatorGeometry(
+            shellHeightDp = shellHeight.value,
             indicatorHeightDp = fittedIndicatorHeight.value,
+            geometryMode = geometryMode,
         )
     }
     val pressedScale = matchedGeometry.pressedScale
@@ -622,24 +646,33 @@ fun FloatingBottomBar(
     val dragScrollViewportWidthLatest = rememberUpdatedState(dragScrollViewportWidthPx)
     val indicatorPositionLatest by rememberUpdatedState(indicatorPositionProvider)
     val isScrollInProgressLatest by rememberUpdatedState(isScrollInProgressProvider)
+    val externalPagerMotionEffectsLatest by rememberUpdatedState(externalPagerMotionEffectsEnabled)
     val pagerFollowGate = remember { ExternalPagerIndicatorFollowGate() }
+    var selectionTapFeedbackActive by remember { mutableStateOf(false) }
+    val selectionTapFeedbackJob = remember {
+        object {
+            var job: Job? = null
+            var generation: Long = 0L
+        }
+    }
 
+    class DampedDragAnimationHolder {
+        var instance: DampedDragAnimation? = null
+    }
+    val holder = remember { DampedDragAnimationHolder() }
     val interactiveHighlight =
         if (com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current) {
-            remember(animationScope) {
+            remember(animationScope, holder) {
                 InteractiveHighlight(
                     animationScope = animationScope,
+                    // The captured material must receive exactly the same press progress
+                    // for pointer drags, tap springs and externally driven pager motion.
+                    pressProgressProvider = { holder.instance?.pressProgress ?: 0f },
                 )
             }
         } else {
             null
         }
-
-    class DampedDragAnimationHolder {
-        var instance: DampedDragAnimation? = null
-    }
-
-    val holder = remember { DampedDragAnimationHolder() }
 
     val dampedDragAnimation = remember(
         animationScope,
@@ -678,6 +711,9 @@ fun FloatingBottomBar(
                 )
             },
             onDragStarted = { point ->
+                selectionTapFeedbackJob.generation++
+                selectionTapFeedbackJob.job?.cancel()
+                selectionTapFeedbackActive = false
                 val padding = with(density) { horizontalPaddingLatest.value.toPx() }
                 val slotStart = if (isLtr) {
                     padding + targetValue * tabWidthPx
@@ -727,6 +763,35 @@ fun FloatingBottomBar(
                 }
             }
         ).also { holder.instance = it }
+    }
+    val selectionTapFeedback: (Int) -> Unit = { targetIndex ->
+        if (interactiveHighlight != null) {
+            val generation = ++selectionTapFeedbackJob.generation
+            selectionTapFeedbackJob.job?.cancel()
+            selectionTapFeedbackActive = true
+            dampedDragAnimation.press()
+            // This independent job cannot be cancelled by the pager's snapTo.
+            // The business click below does not wait for it or the scale spring.
+            selectionTapFeedbackJob.job = animationScope.launch {
+                try {
+                    withTimeoutOrNull(com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.BloomWaitMillis) {
+                        snapshotFlow { minOf(dampedDragAnimation.scaleX, dampedDragAnimation.scaleY) }
+                            .first { it >= pressedScale }
+                    }
+                    // Pager snapTo continuously updates targetValue, so comparing the
+                    // local animation with its own target cannot detect click completion.
+                    // Hold the bloom until the clicked destination really lands; a new
+                    // click or a pointer drag cancels this job instead of a fixed timeout.
+                    snapshotFlow {
+                        val position = indicatorPositionLatest?.invoke() ?: dampedDragAnimation.value
+                        !isScrollInProgressLatest() && abs(position - targetIndex.toFloat()) <= com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.SettleTolerance
+                    }.first { it }
+                    if (!dampedDragAnimation.isDragging) dampedDragAnimation.release()
+                } finally {
+                    if (selectionTapFeedbackJob.generation == generation) selectionTapFeedbackActive = false
+                }
+            }
+        }
     }
     SideEffect {
         // Search reserving space beside the dock can retarget indicator geometry. Updating the
@@ -781,6 +846,45 @@ fun FloatingBottomBar(
         snapshotFlow { dampedDragAnimation.value }
             .collect { position -> onIndicatorPositionChangedLatest.value?.invoke(position) }
     }
+    SideEffect {
+        interactiveHighlight?.drawPositionProvider = { drawSize ->
+            if (dampedDragAnimation.isDragging || tabWidthPx <= 0f) {
+                null // The pointer owns the light during a real drag.
+            } else {
+                // Use the exact clamped capsule geometry, including compact controls
+                // whose indicator is narrower than one slot. No coroutine mirror or
+                // press-only gate can strand the light at the previous selection.
+                val offset = resolveFloatingDockIndicatorOffsetPx(
+                    position = visualIndicatorPositionProvider(),
+                    tabWidthPx = tabWidthPx,
+                    tabsCount = safeTabsCount,
+                    indicatorWidthPx = fittedIndicatorWidthPx,
+                )
+                val centerX = with(density) { horizontalPaddingLatest.value.toPx() } +
+                    offset + fittedIndicatorWidthPx / 2f
+                Offset(
+                    x = if (isLtr) centerX else drawSize.width - centerX,
+                    y = drawSize.height / 2f,
+                )
+            }
+        }
+    }
+    val indicatorOpticalProgressProvider: () -> Float = {
+        resolveFloatingDockRefractionProgress(
+            pressProgress = dampedDragAnimation.pressProgress,
+            tapPressRefractionEnabled = tapPressRefractionEnabled,
+            isDragging = dampedDragAnimation.isDragging,
+            isPagerScrolling = shouldStartExternalPagerIndicatorPress(
+                effectsEnabled = externalPagerMotionEffectsLatest,
+                isPagerScrolling = isScrollInProgressLatest(),
+                externalPosition = indicatorPositionLatest?.invoke(),
+            ),
+            selectionMotionProgress = resolveFloatingDockSelectionMotionProgress(
+                position = visualIndicatorPositionProvider(),
+                targetPosition = dampedDragAnimation.targetValue,
+            ),
+        )
+    }
     val itemAlignmentOffsetProvider: (Int) -> Float = { itemIndex ->
         if (tabWidthPx <= 0f) {
             0f
@@ -829,7 +933,7 @@ fun FloatingBottomBar(
                 ) {
                     // Tap selection keeps the same enlarge/move/shrink process as the home dock.
                     // The tightened scale springs keep it brief without removing the feedback.
-                    dampedDragAnimation.animateToValue(index.toFloat())
+                    dampedDragAnimation.animateToValue(index.toFloat(), animatePress = !selectionTapFeedbackActive)
                 }
             }
     }
@@ -858,17 +962,25 @@ fun FloatingBottomBar(
             pagerFollowGate.ownedTargetIndex = null
             pagerFollowGate.previousExternalPosition = external
             if (scrolling && external != null) {
-                if (!pagerPressed) {
-                    dampedDragAnimation.press()
+                if (!pagerPressed && shouldStartExternalPagerIndicatorPress(
+                        effectsEnabled = externalPagerMotionEffectsLatest,
+                        isPagerScrolling = scrolling,
+                        externalPosition = external,
+                    )
+                ) {
+                    if (!selectionTapFeedbackActive) dampedDragAnimation.press()
                     pagerPressed = true
                 }
-                dampedDragAnimation.snapTo(external.coerceIn(0f, maxTabIndex.toFloat()))
+                dampedDragAnimation.snapTo(
+                    external.coerceIn(0f, maxTabIndex.toFloat()),
+                    trackVelocity = externalPagerMotionEffectsLatest,
+                )
             } else if (pagerPressed) {
                 pagerPressed = false
                 external?.let {
                     dampedDragAnimation.snapTo(it.coerceIn(0f, maxTabIndex.toFloat()))
                 }
-                dampedDragAnimation.release()
+                if (!selectionTapFeedbackActive) dampedDragAnimation.release()
             } else if (external != null) {
                 dampedDragAnimation.snapTo(external.coerceIn(0f, maxTabIndex.toFloat()))
             }
@@ -917,6 +1029,7 @@ fun FloatingBottomBar(
     ) {
         CompositionLocalProvider(
             LocalFloatingBottomBarContentColor provides resolvedContentColor,
+            LocalFloatingBottomBarTapFeedback provides selectionTapFeedback,
             LocalFloatingBottomBarIndicatorPosition provides visualIndicatorPositionProvider,
             LocalFloatingBottomBarItemAlignmentOffset provides itemAlignmentOffsetProvider,
             LocalFloatingBottomBarBaseContentAlpha provides baseContentAlphaProvider,
@@ -1038,6 +1151,27 @@ fun FloatingBottomBar(
                         }
                     }
                     .then(shellModifier)
+                    .drawWithContent {
+                        val scroll = dragScrollState
+                        val viewportWidth = dragScrollViewportWidthLatest.value()
+                        if (scroll == null || viewportWidth <= 0f) {
+                            drawContent()
+                        } else {
+                            // The scroll viewport has lens overflow padding. Only the
+                            // optical layers may use it; ordinary labels stay in the dock.
+                            val left = if (isLtr) {
+                                scroll.value.toFloat()
+                            } else {
+                                (size.width - viewportWidth - scroll.value).coerceAtLeast(0f)
+                            }
+                            clipRect(
+                                left = left,
+                                right = left + viewportWidth,
+                                top = -size.height,
+                                bottom = size.height * 2f,
+                            ) { this@drawWithContent.drawContent() }
+                        }
+                    }
                     .height(shellHeight)
                     .padding(horizontal = horizontalPadding),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1139,16 +1273,29 @@ fun FloatingBottomBar(
                             backdrop = combinedBackdrop,
                             shape = { indicatorShape },
                             effects = {
-                                val progress = resolveFloatingDockRefractionProgress(
-                                    pressProgress = dampedDragAnimation.pressProgress,
-                                    tapPressRefractionEnabled = tapPressRefractionEnabled,
-                                    isDragging = dampedDragAnimation.isDragging,
-                                    isPagerScrolling = isScrollInProgressLatest(),
+                                val progress = indicatorOpticalProgressProvider()
+                                val shellWidth = totalWidthPx.coerceAtLeast(1f)
+                                val shellHeightPx = shellHeight.toPx().coerceAtLeast(1f)
+                                val shellBloom = 1f + pressBloomPx / shellWidth * dampedDragAnimation.pressProgress
+                                val dragY = abs(interactiveHighlight?.offset?.y ?: 0f)
+                                val shellStretch = (4.dp.toPx() / shellHeightPx) * (dragY / shellWidth) *
+                                    (shellHeightPx / shellWidth).coerceAtMost(1f) * DOCK_SHELL_ELASTIC_GAIN
+                                homeIndicatorLens(
+                                    restHeightDp = fittedIndicatorHeight.value,
+                                    progress = progress,
+                                    tuning = liquidGlassTuning,
+                                    shellHeightDp = shellHeight.value,
+                                    indicatorScaleY = resolveFloatingDockIndicatorLayerScaleY(
+                                        baseScaleY = dampedDragAnimation.scaleY,
+                                        velocity = dampedDragAnimation.velocity,
+                                    ),
+                                    shellScaleY = if (drawShell) {
+                                        shellBloom + shellStretch.coerceAtMost(DOCK_SHELL_MAX_EXTRA_STRETCH)
+                                    } else 1f,
                                 )
-                                homeIndicatorLens(fittedIndicatorHeight.value, progress, liquidGlassTuning)
                             },
                             highlight = {
-                                pillHighlight?.value?.copy(alpha = dampedDragAnimation.pressProgress)
+                                pillHighlight?.value?.copy(alpha = indicatorOpticalProgressProvider())
                             },
                             layerBlock = {
                                 scaleY = resolveFloatingDockIndicatorLayerScaleY(
@@ -1162,7 +1309,7 @@ fun FloatingBottomBar(
                             },
                             onDrawSurface = {
                                 drawHomeIndicatorSurface(
-                                    dampedDragAnimation.pressProgress,
+                                    indicatorOpticalProgressProvider(),
                                     isInDark,
                                     indicatorIdleSurfaceColorOverride,
                                 )
@@ -1170,9 +1317,9 @@ fun FloatingBottomBar(
                         )
                         .innerShadow(shape = indicatorShape) {
                             InnerShadow(
-                                radius = 8.dp * homeIndicatorOpticalScale(fittedIndicatorHeight.value) * dampedDragAnimation.pressProgress,
+                                radius = 8.dp * homeIndicatorOpticalScale(fittedIndicatorHeight.value) * indicatorOpticalProgressProvider(),
                                 color = Color.Black.copy(alpha = 0.15f),
-                                alpha = dampedDragAnimation.pressProgress,
+                                alpha = indicatorOpticalProgressProvider(),
                             )
                         }
                         .height(fittedIndicatorHeight)

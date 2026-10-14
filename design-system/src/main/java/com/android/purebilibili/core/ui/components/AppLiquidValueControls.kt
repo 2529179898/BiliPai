@@ -6,10 +6,12 @@
  */
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion
+import com.android.purebilibili.core.ui.animation.LiquidIndicatorVelocity
+
 import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -48,8 +50,6 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.DpSize
-import com.android.purebilibili.core.theme.LocalAppUiStyle
-import com.android.purebilibili.core.theme.AppUiStyle
 import androidx.compose.material3.MaterialTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -81,14 +81,13 @@ private class LiquidValueMotion(private val scope: CoroutineScope, initial: Floa
     val press = Animatable(0f)
     val scaleX = Animatable(1f)
     val scaleY = Animatable(1f)
-    val velocity = Animatable(0f)
+    val velocity = LiquidIndicatorVelocity(scope)
     var target = initial
         private set
     private var valueJob: Job? = null
     private var pressJob: Job? = null
     private var releaseJob: Job? = null
     private var selectionPulseJob: Job? = null
-    private var velocityJob: Job? = null
     private var lastFrameNanos = 0L
     private var lastFrameValue = initial
 
@@ -96,15 +95,27 @@ private class LiquidValueMotion(private val scope: CoroutineScope, initial: Floa
         selectionPulseJob?.cancel()
         val current = position
         valueJob?.cancel()
-        velocityJob?.cancel()
+        velocity.freeze()
         pointerValue = current
         target = current
+        lastFrameNanos = System.nanoTime()
+        lastFrameValue = current
     }
 
     fun trackPointer(next: Float) {
         val bounded = next.coerceIn(0f, 1f)
         target = bounded
         pointerValue = bounded
+        if (motionEnabled) {
+            val now = System.nanoTime()
+            val seconds = (now - lastFrameNanos) / 1_000_000_000f
+            if (lastFrameNanos != 0L && seconds > 0f) {
+                val speed = (bounded - lastFrameValue) / seconds
+                velocity.updateTarget(speed)
+            }
+            lastFrameNanos = now
+            lastFrameValue = bounded
+        }
     }
 
     fun finishGesture(next: Float) {
@@ -115,15 +126,16 @@ private class LiquidValueMotion(private val scope: CoroutineScope, initial: Floa
         }
         target = next.coerceIn(0f, 1f)
         valueJob?.cancel()
-        velocityJob?.cancel()
         val settledTarget = target
         valueJob = scope.launch {
             // Seed animation from the final pointer position before releasing its draw state.
             // Both mutations happen before suspension, so there is no jump to an old frame.
             value.snapTo(current)
-            velocity.snapTo(0f)
+            if (motionEnabled) {
+                velocity.updateTarget(0f)
+            } else velocity.snapTo(0f)
             pointerValue = null
-            if (motionEnabled) value.animateTo(settledTarget, spring(1f, 1000f, 0.001f))
+            if (motionEnabled) value.animateTo(settledTarget, LiquidIndicatorMotion.positionSpec())
             else value.snapTo(settledTarget)
         }
     }
@@ -136,28 +148,25 @@ private class LiquidValueMotion(private val scope: CoroutineScope, initial: Floa
         valueJob?.cancel()
         valueJob = scope.launch {
             if (!motionEnabled) {
-                velocityJob?.cancel()
                 velocity.snapTo(0f)
                 value.snapTo(target)
                 return@launch
             }
             lastFrameNanos = 0L
             lastFrameValue = value.value
-            value.animateTo(target, spring(1f, 1000f, 0.001f)) {
+            value.animateTo(target, LiquidIndicatorMotion.positionSpec()) {
                 val now = System.nanoTime()
                 if (lastFrameNanos != 0L) {
                     val deltaSeconds = (now - lastFrameNanos) / 1_000_000_000f
                     if (deltaSeconds > 0f) {
                         val speed = (value - lastFrameValue) / deltaSeconds
-                        velocityJob?.cancel()
-                        velocityJob = scope.launch { this@LiquidValueMotion.velocity.animateTo(speed, spring(0.5f, 300f, 0.01f)) }
+                        this@LiquidValueMotion.velocity.updateTarget(speed)
                     }
                 }
                 lastFrameValue = value
                 lastFrameNanos = now
             }
-            velocityJob?.cancel()
-            velocityJob = scope.launch { velocity.animateTo(0f, spring(0.5f, 300f, 0.01f)) }
+            velocity.updateTarget(0f)
         }
     }
 
@@ -166,7 +175,6 @@ private class LiquidValueMotion(private val scope: CoroutineScope, initial: Floa
         target = next.coerceIn(0f, 1f)
         selectionPulseJob?.cancel()
         valueJob?.cancel()
-        velocityJob?.cancel()
         releaseJob?.cancel()
         pressJob?.cancel()
         valueJob = scope.launch {
@@ -194,9 +202,9 @@ private class LiquidValueMotion(private val scope: CoroutineScope, initial: Floa
     private fun animatePress(active: Boolean) {
         pressJob?.cancel()
         pressJob = scope.launch {
-            launch { press.animateTo(if (active) 1f else 0f, spring(1f, 1000f, 0.001f)) }
-            launch { scaleX.animateTo(if (active) 1.5f else 1f, spring(0.6f, 250f, 0.001f)) }
-            launch { scaleY.animateTo(if (active) 1.5f else 1f, spring(0.7f, 250f, 0.001f)) }
+            launch { press.animateTo(if (active) 1f else 0f, LiquidIndicatorMotion.pressSpec()) }
+            launch { scaleX.animateTo(if (active) LiquidIndicatorMotion.pressedScale else 1f, LiquidIndicatorMotion.scaleXSpec()) }
+            launch { scaleY.animateTo(if (active) LiquidIndicatorMotion.pressedScale else 1f, LiquidIndicatorMotion.scaleYSpec()) }
         }
     }
 
@@ -215,11 +223,12 @@ private class LiquidValueMotion(private val scope: CoroutineScope, initial: Floa
             // Let a short tap expose the lens before taking over its expansion job.
             // A new pointer cancels this waiter, so release cannot interrupt a new hold.
             releaseJob = scope.launch {
-                withTimeoutOrNull(300L) {
-                    snapshotFlow { position }.first { abs(it - target) < 0.025f }
+                withTimeoutOrNull(LiquidIndicatorMotion.BloomWaitMillis) {
+                    snapshotFlow { minOf(scaleX.value, scaleY.value) }
+                        .first { it >= LiquidIndicatorMotion.pressedScale }
                 }
-                withTimeoutOrNull(120L) {
-                    snapshotFlow { press.value }.first { it >= 0.6f }
+                withTimeoutOrNull(LiquidIndicatorMotion.SettleWaitMillis) {
+                    snapshotFlow { position }.first { abs(it - target) <= LiquidIndicatorMotion.SettleTolerance }
                 }
                 animatePress(false)
             }
@@ -345,9 +354,9 @@ private fun LiquidValueThumb(
             },
             highlight = { Highlight(width = (0.5f / 1.5f).dp, alpha = motion.press.value.coerceIn(0f, 1f)) },
             layerBlock = {
-                val velocity = motion.velocity.value / 50f
-                scaleX = motion.scaleX.value / (1f - (velocity * 0.75f).coerceIn(-0.2f, 0.2f))
-                scaleY = motion.scaleY.value * (1f - (velocity * 0.25f).coerceIn(-0.2f, 0.2f))
+                val velocity = motion.velocity.value
+                scaleX = LiquidIndicatorMotion.scaleX(motion.scaleX.value, velocity)
+                scaleY = LiquidIndicatorMotion.scaleY(motion.scaleY.value, velocity)
             },
             onDrawSurface = { drawRect(thumbColor.copy(alpha = 1f - motion.press.value.coerceIn(0f, 1f))) },
         )
@@ -364,22 +373,15 @@ internal fun AppLiquidSwitch(
     checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier,
     enabled: Boolean, thumbContent: (@Composable () -> Unit)?,
     interactionSource: MutableInteractionSource?,
-    showThumbIcon: Boolean,
 ) {
-    val uiStyle = LocalAppUiStyle.current
-    val geometry = appSwitchGeometry(uiStyle, checked, thumbContent != null || showThumbIcon)
-    val trackBounds = if (uiStyle == AppUiStyle.MATERIAL3) {
-        Modifier.requiredSize(geometry.track)
-    } else {
-        Modifier.size(geometry.track)
-    }
+    val geometry = AppLiquidControlGeometry
     val thisDensity = androidx.compose.ui.platform.LocalDensity.current.density
-    var trackWidthPx by remember(geometry.track, thisDensity) {
-        mutableFloatStateOf(geometry.track.width.value * thisDensity)
+    var trackWidthPx by remember(geometry.switchTrack, thisDensity) {
+        mutableFloatStateOf(geometry.switchTrack.width.value * thisDensity)
     }
     fun switchTravel(): Float {
-        val thumb = (geometry.thumb.value * thisDensity).coerceAtMost(trackWidthPx)
-        val inset = (geometry.inset.value * thisDensity).coerceAtMost((trackWidthPx - thumb) / 2f)
+        val thumb = (geometry.thumb.width.value * thisDensity).coerceAtMost(trackWidthPx)
+        val inset = (geometry.switchInset.value * thisDensity).coerceAtMost((trackWidthPx - thumb) / 2f)
         return (trackWidthPx - thumb - inset * 2f).coerceAtLeast(0f)
     }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
@@ -418,8 +420,7 @@ internal fun AppLiquidSwitch(
     }
     fun activate() { motion.pressed(true); select(!latestChecked); motion.pressed(false) }
     Box(modifier
-        .wrapContentSize(Alignment.Center)
-        .then(trackBounds)
+        .sizeIn(minWidth = geometry.switchTrack.width, minHeight = geometry.controlHeight)
         .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
         .semantics {
             role = Role.Switch
@@ -444,16 +445,16 @@ internal fun AppLiquidSwitch(
             onCancel = { motion.finishGesture(if (latestChecked) 1f else 0f) },
             interactionSource = interactionSource,
         ) else Modifier), contentAlignment = Alignment.CenterStart) {
-        Box(Modifier.matchParentSize()
+        Box(Modifier.align(Alignment.CenterStart).size(geometry.switchTrack)
             .onSizeChanged { trackWidthPx = it.width.toFloat() }
             .layerBackdrop(track).clip(CircleShape)
             .drawBehind { drawRect(lerp(inactive, active, motion.position.coerceIn(0f, 1f))) })
         Box(Modifier.matchParentSize()) {
             LiquidValueThumb(motion, switchBackdrop, Modifier.align(Alignment.CenterStart).graphicsLayer {
                 val fraction = if (isLtr) motion.position else 1f - motion.position
-                val inset = geometry.inset.toPx().coerceAtMost((trackWidthPx - size.width).coerceAtLeast(0f) / 2f)
+                val inset = geometry.switchInset.toPx().coerceAtMost((trackWidthPx - size.width).coerceAtLeast(0f) / 2f)
                 translationX = inset + (trackWidthPx - size.width - inset * 2f).coerceAtLeast(0f) * fraction
-            }, DpSize(geometry.thumb, geometry.thumb), content = thumbContent)
+            }, geometry.thumb, content = thumbContent)
         }
     }
 }
@@ -464,23 +465,11 @@ internal fun AppLiquidSlider(
     valueRange: ClosedFloatingPointRange<Float>, steps: Int, onValueChangeFinished: (() -> Unit)?,
     colors: AppSliderColors?, enabled: Boolean, interactionSource: MutableInteractionSource?,
 ) {
-    val uiStyle = LocalAppUiStyle.current
-    val geometry = appSliderGeometry(uiStyle)
+    val geometry = AppLiquidControlGeometry
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val measuredHeight = if (uiStyle == AppUiStyle.MIUIX) {
-        remember(density, geometry) { mutableFloatStateOf(with(density) { geometry.height.toPx() }) }
-    } else {
-        null
-    }
-    fun sliderInsetPx(): Float = measuredHeight?.let { it.floatValue / 2f }
-        ?: with(density) { geometry.horizontalInset.toPx() }
-    val boundsModifier = modifier.fillMaxWidth().height(geometry.height).then(
-        if (uiStyle == AppUiStyle.MATERIAL3) {
-            Modifier.requiredSizeIn(minWidth = geometry.thumb.width, minHeight = geometry.trackHeight)
-        } else {
-            Modifier.onSizeChanged { measuredHeight!!.floatValue = it.height.toFloat() }
-        }
-    )
+    fun sliderInsetPx(widthPx: Float): Float =
+        minOf(with(density) { geometry.sliderInset.toPx() }, widthPx.coerceAtLeast(0f) / 2f)
+    val boundsModifier = modifier.fillMaxWidth().height(geometry.controlHeight)
     val scope = rememberCoroutineScope()
     val span = valueRange.endInclusive - valueRange.start
     fun fraction(value: Float) = ((value - valueRange.start) / span).coerceIn(0f, 1f)
@@ -531,7 +520,7 @@ internal fun AppLiquidSlider(
                     rawDragFraction = resolveAppSliderPointerFraction(
                         positionPx = position,
                         widthPx = width,
-                        insetPx = sliderInsetPx(),
+                        insetPx = sliderInsetPx(width),
                         isLtr = latestLtr,
                     )
                     update(rawDragFraction, fromPointer = true)
@@ -542,7 +531,7 @@ internal fun AppLiquidSlider(
                         update(resolveAppSliderPointerFraction(
                             positionPx = position * width,
                             widthPx = width,
-                            insetPx = sliderInsetPx(),
+                            insetPx = sliderInsetPx(width),
                             isLtr = latestLtr,
                         ))
                     }
@@ -554,15 +543,10 @@ internal fun AppLiquidSlider(
         contentAlignment = Alignment.CenterStart,
     ) {
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth.toFloat() else 144.dp.value * androidx.compose.ui.platform.LocalDensity.current.density
-        val trackHeight = if (uiStyle == AppUiStyle.MIUIX) maxHeight else geometry.trackHeight
-        val thumbSize = if (uiStyle == AppUiStyle.MIUIX) {
-            DpSize(trackHeight * 0.72f, trackHeight * 0.72f)
-        } else {
-            geometry.thumb
-        }
-        val thumbModifier = if (uiStyle == AppUiStyle.MATERIAL3) Modifier.fillMaxHeight() else Modifier
+        val trackHeight = geometry.sliderTrackHeight
+        val thumbSize = geometry.thumb
         Box((if (constraints.hasBoundedWidth) Modifier.fillMaxWidth() else Modifier.width(144.dp))
-            .padding(horizontal = geometry.trackHorizontalInset)
+            .padding(horizontal = with(density) { sliderInsetPx(width).toDp() })
             .height(trackHeight).layerBackdrop(track).clip(CircleShape).background(inactive)) {
             Box(Modifier.fillMaxSize().drawBehind {
                 val progress = motion.position.coerceIn(0f, 1f)
@@ -570,17 +554,11 @@ internal fun AppLiquidSlider(
                 drawRect(active, topLeft = Offset(left, 0f), size = androidx.compose.ui.geometry.Size(size.width * progress, size.height))
             })
         }
-        LiquidValueThumb(motion, sliderBackdrop, thumbModifier.graphicsLayer {
+        LiquidValueThumb(motion, sliderBackdrop, Modifier.graphicsLayer {
             val progress = if (isLtr) motion.position else 1f - motion.position
-            val insetPx = sliderInsetPx()
-            val corner = if (steps > 0 && progress > 0f && progress < 1f) {
-                geometry.discreteThumbInset.toPx()
-                    .coerceAtMost((width - insetPx * 2f).coerceAtLeast(0f) / 2f)
-            } else {
-                0f
-            }
-            val travel = (width - insetPx * 2f - corner * 2f).coerceAtLeast(0f)
-            translationX = insetPx + corner - size.width / 2f + travel * progress
+            val insetPx = sliderInsetPx(width)
+            val travel = (width - insetPx * 2f).coerceAtLeast(0f)
+            translationX = insetPx - size.width / 2f + travel * progress
         }, thumbSize, thumbColor = colors?.thumbColor ?: appControlThumbColor())
     }
 }

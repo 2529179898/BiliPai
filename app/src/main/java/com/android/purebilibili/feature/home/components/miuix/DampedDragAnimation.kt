@@ -2,6 +2,9 @@
 // design-system DampedDragAnimationState used by top tabs / segmented controls.
 package com.android.purebilibili.feature.home.components.miuix
 
+import com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion
+import com.android.purebilibili.core.ui.animation.LiquidIndicatorVelocity
+
 import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -55,21 +58,18 @@ class DampedDragAnimation(
 ) {
 
     private val valueAnimationSpec =
-        spring(1f, 1000f, visibilityThreshold)
-    private val velocityAnimationSpec =
-        spring(0.5f, 300f, visibilityThreshold * 10f)
+        LiquidIndicatorMotion.positionSpec(visibilityThreshold)
     private val pressProgressAnimationSpec =
-        spring(1f, 1000f, 0.001f)
+        LiquidIndicatorMotion.pressSpec()
     // Motion tuning copied from HyperIsland's LiquidGlassNavigationBar.
     private val scaleXAnimationSpec =
-        spring(0.6f, 250f, 0.001f)
+        LiquidIndicatorMotion.scaleXSpec()
     private val scaleYAnimationSpec =
-        spring(0.7f, 250f, 0.001f)
+        LiquidIndicatorMotion.scaleYSpec()
 
     private val valueAnimation =
         Animatable(initialValue, visibilityThreshold)
-    private val velocityAnimation =
-        Animatable(0f, 5f)
+    private val velocityAnimation = LiquidIndicatorVelocity(animationScope)
     private val pressProgressAnimation =
         Animatable(0f, 0.001f)
     private val scaleXAnimation =
@@ -87,7 +87,6 @@ class DampedDragAnimation(
     private var valueTrackingJob: Job? = null
     private var pressJob: Job? = null
     private var releaseJob: Job? = null
-    private var velocityJob: Job? = null
 
     val value: Float get() = valueAnimation.value
     val targetValue: Float get() = requestedValue
@@ -193,12 +192,16 @@ class DampedDragAnimation(
 
     fun release() {
         releaseJob?.cancel()
-        velocityJob?.cancel()
         releaseJob = animationScope.launch {
-            val settled = withTimeoutOrNull(450L) {
+            if (pressJob?.isActive == true || pressProgressAnimation.value > 0f) {
+                withTimeoutOrNull(LiquidIndicatorMotion.BloomWaitMillis) {
+                    snapshotFlow { minOf(scaleX, scaleY) }.first { it >= pressedScale }
+                }
+            }
+            val settled = withTimeoutOrNull(LiquidIndicatorMotion.SettleWaitMillis) {
                 withFrameNanos { }
                 if (value != targetValue) {
-                    val threshold = ((valueRange.endInclusive - valueRange.start) * 0.025f)
+                    val threshold = ((valueRange.endInclusive - valueRange.start) * LiquidIndicatorMotion.SettleTolerance)
                         .coerceAtLeast(visibilityThreshold.coerceAtLeast(0.001f))
                     snapshotFlow { abs(valueAnimation.value - targetValue) }
                         .filter { it <= threshold }
@@ -212,22 +215,24 @@ class DampedDragAnimation(
                 valueAnimation.snapTo(targetValue)
             }
             pressJob?.cancel()
-            // 照搬 HyperIsland LiquidGlassNavigationBar 的 release()：直接接管正在跑的
-            // 放大动画，不等待它结束。原先这里的 pressJob?.join() 会让缩放先跑到峰值停住、
-            // 之后才开始缩回（放大 → 停顿 → 缩小），破坏连贯性。
+            // Start shrink only after bloom and position settle; new input cancels this job.
             launch { pressProgressAnimation.animateTo(0f, pressProgressAnimationSpec) }
             launch { scaleXAnimation.animateTo(initialScale, scaleXAnimationSpec) }
             launch { scaleYAnimation.animateTo(initialScale, scaleYAnimationSpec) }
             // 速度形变是非对称的（scaleX 除以 1-v、scaleY 乘以 1-v），不归零就会留下
             // 椭圆残影。参考项目靠 animateToValue 里的归零，这里补上 release 路径。
-            launch { velocityAnimation.animateTo(0f, velocityAnimationSpec) }
+            velocityAnimation.updateTarget(0f)
         }
     }
 
-    fun snapTo(value: Float) {
+    fun snapTo(value: Float, trackVelocity: Boolean = false) {
         val next = value.coerceIn(valueRange)
         requestedValue = next
-        launchValueTracking { valueAnimation.snapTo(next) }
+        launchValueTracking {
+            valueAnimation.snapTo(next)
+            // Pager motion bypasses updateValue; sample its actual frame positions too.
+            if (trackVelocity) updateVelocity()
+        }
     }
 
     fun updateValue(value: Float) {
@@ -253,20 +258,12 @@ class DampedDragAnimation(
         requestedValue = targetValue
         launchValueTracking {
             mutatorMutex.mutate {
-                if (animatePress) {
-                    press()
-                    // Establish the lens bloom before translation; a new gesture cancels this mutation.
-                    val bloomThreshold = initialScale + (pressedScale - initialScale) * 0.25f
-                    withTimeoutOrNull(120L) {
-                        snapshotFlow { minOf(scaleXAnimation.value, scaleYAnimation.value) }
-                            .filter { it >= bloomThreshold }
-                            .first()
-                    }
+                if (animatePress) press()
+                launch {
+                    valueAnimation.animateTo(targetValue, valueAnimationSpec) { updateVelocity() }
                 }
-                launch { valueAnimation.animateTo(targetValue, valueAnimationSpec) }
                 if (velocity != 0f) {
-                    velocityJob?.cancel()
-                    velocityJob = launch { velocityAnimation.animateTo(0f, velocityAnimationSpec) }
+                    velocityAnimation.updateTarget(0f)
                 }
                 if (animatePress) release()
             }
@@ -296,11 +293,6 @@ class DampedDragAnimation(
             slotVelocity = velocityTracker.calculateVelocity().x,
             valueRange = valueRange,
         )
-        velocityJob?.cancel()
-        velocityJob = animationScope.launch(
-            start = CoroutineStart.UNDISPATCHED,
-        ) {
-            velocityAnimation.animateTo(targetVelocity, velocityAnimationSpec)
-        }
+        velocityAnimation.updateTarget(targetVelocity)
     }
 }

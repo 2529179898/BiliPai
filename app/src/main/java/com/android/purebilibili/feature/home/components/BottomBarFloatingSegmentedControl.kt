@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.horizontalScroll
@@ -226,7 +227,18 @@ internal fun BottomBarFloatingSegmentedControl(
         }
         val floatingModifier = if (scrollState != null && contentWidth != null) {
             Modifier
+                // Expand the scroll clip in both axes, then inset its content by
+                // the same amount. Slots and scroll range retain their resting geometry,
+                // while the first/last indicator can bloom outside the dock ends.
+                .bottomBarMatchedCaptureOverflow(
+                    horizontalInset = captureInsets.horizontalDp.dp,
+                    verticalInset = captureInsets.verticalDp.dp,
+                )
                 .horizontalScroll(scrollState)
+                .padding(
+                    horizontal = captureInsets.horizontalDp.dp,
+                    vertical = captureInsets.verticalDp.dp,
+                )
                 .width(contentWidth)
                 .height(effectiveHeight)
         } else {
