@@ -811,10 +811,11 @@ fun EpisodeChipSelectable(
                     if (episode.badge.isNotBlank()) {
                         Spacer(modifier = Modifier.width(4.dp))
                         val isPreview = episode.playable || episode.episodeCanView
+                        val brandColors = com.android.purebilibili.feature.bangumi.bangumiBrandBadgeColors(episode.badge)
                         Box(
                             modifier = Modifier
                                 .background(
-                                    color = if (isPreview) {
+                                    color = brandColors?.backgroundColor ?: if (isPreview) {
                                         MaterialTheme.colorScheme.primaryContainer
                                     } else {
                                         MaterialTheme.colorScheme.secondaryContainer
@@ -826,7 +827,7 @@ fun EpisodeChipSelectable(
                             AppText(
                                 text = episode.badge,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (isPreview) {
+                                color = brandColors?.contentColor ?: if (isPreview) {
                                     MaterialTheme.colorScheme.onPrimaryContainer
                                 } else {
                                     MaterialTheme.colorScheme.onSecondaryContainer

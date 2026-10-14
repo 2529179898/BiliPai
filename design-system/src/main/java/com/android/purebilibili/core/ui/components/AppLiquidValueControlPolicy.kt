@@ -9,6 +9,16 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.android.purebilibili.core.theme.AppUiStyle
 
+/** Authored liquid controls keep their capsule identity in either native theme. */
+internal object AppLiquidControlGeometry {
+    val thumb = DpSize(40.dp, 24.dp)
+    val switchTrack = DpSize(64.dp, 28.dp)
+    val controlHeight = 48.dp
+    val switchInset = 2.dp
+    val sliderTrackHeight = 6.dp
+    val sliderInset = thumb.width / 2
+}
+
 /** Native resting geometry, shared before choosing the value control's material. */
 @Immutable
 internal data class AppSwitchGeometry(val track: DpSize, val thumb: Dp) {

@@ -508,7 +508,12 @@ private fun CommentSearchResultRow(
                         text = highlightQuery(item.member.uname, searchQuery, primaryColor),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
-                        color = AppContentColors.primaryText(),
+                        color = com.android.purebilibili.core.ui.components.resolveUpNameColor(
+                            vipStatus = item.member.vip?.vipStatus ?: 0,
+                            vipType = item.member.vip?.vipType ?: 0,
+                            onSurface = AppContentColors.primaryText(),
+                            secondary = com.android.purebilibili.core.ui.components.userVipPink(),
+                        ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

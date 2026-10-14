@@ -2,6 +2,16 @@ package com.android.purebilibili.feature.bangumi
 
 import com.android.purebilibili.core.ui.AppContentColors
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.graphicsLayer
+import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -85,7 +95,6 @@ import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppTextButton
 import com.android.purebilibili.core.ui.rememberAppCheckCircleIcon
 import com.android.purebilibili.core.ui.rememberAppChevronDownIcon
-import com.android.purebilibili.core.ui.rememberAppChevronUpIcon
 import com.android.purebilibili.core.ui.rememberAppMoreIcon
 import com.android.purebilibili.core.ui.rememberAppRefreshIcon
 import com.android.purebilibili.core.util.FormatUtils
@@ -600,64 +609,97 @@ private fun IndexFilterPanel(
     onFilterSelected: (BangumiIndexFilterGroupUi, BangumiIndexChoice) -> Unit,
     onToggleExpanded: () -> Unit,
 ) {
-    val visibleGroups = if (state.conditions.size > 5 && !state.isExpanded) {
-        state.conditions.take(5)
-    } else {
-        state.conditions
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        visibleGroups.forEach { group ->
-            val selectedChoice = group.choices.firstOrNull { choice ->
-                state.selectedParams[group.field] == choice.keyword
-            } ?: group.choices.firstOrNull()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AppText(
-                    text = group.label,
-                    modifier = Modifier.width(56.dp),
-                    color = AppContentColors.secondaryText(),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                )
-                if (selectedChoice != null) {
-                    val uiStyle = LocalAppUiStyle.current
-                    val filterChoiceMinWidth = if (uiStyle == AppUiStyle.MATERIAL3) {
-                        AppChromeSizeTokens.MinimumTouchTarget
-                    } else {
-                        88.dp
-                    }
-                    AppThemeAdaptiveTabRow(
-                        role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
-                        options = group.choices.map { choice ->
-                            AppSegmentOption(choice, choice.label)
-                        },
-                        selectedValue = selectedChoice,
-                        scrollable = true,
-                        minTabWidth = filterChoiceMinWidth,
-                        onSelectionChange = { choice -> onFilterSelected(group, choice) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+    val motionEnabled = LocalComponentMotionEnabled.current
+    val arrowRotation = animateFloatAsState(
+        targetValue = if (state.isExpanded) 180f else 0f,
+        animationSpec = if (motionEnabled) spring(dampingRatio = 0.75f, stiffness = 450f) else snap(),
+        label = "indexFilterExpandArrow",
+    )
+    Column {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            state.conditions.take(5).forEach { group ->
+                IndexFilterRow(group, state.selectedParams[group.field], onFilterSelected)
             }
         }
         if (state.conditions.size > 5) {
+            AnimatedVisibility(
+                visible = state.isExpanded,
+                enter = if (motionEnabled) {
+                    expandVertically(
+                        animationSpec = spring(dampingRatio = 0.72f, stiffness = 380f),
+                        expandFrom = Alignment.Top,
+                    ) +
+                        fadeIn(tween(160))
+                } else EnterTransition.None,
+                exit = if (motionEnabled) {
+                    shrinkVertically(
+                        animationSpec = spring(dampingRatio = 0.78f, stiffness = 420f),
+                        shrinkTowards = Alignment.Top,
+                    ) +
+                        fadeOut(tween(120))
+                } else ExitTransition.None,
+            ) {
+                Column(
+                    modifier = Modifier.padding(top = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    state.conditions.drop(5).forEach { group ->
+                        IndexFilterRow(group, state.selectedParams[group.field], onFilterSelected)
+                    }
+                }
+            }
             AppTextButton(
                 onClick = onToggleExpanded,
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
+                    .padding(top = 6.dp)
                     .heightIn(min = 48.dp),
             ) {
                 AppIcon(
-                    imageVector = if (state.isExpanded) rememberAppChevronUpIcon() else rememberAppChevronDownIcon(),
+                    imageVector = rememberAppChevronDownIcon(),
                     contentDescription = null,
+                    modifier = Modifier.graphicsLayer { rotationZ = arrowRotation.value },
                 )
                 AppText(if (state.isExpanded) "收起" else "展开全部筛选")
             }
+        }
+    }
+}
+
+@Composable
+private fun IndexFilterRow(
+    group: BangumiIndexFilterGroupUi,
+    selectedKeyword: String?,
+    onFilterSelected: (BangumiIndexFilterGroupUi, BangumiIndexChoice) -> Unit,
+) {
+    val selectedChoice = group.choices.firstOrNull { it.keyword == selectedKeyword }
+        ?: group.choices.firstOrNull()
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AppText(
+            text = group.label,
+            modifier = Modifier.width(56.dp),
+            color = AppContentColors.secondaryText(),
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+        )
+        if (selectedChoice != null) {
+            val filterChoiceMinWidth = if (LocalAppUiStyle.current == AppUiStyle.MATERIAL3) {
+                AppChromeSizeTokens.MinimumTouchTarget
+            } else 88.dp
+            AppThemeAdaptiveTabRow(
+                role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
+                options = group.choices.map { AppSegmentOption(it, it.label) },
+                selectedValue = selectedChoice,
+                scrollable = true,
+                centerContent = false,
+                minTabWidth = filterChoiceMinWidth,
+                onSelectionChange = { onFilterSelected(group, it) },
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }

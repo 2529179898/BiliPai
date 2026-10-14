@@ -8,9 +8,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,11 +46,21 @@ fun UserUpBadge(
             .padding(
                 horizontal = spec.horizontalPaddingDp.dp,
                 vertical = spec.verticalPaddingDp.dp
-            )
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = "UP",
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall.copy(
+                lineHeight = MaterialTheme.typography.labelSmall.fontSize,
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+                lineHeightStyle = LineHeightStyle(
+                    alignment = LineHeightStyle.Alignment.Center,
+                    trim = LineHeightStyle.Trim.Both,
+                ),
+            ),
+            maxLines = 1,
+            softWrap = false,
             fontWeight = FontWeight.Bold,
             color = contentColor
         )

@@ -2327,7 +2327,6 @@ fun HomeHeader(
                             user = user,
                             shape = CircleShape,
                             fallbackBackgroundColor = MaterialTheme.colorScheme.surfaceVariant,
-                            fallbackTextColor = AppContentColors.secondaryText(),
                         )
                     }
                 }
@@ -2726,7 +2725,6 @@ fun HomeHeader(
                                         } else {
                                             headerChromeColors.containerColor
                                         },
-                                        fallbackTextColor = AppContentColors.secondaryText()
                                     )
                                 }
                             }

@@ -15,6 +15,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -67,6 +68,7 @@ internal class LargeScreenVideoTransitionGeometry {
 @Composable
 internal fun LargeScreenVideoPlayerTransitionHost(
     geometry: LargeScreenVideoTransitionGeometry,
+    mediaGeometry: VideoDetailReturnMediaGeometry,
     transition: MiuixVideoCardTransitionState,
     phaseProvider: () -> VideoCardTransitionBackgroundPhase,
     isReturningProvider: () -> Boolean,
@@ -141,21 +143,29 @@ internal fun LargeScreenVideoPlayerTransitionHost(
         )
     }
     val origin = { geometry.playerOrigin.value }
-    // The outer morph already owns the source card's window position. The complete
-    // capsule occupies (0, 0) inside that card; only its size needs inverse compensation.
+    // Bounds stay in source pixels; the media-layout modifier applies the inverse
+    // once. Both axes use the uniform content scale to preserve the bitmap's ratio.
     val nativeBarBounds: (() -> Rect?)? = if (nativeBarBitmap != null) {
-        {
-            transition.sourceBoundsProvider()?.let { bounds ->
-                val inverse = inverseScale()
-                Rect(
-                    left = 0f,
-                    top = 0f,
-                    right = bounds.width * inverse.scaleX,
-                    bottom = bounds.height * inverse.scaleY,
-                )
-            }
-        }
+        { transition.sourceBoundsProvider() }
     } else null
+    mediaGeometry.frameProvider = {
+        val viewport = mediaGeometry.viewportSize.value
+        if (viewport.width <= 0 || viewport.height <= 0) null else {
+            val inverse = inverseScale()
+            val frame = resolveVideoDetailReturnMediaLayoutFrame(
+                containerWidthPx = viewport.width,
+                containerHeightPx = viewport.height,
+                landingLayout = landing,
+                handoffProgress = progress(),
+                inverseScaleX = inverse.scaleX,
+                inverseScaleY = inverse.scaleY,
+                nativeSnapshotBounds = nativeBarBounds?.invoke(),
+            )
+            // The info facade lives in entry space, outside the split player slot.
+            val local = resolveVideoDetailReturnMediaFrameInSlot(frame, origin(), progress())
+            local.copy(offsetYPx = local.offsetYPx + origin().y.roundToInt())
+        }
+    }
     val corner = AppShapes.mediaCoverCornerDp()
     val followsRelatedSidebarDrag = transition.enabled &&
         transition.sourceLayout == com.android.purebilibili.core.ui.transition.VideoCardSourceLayout.SIDE_BY_SIDE
@@ -186,7 +196,9 @@ internal fun LargeScreenVideoPlayerTransitionHost(
             }
         }
         .onGloballyPositioned(geometry::recordPlayer)
-    BoxWithConstraints(modifier = playerViewportModifier) {
+    BoxWithConstraints(modifier = playerViewportModifier.onSizeChanged {
+        mediaGeometry.viewportSize.value = it
+    }) {
         val viewportWidth = maxWidth
         Box(
             modifier = Modifier
@@ -244,9 +256,9 @@ internal fun LargeScreenVideoPlayerTransitionHost(
                     .fillMaxSize()
                     .videoDetailReturnMediaLayout(
                         landingLayout = landing,
-                        handoffProgressProvider = progress,
+                        handoffProgressProvider = { 1f },
                         inverseScaleXProvider = { inverseScale().scaleX },
-                        inverseScaleYProvider = { inverseScale().scaleY },
+                        inverseScaleYProvider = { inverseScale().scaleX },
                         nativeSnapshotBoundsProvider = nativeBarBounds,
                         slotOriginProvider = origin,
                         clipCornerDp = corner,

@@ -297,8 +297,9 @@ internal fun shouldLoadMoreDynamicFeed(
     isLoading: Boolean,
     hasMore: Boolean,
     prefetchDistance: Int = 3,
+    error: String? = null,
 ): Boolean {
-    if (!allowAutomaticLoadMore || isLoading || !hasMore || totalItemsCount <= 0) return false
+    if (!allowAutomaticLoadMore || isLoading || !hasMore || totalItemsCount <= 0 || error != null) return false
     val visibleIndex = furthestVisibleItemIndex ?: return false
     return visibleIndex >= totalItemsCount - prefetchDistance.coerceAtLeast(1)
 }

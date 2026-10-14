@@ -1,8 +1,11 @@
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion
+
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /** Home dock resting indicator is 56dp in a typically ~75dp slot (~1.35). */
 internal const val FLOATING_DOCK_MIN_INDICATOR_ASPECT = 1.35f
@@ -138,9 +141,9 @@ internal fun resolveFloatingDockRestIndicatorVerticalInsetDp(
 }
 
 
-internal const val FLOATING_DOCK_INDICATOR_VELOCITY_DIVISOR = 10f
+internal const val FLOATING_DOCK_INDICATOR_VELOCITY_DIVISOR = LiquidIndicatorMotion.VelocityDivisor
 internal const val FLOATING_DOCK_INDICATOR_VELOCITY_SCALE_X_MULTIPLIER = 0.75f
-internal const val FLOATING_DOCK_INDICATOR_VELOCITY_CLAMP = 0.2f
+internal const val FLOATING_DOCK_INDICATOR_VELOCITY_CLAMP = LiquidIndicatorMotion.VelocityClamp
 
 enum class FloatingBottomBarGeometryMode { Dock, Segmented, TopNavigation }
 
@@ -157,15 +160,39 @@ internal fun resolveFloatingDockDragReferenceWidthPx(
 ): Float = (tabWidthPx.coerceAtLeast(0f) * 5f + horizontalPaddingPx.coerceAtLeast(0f) * 2f)
     .coerceAtLeast(1f)
 
+/** The pill's overflow above/below the track, expressed before its layer scale. */
+internal fun resolveFloatingDockChromaticGapBand(
+    indicatorHeight: Float,
+    shellHeight: Float,
+    indicatorScaleY: Float,
+    shellScaleY: Float = 1f,
+): Float {
+    if (!indicatorHeight.isFinite() || !shellHeight.isFinite() ||
+        !indicatorScaleY.isFinite() || !shellScaleY.isFinite() ||
+        indicatorHeight <= 0f || shellHeight <= 0f || indicatorScaleY <= 0f || shellScaleY <= 0f
+    ) return 0f
+    val localTrackHeight = shellHeight * shellScaleY / indicatorScaleY
+    return ((indicatorHeight - localTrackHeight) / 2f).coerceIn(0f, indicatorHeight / 2f)
+}
+
+/** Motion feedback also works when pager follow bypasses the local press spring. */
+internal fun resolveFloatingDockSelectionMotionProgress(position: Float, targetPosition: Float): Float {
+    if (!position.isFinite() || !targetPosition.isFinite()) return 0f
+    val distance = maxOf(abs(position - targetPosition), abs(position - position.roundToInt()))
+    // Ignore tiny resting offsets; ramp to full optical feedback over a quarter slot.
+    return ((distance - 0.015f) / 0.235f).coerceIn(0f, 1f)
+}
+
 internal fun resolveFloatingDockRefractionProgress(
     pressProgress: Float,
     tapPressRefractionEnabled: Boolean,
     isDragging: Boolean,
     isPagerScrolling: Boolean,
-): Float = if (tapPressRefractionEnabled || isDragging || isPagerScrolling) {
-    pressProgress.coerceIn(0f, 1f)
-} else {
-    0f
+    selectionMotionProgress: Float = 0f,
+): Float {
+    val press = if (tapPressRefractionEnabled || isDragging || isPagerScrolling) pressProgress else 0f
+    // Opting out of stationary tap feedback must never turn off a moving selection's lens.
+    return maxOf(press, selectionMotionProgress).coerceIn(0f, 1f)
 }
 
 internal fun resolveFloatingDockIndicatorHeightDp(
@@ -183,8 +210,9 @@ internal fun resolveFloatingDockIndicatorHeightDp(
         return min(requestedHeightDp, shellHeightDp ?: requestedHeightDp).coerceAtLeast(0f)
     }
     if (geometryMode == FloatingBottomBarGeometryMode.Segmented) {
-        // Compact segmented controls use a 2dp resting inset and fit their pill to the slot.
-        val insetHeight = shellHeightDp?.let { (it - 4f).coerceAtLeast(0f) }
+        // Keep the resting capsule wider than it is tall. Pressed height and
+        // capture overflow are resolved separately, so drag bloom can exceed the shell.
+        val insetHeight = shellHeightDp?.let { min(requestedHeightDp, (it - 6f).coerceAtLeast(0f)) }
             ?: requestedHeightDp
         return resolveSegmentedControlIndicatorHeightDp(tabWidthDp, insetHeight)
     }
@@ -211,20 +239,14 @@ internal fun resolveFloatingDockIndicatorLayerScaleX(
     baseScaleX: Float,
     velocity: Float,
 ): Float {
-    val normalizedVelocity = velocity / FLOATING_DOCK_INDICATOR_VELOCITY_DIVISOR
-    val velocityScale = (normalizedVelocity * FLOATING_DOCK_INDICATOR_VELOCITY_SCALE_X_MULTIPLIER)
-        .coerceIn(-FLOATING_DOCK_INDICATOR_VELOCITY_CLAMP, FLOATING_DOCK_INDICATOR_VELOCITY_CLAMP)
-    return baseScaleX / (1f - velocityScale)
+    return LiquidIndicatorMotion.scaleX(baseScaleX, velocity)
 }
 
 internal fun resolveFloatingDockIndicatorLayerScaleY(
     baseScaleY: Float,
     velocity: Float,
 ): Float {
-    val normalizedVelocity = velocity / FLOATING_DOCK_INDICATOR_VELOCITY_DIVISOR
-    val velocityScale = (normalizedVelocity * 0.25f)
-        .coerceIn(-FLOATING_DOCK_INDICATOR_VELOCITY_CLAMP, FLOATING_DOCK_INDICATOR_VELOCITY_CLAMP)
-    return baseScaleY * (1f - velocityScale)
+    return LiquidIndicatorMotion.scaleY(baseScaleY, velocity)
 }
 
 internal fun resolveFloatingDockCapturedContentHorizontalScale(
@@ -276,6 +298,18 @@ internal fun resolveFloatingDockClippedContentTranslationPx(
     indicatorWidthPx = indicatorWidthPx,
 )
 
+/** Every rail uses the same shell-relative bloom, including compact text categories. */
+@Suppress("UNUSED_PARAMETER")
+internal fun resolveFloatingDockIndicatorGeometry(
+    shellHeightDp: Float,
+    indicatorHeightDp: Float,
+    geometryMode: FloatingBottomBarGeometryMode,
+): com.android.purebilibili.core.ui.MatchedLiquidIndicatorGeometry =
+    com.android.purebilibili.core.ui.resolveMatchedLiquidIndicatorGeometry(
+        dockHeightDp = shellHeightDp,
+        indicatorHeightDp = indicatorHeightDp,
+    )
+
 internal fun resolveFloatingDockCaptureInsets(
     shellHeightDp: Float,
     requestedIndicatorHeightDp: Float,
@@ -291,9 +325,10 @@ internal fun resolveFloatingDockCaptureInsets(
         geometryMode = geometryMode,
         shellHeightDp = shellHeightDp,
     )
-    val geometry = com.android.purebilibili.core.ui.resolveMatchedLiquidIndicatorGeometry(
-        dockHeightDp = shellHeightDp,
+    val geometry = resolveFloatingDockIndicatorGeometry(
+        shellHeightDp = shellHeightDp,
         indicatorHeightDp = fittedIndicatorHeightDp,
+        geometryMode = geometryMode,
     )
     val samplingReachDp = max(
         resolveCompactDockIndicatorLensHeightDp(shellHeightDp),

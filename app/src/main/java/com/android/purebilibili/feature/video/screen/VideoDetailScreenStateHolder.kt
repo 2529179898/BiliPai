@@ -107,6 +107,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.positionInWindow
@@ -1479,6 +1480,7 @@ internal fun VideoDetailScreenStateHolder(
     //  [PiP修复] 记录视频播放器在屏幕上的位置，用于PiP窗口只显示视频区域
     var videoPlayerBounds by remember { mutableStateOf<android.graphics.Rect?>(null) }
     var videoPlayerRootBottomPx by remember { mutableIntStateOf(0) }
+    val returnMediaGeometry = remember(currentBvid) { VideoDetailReturnMediaGeometry() }
 
     // 📱 [优化] isPortraitFullscreen 和 isVerticalVideo 现在从 playerState 获取（见 playerState 定义后）
 
@@ -4027,12 +4029,14 @@ internal fun VideoDetailScreenStateHolder(
                     val continuousPlayerSlot: @Composable (Modifier) -> Unit = remember(
                         continuousPlayerContent, continuousPlayerUnitState,
                         largeScreenGeometry, largeScreenTransition, videoCardDepthBackgroundState,
+                        returnMediaGeometry,
                         entryOwnsMiuixCardTransition, isCommittedCardReturn, residentCoverSource,
                         uiState is VideoPlaybackUiState.Loading, hasRenderedFirstFrameForReturn,
                     ) {
                         { playerModifier ->
                             LargeScreenVideoPlayerTransitionHost(
                                 geometry = largeScreenGeometry,
+                                mediaGeometry = returnMediaGeometry,
                                 transition = largeScreenTransition.copy(
                                     enabled = largeScreenTransition.enabled && entryOwnsMiuixCardTransition,
                                 ),
@@ -4942,6 +4946,18 @@ internal fun VideoDetailScreenStateHolder(
                                 }
                             }
                         }
+                        val nowPlayingMediaAlphaProvider: () -> Float = {
+                            if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar != true) {
+                                1f
+                            } else if (isCommittedCardReturn &&
+                                videoCardDepthBackgroundState.phaseProvider() ==
+                                    VideoCardTransitionBackgroundPhase.IDLE
+                            ) {
+                                0f
+                            } else {
+                                1f - flyingSourceChromeAlphaProvider()
+                            }
+                        }
                         val returnMediaFrameProvider: () -> VideoDetailReturnMediaFrame = {
                             val returnGestureInProgress =
                                 videoCardDepthBackgroundState.isReturnGestureInProgressProvider() ||
@@ -4966,6 +4982,24 @@ internal fun VideoDetailScreenStateHolder(
                                         currentBvid == bvid &&
                                         !hasRenderedFirstFrameForReturn,
                             )
+                        }
+                        returnMediaGeometry.frameProvider = {
+                            val viewport = returnMediaGeometry.viewportSize.value
+                            if (viewport.width <= 0 || viewport.height <= 0) null else {
+                                val inverse = returnMediaInverseScaleProvider()
+                                resolveVideoDetailReturnMediaLayoutFrame(
+                                    containerWidthPx = viewport.width,
+                                    containerHeightPx = viewport.height,
+                                    landingLayout = landingLayoutForMedia,
+                                    handoffProgress = returnMediaHandoffProgressProvider(),
+                                    inverseScaleX = inverse.scaleX,
+                                    inverseScaleY = inverse.scaleY,
+                                    contentTopInsetPx = with(videoCardTransitionDensity) {
+                                        floatingPlayerTopInsetProvider().roundToPx()
+                                    },
+                                    nativeSnapshotBounds = nativeSnapshotTargetBoundsProvider?.invoke(),
+                                )
+                            }
                         }
                         PlayerAmbientLayout(
                             modifier = Modifier.fillMaxWidth(),
@@ -4994,13 +5028,14 @@ internal fun VideoDetailScreenStateHolder(
                                     },
                                     removedInlineTopInsetProvider = removedPlayerTopInsetProvider,
                                 )
+                                .onSizeChanged { returnMediaGeometry.viewportSize.value = it }
                                 .drawBehind {
                                     // The compact source is translucent in both plain and glass modes.
                                     // Do not leave the opaque player backing under its return snapshot.
                                     val backingAlpha = if (
                                         miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true
                                     ) {
-                                        1f - flyingSourceChromeAlphaProvider().coerceIn(0f, 1f)
+                                        nowPlayingMediaAlphaProvider()
                                     } else {
                                         1f
                                     }
@@ -5098,7 +5133,7 @@ internal fun VideoDetailScreenStateHolder(
                                         // an ancestor Compose alpha, but it can be occluded by this layer.
                                         .zIndex(1f)
                                         .graphicsLayer {
-                                            alpha = returnMediaFrameProvider().coverAlpha
+                                            alpha = returnMediaFrameProvider().coverAlpha * nowPlayingMediaAlphaProvider()
                                         },
                                     contentScale = ContentScale.Crop
                                 )
@@ -5125,7 +5160,7 @@ internal fun VideoDetailScreenStateHolder(
                                     .videoDetailRemoveFloatingTopInset(removedPlayerTopInsetProvider)
                                     .zIndex(0f)
                                     .graphicsLayer {
-                                        alpha = returnMediaFrameProvider().playerAlpha
+                                        alpha = returnMediaFrameProvider().playerAlpha * nowPlayingMediaAlphaProvider()
                                     }
                             ) {
                                 continuousPlayerContent(
@@ -5164,20 +5199,31 @@ internal fun VideoDetailScreenStateHolder(
                                         .fillMaxSize()
                                         .videoDetailReturnMediaLayout(
                                             landingLayout = landingLayoutForMedia,
-                                            handoffProgressProvider =
-                                                returnMediaHandoffProgressProvider,
+                                            // A complete capsule snapshot has its own stable aspect
+                                            // ratio; never interpolate it from the player rectangle.
+                                            handoffProgressProvider = {
+                                                if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true) {
+                                                    1f
+                                                } else returnMediaHandoffProgressProvider()
+                                            },
                                             inverseScaleXProvider = {
                                                 returnMediaInverseScaleProvider().scaleX
                                             },
                                             inverseScaleYProvider = {
-                                                returnMediaInverseScaleProvider().scaleY
+                                                if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true) {
+                                                    returnMediaInverseScaleProvider().scaleX
+                                                } else returnMediaInverseScaleProvider().scaleY
                                             },
                                             nativeSnapshotBoundsProvider =
                                                 nativeSnapshotTargetBoundsProvider,
                                         )
                                         .zIndex(1.5f)
                                         .graphicsLayer {
-                                            alpha = flyingSourceChromeAlphaProvider()
+                                            val liveHandoff = if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true) {
+                                                com.android.purebilibili.core.ui.transition
+                                                    .resolveNowPlayingBarLiveHandoff(miuixLandingState.progressProvider())
+                                            } else 0f
+                                            alpha = flyingSourceChromeAlphaProvider() * (1f - liveHandoff)
                                         },
                                 )
                             }
@@ -5568,6 +5614,7 @@ internal fun VideoDetailScreenStateHolder(
                         VideoDetailReturnSourceCardChrome(
                             info = sourceCardInfo,
                             horizontalMediaHandoffEnabled = true,
+                            mediaFrameProvider = { returnMediaGeometry.frameProvider() },
                             sourceChromeSnapshot = miuixCardTransitionState.sourceChromeSnapshot,
                             detailContentLoading = uiState is VideoPlaybackUiState.Loading,
                             sourceLayout = miuixCardTransitionState.sourceLayout,
@@ -5860,11 +5907,33 @@ internal fun VideoDetailScreenStateHolder(
     // 分屏 / 系统自由小窗的边界由 Android 窗口管理器控制。仅旋转 Compose
     // 根图层不会把任务窗口变成横向矩形，并会让播放器 Surface 与 UI 变换不一致，
     // 导致视频被拉伸；因此窗口内全屏仍使用正常布局，由播放器按视频比例适配窗口。
+    val rootCardTransition = com.android.purebilibili.core.ui.transition
+        .LocalMiuixVideoCardTransitionState.current
     VideoDetailScreenContent(
         transitionState = transitionState,
         routeSheetMotion = routeSheetMotion,
         isFullscreenMode = isFullscreenMode,
         backgroundColor = AppSurfaceTokens.background(),
+        backgroundAlphaProvider = {
+            if (!rootCardTransition.enabled || rootCardTransition.sourceChromeSnapshot?.isNowPlayingBar != true) {
+                1f
+            } else if (isCommittedCardReturn &&
+                videoCardDepthBackgroundState.phaseProvider() == VideoCardTransitionBackgroundPhase.IDLE
+            ) {
+                0f
+            } else {
+                1f - resolveVideoDetailFlyingSourceChromeAlpha(
+                    morphDepthProgress = rootCardTransition.progressProvider(),
+                    phase = videoCardDepthBackgroundState.phaseProvider(),
+                    isReturnGestureInProgress = videoCardDepthBackgroundState.isReturnGestureInProgressProvider() ||
+                        videoCardDepthBackgroundState.isGestureRestoreInProgressProvider(),
+                    sourceLayout = rootCardTransition.sourceLayout,
+                    isNowPlayingBar = true,
+                    isCommittedCardReturn = isCommittedCardReturn,
+                    followProgressEnabled = videoCardDepthBackgroundState.returnContentFollowProgressEnabledProvider(),
+                )
+            }
+        },
         modifier = detailShellModifier.videoInputDiagnostics("detail_root") {
             "fullscreen=$isFullscreenMode portraitFs=$isPortraitFullscreen landscape=$isLandscape " +
                 "visible=$isVisible leaving=$useReturningVideoDetailVisualState phase=$continuousPlayerPhase " +

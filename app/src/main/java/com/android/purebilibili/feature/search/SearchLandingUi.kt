@@ -46,7 +46,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.android.purebilibili.core.ui.AppSpacingTokens
 import coil3.compose.AsyncImage
 import com.android.purebilibili.core.database.entity.SearchHistory
@@ -422,7 +421,7 @@ private fun SearchKeywordSection(
                 Spacer(modifier = Modifier.height(12.dp))
                 AppText(
                     text = resolveSearchKeywordSectionHiddenText(title),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = AppContentColors.secondaryText()
                 )
             }
@@ -445,13 +444,13 @@ private fun SearchInlineMessage(
     ) {
         AppText(
             text = title,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = AppContentColors.secondaryText()
         )
         if (!message.isNullOrBlank()) {
             AppText(
                 text = message,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = AppContentColors.secondaryText()
             )
         }
@@ -494,7 +493,7 @@ private fun SearchKeywordSectionHeader(
         ) {
             AppText(
                 text = title,
-                style = MaterialTheme.typography.titleSmall.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold
                 ),
                 maxLines = 1,
@@ -505,7 +504,7 @@ private fun SearchKeywordSectionHeader(
                 AppTextButton(onClick = onOpenTrending) {
                     AppText(
                         text = "完整榜单",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelLarge,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -552,7 +551,7 @@ private fun SearchKeywordSectionHeader(
                         Spacer(modifier = Modifier.width(2.dp))
                         AppText(
                             text = "刷新",
-                            style = MaterialTheme.typography.labelMedium
+                            style = MaterialTheme.typography.labelLarge
                         )
                     }
                 }
@@ -604,7 +603,7 @@ private fun SearchDiscoverOriginalCell(
                     modifier = Modifier.weight(1f, fill = false),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall.copy(
+                    style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.Medium,
                         color = colors.titleColor
                     )
@@ -633,7 +632,7 @@ private fun SearchDiscoverOriginalCell(
                     text = displaySubtitle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall.copy(
+                    style = MaterialTheme.typography.bodyMedium.copy(
                         color = colors.subtitleColor
                     )
                 )
@@ -659,7 +658,7 @@ private fun SearchKeywordCell(
             modifier = Modifier.weight(1f, fill = false),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodySmall
+            style = MaterialTheme.typography.bodyMedium
         )
         Spacer(modifier = Modifier.width(AppSpacingTokens.ExtraSmall))
         when {
@@ -678,7 +677,7 @@ private fun SearchKeywordCell(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.outline,
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodyMedium
             )
         }
     }
@@ -728,7 +727,7 @@ private fun SearchHistorySectionModern(
         ) {
             AppText(
                 text = "搜索历史",
-                style = MaterialTheme.typography.titleSmall.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold
                 )
             )
@@ -741,13 +740,12 @@ private fun SearchHistorySectionModern(
                 Spacer(modifier = Modifier.width(2.dp))
                 AppText(
                     text = "清空",
-                    style = MaterialTheme.typography.labelMedium
+                    style = MaterialTheme.typography.labelLarge
                 )
             }
         }
         Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
-        // 与「搜索发现」同构的紧凑网格：历史项 14sp 文字行 + 删除角标，
-        // 行间距 4dp，替代此前间距过大的气泡 FlowRow。
+        // 与「搜索发现」同构的两列网格，正文使用 bodyMedium，保留删除入口。
         historyList.chunked(safeColumns).forEach { rowItems ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -768,7 +766,7 @@ private fun SearchHistorySectionModern(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             color = AppContentColors.primaryText(),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.weight(1f)
                         )
                         Box(

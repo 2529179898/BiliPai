@@ -539,7 +539,7 @@ fun DynamicCardV2(
                             vipStatus = author.vip?.status ?: 0,
                             vipType = author.vip?.type ?: 0,
                             onSurface = AppContentColors.primaryText(),
-                            secondary = MaterialTheme.colorScheme.secondary,
+                            secondary = com.android.purebilibili.core.ui.components.userVipPink(),
                         ),
                         modifier = Modifier.clickable(enabled = authorClickMid != null || (ugcSeason != null && ugcSeason.id > 0L && onCollectionClick != null)) {
                             onAuthorHeaderClick()

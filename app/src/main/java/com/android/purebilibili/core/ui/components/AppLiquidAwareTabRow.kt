@@ -142,16 +142,21 @@ fun <T> AppLiquidAwareTabRow(
         val needsHorizontalScroll = scrollable &&
             constraints.hasBoundedWidth && contentWidth > maxWidth
         if (needsHorizontalScroll) {
-            val indicatorOverflow = resolveFloatingDockCaptureInsets(
+            val indicatorCaptureInsets = resolveFloatingDockCaptureInsets(
                 shellHeightDp = height.value,
                 requestedIndicatorHeightDp = indicatorHeight.value,
                 indicatorWidthDp = readableTabWidth.value,
                 geometryMode = FloatingBottomBarGeometryMode.Segmented,
-            ).verticalDp.dp
+            )
+            val indicatorOverflow = indicatorCaptureInsets.verticalDp.dp
+            val indicatorHorizontalOverflow = indicatorCaptureInsets.horizontalDp.dp
             val scrollState = rememberScrollState()
             val density = LocalDensity.current
             BoxWithConstraints(
-                modifier = Modifier.liquidDockViewport(verticalOverflow = indicatorOverflow),
+                modifier = Modifier.liquidDockViewport(
+                    verticalOverflow = indicatorOverflow,
+                    horizontalOverflow = indicatorHorizontalOverflow,
+                ),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 val viewportWidthPx = with(density) { maxWidth.toPx() }
@@ -177,7 +182,10 @@ fun <T> AppLiquidAwareTabRow(
                     onSelected = { index ->
                         options.getOrNull(index)?.let { onSelectionChange(it.value) }
                     },
-                    modifier = Modifier.liquidDockViewport(verticalOverflow = indicatorOverflow),
+                    modifier = Modifier.liquidDockViewport(
+                    verticalOverflow = indicatorOverflow,
+                    horizontalOverflow = indicatorHorizontalOverflow,
+                ),
                     scrollState = scrollState,
                     enabled = enabled,
                     itemWidth = readableTabWidth,

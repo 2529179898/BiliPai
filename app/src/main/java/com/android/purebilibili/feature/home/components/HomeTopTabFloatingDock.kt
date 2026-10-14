@@ -253,6 +253,7 @@ internal fun HomeTopTabFloatingDock(
         selectedTextColorOverride = selectedContentColor,
         unselectedTextColorOverride = unselectedContentColor,
         indicatorPositionProvider = indicatorPositionProvider,
+        externalPagerMotionEffectsEnabled = indicatorPositionProvider != null,
         isScrollInProgressProvider = isScrollInProgressProvider,
         onIndicatorPositionChanged = null,
         liquidGlassTuningOverride = liquidGlassTuning,

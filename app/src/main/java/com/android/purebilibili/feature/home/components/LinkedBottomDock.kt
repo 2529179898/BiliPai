@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -308,9 +309,9 @@ internal fun LinkedBottomDock(
             val verticalGap: Int
             with(density) {
                 maximumWidth = constraints.maxWidth.coerceAtMost(600.dp.roundToPx())
-                button = 56.dp.roundToPx()
-                barHeight = 64.dp.roundToPx()
-                controlHeight = 56.dp.roundToPx()
+                button = resolveBiliPaiBottomBarSearchCircleSize().roundToPx()
+                barHeight = resolveBiliPaiBottomBarDockHeight(searchExpanded = false).roundToPx()
+                controlHeight = barHeight
                 gap = 8.dp.roundToPx()
                 verticalGap = 4.dp.roundToPx()
             }
@@ -328,7 +329,7 @@ internal fun LinkedBottomDock(
                     itemCount = navigationItemCount,
                     minEdgePadding = navigationMinEdgePadding,
                     labelMode = navigationLabelMode,
-                    cornerRadius = 32.dp,
+                    cornerRadius = with(density) { barHeight.toDp() / 2 },
                 ).roundToPx()
             }
             val reservedSearchWidth = if (searchEnabled) button + gap else 0
@@ -400,60 +401,91 @@ internal fun LinkedBottomDock(
                     visualSize = with(density) { controlHeight.toDp() },
                 )
                 val homeGlassMotion = glassEnabled && backdrop != null
+                val homeDragEnabled = phase != LinkedDockPhase.Expanded &&
+                    com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current &&
+                    com.android.purebilibili.core.ui.LocalAppThemeConfig.current.globalDragFeedbackEnabled
+                var homeDragActive by remember { mutableStateOf(false) }
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(0, controlRowY) }
                         .size(
                             with(density) { button.toDp() },
                             with(density) { controlHeight.toDp() },
-                        )
-                        .appElasticPress(
-                            enabled = phase != LinkedDockPhase.Expanded,
-                            state = homeElasticState,
-                            transformInBackdrop = homeGlassMotion,
-                        )
-                        .graphicsLayer {
-                            // 进入窗口（前 50%）ease-out 淡入并从 92% 缩放弹出，落定干净无过冲。
-                            val enterProgress = (merge.value / 0.5f).coerceIn(0f, 1f)
-                            val eased = EaseOutCubic.transform(enterProgress)
-                            alpha = eased
-                            val scale = 0.92f + 0.08f * eased
-                            scaleX = scale
-                            scaleY = scale
-                        }
-                        .then(
-                            if (phase != LinkedDockPhase.Expanded) {
-                                Modifier.clickable(role = Role.Button) { expand() }
-                            } else {
-                                Modifier.clearAndSetSemantics {}
-                            }
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
+                    // Keep placement outside the elastic observer: its gesture geometry must
+                    // be the visible button, rather than the full dock before offset/size.
                     Box(
-                        Modifier
+                        modifier = Modifier
                             .fillMaxSize()
-                            .biliPaiFloatingDockShell(
-                                backdrop = backdrop,
-                                interactionLayerBlock = homeElasticState.layerBlock.takeIf { homeGlassMotion },
-                                interactionState = homeElasticState.takeIf { homeGlassMotion },
-                                containerColor = containerColor,
-                                pressProgress = 0f,
-                                shape = shape,
-                                enabled = glassEnabled,
-                                blurEnabled = blurEnabled,
-                                hazeState = hazeState,
-                                liquidGlassTuning = liquidGlassTuning,
+                            .appElasticPress(
+                                enabled = phase != LinkedDockPhase.Expanded,
+                                state = homeElasticState,
+                                transformInBackdrop = homeGlassMotion,
+                                allowConsumedDrag = { homeDragActive },
                             )
-                    )
-                    AppIcon(
-                        imageVector = if (iconStyle == SharedFloatingBottomBarIconStyle.MIUIX) {
-                            resolveHomeNavigationBarIcon(firstItem, currentItem == firstItem)
-                        } else resolveMaterialBottomBarIcon(firstItem, currentItem == firstItem),
-                        contentDescription = "$firstLabel，展开底栏",
-                        tint = accentColor,
-                        modifier = if (homeGlassMotion) Modifier.graphicsLayer(homeElasticState.layerBlock) else Modifier,
-                    )
+                            .then(
+                                // A pointerInput node still participates in hit testing even
+                                // when its coroutine returns immediately. The transparent home
+                                // button overlaps the first navigation slot in expanded mode.
+                                if (homeDragEnabled) Modifier.pointerInput(homeElasticState) {
+                                    // Own decorative drag after touch slop; cancel the click
+                                    // instead of expanding the dock on drag release.
+                                    try {
+                                        detectDragGestures(
+                                            onDragStart = { homeDragActive = true },
+                                            onDragEnd = { homeDragActive = false },
+                                            onDragCancel = { homeDragActive = false },
+                                        ) { change, _ -> change.consume() }
+                                    } finally {
+                                        homeDragActive = false
+                                    }
+                                } else Modifier
+                            )
+                            .graphicsLayer {
+                                // 进入窗口（前 50%）ease-out 淡入并从 92% 缩放弹出，落定干净无过冲。
+                                val enterProgress = (merge.value / 0.5f).coerceIn(0f, 1f)
+                                val eased = EaseOutCubic.transform(enterProgress)
+                                alpha = eased
+                                val scale = 0.92f + 0.08f * eased
+                                scaleX = scale
+                                scaleY = scale
+                            }
+                            .then(
+                                if (phase != LinkedDockPhase.Expanded) {
+                                    Modifier.clickable(role = Role.Button) { expand() }
+                                } else {
+                                    Modifier.clearAndSetSemantics {}
+                                }
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .biliPaiFloatingDockShell(
+                                    backdrop = backdrop,
+                                    interactionLayerBlock = homeElasticState.layerBlock.takeIf { homeGlassMotion },
+                                    interactionState = homeElasticState.takeIf { homeGlassMotion },
+                                    containerColor = containerColor,
+                                    pressProgress = 0f,
+                                    shape = shape,
+                                    enabled = glassEnabled,
+                                    blurEnabled = blurEnabled,
+                                    hazeState = hazeState,
+                                    liquidGlassTuning = liquidGlassTuning,
+                                )
+                        )
+                        AppIcon(
+                            imageVector = if (iconStyle == SharedFloatingBottomBarIconStyle.MIUIX) {
+                                resolveHomeNavigationBarIcon(firstItem, currentItem == firstItem)
+                            } else resolveMaterialBottomBarIcon(firstItem, currentItem == firstItem),
+                            contentDescription = "$firstLabel，展开底栏",
+                            tint = accentColor,
+                            modifier = if (homeGlassMotion) Modifier.graphicsLayer(homeElasticState.layerBlock) else Modifier,
+                        )
+                    }
                 }
                 if (nowPlayingSlot != null) {
                     Box(

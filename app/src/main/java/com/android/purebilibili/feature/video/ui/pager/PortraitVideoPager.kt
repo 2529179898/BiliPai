@@ -89,6 +89,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -2634,6 +2635,47 @@ private fun VideoPageItem(
         }
     }
 
+    var controlsInteractionGeneration by remember(bvid) { mutableLongStateOf(0L) }
+    var controlsPointerPressed by remember(bvid) { mutableStateOf(false) }
+    var controlsLifecycleResumed by remember(lifecycleOwner) {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { owner, _ ->
+            controlsLifecycleResumed = owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val danmakuInputVisible by viewModel.showDanmakuInputDialog.collectAsStateWithLifecycle()
+    val favoriteFoldersVisible by viewModel.favoriteFolderDialogVisible.collectAsStateWithLifecycle()
+    val controlsOverlayOpen = showCommentSheet || subReplyState.visible || showDetailSheet ||
+        showUpPreview || commentSheetVisibilityProgress > 0.001f || upPreviewVisibilityProgress > 0.001f ||
+        showSpeedMenu || showAudioQualityMenu || showQualityMenu || showRatioMenu || showSubtitlePanel ||
+        danmakuInputVisible || favoriteFoldersVisible
+    val autoHidePortraitControls = shouldAutoHidePortraitControls(
+        isCurrentPage = isCurrentPage,
+        playbackActive = controlsLifecycleResumed && isPortraitPlaybackAllowed &&
+            isPlayerReadyForThisVideo && isPlaying && !isLoading,
+        controlsVisible = portraitOverlayVisible,
+        userInteracting = controlsPointerPressed || isLongPressing || seekSession.isSliderMoving,
+        overlayOpen = controlsOverlayOpen,
+    )
+    val latestOnPortraitOverlayVisibleChange by rememberUpdatedState(onPortraitOverlayVisibleChange)
+    LaunchedEffect(bvid, isCurrentPage) {
+        if (isCurrentPage) latestOnPortraitOverlayVisibleChange(true)
+    }
+    // User activity and blocking overlays restart the countdown; playback-position
+    // polling does not. Hidden controls stay hidden until the existing tap gesture.
+    LaunchedEffect(bvid, autoHidePortraitControls, controlsInteractionGeneration) {
+        if (!autoHidePortraitControls) return@LaunchedEffect
+        delay(PORTRAIT_CONTROLS_AUTO_HIDE_DELAY_MS)
+        // A down event can arrive before recomposition cancels this effect.
+        if (!controlsPointerPressed && !isLongPressing && !seekSession.isSliderMoving) {
+            latestOnPortraitOverlayVisibleChange(false)
+        }
+    }
+
     val latestIsLongPressing by rememberUpdatedState(isLongPressing)
     val latestLongPressOriginPlaybackParameters by rememberUpdatedState(longPressOriginPlaybackParameters)
     DisposableEffect(exoPlayer) {
@@ -2714,6 +2756,25 @@ private fun VideoPageItem(
             .onSizeChanged { size ->
                 portraitPageWidthPx = size.width
                 portraitPageHeightPx = size.height
+            }
+            .pointerInput(isCurrentPage, bvid) {
+                if (!isCurrentPage) return@pointerInput
+                // Observe controls and video gestures without taking their input.
+                // Initial-pass observation includes child buttons, progress scrubs,
+                // and menus whose own handlers consume the pointer in Main.
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    controlsPointerPressed = true
+                    controlsInteractionGeneration++
+                    try {
+                        do {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                        } while (event.changes.any { it.pressed })
+                    } finally {
+                        controlsPointerPressed = false
+                        controlsInteractionGeneration++
+                    }
+                }
             }
             .pointerInput(isCurrentPage, bvid, playerGesturesEnabled) {
                 if (!isCurrentPage || !playerGesturesEnabled) return@pointerInput

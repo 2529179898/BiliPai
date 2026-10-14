@@ -263,6 +263,24 @@ internal data class VideoDetailReturnMediaLayoutFrame(
     val heightPx: Int,
 )
 
+/** Shares measured viewport geometry, without publishing animation frames as snapshot state. */
+internal class VideoDetailReturnMediaGeometry {
+    val viewportSize = androidx.compose.runtime.mutableStateOf(androidx.compose.ui.unit.IntSize.Zero)
+    var frameProvider: () -> VideoDetailReturnMediaLayoutFrame? = { null }
+}
+
+/** Keep the source gap while attaching the info band to the current, rounded media edge. */
+internal fun resolveVideoDetailStackedInfoTopPx(
+    layout: VideoDetailReturnSourceCardLayout,
+    inverseScaleY: Float,
+    mediaFrame: VideoDetailReturnMediaLayoutFrame?,
+): Int {
+    val infoTop = layout.infoAnchorYInViewportPx * layout.sourceScale
+    if (mediaFrame == null) return (infoTop * inverseScaleY).roundToInt()
+    val gap = infoTop - (layout.coverOffsetYPx + layout.coverHeightPx)
+    return mediaFrame.offsetYPx + mediaFrame.heightPx + (gap * inverseScaleY).roundToInt()
+}
+
 /** Source geometry is entry-relative; a split-pane player starts in a smaller local slot. */
 internal fun resolveVideoDetailReturnMediaFrameInSlot(
     frame: VideoDetailReturnMediaLayoutFrame,
@@ -290,7 +308,6 @@ internal fun resolveVideoDetailReturnMediaLayoutFrame(
     val safeContainerWidth = containerWidthPx.coerceAtLeast(1)
     val safeContainerHeight = containerHeightPx.coerceAtLeast(1)
     val contentTop = contentTopInsetPx.coerceIn(0, safeContainerHeight - 1)
-    val contentHeight = safeContainerHeight - contentTop
     val landing = landingLayout?.takeIf { it.canRender }
     val nativeTarget = nativeSnapshotBounds?.takeIf { it.width > 1f && it.height > 1f }
     val progress = if (landing == null && nativeTarget == null) {
@@ -327,11 +344,15 @@ internal fun resolveVideoDetailReturnMediaLayoutFrame(
         ?: landing?.let { it.coverOffsetYPx * safeInverseY }
         ?: 0f
 
+    val offsetY = interpolate(contentTop.toFloat(), targetOffsetY)
+    // Round the shared edge once. Rounding offset and height independently can leave
+    // a one-pixel seam when the cover includes a changing system-bar inset.
+    val bottomY = interpolate(safeContainerHeight.toFloat(), targetOffsetY + targetHeight)
     return VideoDetailReturnMediaLayoutFrame(
         offsetXPx = interpolate(0f, targetOffsetX),
-        offsetYPx = interpolate(contentTop.toFloat(), targetOffsetY),
+        offsetYPx = offsetY,
         widthPx = interpolate(safeContainerWidth.toFloat(), targetWidth).coerceAtLeast(1),
-        heightPx = interpolate(contentHeight.toFloat(), targetHeight).coerceAtLeast(1),
+        heightPx = (bottomY - offsetY).coerceAtLeast(1),
     )
 }
 

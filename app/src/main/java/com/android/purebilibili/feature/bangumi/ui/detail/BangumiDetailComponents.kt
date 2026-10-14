@@ -348,7 +348,7 @@ fun EpisodeChip(
 
             // 角标
             if (episode.badge.isNotEmpty()) {
-                val badgeColors = if (episode.badge.contains("会员")) {
+                val badgeColors = com.android.purebilibili.feature.bangumi.bangumiBrandBadgeColors(episode.badge) ?: if (episode.badge.contains("会员")) {
                     resolveAdaptivePrimaryAccentColors(MaterialTheme.colorScheme)
                 } else {
                     resolveAdaptiveTertiaryAccentColors(MaterialTheme.colorScheme)

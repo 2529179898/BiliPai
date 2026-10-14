@@ -600,9 +600,9 @@ internal fun resolveBiliPaiBottomBarDockHeight(
     } else if (hasUiSkinDecoration) {
         resolveBottomBarSkinDockHeight()
     } else {
-        // 照搬 HyperIsland 的壳高 64dp：指示器静止 56dp、按下 78dp、
-        // 指示器 lens 绝对 10dp/14dp 都由此推导，静止时上下各留 4dp。
-        com.android.purebilibili.core.ui.BottomBarReferenceShellHeightDp.dp
+        // Keep the resting dock level with the adjacent search circle. Indicator
+        // inset and press bloom are derived proportionally from this compact height.
+        resolveBiliPaiBottomBarSearchCircleSize()
     }
 }
 
@@ -1437,9 +1437,6 @@ internal fun resolveBottomBarCaptureSafeInsetDp(
         maxOf(refractionHeightDp, refractionAmountDp).coerceAtLeast(0f) +
         kotlin.math.abs(panelOffsetDp)
 }
-private const val BILIPAI_INDICATOR_VELOCITY_NORMALIZATION_DIVISOR = 10f
-private const val BILIPAI_INDICATOR_VELOCITY_SCALE_X_MULTIPLIER = 0.75f
-private const val BILIPAI_INDICATOR_VELOCITY_CLAMP = 0.2f
 internal fun resolveBottomBarIndicatorVisualPolicyWithHold(
     basePolicy: BottomBarIndicatorVisualPolicy,
     keepRefractionLayerAlive: Boolean
@@ -1638,21 +1635,10 @@ internal fun resolveBottomBarIndicatorLayerTransform(
     )
     val baseScaleX = dragScaleTransform?.scaleX ?: baseScale
     val baseScaleY = dragScaleTransform?.scaleY ?: baseScale
-    // 对齐 BiliPai FloatingBottomBar 的胶囊速度形变和基础按压放大倍数。
-    val velocity = if (isDragging || clampedDragScaleProgress > 0f) {
-        velocityItemsPerSecond / BILIPAI_INDICATOR_VELOCITY_NORMALIZATION_DIVISOR
-    } else {
-        0f
-    }
-    // HyperIsland: the leading/trailing direction affects both longitudinal stretch and
-    // cross-axis compression, producing the asymmetric liquid handoff while dragging.
-    val velocityScaleX = (velocity * BILIPAI_INDICATOR_VELOCITY_SCALE_X_MULTIPLIER)
-        .coerceIn(-BILIPAI_INDICATOR_VELOCITY_CLAMP, BILIPAI_INDICATOR_VELOCITY_CLAMP)
-    val velocityScaleY = (velocity * 0.25f)
-        .coerceIn(-BILIPAI_INDICATOR_VELOCITY_CLAMP, BILIPAI_INDICATOR_VELOCITY_CLAMP)
+    val velocity = if (isDragging || clampedDragScaleProgress > 0f) velocityItemsPerSecond else 0f
     return BottomBarIndicatorLayerTransform(
-        scaleX = baseScaleX / (1f - velocityScaleX),
-        scaleY = baseScaleY * (1f - velocityScaleY)
+        scaleX = com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.scaleX(baseScaleX, velocity),
+        scaleY = com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.scaleY(baseScaleY, velocity),
     )
 }
 
@@ -1699,8 +1685,8 @@ internal fun rememberBottomBarIndicatorLayerScaleTransform(
     val scaleY = remember { Animatable(1f) }
     LaunchedEffect(active, target) {
         val resolvedTarget = if (active) target.coerceAtLeast(1f) else 1f
-        launch { scaleX.animateTo(resolvedTarget, spring(0.6f, 250f, 0.001f)) }
-        launch { scaleY.animateTo(resolvedTarget, spring(0.7f, 250f, 0.001f)) }
+        launch { scaleX.animateTo(resolvedTarget, com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.scaleXSpec()) }
+        launch { scaleY.animateTo(resolvedTarget, com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.scaleYSpec()) }
     }
     return BottomBarIndicatorLayerTransform(scaleX = scaleX.value, scaleY = scaleY.value)
 }
@@ -3675,11 +3661,8 @@ private fun BiliPaiFloatingBottomBarChrome(
         skinTrimTint = uiSkinDecoration?.bottomTrimTint
     )
     val readableContentColor = AppContentColors.primaryText()
-    val selectedColor = lerpColor(
-        skinContentColors.selectedColor,
-        readableContentColor,
-        if (neutralMiuixSelection) 0f else liquidGlassTuning.contentReadabilityBoost * 0.65f,
-    )
+    // Keep the moving capsule's captured glyphs in the selected theme/skin color.
+    val selectedColor = skinContentColors.selectedColor
     val unselectedColor = lerpColor(
         skinContentColors.unselectedColor,
         readableContentColor,
@@ -3852,7 +3835,8 @@ private fun BiliPaiFloatingBottomBarChrome(
                 searchExpanded = effectiveSearchExpanded,
                 labelMode = labelMode,
                 searchLayoutMode = bottomBarSearchLayoutMode,
-                hasUiSkinDecoration = uiSkinDecoration != null
+                hasUiSkinDecoration = uiSkinDecoration != null,
+                fillAllocatedDockWidth = embeddedDock,
             )
             val compactSearchLayout =
                 bottomBarSearchLayoutMode == BottomBarSearchLayoutMode.HOME_AND_SEARCH
@@ -4040,12 +4024,11 @@ private fun BiliPaiFloatingBottomBarChrome(
                                     shellHeight = dockHeight,
                                     indicatorHeight = resolveBiliPaiBottomBarIndicatorHeight(dockHeight),
                                     minimumIndicatorWidth = searchLayoutState.minimumIndicatorWidth,
-                                    proportionalIndicatorReferenceWidth = if (effectiveGlassEnabled) {
-                                        searchLayoutState.indicatorReferenceWidth
-                                    } else {
-                                        null
-                                    },
+                                    // Derive the inset capsule from the current dock height;
+                                    // reserving search width must not independently flatten it.
+                                    proportionalIndicatorReferenceWidth = null,
                                     indicatorPositionProvider = indicatorPositionProvider,
+                                    externalPagerMotionEffectsEnabled = indicatorPositionProvider != null,
                                     isScrollInProgressProvider = isPagerScrollInProgressProvider,
                                     liquidGlassTuning = liquidGlassTuning,
                                 ) {
@@ -4354,6 +4337,11 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
     interactionModifier: Modifier = Modifier
 ) {
     if (!visible) return
+    val opticalProgress = resolveSharedLiquidIndicatorLensProgress(
+        pressProgress = effectivePressProgress,
+        motionProgress = motionProgress,
+        isDragging = isDragging,
+    )
     val effectiveIndicatorEffectsEnabled = indicatorEffectsEnabled
     val rawIndicatorLayerTransform = if (effectiveIndicatorEffectsEnabled) {
         resolveBottomBarIndicatorLayerTransform(
@@ -4414,14 +4402,19 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                         shape = { shellShape },
                         effects = {
                             if (shouldUseBottomBarIndicatorLens(liquidGlassPreset)) {
-                                homeIndicatorLens(indicatorHeight.value, effectivePressProgress, liquidGlassTuning)
+                                homeIndicatorLens(
+                                    restHeightDp = indicatorHeight.value,
+                                    progress = opticalProgress,
+                                    tuning = liquidGlassTuning,
+                                    indicatorScaleY = indicatorLayerTransform.scaleY,
+                                )
                             }
                         },
                         highlight = {
-                            pillHighlight?.value?.copy(alpha = effectivePressProgress)
+                            pillHighlight?.value?.copy(alpha = opticalProgress)
                         },
                         onDrawSurface = {
-                            drawHomeIndicatorSurface(effectivePressProgress, isDarkTheme, indicatorIdleSurfaceColor)
+                            drawHomeIndicatorSurface(opticalProgress, isDarkTheme, indicatorIdleSurfaceColor)
                         },
                         layerBlock = {
                             if (effectiveIndicatorEffectsEnabled) {
@@ -4431,9 +4424,9 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                         }
                     ).miuixInnerShadow(shape = shellShape) {
                         MiuixInnerShadow(
-                            radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * effectivePressProgress,
+                            radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgress,
                             color = OpticalContrastPalette.Shadow.copy(alpha = 0.15f),
-                            alpha = effectivePressProgress
+                            alpha = opticalProgress
                         )
                     }
                 } else {

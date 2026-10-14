@@ -72,10 +72,11 @@ fun AppSlider(
         }
         onValueChange(nextValue)
     }
-    val geometry = appSliderGeometry(LocalAppUiStyle.current)
-    val sizedModifier = modifier.height(geometry.height)
+    val liquidControls = useAppLiquidValueControls() && value.isFinite() && valueRange.endInclusive > valueRange.start
+    val height = if (liquidControls) AppLiquidControlGeometry.controlHeight else appSliderGeometry(LocalAppUiStyle.current).height
+    val sizedModifier = modifier.height(height)
     AppExactTouchTargets {
-        if (useAppLiquidValueControls() && value.isFinite() && valueRange.endInclusive > valueRange.start) {
+        if (liquidControls) {
             AppLiquidSlider(value, onSliderValueChange, sizedModifier, valueRange, steps, onValueChangeFinished, colors, enabled, interactionSource)
         } else when (LocalAppUiStyle.current) {
         AppUiStyle.MATERIAL3 -> AppMaterial3Slider(

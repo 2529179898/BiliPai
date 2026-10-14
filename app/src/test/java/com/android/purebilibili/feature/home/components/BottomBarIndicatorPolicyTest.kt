@@ -639,10 +639,8 @@ class BottomBarIndicatorPolicyTest {
 
         assertTrue(source.contains("internal const val BOTTOM_BAR_INDICATOR_DRAG_SCALE_TARGET ="))
         assertTrue(source.contains("BottomBarReferencePressedScale"))
-        assertTrue(source.contains("private const val BILIPAI_INDICATOR_VELOCITY_NORMALIZATION_DIVISOR = 10f"))
-        assertTrue(source.contains("private const val BILIPAI_INDICATOR_VELOCITY_SCALE_X_MULTIPLIER = 0.75f"))
-        assertFalse(source.contains("BILIPAI_INDICATOR_VELOCITY_SCALE_Y_MULTIPLIER"))
-        assertTrue(source.contains("private const val BILIPAI_INDICATOR_VELOCITY_CLAMP = 0.2f"))
+        assertTrue(source.contains("LiquidIndicatorMotion.scaleX(baseScaleX, velocity)"))
+        assertTrue(source.contains("LiquidIndicatorMotion.scaleY(baseScaleY, velocity)"))
     }
 
     @Test
@@ -758,8 +756,8 @@ class BottomBarIndicatorPolicyTest {
         ).first { it.exists() }.readText()
 
         assertTrue(source.contains("BottomBarReferencePressedScale"))
-        assertTrue(source.contains("private val scaleXAnimationSpec = spring(0.6f, 250f, 0.001f)"))
-        assertTrue(source.contains("private val scaleYAnimationSpec = spring(0.7f, 250f, 0.001f)"))
+        assertTrue(source.contains("private val scaleXAnimationSpec = LiquidIndicatorMotion.scaleXSpec()"))
+        assertTrue(source.contains("private val scaleYAnimationSpec = LiquidIndicatorMotion.scaleYSpec()"))
         assertTrue(source.contains("scaleXAnimation.animateTo(pressedScale, scaleXAnimationSpec)"))
         assertTrue(source.contains("scaleYAnimation.animateTo(pressedScale, scaleYAnimationSpec)"))
     }

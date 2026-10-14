@@ -332,6 +332,7 @@ fun BangumiBadge(
     modifier: Modifier = Modifier,
     containerColor: Color = AppContentColors.accent()
 ) {
+    val brandColors = com.android.purebilibili.feature.bangumi.bangumiBrandBadgeColors(text)
     val colorScheme = MaterialTheme.colorScheme
     val badgeColors = remember(
         containerColor,
@@ -348,13 +349,13 @@ fun BangumiBadge(
     }
     AppSurface(
         modifier = modifier,
-        color = badgeColors.containerColor,
+        color = brandColors?.backgroundColor ?: badgeColors.containerColor,
         shape = AppShapes.container(ContainerLevel.Tag)
     ) {
         AppText(
             text = text,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-            color = badgeColors.contentColor,
+            color = brandColors?.contentColor ?: badgeColors.contentColor,
             style = MaterialTheme.typography.labelSmall
         )
     }

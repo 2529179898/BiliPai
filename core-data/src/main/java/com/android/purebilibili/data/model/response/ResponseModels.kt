@@ -353,7 +353,13 @@ data class ReplyFansDetail(
     val masterStatus: Int = 0,
     @Serializable(with = FlexibleIntSerializer::class)
     @SerialName("is_receive")
-    val isReceive: Int = 0
+    val isReceive: Int = 0,
+    @Serializable(with = FlexibleLongSerializer::class)
+    @SerialName("medal_color")
+    val medalColor: Long = 0,
+    @Serializable(with = FlexibleLongSerializer::class)
+    @SerialName("medal_color_name")
+    val medalColorName: Long = 0,
 )
 
 @Serializable

@@ -26,6 +26,8 @@ fun BackdropEffectScope.lens(
     refractionAmount: Float,
     depthEffect: Boolean = false,
     chromaticAberration: Float = 0f,
+    /** Optional top/bottom overflow band in local pixels; zero disables gap dispersion. */
+    chromaticEdgeBand: Float? = null,
 ) {
     if (!isRuntimeShaderSupported()) return
     if (refractionHeight <= 0f || refractionAmount <= 0f) return
@@ -36,7 +38,7 @@ fun BackdropEffectScope.lens(
 
     val radii = roundedRectCornerRadii() ?: return
 
-    val dispersionEnabled = chromaticAberration > 0f
+    val dispersionEnabled = chromaticAberration > 0f && chromaticEdgeBand != 0f
     val shaderString =
         if (dispersionEnabled) {
             ROUNDED_RECT_REFRACTION_WITH_DISPERSION_SHADER
@@ -66,6 +68,7 @@ fun BackdropEffectScope.lens(
         setFloatUniform("depthEffect", if (depthEffect) 1f else 0f)
         if (dispersionEnabled) {
             setFloatUniform("chromaticAberration", chromaticAberration)
+            setFloatUniform("chromaticEdgeBand", chromaticEdgeBand?.coerceAtLeast(0f)?.div(sf) ?: -1f)
         }
     }
 }
@@ -162,6 +165,7 @@ uniform float refractionHeight;
 uniform float refractionAmount;
 uniform float depthEffect;
 uniform float chromaticAberration;
+uniform float chromaticEdgeBand;
 
 $ROUNDED_RECT_SDF
 
@@ -185,7 +189,16 @@ half4 main(float2 coord) {
     float2 grad = normalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + depthEffect * normalize(centeredCoord));
 
     float2 refractedCoord = coord + d * grad;
-    float dispersionIntensity = chromaticAberration * ((centeredCoord.x * centeredCoord.y) / (halfSize.x * halfSize.y));
+    // Ordinary lenses retain their original spectral weighting. Dock indicators
+    // opt into dispersion only where the enlarged pill exceeds the track vertically.
+    float dispersionWeight = (centeredCoord.x * centeredCoord.y) / (halfSize.x * halfSize.y);
+    if (chromaticEdgeBand >= 0.0) {
+        float edgeDistance = halfSize.y - abs(centeredCoord.y);
+        float feather = min(chromaticEdgeBand, 1.0);
+        dispersionWeight = 1.0 - smoothstep(chromaticEdgeBand - feather, chromaticEdgeBand, edgeDistance);
+        if (dispersionWeight <= 0.0) return content.eval(refractedCoord);
+    }
+    float dispersionIntensity = chromaticAberration * dispersionWeight;
     float2 dispersedCoord = d * grad * dispersionIntensity;
 
     half4 color = half4(0.0);

@@ -30,7 +30,7 @@ class AudioNowPlayingBarStructureTest {
         assertTrue(source.contains("resolveAudioNowPlayingSupplementalProgress"))
         assertTrue(source.contains("AudioNowPlayingBarContentRow("))
         // 行高统一 64dp：与底栏导航行同高，percent=50 共享胶囊的圆角始终一致。
-        assertTrue(source.contains("val height = 64.dp"))
+        assertTrue(source.contains(".resolveBiliPaiBottomBarDockHeight(searchExpanded = false)"))
         assertFalse(source.contains("if (dockHosted) 56.dp"))
         assertFalse(source.contains("if (primaryContentProgress > 0.001f)"))
         assertFalse(source.contains("if (supplementalContentProgress > 0.05f)"))

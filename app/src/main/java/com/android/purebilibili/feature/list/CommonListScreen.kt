@@ -1936,6 +1936,11 @@ fun CommonListScreen(
                                 query = searchQuery,
                                 onQueryChange = { searchQuery = it },
                                 modifier = Modifier.fillMaxWidth(),
+                                compactHeight = if (favoriteViewModel != null && historyFilterChrome.useLiquidDock) {
+                                    (historyFilterChrome.heightDp * 0.88f).dp
+                                } else {
+                                    androidx.compose.ui.unit.Dp.Unspecified
+                                },
                                 placeholder = searchPlaceholder,
                                 backdrop = commonListChromeBackdrop,
                                 isScrollInProgressProvider = {
@@ -1970,8 +1975,8 @@ fun CommonListScreen(
                                     }
                                 },
                                 scrollable = FavoriteSection.entries.size > 4,
-                                height = historyFilterChrome.heightDp.dp,
-                                indicatorHeight = historyFilterChrome.indicatorHeightDp.dp,
+                                height = (historyFilterChrome.heightDp * 0.8f).dp,
+                                indicatorHeight = (historyFilterChrome.heightDp * 0.8f - 6f).dp,
                                 labelFontSize = com.android.purebilibili.core.ui.appTabLabelFontSize(),
                                 dragSelectionEnabled = historyFilterChrome.dragSelectionEnabled,
                                 tapPressRefractionEnabled = true,

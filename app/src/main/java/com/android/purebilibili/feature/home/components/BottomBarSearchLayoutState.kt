@@ -33,13 +33,14 @@ internal fun rememberBiliPaiBottomBarSearchLayoutState(
     searchExpanded: Boolean,
     labelMode: Int,
     searchLayoutMode: BottomBarSearchLayoutMode,
-    hasUiSkinDecoration: Boolean
+    hasUiSkinDecoration: Boolean,
+    fillAllocatedDockWidth: Boolean = false,
 ): BiliPaiBottomBarSearchLayoutState {
     val targetDockHeight = resolveBiliPaiBottomBarDockHeight(
         searchExpanded = searchExpanded,
-        hasUiSkinDecoration = hasUiSkinDecoration
+        hasUiSkinDecoration = hasUiSkinDecoration && !fillAllocatedDockWidth,
     )
-    val targetSearchLayout = resolveBiliPaiBottomBarSearchLayout(
+    val resolvedSearchLayout = resolveBiliPaiBottomBarSearchLayout(
         containerWidth = containerWidth,
         itemCount = itemCount,
         minEdgePadding = minEdgePadding,
@@ -49,6 +50,11 @@ internal fun rememberBiliPaiBottomBarSearchLayoutState(
         cornerRadius = targetDockHeight / 2,
         searchLayoutMode = searchLayoutMode
     )
+    // Embedded navigation receives its final width from LinkedBottomDock. Applying
+    // preferred widths and outer margins again would inset only the lower capsule.
+    val targetSearchLayout = if (fillAllocatedDockWidth && !searchEnabled) {
+        resolvedSearchLayout.copy(dockWidth = containerWidth)
+    } else resolvedSearchLayout
     val emptySize = remember { mutableStateOf(AppSpacingTokens.None) }
     if (!searchEnabled) {
         val dockWidth = animateDpAsState(

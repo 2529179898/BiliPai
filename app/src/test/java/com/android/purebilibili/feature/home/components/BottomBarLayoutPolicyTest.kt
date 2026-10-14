@@ -283,8 +283,8 @@ class BottomBarLayoutPolicyTest {
     @Test
     fun `bilipai expanded home dock copies search circle size`() {
         assertEquals(56.dp, resolveBiliPaiBottomBarSearchCircleSize())
-        // 照搬 HyperIsland 的壳高 64dp（搜索展开态仍是 56dp 圆形）。
-        assertEquals(64.dp, resolveBiliPaiBottomBarDockHeight(searchExpanded = false))
+        // The ordinary dock and adjacent search circle share a compact resting height.
+        assertEquals(56.dp, resolveBiliPaiBottomBarDockHeight(searchExpanded = false))
         assertEquals(
             64.dp,
             resolveBiliPaiBottomBarDockHeight(
