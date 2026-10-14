@@ -312,7 +312,7 @@ private class LiquidValueBackdrop(
 @Composable
 private fun LiquidValueThumb(
     motion: LiquidValueMotion, track: Backdrop, modifier: Modifier,
-    thumbColor: Color = MediaContrastPalette.Foreground,
+    thumbColor: Color = appControlThumbColor(),
     content: (@Composable () -> Unit)? = null,
 ) {
     Box(modifier
@@ -360,7 +360,7 @@ internal fun AppLiquidSwitch(
     val latestLtr by rememberUpdatedState(isLtr)
     val track = rememberLayerBackdrop()
     val active = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidControlsUseThemeColor) {
-        AppContentColors.accent()
+        com.android.purebilibili.core.ui.liquidControlThemeColor()
     } else colorResource(R.color.liquid_switch_active)
     val inactive = colorResource(R.color.liquid_value_inactive)
     val background = AppSurfaceTokens.background()
@@ -438,7 +438,7 @@ internal fun AppLiquidSlider(
     }
     val active = colors?.activeTrackColor ?: if (
         com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidControlsUseThemeColor
-    ) AppContentColors.accent() else colorResource(R.color.liquid_slider_active)
+    ) com.android.purebilibili.core.ui.liquidControlThemeColor() else colorResource(R.color.liquid_slider_active)
     val inactive = colors?.inactiveTrackColor ?: colorResource(R.color.liquid_value_inactive)
     fun update(progress: Float, fromPointer: Boolean = false) {
         val bounded = progress.coerceIn(0f, 1f)
@@ -493,6 +493,6 @@ internal fun AppLiquidSlider(
         LiquidValueThumb(motion, sliderBackdrop, Modifier.graphicsLayer {
             val progress = if (isLtr) motion.position else 1f - motion.position
             translationX = (-size.width / 2f + width * progress).coerceIn(-size.width / 4f, (width - size.width * 3f / 4f).coerceAtLeast(-size.width / 4f))
-        }, thumbColor = colors?.thumbColor ?: MediaContrastPalette.Foreground)
+        }, thumbColor = colors?.thumbColor ?: appControlThumbColor())
     }
 }

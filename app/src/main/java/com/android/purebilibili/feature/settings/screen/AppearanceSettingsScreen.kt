@@ -509,10 +509,17 @@ fun AppearanceSettingsContent(
     val homeHeroCarouselAutoplayEnabled by SettingsManager
         .getHomeHeroCarouselAutoplayEnabled(context)
         .collectAsStateWithLifecycle(initialValue = false)
-    val themeRoleOverrides by SettingsManager
+    val storedThemeRoleOverrides by SettingsManager
         .getThemeRoleOverrides(context)
         .collectAsStateWithLifecycle(initialValue = ThemeRoleOverrides())
     val baseThemeRoleOverrides = LocalBaseThemeRoleOverrides.current
+    val themeRoleOverrides = remember(storedThemeRoleOverrides, baseThemeRoleOverrides, state.md3CustomColorHex) {
+        if (storedThemeRoleOverrides.enabled) {
+            com.android.purebilibili.core.theme.enableThemeRoleOverrides(
+                storedThemeRoleOverrides, baseThemeRoleOverrides, state.md3CustomColorHex,
+            )
+        } else storedThemeRoleOverrides
+    }
     val showOnlineCount by SettingsManager
         .getShowOnlineCount(context)
         .collectAsStateWithLifecycle(initialValue = false)
@@ -525,7 +532,7 @@ fun AppearanceSettingsContent(
         sdkInt = Build.VERSION.SDK_INT,
     )
     val showThemeColorPicker = shouldShowMd3CustomColorControls(state.md3ColorSource)
-    var showMd3ColorPickerDialog by remember { mutableStateOf(false) }
+    var showMd3ColorPickerDialog by rememberSaveable { mutableStateOf(false) }
     var roleColorTarget by remember { mutableStateOf<ThemeRoleColorTarget?>(null) }
     val md3ColorSourceOptions = remember { resolveMd3ColorSourceOptions() }
     val selectedMd3ColorSourceLabel = md3ColorSourceOptions
@@ -797,7 +804,11 @@ fun AppearanceSettingsContent(
                                                 SettingsManager.setThemeRoleOverrides(
                                                     context,
                                                     if (enabled) {
-                                                        baseThemeRoleOverrides.copy(enabled = true)
+                                                        com.android.purebilibili.core.theme.enableThemeRoleOverrides(
+                                                            current = themeRoleOverrides,
+                                                            base = baseThemeRoleOverrides,
+                                                            customColorHex = state.md3CustomColorHex,
+                                                        )
                                                     } else {
                                                         themeRoleOverrides.copy(enabled = false)
                                                     }
@@ -2049,6 +2060,8 @@ fun AppearanceSettingsContent(
     if (showMd3ColorPickerDialog) {
         ThemeCustomColorPickerDialog(
             initialHex = state.md3CustomColorHex,
+            paletteStyle = state.colorStyle,
+            colorSpec = state.colorSpec,
             onDismiss = { showMd3ColorPickerDialog = false },
             onConfirm = { hex ->
                 viewModel.applyMd3CustomColor(hex)
@@ -2060,6 +2073,9 @@ fun AppearanceSettingsContent(
     roleColorTarget?.let { target ->
         ThemeCustomColorPickerDialog(
             initialHex = target.read(themeRoleOverrides),
+            roleTarget = target,
+            paletteStyle = state.colorStyle,
+            colorSpec = state.colorSpec,
             onDismiss = { roleColorTarget = null },
             onConfirm = { hex ->
                 scope.launch {
@@ -2215,140 +2231,6 @@ internal fun ThemeRoleModeEditor(
             )
         }
     }
-}
-
-@Composable
-private fun ThemeCustomColorPickerDialog(
-    initialHex: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
-) {
-    val haptic = rememberHapticFeedback()
-    var pendingHex by remember(initialHex) { mutableStateOf(normalizeMd3CustomColorHex(initialHex)) }
-    var lastValidHex by remember(initialHex) { mutableStateOf(normalizeMd3CustomColorHex(initialHex)) }
-    var lastSelectionHapticAtMs by remember { mutableLongStateOf(0L) }
-    val hasValidHex = isValidMd3CustomColorHex(pendingHex)
-    val pendingColor = remember(lastValidHex) { parseMd3CustomColorHex(lastValidHex) }
-    val invalidInput = pendingHex.isNotBlank() && !hasValidHex
-
-    fun updatePendingHex(value: String) {
-        val nextHex = value.uppercase().take(9)
-        pendingHex = nextHex
-        if (isValidMd3CustomColorHex(nextHex)) {
-            lastValidHex = normalizeMd3CustomColorHex(nextHex)
-        }
-    }
-
-    fun emitSelectionHapticIfNeeded() {
-        val nowMs = SystemClock.elapsedRealtime()
-        if (shouldEmitMd3ColorPickerSelectionHaptic(lastSelectionHapticAtMs, nowMs)) {
-            haptic(HapticType.SELECTION)
-            lastSelectionHapticAtMs = nowMs
-        }
-    }
-
-    AppAlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            AppTextButton(
-                enabled = hasValidHex,
-                onClick = {
-                    haptic(HapticType.LIGHT)
-                    onConfirm(lastValidHex)
-                }
-            ) {
-                AppText("保存并应用")
-            }
-        },
-        dismissButton = {
-            AppTextButton(
-                onClick = {
-                    haptic(HapticType.LIGHT)
-                    onDismiss()
-                }
-            ) {
-                AppText("取消")
-            }
-        },
-        title = { AppText("自定义主题颜色") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp)
-                        .clip(AppShapes.container(ContainerLevel.Dialog))
-                        .background(pendingColor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AppText(
-                        text = if (hasValidHex) lastValidHex else pendingHex.ifBlank { "#RRGGBB" },
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (pendingColor.luminance() < 0.5f) Color.White else Color.Black,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                AppColorPicker(
-                    color = pendingColor,
-                    modifier = Modifier.fillMaxWidth(),
-                    onColorChanged = { color ->
-                        val nextHex = formatMd3CustomColorHex(color)
-                        if (nextHex != pendingHex) {
-                            updatePendingHex(nextHex)
-                            emitSelectionHapticIfNeeded()
-                        }
-                    },
-                )
-
-                AppTextField(
-                    value = pendingHex,
-                    onValueChange = ::updatePendingHex,
-                    label = "HEX（#RRGGBB）",
-                    singleLine = true,
-                    isError = invalidInput,
-                    supportingText = {
-                        if (invalidInput) {
-                            AppText("请输入 6 位 RGB，例如 #BBCAAE")
-                        } else {
-                            AppText("点击“保存并应用”后会立即保存，下次启动仍生效")
-                        }
-                    }
-                )
-
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(ThemeColors.size, key = { it }) { index ->
-                        val color = ThemeColors[index]
-                        val hex = formatMd3CustomColorHex(color)
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(color)
-                                .border(
-                                    width = if (normalizeMd3CustomColorHex(pendingHex) == hex) 2.dp else 1.dp,
-                                    color = if (normalizeMd3CustomColorHex(pendingHex) == hex) {
-                                        AppContentColors.accent()
-                                    } else {
-                                        MaterialTheme.colorScheme.outlineVariant
-                                    },
-                                    shape = CircleShape
-                                )
-                                .clickable {
-                                    updatePendingHex(hex)
-                                    haptic(HapticType.SELECTION)
-                                }
-                        )
-                    }
-                }
-            }
-        }
-    )
 }
 
 internal data class Md3ColorPickerSliderLayout(

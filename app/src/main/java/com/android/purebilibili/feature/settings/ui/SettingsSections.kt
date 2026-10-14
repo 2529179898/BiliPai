@@ -906,7 +906,7 @@ fun SupportToolsSection(
             icon = tipsVisual.icon,
             iconPainter = tipsVisual.iconResId?.let { painterResource(id = it) },
             title = settingsDestinationCopy(SettingsSearchTarget.TIPS).title,
-            value = settingsDestinationCopy(SettingsSearchTarget.TIPS).summary,
+            subtitle = settingsDestinationCopy(SettingsSearchTarget.TIPS).summary,
             onClick = onTipsClick,
             iconTint = siblingTints[0]
         )
