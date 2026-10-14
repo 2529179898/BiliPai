@@ -81,6 +81,7 @@ class DanmakuController(private var mDanmakuView: View): ConfigChangeListener, I
         renderClock.pause(SystemClock.uptimeMillis())
         mIsPlaying = false
         mDataManager.onPause()
+        mDanmakuView.cancelDanmakuFrames()
     }
 
     /**
@@ -88,6 +89,7 @@ class DanmakuController(private var mDanmakuView: View): ConfigChangeListener, I
      */
     fun stop() {
         mIsPlaying = false
+        mDanmakuView.cancelDanmakuFrames()
         renderClock.reset()
         mDataManager.onStop()
         clear()
@@ -140,6 +142,7 @@ class DanmakuController(private var mDanmakuView: View): ConfigChangeListener, I
         if (current > 0) {
             mDataManager.onPlay(current)
         }
+        if (mIsPlaying) mDanmakuView.postInvalidateCompat()
     }
 
     /** Reanchors the media clock while preserving the active render lines. */
@@ -154,6 +157,7 @@ class DanmakuController(private var mDanmakuView: View): ConfigChangeListener, I
      */
     fun appendData(dataList: List<DanmakuData>) {
         mDataManager.appendData(dataList)
+        if (mIsPlaying && dataList.isNotEmpty()) mDanmakuView.postInvalidateCompat()
     }
 
     /** Remove consumed history without pause/setData/start. */
@@ -257,19 +261,17 @@ class DanmakuController(private var mDanmakuView: View): ConfigChangeListener, I
             val t3 = System.nanoTime()
             mRenderEngine.draw(canvas)
             val t4 = System.nanoTime()
-            if (!config.common.pauseInvalidateWhenBlank || config.mask.enable) {
+            if (!config.common.pauseInvalidateWhenBlank) {
                 view.postInvalidateCompat()
             } else if (typesettingCount > 0) {
                 view.postInvalidateCompat()
             } else if (mDataManager.getRemainDanmakuCount() > 0) {
-                mDataManager.nextDanmakuShowAfter().let { after ->
+                mDataManager.nextDanmakuShowAfter(includeMask = false).let { after ->
                     val showAfter = after * 100 / config.common.playSpeed
                     if (showAfter in 0..NEXT_DANMAKU_SHOW_MIN_INTERVAL) {
                         view.postInvalidateCompat()
                     } else if (showAfter >= 0) {
-                        view.postDelayed({
-                            view.postInvalidateCompat()
-                        }, showAfter - NEXT_DANMAKU_SHOW_MIN_INTERVAL / 2)
+                        view.postDanmakuFrameAfter(showAfter - NEXT_DANMAKU_SHOW_MIN_INTERVAL / 2)
                     }
                 }
             }

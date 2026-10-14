@@ -32,6 +32,7 @@ import com.bytedance.danmaku.render.engine.render.layer.top.TopCenterLayer
 import com.bytedance.danmaku.render.engine.touch.ITouchDelegate
 import com.bytedance.danmaku.render.engine.touch.ITouchTarget
 import com.bytedance.danmaku.render.engine.utils.LAYER_TYPE_UNDEFINE
+import com.bytedance.danmaku.render.engine.utils.LAYER_TYPE_MASK
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -116,7 +117,9 @@ class RenderEngine(private val mController: DanmakuController) : ITouchDelegate 
     fun typesetting(playTime: Long, isPlaying: Boolean, configChanged: Boolean = false): Int {
         onDrawingDanmakuCount = 0
         mRenderLayers.forEach {
-            onDrawingDanmakuCount += it.typesetting(playTime, isPlaying, configChanged)
+            val count = it.typesetting(playTime, isPlaying, configChanged)
+            // A mask alone draws no visible danmaku and must not keep the overlay animating.
+            if (it.getLayerType() != LAYER_TYPE_MASK) onDrawingDanmakuCount += count
         }
         return onDrawingDanmakuCount
     }

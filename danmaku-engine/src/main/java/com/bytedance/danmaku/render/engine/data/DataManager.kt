@@ -20,6 +20,7 @@ import com.bytedance.danmaku.render.engine.control.DanmakuConfig
 import com.bytedance.danmaku.render.engine.control.DanmakuController
 import com.bytedance.danmaku.render.engine.render.cache.LayerBuffer
 import kotlin.math.max
+import com.bytedance.danmaku.render.engine.utils.LAYER_TYPE_MASK
 
 /**
  * Created by dss886 on 2018/11/6.
@@ -156,12 +157,14 @@ class DataManager(controller: DanmakuController) {
     }
 
     @UiThread
-    fun nextDanmakuShowAfter(): Long {
-        return if (mList.size > 0 && mCurrentIndex < mList.size) {
-            mList[mCurrentIndex].showAtTime - mCurrentPlayTime
-        } else {
-            -1
+    fun nextDanmakuShowAfter(includeMask: Boolean = true): Long {
+        for (index in mCurrentIndex until mList.size) {
+            val item = mList[index]
+            if (includeMask || item.layerType != LAYER_TYPE_MASK) {
+                return item.showAtTime - mCurrentPlayTime
+            }
         }
+        return -1
     }
 
     @UiThread
