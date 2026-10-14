@@ -5,9 +5,11 @@ import com.android.purebilibili.core.ui.AppContentColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 
 /** Chrome supplies its foreground, including light controls over media backgrounds. */
@@ -44,4 +46,14 @@ object AppTextButtonDefaults {
         contentColor = AppContentColors.link(),
         disabledContentColor = AppContentColors.disabled(),
     )
+}
+
+
+/** Neutral thumbs adapt to the active surface without inheriting theme text/accent colors. */
+@Composable
+@ReadOnlyComposable
+fun appControlThumbColor(): Color = if (AppSurfaceTokens.background().luminance() < 0.5f) {
+    Color(0xFFD0D2D6)
+} else {
+    Color.White
 }

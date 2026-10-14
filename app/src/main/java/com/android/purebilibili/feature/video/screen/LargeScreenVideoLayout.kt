@@ -116,6 +116,11 @@ internal fun LargeScreenVideoLayout(
     transitionChromeAlphaProvider: () -> Float = { 1f },
 ) {
     val pageColor = AppSurfaceTokens.chromeBackground()
+    // With a supplied transition host, backing pixels must move inside its media clip.
+    // A background on the fixed split slot survives underneath the shrinking player.
+    val playerBackdropModifier = if (playerContent == null) {
+        Modifier.background(Color.Black)
+    } else Modifier
     val danmakuChrome = rememberTabletDanmakuChromeState(danmakuManager)
     val context = LocalContext.current
     val secondaryDefaultTab by SettingsManager
@@ -279,7 +284,7 @@ internal fun LargeScreenVideoLayout(
                         Modifier
                             .width(metrics.playerWidthDp.dp)
                             .height(metrics.playerHeightDp.dp)
-                            .background(Color.Black),
+                            .then(playerBackdropModifier),
                     )
                     VerticalDivider(
                         modifier = Modifier.fillMaxHeight()
@@ -307,7 +312,7 @@ internal fun LargeScreenVideoLayout(
                             Modifier
                                 .fillMaxWidth()
                                 .height(metrics.playerHeightDp.dp)
-                                .background(Color.Black),
+                                .then(playerBackdropModifier),
                         )
                     }
                     VerticalDivider(
@@ -331,7 +336,7 @@ internal fun LargeScreenVideoLayout(
                         Modifier
                             .fillMaxWidth()
                             .height(metrics.playerHeightDp.dp)
-                            .background(Color.Black),
+                            .then(playerBackdropModifier),
                     )
                     Row(
                         modifier = Modifier
@@ -373,7 +378,7 @@ internal fun LargeScreenVideoLayout(
                                 Modifier
                                     .fillMaxWidth()
                                     .aspectRatio(LARGE_SCREEN_VIDEO_ASPECT_16_9)
-                                    .background(Color.Black),
+                                    .then(playerBackdropModifier),
                             )
                             if (metrics.introBelowPlayer) {
                                 intro(
@@ -410,7 +415,7 @@ internal fun LargeScreenVideoLayout(
                             Modifier
                                 .fillMaxWidth()
                                 .height(metrics.playerHeightDp.dp)
-                                .background(Color.Black),
+                                .then(playerBackdropModifier),
                         )
                         if (metrics.introBelowPlayer) {
                             intro(

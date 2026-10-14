@@ -20,6 +20,29 @@ import com.android.purebilibili.core.ui.transition.resolveVideoCardSourceLayout
 import kotlin.math.max
 import kotlin.math.roundToInt
 
+/** System-bar spacing belongs to the expanded page, never to the source-card endpoint. */
+internal fun resolveVideoDetailCardTopInsetFraction(morphDepth: Float): Float =
+    ((morphDepth - 0.9f) / 0.1f).coerceIn(0f, 1f)
+
+/** Crop the host's fixed system-bar backdrop while the navigation card is floating. */
+internal fun Modifier.videoDetailRemoveFloatingTopInset(
+    removedInsetProvider: () -> Dp,
+): Modifier = graphicsLayer {
+    clip = removedInsetProvider() > 0.dp
+}.layout { measurable, constraints ->
+    if (!constraints.hasBoundedHeight) {
+        val placeable = measurable.measure(constraints)
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    } else {
+        val removed = removedInsetProvider().roundToPx().coerceAtLeast(0)
+        val placeable = measurable.measure(constraints.copy(
+            minHeight = constraints.minHeight + removed,
+            maxHeight = constraints.maxHeight + removed,
+        ))
+        layout(placeable.width, placeable.height - removed) { placeable.place(0, -removed) }
+    }
+}
+
 /** Click-time source geometry used only to align the real detail media with the source cover. */
 internal data class VideoDetailReturnSourceCardLayout(
     val sourceScale: Float,
@@ -285,20 +308,22 @@ internal fun resolveVideoDetailReturnMediaLayoutFrame(
     } else {
         0f
     }
-    val targetWidth = nativeTarget?.width
+    // Native bounds are host-space metadata. Inside the flying entry the complete capsule
+    // starts at (0, 0), with inverse compensation applied once by this layout.
+    val targetWidth = nativeTarget?.let { it.width * safeInverseX }
         ?: landing
         ?.let { it.coverWidthPx * safeInverseX }
         ?.takeIf { it > 1f }
         ?: safeContainerWidth.toFloat()
-    val targetHeight = nativeTarget?.height
+    val targetHeight = nativeTarget?.let { it.height * safeInverseY }
         ?: landing
         ?.let { (it.coverHeightPx + landingEdgeOverscanPx) * safeInverseY }
         ?.takeIf { it > 1f }
         ?: safeContainerHeight.toFloat()
-    val targetOffsetX = nativeTarget?.left
+    val targetOffsetX = nativeTarget?.let { 0f }
         ?: landing?.let { it.coverOffsetXPx * safeInverseX }
         ?: 0f
-    val targetOffsetY = nativeTarget?.top
+    val targetOffsetY = nativeTarget?.let { 0f }
         ?: landing?.let { it.coverOffsetYPx * safeInverseY }
         ?: 0f
 
@@ -322,6 +347,7 @@ internal fun Modifier.videoDetailReturnMediaLayout(
     clipCornerDp: Dp = 0.dp,
     nativeSnapshotBoundsProvider: (() -> Rect?)? = null,
     slotOriginProvider: () -> Offset = { Offset.Zero },
+    contentTopInsetProvider: () -> Dp = { contentTopInset },
 ): Modifier = layout { measurable, constraints ->
     if (!constraints.hasBoundedWidth || !constraints.hasBoundedHeight) {
         val placeable = measurable.measure(constraints)
@@ -337,7 +363,7 @@ internal fun Modifier.videoDetailReturnMediaLayout(
             handoffProgress = progress,
             inverseScaleX = inverseScaleXProvider(),
             inverseScaleY = inverseScaleYProvider(),
-            contentTopInsetPx = contentTopInset.roundToPx(),
+            contentTopInsetPx = contentTopInsetProvider().roundToPx(),
             nativeSnapshotBounds = nativeSnapshotBoundsProvider?.invoke(),
         )
         val frame = resolveVideoDetailReturnMediaFrameInSlot(entryFrame, slotOriginProvider(), progress)

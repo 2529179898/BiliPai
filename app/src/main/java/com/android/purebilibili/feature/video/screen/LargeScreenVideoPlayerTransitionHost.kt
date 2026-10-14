@@ -1,6 +1,7 @@
 package com.android.purebilibili.feature.video.screen
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -8,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.ContentScale
@@ -26,6 +28,7 @@ import coil3.request.crossfade
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.transition.MiuixVideoCardTransitionState
 import com.android.purebilibili.core.ui.transition.VideoCardTransitionBackgroundPhase
+import com.android.purebilibili.core.util.CardPositionManager
 import com.android.purebilibili.navigation3.predictiveback.resolveMiuixVideoCardInverseScaleForDepth
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -69,6 +72,9 @@ internal fun LargeScreenVideoPlayerTransitionHost(
     isReturningProvider: () -> Boolean,
     isCommittedReturn: Boolean,
     coverSource: VideoDetailResidentCoverSource?,
+    hasRenderedFirstFrame: Boolean,
+    detailContentLoading: Boolean,
+    followProgressEnabledProvider: () -> Boolean = { true },
     modifier: Modifier = Modifier,
     content: @Composable (Dp) -> Unit,
 ) {
@@ -95,7 +101,23 @@ internal fun LargeScreenVideoPlayerTransitionHost(
                 .crossfade(false).build()
         }
     }
+    val isNowPlayingBar = transition.sourceChromeSnapshot?.isNowPlayingBar == true
+    val nativeBarBitmap = if (transition.enabled && isNowPlayingBar) {
+        CardPositionManager.lastClickedNativeCardBitmap
+    } else null
     val isReturning = { isReturningProvider() }
+    val sourceChromeAlpha: () -> Float = {
+        if (landing == null) 0f else resolveVideoDetailFlyingSourceChromeAlpha(
+            morphDepthProgress = transition.progressProvider(),
+            phase = phaseProvider(),
+            isReturnGestureInProgress = isReturning(),
+            sourceLayout = transition.sourceLayout,
+            detailContentLoading = detailContentLoading,
+            isNowPlayingBar = isNowPlayingBar,
+            isCommittedCardReturn = isCommittedReturn,
+            followProgressEnabled = followProgressEnabledProvider(),
+        )
+    }
     val progress: () -> Float = {
         resolveLargeScreenVideoReturnMediaProgress(
             hasLandingGeometry = landing != null,
@@ -104,6 +126,8 @@ internal fun LargeScreenVideoPlayerTransitionHost(
             isCommittedReturn = isCommittedReturn,
             depth = transition.progressProvider(),
             sourceLayout = transition.sourceLayout,
+            sourceChromeAlpha = sourceChromeAlpha(),
+            isNowPlayingBar = isNowPlayingBar,
         )
     }
     val inverseScale = {
@@ -117,6 +141,21 @@ internal fun LargeScreenVideoPlayerTransitionHost(
         )
     }
     val origin = { geometry.playerOrigin.value }
+    // The outer morph already owns the source card's window position. The complete
+    // capsule occupies (0, 0) inside that card; only its size needs inverse compensation.
+    val nativeBarBounds: (() -> Rect?)? = if (nativeBarBitmap != null) {
+        {
+            transition.sourceBoundsProvider()?.let { bounds ->
+                val inverse = inverseScale()
+                Rect(
+                    left = 0f,
+                    top = 0f,
+                    right = bounds.width * inverse.scaleX,
+                    bottom = bounds.height * inverse.scaleY,
+                )
+            }
+        }
+    } else null
     val corner = AppShapes.mediaCoverCornerDp()
     val followsRelatedSidebarDrag = transition.enabled &&
         transition.sourceLayout == com.android.purebilibili.core.ui.transition.VideoCardSourceLayout.SIDE_BY_SIDE
@@ -162,7 +201,7 @@ internal fun LargeScreenVideoPlayerTransitionHost(
             ).graphicsLayer {
                 alpha = if (transition.enabled && shouldHideLargeScreenVideoAfterReturn(
                     isCommittedReturn, phaseProvider(),
-                )) 0f else 1f
+                )) 0f else if (nativeBarBitmap != null) 1f - sourceChromeAlpha() else 1f
             },
         ) { content(viewportWidth) }
         if (request != null && landing != null) {
@@ -178,15 +217,42 @@ internal fun LargeScreenVideoPlayerTransitionHost(
                     inverseScaleXProvider = { inverseScale().scaleX },
                     inverseScaleYProvider = { inverseScale().scaleY },
                     slotOriginProvider = origin,
+                    clipCornerDp = corner,
                 )
                 .zIndex(1f)
                 .graphicsLayer {
                     alpha = if (shouldHideLargeScreenVideoAfterReturn(
                         isCommittedReturn, phaseProvider(),
-                    )) 0f else progress()
-                    clip = progress() > 0f
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(corner)
+                    )) 0f else if (nativeBarBitmap != null) {
+                        1f - sourceChromeAlpha()
+                    } else if (!hasRenderedFirstFrame) {
+                        1f
+                    } else {
+                        // Use the same handoff as the source information band; geometry
+                        // completion alone must not expose the cover ahead of its chrome.
+                        sourceChromeAlpha()
+                    }
                 },
+            )
+        }
+        if (nativeBarBitmap != null && landing != null) {
+            Image(
+                bitmap = nativeBarBitmap,
+                contentDescription = null,
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .videoDetailReturnMediaLayout(
+                        landingLayout = landing,
+                        handoffProgressProvider = progress,
+                        inverseScaleXProvider = { inverseScale().scaleX },
+                        inverseScaleYProvider = { inverseScale().scaleY },
+                        nativeSnapshotBoundsProvider = nativeBarBounds,
+                        slotOriginProvider = origin,
+                        clipCornerDp = corner,
+                    )
+                    .zIndex(2f)
+                    .graphicsLayer { alpha = sourceChromeAlpha() },
             )
         }
     }

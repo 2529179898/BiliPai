@@ -630,19 +630,13 @@ internal fun VideoDetailReturnCoverChrome(
         Box(
             modifier = modifier.drawWithContent {
                 scale(
-                    scaleX = inverseScaleXProvider(),
-                    scaleY = inverseScaleYProvider(),
+                    // The media layout already compensates the measured capsule bounds.
+                    // Fit its pixels once; another inverse here doubles the transformation.
+                    scaleX = size.width / nativeBarBitmap.width.toFloat(),
+                    scaleY = size.height / nativeBarBitmap.height.toFloat(),
                     pivot = Offset.Zero,
                 ) {
-                    val bitmapScaleX = size.width / nativeBarBitmap.width.toFloat()
-                    val bitmapScaleY = size.height / nativeBarBitmap.height.toFloat()
-                    scale(
-                        scaleX = bitmapScaleX,
-                        scaleY = bitmapScaleY,
-                        pivot = Offset.Zero,
-                    ) {
-                        drawImage(nativeBarBitmap)
-                    }
+                    drawImage(nativeBarBitmap)
                 }
             },
         )
@@ -659,8 +653,8 @@ internal fun VideoDetailReturnCoverChrome(
         Box(
             modifier = modifier.drawWithContent {
                 scale(
-                    scaleX = inverseScaleXProvider(),
-                    scaleY = inverseScaleYProvider(),
+                    scaleX = size.width / overlayLayer.size.width.toFloat(),
+                    scaleY = size.height / overlayLayer.size.height.toFloat(),
                     pivot = Offset.Zero,
                 ) {
                     drawLayer(overlayLayer)

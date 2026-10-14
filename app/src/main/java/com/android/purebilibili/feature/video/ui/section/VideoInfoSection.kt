@@ -320,7 +320,6 @@ fun VideoTitleSection(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
-            .clickable { expanded = !expanded }
             .padding(horizontal = 12.dp, vertical = 4.dp)
     ) {
         // Title row (expandable)
@@ -340,16 +339,22 @@ fun VideoTitleSection(
                     maxLines = if (expanded) Int.MAX_VALUE else 1,
                     overflow = TextOverflow.Ellipsis,
                     color = AppContentColors.primaryText(),
-                    modifier = Modifier.copyOnLongPress(info.title, "视频标题")
+                    modifier = Modifier,
+                    tapToCopyEnabled = false,
                 )
             }
             Spacer(Modifier.width(4.dp))
-            AppIcon(
-                imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-                contentDescription = null,
-                tint = AppContentColors.secondaryText().copy(alpha = 0.5f),
-                modifier = Modifier.size(18.dp)
-            )
+            com.android.purebilibili.core.ui.components.AppIconButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.size(40.dp),
+            ) {
+                AppIcon(
+                    imageVector = if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                    contentDescription = if (expanded) "收起标题" else "展开标题",
+                    tint = AppContentColors.secondaryText(),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
 
         Spacer(Modifier.height(2.dp))
@@ -561,8 +566,7 @@ fun VideoTitleWithDesc(
         // Title row (expandable); top-aligned so the sponsor badge lines up with the first title line
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .clickable(role = Role.Button, onClick = toggleExpanded),
+                .fillMaxWidth(),
             verticalAlignment = Alignment.Top
         ) {
             //  共享元素过渡 - 标题
@@ -604,7 +608,8 @@ fun VideoTitleWithDesc(
                     maxLines = if (expanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis,
                     color = AppContentColors.primaryText(),
-                    modifier = titleModifier
+                    modifier = titleModifier,
+                    tapToCopyEnabled = false,
                 )
             }
 
@@ -613,16 +618,17 @@ fun VideoTitleWithDesc(
                 animationSpec = tween(durationMillis = 300), // 设置动画时长和曲线
                 label = "IconRotation"
             )
-            AppIcon(
-                imageVector = Icons.Outlined.KeyboardArrowDown,
-                contentDescription = null,
-                tint = AppContentColors.secondaryText().copy(alpha = 0.5f),
-                modifier = Modifier
-                    .align(Alignment.CenterVertically)
-                    .rotate(rotateAngle)
-                    .size(20.dp)
-                    .padding(4.dp)
-            )
+            com.android.purebilibili.core.ui.components.AppIconButton(
+                onClick = toggleExpanded,
+                modifier = Modifier.align(Alignment.CenterVertically).size(40.dp),
+            ) {
+                AppIcon(
+                    imageVector = Icons.Outlined.KeyboardArrowDown,
+                    contentDescription = if (expanded) "收起标题" else "展开标题",
+                    tint = AppContentColors.secondaryText(),
+                    modifier = Modifier.rotate(rotateAngle).size(20.dp),
+                )
+            }
         }
 
         Spacer(Modifier.height(if (isMaterial3) 4.dp else 3.dp))

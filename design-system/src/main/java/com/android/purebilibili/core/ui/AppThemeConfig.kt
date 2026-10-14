@@ -1,11 +1,12 @@
 package com.android.purebilibili.core.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.android.purebilibili.core.theme.AppUiStyle
@@ -58,6 +59,16 @@ fun resolveAppChromeMaterial(
 }
 
 val LocalAppThemeConfig = staticCompositionLocalOf { AppThemeConfig() }
+
+/** Exact custom control color; kept separate from generated Material palette tones. */
+val LocalLiquidControlThemeColor = compositionLocalOf { Color.Unspecified }
+
+@Composable
+@ReadOnlyComposable
+fun liquidControlThemeColor(): Color {
+    val color = LocalLiquidControlThemeColor.current
+    return if (color == Color.Unspecified) AppContentColors.accent() else color
+}
 
 /** Individual switches retain their scope; all disabled also stops component transitions. */
 fun resolveComponentMotionEnabled(

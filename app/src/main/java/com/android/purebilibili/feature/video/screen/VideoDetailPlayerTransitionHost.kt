@@ -95,11 +95,13 @@ internal fun Modifier.continuousPlayerViewportHeight(
     enabled: Boolean,
     preferLayoutWidth16x9Inline: Boolean = false,
     inlineTopInset: Dp = 0.dp,
+    removedInlineTopInsetProvider: () -> Dp = { 0.dp },
 ): Modifier {
     return layout { measurable, constraints ->
         val layoutWidth = constraints.maxWidth.coerceAtLeast(1)
-        val insetPx = inlineTopInset.roundToPx().coerceAtLeast(0)
-        val callerInlinePx = inlineHeight.roundToPx().coerceAtLeast(0)
+        val removedInset = removedInlineTopInsetProvider()
+        val insetPx = (inlineTopInset - removedInset).roundToPx().coerceAtLeast(0)
+        val callerInlinePx = (inlineHeight - removedInset).roundToPx().coerceAtLeast(0)
         val inlinePx = resolveContinuousPlayerInlineHeightPx(
             layoutWidthPx = layoutWidth,
             preferLayoutWidth16x9Inline = preferLayoutWidth16x9Inline,

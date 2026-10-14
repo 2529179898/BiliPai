@@ -17,6 +17,9 @@ internal data class AppButtonSlotPalette(
 
 internal val LocalAppButtonSlotPalette = compositionLocalOf<AppButtonSlotPalette?> { null }
 
+/** Media surfaces already supply colors matched to their own artwork backdrop. */
+val LocalAppButtonSlotColorCorrectionEnabled = compositionLocalOf { true }
+
 /** Called inside a native control's slot, after it supplies its enabled/disabled foreground. */
 @Composable
 internal fun ProvideAppButtonSlotPalette(
@@ -39,12 +42,14 @@ internal fun ProvideAppButtonSlotPalette(
 
 @Composable
 internal fun resolveAppButtonSlotColor(requested: Color): Color {
+    if (!LocalAppButtonSlotColorCorrectionEnabled.current) return requested
     val palette = LocalAppButtonSlotPalette.current ?: return requested
     return resolveButtonSlotColor(requested, palette, MaterialTheme.colorScheme)
 }
 
 @Composable
 internal fun resolveAppButtonSlotColor(requested: ColorProducer): ColorProducer {
+    if (!LocalAppButtonSlotColorCorrectionEnabled.current) return requested
     val palette = LocalAppButtonSlotPalette.current ?: return requested
     val scheme = MaterialTheme.colorScheme
     return ColorProducer { resolveButtonSlotColor(requested(), palette, scheme) }

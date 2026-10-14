@@ -185,9 +185,20 @@ class LikedVideosViewModelFactory(
 class HistoryViewModel(application: Application) : BaseListViewModel(application, "历史记录") {
     private var isPageActive = false
     private var startupLoadsActivated = false
+    private var browsingSessionStarted = false
+    private var browsingSessionKey: Any? = null
+
+    /** A tab visit survives playback; a standalone history entry uses its ViewModel lifetime. */
+    fun enterBrowsingSession(sessionKey: Any? = null) {
+        if (browsingSessionStarted && browsingSessionKey === sessionKey) return
+        browsingSessionStarted = true
+        browsingSessionKey = sessionKey
+        loadData(showLoading = _uiState.value.items.isEmpty())
+    }
 
     fun setPageActive(active: Boolean) {
         isPageActive = active
+        if (active) updateCachedHistoryProgress()
         if (active && !startupLoadsActivated) {
             startupLoadsActivated = true
             loadHistoryPauseState()
@@ -403,6 +414,18 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
                     videoItem = video.copy(progress = resolvedProgress)
                 )
             }
+        }
+    }
+
+    /** Refresh progress in place so watching a video cannot reorder the current list. */
+    private fun updateCachedHistoryProgress() {
+        val historyItems = enrichHistoryProgress(_historyItemsByRenderKey.values.toList())
+        cacheHistoryItems(historyItems)
+        val videosByKey = historyItems.associate { resolveHistoryRenderKey(it) to it.videoItem }
+        _uiState.update { current ->
+            current.copy(items = current.items.map { video ->
+                videosByKey[resolveHistoryRenderKey(video)] ?: video
+            })
         }
     }
     
@@ -858,8 +881,9 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
     private fun observeHistoryRefresh() {
         viewModelScope.launch {
             HistoryRefreshBus.changes.collect {
-                // Navigation reloads on activation, so an offscreen invalidation can wait.
-                if (isPageActive) loadData(showLoading = false)
+                // Server ordering is loaded on the next browsing session or explicit refresh.
+                // A heartbeat or return from playback only updates existing progress in place.
+                if (isPageActive) updateCachedHistoryProgress()
             }
         }
     }

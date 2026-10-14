@@ -349,10 +349,10 @@ internal fun resolveAdaptivePreferenceIconContentColor(
                 containerColor.alpha == 0f -> colorScheme.onSurfaceVariant
                 opaqueContainer == colorScheme.surfaceContainerHigh.copy(alpha = 1f) -> colorScheme.onSurface
                 else -> when (opaqueContainer) {
-                    colorScheme.primary.copy(alpha = 1f) -> colorScheme.onPrimary
-                    colorScheme.secondary.copy(alpha = 1f) -> colorScheme.onSecondary
-                    colorScheme.tertiary.copy(alpha = 1f) -> colorScheme.onTertiary
-                    colorScheme.error.copy(alpha = 1f) -> colorScheme.onError
+                    colorScheme.primary.copy(alpha = 1f) -> if (opaqueContainer.luminance() >= 0.72f) Color.Black else Color.White
+                    colorScheme.secondary.copy(alpha = 1f) -> if (opaqueContainer.luminance() >= 0.72f) Color.Black else Color.White
+                    colorScheme.tertiary.copy(alpha = 1f) -> if (opaqueContainer.luminance() >= 0.72f) Color.Black else Color.White
+                    colorScheme.error.copy(alpha = 1f) -> if (opaqueContainer.luminance() >= 0.72f) Color.Black else Color.White
                     colorScheme.primaryContainer.copy(alpha = 1f) -> colorScheme.onPrimaryContainer
                     colorScheme.secondaryContainer.copy(alpha = 1f) -> colorScheme.onSecondaryContainer
                     colorScheme.tertiaryContainer.copy(alpha = 1f) -> colorScheme.onTertiaryContainer

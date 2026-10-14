@@ -145,6 +145,7 @@ import com.android.purebilibili.core.ui.transition.videoCardTransitionChromeReve
 import com.android.purebilibili.core.ui.transition.resolveVideoCardTransitionBackgroundScaleReduction
 import com.android.purebilibili.core.ui.transition.resolveVideoCardTransitionBackgroundSource
 import com.android.purebilibili.core.ui.transition.resolveVideoCardTransitionExposure
+import com.android.purebilibili.core.ui.transition.VideoCardTransitionExposure
 import com.android.purebilibili.core.ui.transition.VideoCardTransitionSettleState
 import com.android.purebilibili.core.ui.transition.shouldUseHostOwnedVideoCardTransitionSnapshot
 import com.android.purebilibili.core.ui.transition.shouldUseRealtimeVideoCardTransitionBackgroundBlur
@@ -750,6 +751,9 @@ fun AppNavigation(
                 visibleItems = visibleBottomBarItems
             )
         }
+        // A new tab visit is distinct even if the history pager page was uncomposed
+        // while away. Playback navigation leaves the selected tab and this identity intact.
+        val historyBrowsingSessionKey = remember(currentBottomNavItem) { Any() }
         val renderGlobalHomeWallpaperBackdrop = shouldRenderGlobalHomeWallpaperBackdrop(
             effectScope = effectiveHomeSettings.homeWallpaperEffectScope,
             currentRoute = currentRoute,
@@ -2392,6 +2396,213 @@ fun AppNavigation(
                 }
 
                 @Composable
+                fun RenderSpaceDestination(spaceKey: BiliPaiNavKey.Space, onBack: () -> Unit) {
+                    com.android.purebilibili.feature.space.SpaceScreen(
+                        mid = spaceKey.mid,
+                        targetBvid = spaceKey.targetBvid,
+                        onBack = onBack,
+                        onVideoClick = { bvid, cid, resumePositionMs ->
+                            navigateToVideoInNavigation3(
+                                bvid = bvid,
+                                cid = cid,
+                                coverUrl = "",
+                                resumePositionMs = resumePositionMs,
+                                sourceRoute = spaceKey.toLegacyRoute()
+                            )
+                        },
+                        onAudioClick = { sid ->
+                            pushNavigation3Key(BiliPaiNavKey.MusicDetail(sid))
+                        },
+                        onBangumiClick = { seasonId ->
+                            if (seasonId > 0L) {
+                                pushNavigation3Key(BiliPaiNavKey.BangumiDetail(seasonId = seasonId))
+                            }
+                        },
+                        onCheeseClick = { seasonId ->
+                            if (seasonId > 0L) {
+                                pushNavigation3Key(
+                                    BiliPaiNavKey.BangumiPlayer(
+                                        seasonId = seasonId,
+                                        epId = 0L,
+                                        isCourse = true
+                                    )
+                                )
+                            }
+                        },
+                        onWebClick = { url, title ->
+                            pushNavigation3Key(BiliPaiNavKey.Web(url = url, title = title))
+                        },
+                        onLiveClick = { roomId, title, uname ->
+                            if (roomId > 0L) {
+                                pushNavigation3Key(
+                                    BiliPaiNavKey.Live(
+                                        roomId = roomId.toString(),
+                                        title = title,
+                                        uname = uname
+                                    )
+                                )
+                            }
+                        },
+                        onPlayAllAudioClick = { bvid, resumePositionMs ->
+                            pushNavigation3Key(
+                                BiliPaiNavKey.AudioMode(
+                                    sourceBvid = bvid,
+                                    sourceResumePositionMs = resumePositionMs
+                                )
+                            )
+                        },
+                        onDynamicDetailClick = { dynamicId ->
+                            pushNavigation3Key(BiliPaiNavKey.DynamicDetail(dynamicId))
+                        },
+                        onTopicClick = { topicId ->
+                            if (topicId > 0L) {
+                                pushNavigation3Key(BiliPaiNavKey.TopicDetail(topicId))
+                            }
+                        },
+                        onTopicKeywordClick = { keyword ->
+                            pushSearchRouteInNavigation3(keyword)
+                        },
+                        onArticleClick = { articleId, title ->
+                            if (canNavigate(false)) {
+                                coroutineScope.launch {
+                                    when (val target = resolveArticleNavigationTarget(articleId)) {
+                                        is ArticleNavigationTarget.NativeDynamic -> {
+                                            pushNavigation3Key(
+                                                BiliPaiNavKey.DynamicDetail(target.dynamicId)
+                                            )
+                                        }
+                                        is ArticleNavigationTarget.NativeArticle -> {
+                                            pushNavigation3Key(
+                                                BiliPaiNavKey.ArticleDetail(target.articleId, title)
+                                            )
+                                        }
+                                        null -> Unit
+                                    }
+                                }
+                            }
+                        },
+                        onViewAllClick = { type, id, mid, title, ownerName ->
+                            if (type.equals("coin", ignoreCase = true)) {
+                                pushNavigation3Key(
+                                    BiliPaiNavKey.LikedVideos(
+                                        mid = mid,
+                                        ownerName = ownerName,
+                                        isCoinArchive = true,
+                                    )
+                                )
+                            } else if (type.equals("like", ignoreCase = true) || type.equals("liked", ignoreCase = true)) {
+                                pushNavigation3Key(
+                                    BiliPaiNavKey.LikedVideos(
+                                        mid = mid,
+                                        ownerName = ownerName
+                                    )
+                                )
+                            } else {
+                                pushNavigation3Key(
+                                    BiliPaiNavKey.SeasonSeriesDetail(
+                                        type = type,
+                                        id = id,
+                                        mid = mid,
+                                        title = title,
+                                        ownerName = ownerName
+                                    )
+                                )
+                            }
+                        },
+                        onLikedVideosClick = { upMid, upName ->
+                            pushNavigation3Key(
+                                BiliPaiNavKey.LikedVideos(
+                                    mid = upMid,
+                                    ownerName = upName
+                                )
+                            )
+                        },
+                        onMessageClick = { talkerId, userName, _ ->
+                            pushNavigation3Key(
+                                BiliPaiNavKey.Chat(
+                                    talkerId = talkerId,
+                                    sessionType = 1,
+                                    userName = userName
+                                )
+                            )
+                        },
+                        onFollowingClick = { followingMid ->
+                            pushNavigation3Key(BiliPaiNavKey.Following(followingMid))
+                        },
+                        onFansClick = { fansMid ->
+                            pushNavigation3Key(
+                                BiliPaiNavKey.Web(
+                                    url = "https://space.bilibili.com/$fansMid/fans/fans",
+                                    title = "粉丝"
+                                )
+                            )
+                        },
+                        onUpowerRankClick = { upMid, upName, upCount ->
+                            pushNavigation3Key(
+                                BiliPaiNavKey.UpowerRank(
+                                    mid = upMid,
+                                    name = upName,
+                                    count = upCount
+                                )
+                            )
+                        },
+                        onMemberGuardClick = { guardMid, guardName, guardCount ->
+                            pushNavigation3Key(
+                                BiliPaiNavKey.MemberGuard(
+                                    mid = guardMid,
+                                    name = guardName,
+                                    count = guardCount
+                                )
+                            )
+                        },
+                        viewModel = androidx.lifecycle.viewmodel.compose.viewModel(key = "space:${spaceKey.mid}"),
+                        sharedTransitionScope = null,
+                        animatedVisibilityScope = null
+                    )
+                }
+
+                @Composable
+                fun RenderBangumiDestination(
+                    bangumiKey: BiliPaiNavKey.BangumiDetail,
+                    onBack: () -> Unit,
+                    onSeasonChange: (Long) -> Unit,
+                    contentReady: Boolean = true,
+                ) {
+                    com.android.purebilibili.feature.bangumi.BangumiDetailScreen(
+                        seasonId = bangumiKey.seasonId,
+                        viewModel = androidx.lifecycle.viewmodel.compose.viewModel(key = "bangumi:${bangumiKey.seasonId}"),
+                        contentTransitionReady = contentReady,
+                        epId = bangumiKey.epId,
+                        mediaId = bangumiKey.mediaId,
+                        onBack = onBack,
+                        onEpisodeClick = { actionSeasonId, episode ->
+                            pushNavigation3Key(
+                                BiliPaiNavKey.BangumiPlayer(
+                                    seasonId = actionSeasonId,
+                                    epId = episode.id,
+                                    preferredAid = episode.aid,
+                                    isCourse = episode.from == "pugv" ||
+                                        episode.playable ||
+                                        episode.episodeCanView
+                                )
+                            )
+                        },
+                        onSeasonClick = onSeasonChange,
+                        onReviewsClick = { mediaId, title ->
+                            if (mediaId > 0L) {
+                                pushNavigation3Key(
+                                    BiliPaiNavKey.BangumiReview(
+                                        mediaId = mediaId,
+                                        title = title
+                                    )
+                                )
+                            }
+                        },
+                        onUserClick = { mid -> pushNavigation3Key(BiliPaiNavKey.Space(mid)) }
+                    )
+                }
+
+                @Composable
                 fun RenderNavigationContent(
                     key: BiliPaiNavKey,
                     isBottomPagerPageActive: Boolean = true,
@@ -2559,6 +2770,11 @@ fun AppNavigation(
                             )
                         BiliPaiNavEntryContentRole.LISTEN_VIDEO ->
                             ListenVideoRoute(
+                                onPlayFromHistory = { bvid, cid ->
+                                    pushNavigation3Key(
+                                        BiliPaiNavKey.AudioMode(sourceBvid = bvid, sourceCid = cid)
+                                    )
+                                },
                                 onPlayCollection = { mediaId, seasonId, title ->
                                     pushNavigation3Key(
                                         BiliPaiNavKey.AudioMode(
@@ -2601,12 +2817,20 @@ fun AppNavigation(
                                 val historyViewModel: HistoryViewModel = viewModel()
                                 val historySearchKey = key as? BiliPaiNavKey.HistorySearch
                                 val historyNavigationScope = rememberCoroutineScope()
+                                // Keep a history browsing session through playback and return.
+                                // Background-work availability changes during card transitions
+                                // must not trigger a new server ordering.
+                                val historySessionSelected = !isBottomPagerHosted ||
+                                    currentBottomNavItem == BottomNavItem.HISTORY
                                 androidx.compose.runtime.LaunchedEffect(
                                     historyViewModel,
-                                    isBottomPagerPageActive
+                                    historySessionSelected,
+                                    historyBrowsingSessionKey,
                                 ) {
-                                    if (isBottomPagerPageActive) {
-                                        historyViewModel.loadData(showLoading = historyViewModel.uiState.value.items.isEmpty())
+                                    if (historySessionSelected) {
+                                        historyViewModel.enterBrowsingSession(
+                                            sessionKey = historyBrowsingSessionKey.takeIf { isBottomPagerHosted }
+                                        )
                                     }
                                 }
                                 CommonListScreen(
@@ -2838,84 +3062,105 @@ fun AppNavigation(
                             val searchKey = key as? BiliPaiNavKey.Search
                             val initialSearchKeyword = searchKey?.keyword?.takeIf { it.isNotBlank() }
                                 ?: effectiveInitialSearchKeyword.orEmpty()
-                            SearchScreen(
-                                userFace = homeState.user.face,
-                                initialKeyword = initialSearchKeyword,
-                                onInitialKeywordConsumed = consumeInitialSearchKeyword,
-                                entryMotionSource = searchEntryMotionSource,
-                                entryMotionKey = searchEntryMotionKey,
-                                onEntryMotionConsumed = { consumedKey ->
-                                    if (consumedKey == searchEntryMotionKey) {
-                                        searchEntryMotionSource = SearchEntryMotionSource.NONE
-                                    }
-                                },
-                                isReturningFromVideoDetail = navigation3ReturnSession.isReturningFromDetail,
-                                isQuickReturningFromVideoDetail =
-                                    navigation3ReturnSession.isQuickReturnFromDetail,
-                                onVideoDetailReturnAnimationConsumed = {
-                                    navigation3ReturnSession = navigation3ReturnSession.clearReturning()
-                                },
-                                onBack = { performSystemBackAction() },
-                                onOpenTrending = { pushNavigation3Key(BiliPaiNavKey.SearchTrending) },
-                                onNavigateSearchTarget = { target ->
-                                    openBilibiliNativeTargetInNavigation3(target)
-                                },
-                                onVideoClick = { bvid, cid, coverUrl ->
-                                    navigateToVideoInNavigation3(
-                                        bvid = bvid,
-                                        cid = cid,
-                                        coverUrl = coverUrl,
-                                        sourceRoute = ScreenRoutes.Search.route
-                                    )
-                                },
-                                onWebClick = { url, title ->
-                                    pushNavigation3Route(ScreenRoutes.Web.createRoute(url, title))
-                                },
-                                onUpClick = { mid -> pushNavigation3Route(ScreenRoutes.Space.createRoute(mid)) },
-                                onBangumiClick = { seasonId ->
-                                    if (seasonId > 0L) {
-                                        pushNavigation3Route(ScreenRoutes.BangumiDetail.createRoute(seasonId))
-                                    }
-                                },
-                                onCheeseClick = { seasonId, epId ->
-                                    pushNavigation3Key(
-                                        BiliPaiNavKey.BangumiPlayer(
-                                            seasonId = seasonId,
-                                            epId = epId,
-                                            isCourse = true
-                                        )
-                                    )
-                                },
-                                onLiveClick = { roomId, title, uname ->
-                                    pushNavigation3Route(ScreenRoutes.Live.createRoute(roomId, title, uname))
-                                },
-                                onTopicClick = { topicId ->
-                                    if (topicId > 0L) {
-                                        pushNavigation3Key(BiliPaiNavKey.TopicDetail(topicId))
-                                    }
-                                },
-                                onArticleClick = { articleId, title ->
-                                    coroutineScope.launch {
-                                        when (val target = resolveArticleNavigationTarget(articleId)) {
-                                            is ArticleNavigationTarget.NativeDynamic -> {
-                                                pushNavigation3Route(ScreenRoutes.DynamicDetail.createRoute(target.dynamicId))
+                            com.android.purebilibili.feature.search.SearchResultContainerHost(
+                                content = { openUpResult, openBangumiResult, sourceVisible ->
+                                    SearchScreen(
+                                        userFace = homeState.user.face,
+                                        initialKeyword = initialSearchKeyword,
+                                        onInitialKeywordConsumed = consumeInitialSearchKeyword,
+                                        entryMotionSource = searchEntryMotionSource,
+                                        entryMotionKey = searchEntryMotionKey,
+                                        onEntryMotionConsumed = { consumedKey ->
+                                            if (consumedKey == searchEntryMotionKey) {
+                                                searchEntryMotionSource = SearchEntryMotionSource.NONE
                                             }
-                                            is ArticleNavigationTarget.NativeArticle -> {
-                                                pushNavigation3Route(
-                                                    ScreenRoutes.ArticleDetail.createRoute(target.articleId, title)
+                                        },
+                                        isReturningFromVideoDetail = navigation3ReturnSession.isReturningFromDetail,
+                                        isQuickReturningFromVideoDetail =
+                                            navigation3ReturnSession.isQuickReturnFromDetail,
+                                        onVideoDetailReturnAnimationConsumed = {
+                                            navigation3ReturnSession = navigation3ReturnSession.clearReturning()
+                                        },
+                                        onBack = { performSystemBackAction() },
+                                        onOpenTrending = { pushNavigation3Key(BiliPaiNavKey.SearchTrending) },
+                                        onNavigateSearchTarget = { target ->
+                                            openBilibiliNativeTargetInNavigation3(target)
+                                        },
+                                        onVideoClick = { bvid, cid, coverUrl ->
+                                            navigateToVideoInNavigation3(
+                                                bvid = bvid,
+                                                cid = cid,
+                                                coverUrl = coverUrl,
+                                                sourceRoute = ScreenRoutes.Search.route
+                                            )
+                                        },
+                                        onWebClick = { url, title ->
+                                            pushNavigation3Route(ScreenRoutes.Web.createRoute(url, title))
+                                        },
+                                        onUpClick = { mid -> pushNavigation3Route(ScreenRoutes.Space.createRoute(mid)) },
+                                        onBangumiClick = { seasonId ->
+                                            if (seasonId > 0L) {
+                                                pushNavigation3Route(ScreenRoutes.BangumiDetail.createRoute(seasonId))
+                                            }
+                                        },
+                                        onUpResultClick = openUpResult,
+                                        onBangumiResultClick = openBangumiResult,
+                                        backEnabled = sourceVisible,
+                                        onCheeseClick = { seasonId, epId ->
+                                            pushNavigation3Key(
+                                                BiliPaiNavKey.BangumiPlayer(
+                                                    seasonId = seasonId,
+                                                    epId = epId,
+                                                    isCourse = true
                                                 )
+                                            )
+                                        },
+                                        onLiveClick = { roomId, title, uname ->
+                                            pushNavigation3Route(ScreenRoutes.Live.createRoute(roomId, title, uname))
+                                        },
+                                        onTopicClick = { topicId ->
+                                            if (topicId > 0L) {
+                                                pushNavigation3Key(BiliPaiNavKey.TopicDetail(topicId))
                                             }
-                                            null -> Unit
+                                        },
+                                        onArticleClick = { articleId, title ->
+                                            coroutineScope.launch {
+                                                when (val target = resolveArticleNavigationTarget(articleId)) {
+                                                    is ArticleNavigationTarget.NativeDynamic -> {
+                                                        pushNavigation3Route(ScreenRoutes.DynamicDetail.createRoute(target.dynamicId))
+                                                    }
+                                                    is ArticleNavigationTarget.NativeArticle -> {
+                                                        pushNavigation3Route(
+                                                            ScreenRoutes.ArticleDetail.createRoute(target.articleId, title)
+                                                        )
+                                                    }
+                                                    null -> Unit
+                                                }
+                                            }
+                                        },
+                                        onAvatarClick = {
+                                            if (homeState.user.isLogin) {
+                                                pushNavigation3Route(ScreenRoutes.Profile.route)
+                                            } else {
+                                                pushNavigation3Key(BiliPaiNavKey.Login)
+                                            }
+                                        }
+                                    )
+                                },
+                                destination = { target, close, replace, ready, modifier ->
+                                    Box(modifier) {
+                                        if (target.isUp) {
+                                            RenderSpaceDestination(BiliPaiNavKey.Space(target.id), close)
+                                        } else {
+                                            RenderBangumiDestination(
+                                                BiliPaiNavKey.BangumiDetail(target.id),
+                                                onBack = close,
+                                                onSeasonChange = { replace(target.copy(id = it)) },
+                                                contentReady = ready,
+                                            )
                                         }
                                     }
                                 },
-                                onAvatarClick = {
-                                    if (homeState.user.isLogin) {
-                                        pushNavigation3Route(ScreenRoutes.Profile.route)
-                                    } else {
-                                        pushNavigation3Key(BiliPaiNavKey.Login)
-                                    }
-                                }
                             )
                         }
                         BiliPaiNavEntryContentRole.SEARCH_TRENDING ->
@@ -4059,6 +4304,23 @@ fun AppNavigation(
                                             )
                                         )
                                     },
+                                    onPlayEpisode = { seasonId, episode ->
+                                        pushNavigation3Key(
+                                            BiliPaiNavKey.BangumiPlayer(
+                                                seasonId = seasonId,
+                                                epId = episode.id,
+                                                preferredAid = episode.aid,
+                                                isCourse = episode.from == "pugv" ||
+                                                    episode.playable || episode.episodeCanView,
+                                            )
+                                        )
+                                    },
+                                    onReviewsClick = { mediaId, title ->
+                                        if (mediaId > 0L) {
+                                            pushNavigation3Key(BiliPaiNavKey.BangumiReview(mediaId, title))
+                                        }
+                                    },
+                                    onUserClick = { mid -> pushNavigation3Key(BiliPaiNavKey.Space(mid)) },
                                     initialType = bangumiKey.initialType
                                 )
                             }
@@ -4138,169 +4400,8 @@ fun AppNavigation(
                                 )
                             }
                         BiliPaiNavEntryContentRole.SPACE -> {
-                                val spaceKey = key as BiliPaiNavKey.Space
-                                com.android.purebilibili.feature.space.SpaceScreen(
-                                    mid = spaceKey.mid,
-                                    targetBvid = spaceKey.targetBvid,
-                                    onBack = { performSystemBackAction() },
-                                    onVideoClick = { bvid, cid, resumePositionMs ->
-                                        navigateToVideoInNavigation3(
-                                            bvid = bvid,
-                                            cid = cid,
-                                            coverUrl = "",
-                                            resumePositionMs = resumePositionMs,
-                                            sourceRoute = spaceKey.toLegacyRoute()
-                                        )
-                                    },
-                                    onAudioClick = { sid ->
-                                        pushNavigation3Key(BiliPaiNavKey.MusicDetail(sid))
-                                    },
-                                    onBangumiClick = { seasonId ->
-                                        if (seasonId > 0L) {
-                                            pushNavigation3Key(BiliPaiNavKey.BangumiDetail(seasonId = seasonId))
-                                        }
-                                    },
-                                    onCheeseClick = { seasonId ->
-                                        if (seasonId > 0L) {
-                                            pushNavigation3Key(
-                                                BiliPaiNavKey.BangumiPlayer(
-                                                    seasonId = seasonId,
-                                                    epId = 0L,
-                                                    isCourse = true
-                                                )
-                                            )
-                                        }
-                                    },
-                                    onWebClick = { url, title ->
-                                        pushNavigation3Key(BiliPaiNavKey.Web(url = url, title = title))
-                                    },
-                                    onLiveClick = { roomId, title, uname ->
-                                        if (roomId > 0L) {
-                                            pushNavigation3Key(
-                                                BiliPaiNavKey.Live(
-                                                    roomId = roomId.toString(),
-                                                    title = title,
-                                                    uname = uname
-                                                )
-                                            )
-                                        }
-                                    },
-                                    onPlayAllAudioClick = { bvid, resumePositionMs ->
-                                        pushNavigation3Key(
-                                            BiliPaiNavKey.AudioMode(
-                                                sourceBvid = bvid,
-                                                sourceResumePositionMs = resumePositionMs
-                                            )
-                                        )
-                                    },
-                                    onDynamicDetailClick = { dynamicId ->
-                                        pushNavigation3Key(BiliPaiNavKey.DynamicDetail(dynamicId))
-                                    },
-                                    onTopicClick = { topicId ->
-                                        if (topicId > 0L) {
-                                            pushNavigation3Key(BiliPaiNavKey.TopicDetail(topicId))
-                                        }
-                                    },
-                                    onTopicKeywordClick = { keyword ->
-                                        pushSearchRouteInNavigation3(keyword)
-                                    },
-                                    onArticleClick = { articleId, title ->
-                                        if (canNavigate(false)) {
-                                            coroutineScope.launch {
-                                                when (val target = resolveArticleNavigationTarget(articleId)) {
-                                                    is ArticleNavigationTarget.NativeDynamic -> {
-                                                        pushNavigation3Key(
-                                                            BiliPaiNavKey.DynamicDetail(target.dynamicId)
-                                                        )
-                                                    }
-                                                    is ArticleNavigationTarget.NativeArticle -> {
-                                                        pushNavigation3Key(
-                                                            BiliPaiNavKey.ArticleDetail(target.articleId, title)
-                                                        )
-                                                    }
-                                                    null -> Unit
-                                                }
-                                            }
-                                        }
-                                    },
-                                    onViewAllClick = { type, id, mid, title, ownerName ->
-                                        if (type.equals("coin", ignoreCase = true)) {
-                                            pushNavigation3Key(
-                                                BiliPaiNavKey.LikedVideos(
-                                                    mid = mid,
-                                                    ownerName = ownerName,
-                                                    isCoinArchive = true,
-                                                )
-                                            )
-                                        } else if (type.equals("like", ignoreCase = true) || type.equals("liked", ignoreCase = true)) {
-                                            pushNavigation3Key(
-                                                BiliPaiNavKey.LikedVideos(
-                                                    mid = mid,
-                                                    ownerName = ownerName
-                                                )
-                                            )
-                                        } else {
-                                            pushNavigation3Key(
-                                                BiliPaiNavKey.SeasonSeriesDetail(
-                                                    type = type,
-                                                    id = id,
-                                                    mid = mid,
-                                                    title = title,
-                                                    ownerName = ownerName
-                                                )
-                                            )
-                                        }
-                                    },
-                                    onLikedVideosClick = { upMid, upName ->
-                                        pushNavigation3Key(
-                                            BiliPaiNavKey.LikedVideos(
-                                                mid = upMid,
-                                                ownerName = upName
-                                            )
-                                        )
-                                    },
-                                    onMessageClick = { talkerId, userName, _ ->
-                                        pushNavigation3Key(
-                                            BiliPaiNavKey.Chat(
-                                                talkerId = talkerId,
-                                                sessionType = 1,
-                                                userName = userName
-                                            )
-                                        )
-                                    },
-                                    onFollowingClick = { followingMid ->
-                                        pushNavigation3Key(BiliPaiNavKey.Following(followingMid))
-                                    },
-                                    onFansClick = { fansMid ->
-                                        pushNavigation3Key(
-                                            BiliPaiNavKey.Web(
-                                                url = "https://space.bilibili.com/$fansMid/fans/fans",
-                                                title = "粉丝"
-                                            )
-                                        )
-                                    },
-                                    onUpowerRankClick = { upMid, upName, upCount ->
-                                        pushNavigation3Key(
-                                            BiliPaiNavKey.UpowerRank(
-                                                mid = upMid,
-                                                name = upName,
-                                                count = upCount
-                                            )
-                                        )
-                                    },
-                                    onMemberGuardClick = { guardMid, guardName, guardCount ->
-                                        pushNavigation3Key(
-                                            BiliPaiNavKey.MemberGuard(
-                                                mid = guardMid,
-                                                name = guardName,
-                                                count = guardCount
-                                            )
-                                        )
-                                    },
-                                    sharedTransitionScope = null,
-                                    animatedVisibilityScope = null
-                                )
-                            }
+                            RenderSpaceDestination(key as BiliPaiNavKey.Space) { performSystemBackAction() }
+                        }
                         BiliPaiNavEntryContentRole.WEB -> {
                                 val webKey = key as BiliPaiNavKey.Web
                                 com.android.purebilibili.feature.web.WebViewScreen(
@@ -4476,42 +4577,12 @@ fun AppNavigation(
                                 )
                             }
                         BiliPaiNavEntryContentRole.BANGUMI_DETAIL -> {
-                                val bangumiKey = key as BiliPaiNavKey.BangumiDetail
-                                com.android.purebilibili.feature.bangumi.BangumiDetailScreen(
-                                    seasonId = bangumiKey.seasonId,
-                                    epId = bangumiKey.epId,
-                                    mediaId = bangumiKey.mediaId,
-                                    onBack = { performSystemBackAction() },
-                                    onEpisodeClick = { actionSeasonId, episode ->
-                                        pushNavigation3Key(
-                                            BiliPaiNavKey.BangumiPlayer(
-                                                seasonId = actionSeasonId,
-                                                epId = episode.id,
-                                                preferredAid = episode.aid,
-                                                isCourse = episode.from == "pugv" ||
-                                                    episode.playable ||
-                                                    episode.episodeCanView
-                                            )
-                                        )
-                                    },
-                                    onSeasonClick = { newSeasonId ->
-                                        replaceNavigation3TopWithKey(
-                                            BiliPaiNavKey.BangumiDetail(seasonId = newSeasonId)
-                                        )
-                                    },
-                                    onReviewsClick = { mediaId, title ->
-                                        if (mediaId > 0L) {
-                                            pushNavigation3Key(
-                                                BiliPaiNavKey.BangumiReview(
-                                                    mediaId = mediaId,
-                                                    title = title
-                                                )
-                                            )
-                                        }
-                                    },
-                                    onUserClick = { mid -> pushNavigation3Key(BiliPaiNavKey.Space(mid)) }
-                                )
-                            }
+                            RenderBangumiDestination(
+                                key as BiliPaiNavKey.BangumiDetail,
+                                onBack = { performSystemBackAction() },
+                                onSeasonChange = { replaceNavigation3TopWithKey(BiliPaiNavKey.BangumiDetail(seasonId = it)) },
+                            )
+                        }
                         BiliPaiNavEntryContentRole.BANGUMI_REVIEW -> {
                                 val reviewKey = key as BiliPaiNavKey.BangumiReview
                                 com.android.purebilibili.feature.bangumi.BangumiReviewScreen(
@@ -4631,11 +4702,21 @@ fun AppNavigation(
                     )
             }
 
+            val capsuleOwnsNowPlayingPixels =
+                navigation3ReturnSession.transitionSession?.sourceChromeSnapshot?.isNowPlayingBar == true &&
+                    videoCardChromeExposure in setOf(
+                        VideoCardTransitionExposure.Opening,
+                        VideoCardTransitionExposure.BackPreview,
+                        VideoCardTransitionExposure.Returning,
+                        VideoCardTransitionExposure.Restoring,
+                    )
             val audioNowPlayingHandoff =
-                if (navigation3ReturnSession.isReturningFromDetail && driveBottomBarByProgress) {
+                if (capsuleOwnsNowPlayingPixels ||
+                    (navigation3ReturnSession.isReturningFromDetail && driveBottomBarByProgress)
+                ) {
                     NowPlayingBarHandoffState.Returning(
                         targetBvid = navigation3ReturnSession.transitionSession?.bvid,
-                        isSourceOwner = videoCardSourceChromeVisible,
+                        isSourceOwner = capsuleOwnsNowPlayingPixels || videoCardSourceChromeVisible,
                     )
                 } else {
                     NowPlayingBarHandoffState.Idle
@@ -4718,10 +4799,9 @@ fun AppNavigation(
                                         },
                                         onSkipNext = { playbackManager.playNext() },
                                         onSkipPrevious = { playbackManager.playPrevious() },
+                                        onCancelPlayback = { playbackManager.pausePlayback() },
                                         onDismiss = {
-                                            if (playbackManager.isPlaying) {
-                                                playbackManager.togglePlayPause()
-                                            }
+                                            playbackManager.pausePlayback()
                                             AudioNowPlayingSession.dismiss()
                                         },
                                         expandDestinationLabel = if (audioNowPlayingBarOpensAudioMode) {
@@ -4969,10 +5049,9 @@ fun AppNavigation(
                     },
                     onSkipNext = { playbackManager.playNext() },
                     onSkipPrevious = { playbackManager.playPrevious() },
+                    onCancelPlayback = { playbackManager.pausePlayback() },
                     onDismiss = {
-                        if (playbackManager.isPlaying) {
-                            playbackManager.togglePlayPause()
-                        }
+                        playbackManager.pausePlayback()
                         AudioNowPlayingSession.dismiss()
                     },
                     expandDestinationLabel = if (audioNowPlayingBarOpensAudioMode) {

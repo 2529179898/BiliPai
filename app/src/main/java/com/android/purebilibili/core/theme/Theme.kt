@@ -912,19 +912,25 @@ fun PureBiliBiliTheme(
         dynamicBaseScheme = dynamicDarkBaseScheme
     )
 
-    val effectiveThemeRoleOverrides = remember(md3ColorSource, themeRoleOverrides, uiStyle) {
-        resolveEffectiveThemeRoleOverrides(md3ColorSource, themeRoleOverrides, uiStyle)
-    }
-    val resolvedLightMaterialScheme = remember(lightMaterialScheme, effectiveThemeRoleOverrides) {
-        applyThemeRoleOverrides(lightMaterialScheme, effectiveThemeRoleOverrides, darkTheme = false)
-    }
-    val resolvedDarkMaterialScheme = remember(darkMaterialScheme, effectiveThemeRoleOverrides) {
-        applyThemeRoleOverrides(darkMaterialScheme, effectiveThemeRoleOverrides, darkTheme = true)
-    }
     val baseThemeRoleOverrides = remember(lightMaterialScheme, darkMaterialScheme) {
-        themeRoleOverridesFromSchemes(
-            lightScheme = lightMaterialScheme,
-            darkScheme = darkMaterialScheme
+        themeRoleOverridesFromSchemes(lightMaterialScheme, darkMaterialScheme)
+    }
+    val effectiveThemeRoleOverrides = remember(md3ColorSource, themeRoleOverrides, uiStyle, baseThemeRoleOverrides, md3CustomColorHex) {
+        val effective = resolveEffectiveThemeRoleOverrides(md3ColorSource, themeRoleOverrides, uiStyle)
+        if (effective.enabled) {
+            enableThemeRoleOverrides(effective, baseThemeRoleOverrides, md3CustomColorHex)
+        } else effective
+    }
+    val resolvedLightMaterialScheme = remember(lightMaterialScheme, effectiveThemeRoleOverrides, colorStyle, colorSpec) {
+        applyThemeRoleOverrides(
+            lightMaterialScheme, effectiveThemeRoleOverrides, darkTheme = false,
+            paletteStyle = colorStyle, colorSpec = colorSpec,
+        )
+    }
+    val resolvedDarkMaterialScheme = remember(darkMaterialScheme, effectiveThemeRoleOverrides, colorStyle, colorSpec) {
+        applyThemeRoleOverrides(
+            darkMaterialScheme, effectiveThemeRoleOverrides, darkTheme = true,
+            paletteStyle = colorStyle, colorSpec = colorSpec,
         )
     }
     val staticMaterialScheme = if (darkTheme) resolvedDarkMaterialScheme else resolvedLightMaterialScheme
@@ -1004,6 +1010,14 @@ fun PureBiliBiliTheme(
         LocalAppUiStyle provides uiStyle,
         LocalDynamicColorActive provides isDynamicColorActive,
         LocalBaseThemeRoleOverrides provides baseThemeRoleOverrides,
+        com.android.purebilibili.core.ui.LocalLiquidControlThemeColor provides resolveLiquidControlAccentColor(
+            source = md3ColorSource,
+            customSeed = customPrimaryColor,
+            generatedAccent = materialColorScheme.primary,
+            roleOverridesEnabled = effectiveThemeRoleOverrides.enabled,
+            roleControlHex = if (darkTheme) effectiveThemeRoleOverrides.dark.controlAccentHex
+                else effectiveThemeRoleOverrides.light.controlAccentHex,
+        ),
         LocalAppIconStyle provides resolveAppIconStyle(
             iconStyle = appIconStyle,
             uiStyle = uiStyle

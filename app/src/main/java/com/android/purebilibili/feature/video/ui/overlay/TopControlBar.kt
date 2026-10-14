@@ -39,7 +39,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.draw.clipToBounds
 import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
 import com.android.purebilibili.core.ui.components.appPressHighlightPressSpec
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -592,8 +591,9 @@ private fun AdaptivePlayerTitleInfoDock(
         Box(
             modifier = Modifier
                 .width(dockWidth)
-                .heightIn(min = 48.dp)
-                .clipToBounds(),
+                // The dock owns its rounded shell and elastic transform. Clipping this
+                // stationary slot cuts off the capsule and labels during either drag axis.
+                .heightIn(min = 48.dp),
             contentAlignment = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) {
                 Alignment.CenterEnd
             } else {

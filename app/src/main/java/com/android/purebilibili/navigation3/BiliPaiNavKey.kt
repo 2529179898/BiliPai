@@ -474,7 +474,7 @@ internal sealed interface BiliPaiNavKey : NavKey {
     @Serializable
     data class Space(
         val mid: Long,
-        val targetBvid: String = ""
+        val targetBvid: String = "",
     ) : BiliPaiNavKey {
         override val routeBase: String = "space"
     }
@@ -501,7 +501,7 @@ internal sealed interface BiliPaiNavKey : NavKey {
     data class BangumiDetail(
         val seasonId: Long,
         val epId: Long = 0L,
-        val mediaId: Long = 0L
+        val mediaId: Long = 0L,
     ) : BiliPaiNavKey {
         override val routeBase: String = "bangumi"
     }

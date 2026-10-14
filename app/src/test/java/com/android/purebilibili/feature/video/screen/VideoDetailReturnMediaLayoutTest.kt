@@ -11,6 +11,65 @@ import kotlin.test.assertTrue
 
 class VideoDetailReturnMediaLayoutTest {
     @Test
+    fun nativeCapsuleUsesLocalOriginAndOneInverseCompensation() {
+        val bounds = Rect(20f, 880f, 660f, 952f)
+        val frame = resolveVideoDetailReturnMediaLayoutFrame(
+            containerWidthPx = 720,
+            containerHeightPx = 400,
+            landingLayout = null,
+            handoffProgress = 1f,
+            inverseScaleX = 1.125f,
+            inverseScaleY = 1.125f,
+            nativeSnapshotBounds = bounds,
+        )
+        assertEquals(0, frame.offsetXPx)
+        assertEquals(0, frame.offsetYPx)
+        assertEquals(720, frame.widthPx)
+        assertEquals(81, frame.heightPx)
+        // The shell's uniform source scale maps this local frame back to the original bar.
+        assertEquals(bounds.width, frame.widthPx / 1.125f, 0.001f)
+        assertEquals(bounds.height, frame.heightPx / 1.125f, 0.001f)
+        val movedBounds = bounds.translate(Offset(100f, -400f))
+        assertEquals(frame, resolveVideoDetailReturnMediaLayoutFrame(
+            containerWidthPx = 720,
+            containerHeightPx = 400,
+            landingLayout = null,
+            handoffProgress = 1f,
+            inverseScaleX = 1.125f,
+            inverseScaleY = 1.125f,
+            nativeSnapshotBounds = movedBounds,
+        ))
+    }
+
+    @Test
+    fun floatingCardOmitsSystemBarInsetAndRestoresItNearFullscreen() {
+        for (depth in listOf(-1f, 0f, 0.5f, 0.9f)) {
+            assertEquals(0f, resolveVideoDetailCardTopInsetFraction(depth))
+        }
+        assertEquals(0.5f, resolveVideoDetailCardTopInsetFraction(0.95f), 0.0001f)
+        assertEquals(1f, resolveVideoDetailCardTopInsetFraction(1f))
+        assertEquals(1f, resolveVideoDetailCardTopInsetFraction(2f))
+        val cover = resolveVideoDetailReturnMediaLayoutFrame(
+            containerWidthPx = 600,
+            containerHeightPx = 400,
+            landingLayout = null,
+            handoffProgress = 0f,
+            contentTopInsetPx = 0,
+        )
+        assertEquals(0, cover.offsetYPx)
+        assertEquals(400, cover.heightPx)
+        val expanded = resolveVideoDetailReturnMediaLayoutFrame(
+            containerWidthPx = 600,
+            containerHeightPx = 400,
+            landingLayout = null,
+            handoffProgress = 0f,
+            contentTopInsetPx = 40,
+        )
+        assertEquals(40, expanded.offsetYPx)
+        assertEquals(360, expanded.heightPx)
+    }
+
+    @Test
     fun splitPlayerKeepsItsOwnOriginBeforeReturn() {
         val frame = VideoDetailReturnMediaLayoutFrame(0, 0, 700, 394)
         assertEquals(frame, resolveVideoDetailReturnMediaFrameInSlot(frame, Offset(220f, 32f), 0f))
