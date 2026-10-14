@@ -64,6 +64,7 @@ import com.android.purebilibili.feature.video.ui.components.toAnime4KDisplayScal
 import com.android.purebilibili.feature.video.ui.components.toFullscreenAspectRatio
 import com.android.purebilibili.feature.video.ui.components.toVideoAspectRatio
 import com.android.purebilibili.feature.video.ui.gesture.GestureLevelOverlayHost
+import com.android.purebilibili.feature.video.ui.gesture.detectPlayerTapGestures
 import com.android.purebilibili.feature.video.ui.gesture.LockedTwoFingerSpeedAxis
 import com.android.purebilibili.feature.video.ui.gesture.TwoFingerSpeedGestureMode
 import com.android.purebilibili.feature.video.ui.gesture.resolveGestureLevelIcon
@@ -110,7 +111,6 @@ import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import com.android.purebilibili.feature.video.ambient.AmbientPresentation
@@ -1075,7 +1075,6 @@ private fun VideoPlayerSectionContent(
     // 在新播放器就绪后自动把锁定倍速写回。
     var longPressSpeedLocked by remember { mutableStateOf(false) }
     var lockedLongPressSpeed by remember { mutableFloatStateOf(1.0f) }
-    var longPressSpeedEndedAtMs by remember { mutableLongStateOf(0L) }
     var longPressSpeedStartedAtMs by remember { mutableLongStateOf(0L) }
     var longPressSpeedStartX by remember { mutableFloatStateOf(-1f) }
     var longPressSpeedStartY by remember { mutableFloatStateOf(-1f) }
@@ -1839,7 +1838,6 @@ private fun VideoPlayerSectionContent(
         applyLongPressPlaybackParameters(originalPlaybackParameters)
         isLongPressing = false
         longPressSpeedFeedbackVisible = false
-        longPressSpeedEndedAtMs = android.os.SystemClock.elapsedRealtime()
         totalDragDistanceY = 0f
         totalDragDistanceX = 0f
         longPressSpeedStartedAtMs = 0L
@@ -1869,7 +1867,6 @@ private fun VideoPlayerSectionContent(
         }
         isLongPressing = false
         longPressSpeedFeedbackVisible = false
-        longPressSpeedEndedAtMs = android.os.SystemClock.elapsedRealtime()
         totalDragDistanceY = 0f
         totalDragDistanceX = 0f
         longPressSpeedStartedAtMs = 0L
@@ -1906,8 +1903,6 @@ private fun VideoPlayerSectionContent(
         if (isLongPressing || longPressSpeedLocked) {
             finishLongPressSpeedGesture(gestureEnded = true)
         }
-        // 上一条媒体的长按结束时间不能抑制新媒体的首次单击。
-        longPressSpeedEndedAtMs = 0L
     }
 
     fun applyExplicitPlaybackSpeedChange(speed: Float) {
@@ -2896,20 +2891,12 @@ private fun VideoPlayerSectionContent(
                 if (!shouldEnableInlinePlayerGestures(isPortraitFullscreen)) {
                     return@pointerInput
                 }
-                detectTapGestures(
+                detectPlayerTapGestures(
                     onTap = {
                         com.android.purebilibili.core.util.Logger.d("VideoInputTrace") {
                             "player_tap fullscreen=$isFullscreen locked=$isScreenLocked controls=$showControls"
                         }
                         // 🔒 锁定时点击只显示解锁按钮
-                        if (
-                            !shouldToggleControlsForVideoTap(
-                                longPressSpeedEndedAtMs = longPressSpeedEndedAtMs,
-                                nowMs = android.os.SystemClock.elapsedRealtime()
-                            )
-                        ) {
-                            return@detectTapGestures
-                        }
                         if (isScreenLocked) {
                             showControls = !showControls  // 显示/隐藏解锁按钮
                         } else {
@@ -2922,7 +2909,7 @@ private fun VideoPlayerSectionContent(
                                 "playing=${playerState.player.isPlaying} playWhenReady=${playerState.player.playWhenReady}"
                         }
                         // 🔒 锁定时禁用双击
-                        if (isScreenLocked) return@detectTapGestures
+                        if (isScreenLocked) return@detectPlayerTapGestures
 
                         val screenWidth = size.width.toFloat()
                         val player = playerState.player

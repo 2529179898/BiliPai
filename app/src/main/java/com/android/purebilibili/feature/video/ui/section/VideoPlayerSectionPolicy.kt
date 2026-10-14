@@ -48,7 +48,6 @@ private const val VIDEO_PLAYER_SURFACE_REVEAL_INITIAL_SCALE = 1f
 // 揭开动画结束后再延迟一小段才允许移除封面垫底，吸收 animateFloatAsState
 // 晚一帧启动的相位差，确保移除瞬间视频 surface 已完全不透明。
 private const val VIDEO_PLAYER_COVER_REVEAL_SETTLE_BUFFER_MILLIS = 48
-private const val LONG_PRESS_SPEED_TAP_SUPPRESSION_WINDOW_MS = 450L
 private const val LONG_PRESS_SPEED_UNLOCK_HOLD_MS = 1_000L
 
 internal const val LONG_PRESS_SPEED_LOCK_ZONE_HEIGHT_DP = 96
@@ -480,17 +479,6 @@ internal fun shouldRestorePlaybackParametersAfterLongPressRelease(
     gestureEnded: Boolean
 ): Boolean {
     return gestureEnded && wasLongPressing && !longPressSpeedLocked
-}
-
-internal fun shouldToggleControlsForVideoTap(
-    longPressSpeedEndedAtMs: Long,
-    nowMs: Long,
-    suppressionWindowMs: Long = LONG_PRESS_SPEED_TAP_SUPPRESSION_WINDOW_MS
-): Boolean {
-    if (longPressSpeedEndedAtMs <= 0L || suppressionWindowMs <= 0L) return true
-    val elapsedSinceLongPressEndMs = nowMs - longPressSpeedEndedAtMs
-    if (elapsedSinceLongPressEndMs < 0L) return true
-    return elapsedSinceLongPressEndMs > suppressionWindowMs
 }
 
 internal fun resolveVerticalGestureMode(

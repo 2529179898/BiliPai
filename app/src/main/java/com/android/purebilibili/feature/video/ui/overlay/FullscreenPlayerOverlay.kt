@@ -95,6 +95,7 @@ import com.android.purebilibili.core.ui.blur.BlurSurfaceType
 import com.android.purebilibili.core.ui.blur.rememberRecoverableHazeState
 import com.android.purebilibili.core.ui.blur.unifiedBlur
 import com.android.purebilibili.feature.video.ui.gesture.GestureLevelOverlayContent
+import com.android.purebilibili.feature.video.ui.gesture.detectPlayerTapGestures
 import com.android.purebilibili.feature.video.ui.gesture.GestureLevelOverlayStyle
 import com.android.purebilibili.feature.video.ui.gesture.resolveGestureLevelOverlaySpec
 import com.android.purebilibili.feature.video.ui.gesture.resolveGestureLevelKind
@@ -738,7 +739,7 @@ fun FullscreenPlayerOverlay(
 
                 val screenWidth = size.width.toFloat()
 
-                detectTapGestures(
+                detectPlayerTapGestures(
                     onTap = {
                         showControls = !showControls
                         if (showControls) lastInteractionTime = System.currentTimeMillis()
