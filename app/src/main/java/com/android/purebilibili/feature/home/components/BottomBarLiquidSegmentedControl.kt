@@ -439,6 +439,33 @@ fun BottomBarLiquidSegmentedControl(
     } else {
         com.android.purebilibili.core.ui.appTabLabelFontSize()
     }
+    if (com.android.purebilibili.core.ui.isMiuixNonGlassEnabled()) {
+        val nativeOptions = remember(items) {
+            items.mapIndexed { index, label -> AppSegmentOption(index, label) }
+        }
+        // Fixed liquid slots and capture heights are visual hints, not native
+        // content constraints. Let the opaque renderer fit labels and font scale.
+        AppNativeTabRow(
+            options = nativeOptions,
+            selectedValue = selectedIndex.coerceIn(0, items.lastIndex),
+            onSelectionChange = onSelected,
+            modifier = modifier,
+            enabled = enabled,
+            scrollable = !nativeSegmentedControl && !forceEqualWidth &&
+                (scrollState != null || items.size > 2),
+            forceEqualWidth = forceEqualWidth,
+            minTabWidth = AppChromeSizeTokens.MinimumTouchTarget,
+            labelFontSize = effectiveLabelFontSize,
+            containerHorizontalPadding = containerHorizontalPadding,
+            compactMiuixWhenTwoOptions = compactMiuixWhenTwoOptions,
+            indicatorPositionProvider = indicatorPositionProvider,
+            miuixNonGlassItemWidthMode = if (equalizeMiuixNonGlassItemWidths) {
+                MiuixNonGlassTabItemWidthMode.EQUAL_TO_LONGEST_LABEL
+            } else MiuixNonGlassTabItemWidthMode.CONTENT,
+            drawMiuixNonGlassTrack = drawMiuixNonGlassTrack,
+        )
+        return@AppExactTouchTargets
+    }
     val shellHeight = height.coerceAtLeast(0.dp)
     val horizontalPadding = containerHorizontalPadding.coerceAtLeast(0.dp)
     val fixedItemWidth = itemWidth?.coerceAtLeast(0.dp)

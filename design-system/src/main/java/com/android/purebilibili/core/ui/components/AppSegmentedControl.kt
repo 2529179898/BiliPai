@@ -244,7 +244,7 @@ fun resolveMiuixNonGlassContentTabItemWidths(
     maxTabWidth: Dp = 320.dp,
     horizontalContentPadding: Dp = 24.dp,
 ): List<Dp> = labelWidths.map { labelWidth ->
-    (labelWidth + horizontalContentPadding).coerceIn(minTabWidth, maxTabWidth)
+    (labelWidth + horizontalContentPadding).coerceIn(minTabWidth, maxOf(minTabWidth, maxTabWidth))
 }
 
 fun resolveAppLiquidSegmentedControlSpec(
@@ -353,8 +353,10 @@ fun <T> AppNativeSegmentedControl(
     } else {
         AppSurfaceTokens.surfaceContainerHigh()
     }
-    val activeCardColor = AppSurfaceTokens.primaryContainer()
-    val activeTextColor = AppSurfaceTokens.onPrimaryContainer()
+    val activeCardColor = if (isMiuixNonGlass) AppSurfaceTokens.selectionContainer()
+        else AppSurfaceTokens.primaryContainer()
+    val activeTextColor = if (isMiuixNonGlass) com.android.purebilibili.core.ui.AppContentColors.accent()
+        else AppSurfaceTokens.onPrimaryContainer()
     val inactiveTextColor = com.android.purebilibili.core.ui.AppContentColors.secondaryText()
     val colors = resolveAppSegmentedControlColors(
         usesMaterialColorTokens = policy.usesMaterialColorTokens,
@@ -482,8 +484,10 @@ fun <T> AppNativeTabRow(
     } else {
         AppSurfaceTokens.surfaceContainerHigh()
     }
-    val activeCardColor = AppSurfaceTokens.primaryContainer()
-    val activeTextColor = AppSurfaceTokens.onPrimaryContainer()
+    val activeCardColor = if (isMiuixNonGlass) AppSurfaceTokens.selectionContainer()
+        else AppSurfaceTokens.primaryContainer()
+    val activeTextColor = if (isMiuixNonGlass) com.android.purebilibili.core.ui.AppContentColors.accent()
+        else AppSurfaceTokens.onPrimaryContainer()
     val inactiveTextColor = com.android.purebilibili.core.ui.AppContentColors.secondaryText()
     val colors = resolveAppSegmentedControlColors(
         usesMaterialColorTokens = policy.usesMaterialColorTokens,
@@ -541,7 +545,10 @@ fun <T> AppNativeTabRow(
             labelFontSize = labelFontSize,
             containerHorizontalPadding = containerHorizontalPadding,
             modifier = if (fixedItemWidth == null && shouldUseCompactMiuixTabRow(options.size, effectiveScrollable, compactMiuixWhenTwoOptions)) {
-                modifier.width(compactItemWidth * options.size)
+                modifier.width(
+                    compactItemWidth * options.size + containerHorizontalPadding * 2 +
+                        if (nonGlassMiuix) AppSpacingTokens.Small * (options.size - 1) else 0.dp,
+                )
             } else {
                 modifier
             },

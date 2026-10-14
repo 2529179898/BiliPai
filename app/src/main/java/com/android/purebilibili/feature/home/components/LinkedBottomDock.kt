@@ -93,6 +93,7 @@ internal fun LinkedBottomDock(
     isTopLevelDestination: Boolean = true,
     mergeOnScrollDownEnabled: Boolean = true,
     animateNowPlayingPresence: Boolean = true,
+    hasUiSkinDecoration: Boolean = false,
     modifier: Modifier = Modifier,
     blurEnabled: Boolean = false,
     hazeState: HazeState? = null,
@@ -310,7 +311,10 @@ internal fun LinkedBottomDock(
             with(density) {
                 maximumWidth = constraints.maxWidth.coerceAtMost(600.dp.roundToPx())
                 button = resolveBiliPaiBottomBarSearchCircleSize().roundToPx()
-                barHeight = resolveBiliPaiBottomBarDockHeight(searchExpanded = false).roundToPx()
+                barHeight = resolveBiliPaiBottomBarDockHeight(
+                    searchExpanded = false,
+                    hasUiSkinDecoration = hasUiSkinDecoration,
+                ).roundToPx()
                 controlHeight = barHeight
                 gap = 8.dp.roundToPx()
                 verticalGap = 4.dp.roundToPx()

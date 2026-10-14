@@ -64,6 +64,7 @@ class AppElasticPressState internal constructor(
     private val visibleSizePx: Float?,
     private val expansionPx: Float,
     private val feedbackStrength: Float,
+    private val dragFollowFraction: Float?,
 ) {
     internal val press = Animatable(0f, visibilityThreshold = 0.001f)
     internal val position = Animatable(Offset.Zero, Offset.VectorConverter, Offset.VisibilityThreshold)
@@ -95,8 +96,12 @@ class AppElasticPressState internal constructor(
                 val baseScale = 1f + expansionPx / height * press.value
                 val dragScale = expansionPx / height
                 val angle = atan2(offset.y, offset.x)
-                translationX = minDimension * tanh(0.05f * offset.x / minDimension) * feedbackStrength
-                translationY = minDimension * tanh(0.05f * offset.y / minDimension) * feedbackStrength
+                // Player docks can follow the finger beyond their original small hit region.
+                // Keep the default rubber band for ordinary app controls.
+                translationX = dragFollowFraction?.let { offset.x * it }
+                    ?: (minDimension * tanh(0.05f * offset.x / minDimension) * feedbackStrength)
+                translationY = dragFollowFraction?.let { offset.y * it }
+                    ?: (minDimension * tanh(0.05f * offset.y / minDimension) * feedbackStrength)
                 scaleX = baseScale + dragScale * abs(cos(angle) * offset.x / maxDimension) *
                     (width / height).coerceAtMost(1f)
                 scaleY = baseScale + dragScale * abs(sin(angle) * offset.y / maxDimension) *
@@ -107,14 +112,18 @@ class AppElasticPressState internal constructor(
 }
 
 @Composable
-fun rememberAppElasticPressState(visualSize: Dp? = null, feedbackStrength: Float = 1f): AppElasticPressState {
+fun rememberAppElasticPressState(
+    visualSize: Dp? = null,
+    feedbackStrength: Float = 1f,
+    dragFollowFraction: Float? = null,
+): AppElasticPressState {
     val density = LocalDensity.current
     val motionEnabled = LocalComponentMotionEnabled.current
     val visibleSizePx = visualSize?.let { with(density) { it.toPx() } }
     val strength = feedbackStrength.coerceIn(0f, 1f)
     val expansionPx = with(density) { 4.dp.toPx() } * strength
-    return remember(motionEnabled, visibleSizePx, expansionPx, strength) {
-        AppElasticPressState(motionEnabled, visibleSizePx, expansionPx, strength)
+    return remember(motionEnabled, visibleSizePx, expansionPx, strength, dragFollowFraction) {
+        AppElasticPressState(motionEnabled, visibleSizePx, expansionPx, strength, dragFollowFraction)
     }
 }
 

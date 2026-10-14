@@ -444,7 +444,7 @@ class BottomBarMiuixStructureTest {
         assertTrue(miuixRendererSource.indexOf("DockedBottomBarSkinContainer(") < miuixRendererSource.indexOf("AppPlatformNavigationBar("))
         assertTrue(miuixRendererSource.contains("AppPlatformNavigationBadge {"))
         assertTrue(miuixRendererSource.contains("indicatorColor = dockedIndicatorColor"))
-        assertTrue(miuixRendererSource.contains("modifier.height(resolveBottomBarSkinDockHeight())"))
+        assertTrue(miuixRendererSource.contains("Modifier.heightIn(min = resolveBottomBarSkinDockHeight())"))
         assertTrue(miuixDockedItemSource.contains("height(resolveMiuixDockedBottomBarItemHeight(skinIconPath != null))"))
         assertFalse(miuixDockedItemSource.contains("height(64.dp)"))
     }

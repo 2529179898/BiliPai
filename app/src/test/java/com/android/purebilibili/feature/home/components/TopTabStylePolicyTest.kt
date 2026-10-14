@@ -758,7 +758,7 @@ class TopTabStylePolicyTest {
     }
 
     @Test
-    fun `android native miuix top tabs should use miuix neutral surface content color`() {
+    fun `android native miuix top tabs should use theme accent content color`() {
         val colorScheme = lightColorScheme(
             primary = Color(0xFF2D6A4F),
             surfaceContainerHigh = Color(0xFFF4ECE1),
@@ -769,7 +769,7 @@ class TopTabStylePolicyTest {
         )
 
         assertEquals(
-            colorScheme.onSurface,
+            colorScheme.primary,
             resolveMd3TopTabSelectedContainerColor(
                 colorScheme = colorScheme,
                 presentation = AppTopTabPresentation.MATERIAL_UNDERLINE,
@@ -777,7 +777,7 @@ class TopTabStylePolicyTest {
             )
         )
         assertEquals(
-            colorScheme.onSurface,
+            colorScheme.primary,
             resolveMd3TopTabSelectedIconColor(
                 colorScheme = colorScheme,
                 presentation = AppTopTabPresentation.MATERIAL_UNDERLINE,
@@ -785,7 +785,7 @@ class TopTabStylePolicyTest {
             )
         )
         assertEquals(
-            colorScheme.onSurface,
+            colorScheme.primary,
             resolveMd3TopTabSelectedLabelColor(
                 colorScheme = colorScheme,
                 presentation = AppTopTabPresentation.MATERIAL_UNDERLINE,
@@ -793,7 +793,7 @@ class TopTabStylePolicyTest {
             )
         )
         assertEquals(
-            colorScheme.onSurface,
+            colorScheme.primary,
             resolveIosTopTabSelectedContentColor(
                 colorScheme = colorScheme,
                 uiStyle = AppUiStyle.MIUIX

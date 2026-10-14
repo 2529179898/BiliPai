@@ -173,6 +173,11 @@ object AppSurfaceTokens {
         materialFallback = MaterialTheme.colorScheme.primary
     )
 
+    /** Shared subtle selection fill for opaque Miuix navigation and categories. */
+    @Composable
+    @ReadOnlyComposable
+    fun selectionContainer(): Color = primary().copy(alpha = 0.14f)
+
     @Composable
     @ReadOnlyComposable
     fun primaryContainer(): Color = resolveMiuixSemanticColorComposable(

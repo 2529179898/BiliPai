@@ -110,6 +110,25 @@ fun <T> AppLiquidAwareTabRow(
     isScrollInProgressProvider: () -> Boolean = { false },
 ) {
     if (options.isEmpty()) return
+    // Opaque Miuix rails own their measurement and scrolling; glass capture
+    // margins must not consume the space reserved for neighbouring actions.
+    if (com.android.purebilibili.core.ui.isMiuixNonGlassEnabled()) {
+        AppNativeTabRow(
+            options = options,
+            selectedValue = selectedValue,
+            onSelectionChange = onSelectionChange,
+            modifier = modifier,
+            enabled = enabled,
+            scrollable = scrollable,
+            centerContent = centerContent,
+            minTabWidth = resolveAppAdaptiveTabMinWidth(minTabWidth),
+            compactMiuixWhenTwoOptions = compactMiuixWhenTwoOptions,
+            labelFontSize = if (labelFontSize.isSpecified) labelFontSize else
+                com.android.purebilibili.core.ui.appTabLabelFontSize(),
+            indicatorPositionProvider = indicatorPositionProvider,
+        )
+        return
+    }
     val labels = remember(options) { options.map { it.label } }
     val resolvedMinTabWidth = resolveAppAdaptiveTabMinWidth(minTabWidth)
     val resolvedLabelFontSize = if (labelFontSize.isSpecified) {

@@ -506,7 +506,7 @@ internal fun resolveMd3TopTabSelectedContainerColor(
     presentation: AppTopTabPresentation = AppTopTabPresentation.MATERIAL_UNDERLINE,
     uiStyle: AppUiStyle = AppUiStyle.MATERIAL3
 ): androidx.compose.ui.graphics.Color = when {
-    uiStyle == AppUiStyle.MIUIX -> colorScheme.onSurface
+    uiStyle == AppUiStyle.MIUIX -> colorScheme.primary
     presentation == AppTopTabPresentation.TONAL_CAPSULE -> colorScheme.secondaryContainer
     else -> colorScheme.primary
 }
@@ -516,7 +516,7 @@ internal fun resolveMd3TopTabSelectedIconColor(
     presentation: AppTopTabPresentation = AppTopTabPresentation.MATERIAL_UNDERLINE,
     uiStyle: AppUiStyle = AppUiStyle.MATERIAL3
 ): androidx.compose.ui.graphics.Color = when {
-    uiStyle == AppUiStyle.MIUIX -> colorScheme.onSurface
+    uiStyle == AppUiStyle.MIUIX -> colorScheme.primary
     presentation == AppTopTabPresentation.TONAL_CAPSULE -> colorScheme.onSecondaryContainer
     else -> colorScheme.primary
 }
@@ -526,7 +526,7 @@ internal fun resolveMd3TopTabSelectedLabelColor(
     presentation: AppTopTabPresentation = AppTopTabPresentation.MATERIAL_UNDERLINE,
     uiStyle: AppUiStyle = AppUiStyle.MATERIAL3
 ): androidx.compose.ui.graphics.Color = when {
-    uiStyle == AppUiStyle.MIUIX -> colorScheme.onSurface
+    uiStyle == AppUiStyle.MIUIX -> colorScheme.primary
     presentation == AppTopTabPresentation.TONAL_CAPSULE -> colorScheme.onSecondaryContainer
     else -> colorScheme.primary
 }

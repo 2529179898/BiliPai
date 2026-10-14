@@ -115,12 +115,17 @@ fun ActionButton(
                 modifier = Modifier
                     .fillMaxWidth()
                     .appElasticPress(enabled = enabled),
-                insideMargin = MiuixButtonDefaults.InsideMargin
+                insideMargin = if (com.android.purebilibili.core.ui.isMiuixNonGlassEnabled()) {
+                    PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                } else MiuixButtonDefaults.InsideMargin
             ) {
                 AppIcon(
                     imageVector = buttonIcon,
                     contentDescription = null,
-                    modifier = Modifier.size(AppSpacingTokens.Large + AppSpacingTokens.Micro),
+                    modifier = Modifier.size(
+                        if (com.android.purebilibili.core.ui.isMiuixNonGlassEnabled()) 20.dp
+                        else AppSpacingTokens.Large + AppSpacingTokens.Micro
+                    ),
                     tint = buttonColor,
                 )
                 DynamicNativeActionText(
@@ -259,6 +264,15 @@ private fun DynamicNativeActionText(
     ) { text ->
         AppText(
             text = text,
+            style = if (com.android.purebilibili.core.ui.isMiuixNonGlassEnabled()) {
+                MaterialTheme.typography.labelLarge
+            } else LocalTextStyle.current,
+            autoSize = if (com.android.purebilibili.core.ui.isMiuixNonGlassEnabled()) {
+                androidx.compose.foundation.text.TextAutoSize.StepBased(
+                    minFontSize = MaterialTheme.typography.labelSmall.fontSize,
+                    maxFontSize = MaterialTheme.typography.labelLarge.fontSize,
+                )
+            } else null,
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Ellipsis

@@ -959,7 +959,7 @@ internal fun resolveTopTabUnselectedColor(isLightMode: Boolean): Color {
 internal fun resolveIosTopTabSelectedContentColor(
     colorScheme: ColorScheme,
     uiStyle: AppUiStyle = AppUiStyle.MIUIX
-): Color = if (uiStyle == AppUiStyle.MIUIX) colorScheme.onSurface else colorScheme.primary
+): Color = colorScheme.primary
 
 internal fun resolveIosTopTabCapsuleContainerColor(
     isDarkTheme: Boolean,
@@ -2595,7 +2595,6 @@ private fun BoxScope.LightweightTopTabMd3Underline(
 ) {
     val indicatorColor = when {
         skinPlainContentColor != null -> resolveHomeSkinTopTabIndicatorColor(skinPlainContentColor)
-        LocalAppUiStyle.current == AppUiStyle.MIUIX -> AppContentColors.primaryText()
         else -> AppContentColors.accent()
     }
     val iconOnlyIndicator = showIcon && !showText
@@ -2716,6 +2715,7 @@ private fun LightweightTopTabItem(
     )
     val selectedColor = when {
         skinPlainStyle -> skinPlainContentColor ?: colorScheme.onSurface
+        com.android.purebilibili.core.ui.isMiuixNonGlassEnabled() -> AppContentColors.accent()
         uiStyle == AppUiStyle.MIUIX -> colorScheme.onSurface
         presentation == AppTopTabPresentation.MOVING_CAPSULE ->
             resolveIosTopTabSelectedContentColor(colorScheme, uiStyle)
@@ -2742,6 +2742,12 @@ private fun LightweightTopTabItem(
     val containerColor = when {
         !drawContainer || colorMode == TopTabLiquidColorMode.GLASS_EXPORT -> Color.Transparent
         skinPlainStyle -> Color.Transparent
+        com.android.purebilibili.core.ui.isMiuixNonGlassEnabled() &&
+            presentation == AppTopTabPresentation.MOVING_CAPSULE &&
+            colorMode == TopTabLiquidColorMode.NORMAL ->
+            AppSurfaceTokens.selectionContainer().let { selectionColor ->
+                selectionColor.copy(alpha = selectionColor.alpha * selectionFraction.coerceIn(0f, 1f))
+            }
         presentation == AppTopTabPresentation.MOVING_CAPSULE && colorMode == TopTabLiquidColorMode.NORMAL ->
             resolveIosTopTabCapsuleContainerColor(
                 isDarkTheme = isDarkTheme,
