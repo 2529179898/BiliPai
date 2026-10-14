@@ -10,6 +10,45 @@ import kotlin.test.assertTrue
 class VideoContentTabBarPolicyTest {
 
     @Test
+    fun `pager motion does not reveal collapsed comment tabs or reset their height`() {
+        for (pagerScrolling in listOf(false, true, false)) {
+            val keepCollapsed = shouldKeepVideoContentTabBarCollapse(
+                settingEnabled = true,
+                selectedTabIndex = 1,
+            )
+            assertTrue(keepCollapsed)
+            assertEquals(
+                !pagerScrolling,
+                shouldEnableVideoContentTabBarCollapse(true, 1, pagerScrolling),
+            )
+            // Cover both mid-collapse at the list top and fully hidden while browsing.
+            for (listAtTop in listOf(true, false)) {
+                assertEquals(
+                    if (listAtTop) 0.5f else 1f,
+                    resolveVideoContentTabBarCollapseProgress(
+                        collapsePx = 40f,
+                        maxCollapsePx = 80f,
+                        selectedTabIndex = 1,
+                        listAtTop = listAtTop,
+                        enabled = keepCollapsed,
+                    ),
+                )
+                assertEquals(
+                    if (listAtTop) 40f else 80f,
+                    resolveVideoContentTabBarCollapsePxWhenListLeavesTop(
+                        collapsePx = 40f,
+                        maxCollapsePx = 80f,
+                        listAtTop = listAtTop,
+                        enabled = keepCollapsed,
+                    ),
+                )
+            }
+        }
+        assertFalse(shouldKeepVideoContentTabBarCollapse(true, 0))
+        assertFalse(shouldKeepVideoContentTabBarCollapse(false, 1))
+    }
+
+    @Test
     fun `comment list at top only when first item and zero offset`() {
         assertTrue(isVideoContentCommentListAtTop(0, 0))
         assertFalse(isVideoContentCommentListAtTop(0, 1))

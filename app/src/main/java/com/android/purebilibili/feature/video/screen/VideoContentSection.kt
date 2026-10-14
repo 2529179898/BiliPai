@@ -321,9 +321,15 @@ internal fun shouldEnableVideoContentTabBarCollapse(
     selectedTabIndex: Int,
     isPagerScrollInProgress: Boolean,
     commentPageIndex: Int = 1,
-): Boolean = settingEnabled &&
-    selectedTabIndex == commentPageIndex &&
+): Boolean = shouldKeepVideoContentTabBarCollapse(settingEnabled, selectedTabIndex, commentPageIndex) &&
     !isPagerScrollInProgress
+
+/** 分页手势只暂停纵向位移消费，不重置当前评论页已收起的标签栏。 */
+internal fun shouldKeepVideoContentTabBarCollapse(
+    settingEnabled: Boolean,
+    selectedTabIndex: Int,
+    commentPageIndex: Int = 1,
+): Boolean = settingEnabled && selectedTabIndex == commentPageIndex
 
 /**
  * 跟手折叠进度 0 = 全展开，1 = 全收起。
@@ -835,10 +841,9 @@ internal fun VideoContentSection(
         .collectAsStateWithLifecycle(initialValue = false)
     val tabBarCollapseEnabled by remember(tabBarScrollHideEnabled) {
         derivedStateOf {
-            shouldEnableVideoContentTabBarCollapse(
+            shouldKeepVideoContentTabBarCollapse(
                 settingEnabled = tabBarScrollHideEnabled,
                 selectedTabIndex = pagerState.currentPage,
-                isPagerScrollInProgress = pagerState.isScrollInProgress,
             )
         }
     }
@@ -863,7 +868,7 @@ internal fun VideoContentSection(
                     maxCollapsePx = tabBarMaxHeightPx,
                     availableY = available.y,
                     listAtTop = commentListAtTop,
-                    enabled = tabBarCollapseEnabled,
+                    enabled = tabBarCollapseEnabled && !pagerState.isScrollInProgress,
                 ) ?: return Offset.Zero
                 tabBarCollapsePx = update.nextCollapsePx
                 return Offset(0f, update.consumedY)
@@ -879,7 +884,7 @@ internal fun VideoContentSection(
                     maxCollapsePx = tabBarMaxHeightPx,
                     availableY = available.y,
                     listAtTop = commentListAtTop,
-                    enabled = tabBarCollapseEnabled,
+                    enabled = tabBarCollapseEnabled && !pagerState.isScrollInProgress,
                 ) ?: return Offset.Zero
                 tabBarCollapsePx = update.nextCollapsePx
                 return Offset(0f, update.consumedY)
