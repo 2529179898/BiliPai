@@ -1,5 +1,7 @@
 package com.android.purebilibili.core.ui
 
+import com.android.purebilibili.core.ui.wallpaper.LocalGlobalWallpaperBackdropSource
+import com.android.purebilibili.core.ui.wallpaper.sharedGlobalWallpaperBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -174,7 +176,15 @@ fun globalWallpaperAwareChromeColor(color: Color): Color {
 fun Modifier.globalWallpaperAwareBackground(
     color: Color = MaterialTheme.colorScheme.background
 ): Modifier {
-    return if (LocalGlobalWallpaperBackdropVisible.current) {
+    val scheme = MaterialTheme.colorScheme
+    val wallpaperSource = LocalGlobalWallpaperBackdropSource.current
+    val semanticBackground = color.alpha == 1f && (
+        color == scheme.background || color == scheme.surface
+    )
+    return if (LocalGlobalWallpaperBackdropVisible.current && wallpaperSource != null && semanticBackground) {
+        // Replay the opaque wallpaper itself instead of accumulating protective fills.
+        sharedGlobalWallpaperBackground(color)
+    } else if (LocalGlobalWallpaperBackdropVisible.current) {
         background(
             resolveAdaptiveScaffoldContainerColor(
                 requestedContainerColor = color,
@@ -198,7 +208,11 @@ fun AdaptiveScaffold(
     contentWindowInsets: WindowInsets = WindowInsets.navigationBars,
     content: @Composable (PaddingValues) -> Unit
 ) {
-    val effectiveContainerColor = resolveAdaptiveScaffoldContainerColor(
+    val sharedWallpaper = LocalGlobalWallpaperBackdropVisible.current &&
+        LocalGlobalWallpaperBackdropSource.current != null &&
+        (containerColor == MaterialTheme.colorScheme.background ||
+            containerColor == MaterialTheme.colorScheme.surface)
+    val effectiveContainerColor = if (sharedWallpaper) Color.Transparent else resolveAdaptiveScaffoldContainerColor(
         requestedContainerColor = containerColor,
         defaultBackgroundColor = MaterialTheme.colorScheme.background,
         globalWallpaperVisible = LocalGlobalWallpaperBackdropVisible.current
@@ -216,8 +230,16 @@ fun AdaptiveScaffold(
         ) { topBar() }
     }
     val recordedContent: @Composable (PaddingValues) -> Unit = { padding ->
-        if (iconBackdropSource != null) {
-            Box(Modifier.fillMaxSize().then(iconBackdropSource.modifier)) { content(padding) }
+        if (iconBackdropSource != null || sharedWallpaper) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .then(iconBackdropSource?.modifier ?: Modifier)
+                    .then(
+                        if (sharedWallpaper) Modifier.sharedGlobalWallpaperBackground(containerColor)
+                        else Modifier
+                    ),
+            ) { content(padding) }
         } else content(padding)
     }
     when (scaffoldRenderer) {

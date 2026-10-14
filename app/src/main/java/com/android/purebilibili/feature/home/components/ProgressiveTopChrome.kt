@@ -145,6 +145,17 @@ internal fun Modifier.biliPaiProgressiveTopBlur(
     )
 }
 
+/** Scope protection to actual wallpaper chrome, preserving independent profile hero artwork. */
+@androidx.compose.runtime.Composable
+internal fun currentWallpaperChromeReadability(surfaceColor: Color): com.android.purebilibili.core.ui.wallpaper.WallpaperReadabilityProfile? {
+    if (surfaceColor.alpha <= 0f) return null
+    val route = com.android.purebilibili.core.ui.transition.LocalVideoCardSharedElementSourceRoute.current
+        ?.substringBefore('?')?.substringBefore('/')
+    val visible = com.android.purebilibili.core.ui.LocalGlobalWallpaperBackdropVisible.current || route == "home"
+    if (!visible || route == "profile") return null
+    return com.android.purebilibili.feature.home.components.cards.LocalWallpaperPalette.current?.readability
+}
+
 /**
  * Draws the shared gradient beyond the chrome without enlarging its layout or touch region.
  *
@@ -171,6 +182,18 @@ internal fun BiliPaiImmersiveTopBar(
     val active = shouldUseBiliPaiProgressiveTopBlur(enabled, backdrop != null) &&
         !isLowBlurBudgetForced()
     val solidFadeActive = (fadeEnabled ?: themeConfig.progressiveTopFadeEnabled) && !headerBlurActive
+    val readability = currentWallpaperChromeReadability(surfaceColor)
+    val fadeColor = readability?.top?.let {
+        surfaceColor.copy(alpha = com.android.purebilibili.core.ui.wallpaper.resolveWallpaperProtectionAlpha(
+            band = it,
+            surfaceColor = surfaceColor,
+            foregroundColor = MaterialTheme.colorScheme.onSurface,
+            blurred = active,
+        ))
+    } ?: surfaceColor
+    // Local protection is part of the enabled progressive material. With both effects off,
+    // preserve the user's plain chrome choice; Haze continues to own its existing scrim.
+    val drawProtectionFade = solidFadeActive || (active && !headerBlurActive && readability != null)
     val opaqueBackground = opaqueBackgroundFallback && shouldUseOpaqueTopChromeBackground(
         progressiveBlurActive = (active || solidFadeActive),
         headerBlurActive = headerBlurActive,
@@ -210,7 +233,7 @@ internal fun BiliPaiImmersiveTopBar(
                     ),
             )
         }
-        if (solidFadeActive) {
+        if (drawProtectionFade) {
             androidx.compose.foundation.layout.Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -230,7 +253,9 @@ internal fun BiliPaiImmersiveTopBar(
                     }
                     .background(
                         androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colorStops = com.android.purebilibili.core.ui.blur.ProgressiveFadeDefaults.createStops(surfaceColor).toTypedArray(),
+                            colorStops = com.android.purebilibili.core.ui.blur.ProgressiveFadeDefaults.createStops(
+                                fadeColor, protectedFraction = if (readability != null) 0.65f else 0f,
+                            ).toTypedArray(),
                         )
                     ),
             )

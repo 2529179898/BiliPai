@@ -47,7 +47,7 @@ internal val settingsStaticDescriptionIndex: Map<String, String> = mapOf(
     "appearance.home_up_avatars_visible" to "首页视频卡片显示 UP 主头像；隐藏头像，为 UP 主名称留出更多空间",
     "appearance.home_up_badges_visible" to "首页和相关推荐显示 UP 标识；首页和相关推荐隐藏 UP 标识",
     "appearance.home_wallpaper_effect_mode" to "首页不使用开屏壁纸作为背景；轻微模糊壁纸，卡片背景半透明；加深模糊，保留颜色并减少背景干扰；显示原图，文字背景略微遮挡",
-    "appearance.home_wallpaper_effect_scope" to "仅首页使用该壁纸背景效果；首页和私信聊天使用同一壁纸",
+    "appearance.home_wallpaper_effect_scope" to "仅首页使用该壁纸背景效果；首页、动态、个人页、设置及消息等页面使用同一壁纸",
     "appearance.is_header_collapse_enabled" to "向下滚动时收起搜索框和标签，点底栏「首页」回顶后重新出现",
     "appearance.is_splash_enabled" to "应用启动时显示官方或相册壁纸",
     "appearance.liquid_controls_use_theme_color" to "开启后开关和滑块使用主题色；关闭保留默认绿色开关、蓝色滑块",

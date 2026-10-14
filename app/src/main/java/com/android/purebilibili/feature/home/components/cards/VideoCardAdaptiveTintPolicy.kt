@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.home.components.cards
 
+import com.android.purebilibili.core.ui.wallpaper.WallpaperReadabilityProfile
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
@@ -16,7 +17,8 @@ data class WallpaperPalette(
     val topColor: Color,
     val bottomColor: Color,
     val dominantColor: Color = topColor,
-    val stops: List<Color> = listOf(topColor, bottomColor)
+    val stops: List<Color> = listOf(topColor, bottomColor),
+    val readability: WallpaperReadabilityProfile? = null,
 )
 
 /**

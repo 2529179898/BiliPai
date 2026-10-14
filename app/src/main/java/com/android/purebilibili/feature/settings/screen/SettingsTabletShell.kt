@@ -3,6 +3,7 @@ package com.android.purebilibili.feature.settings.screen
 import com.android.purebilibili.core.ui.AppContentColors
 
 import android.os.Build
+import com.android.purebilibili.core.ui.globalWallpaperAwareBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -96,7 +97,7 @@ fun SettingsTabletShell(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(AppSurfaceTokens.groupedListContainer())
+                .globalWallpaperAwareBackground(AppSurfaceTokens.groupedListContainer())
                 .padding(layoutPolicy.detailPanePaddingDp.dp),
             contentAlignment = Alignment.Center,
         ) {
@@ -121,7 +122,7 @@ fun SettingsTabletShell(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(AppSurfaceTokens.groupedListContainer())
+                .globalWallpaperAwareBackground(AppSurfaceTokens.groupedListContainer())
                 .padding(horizontal = layoutPolicy.detailPanePaddingDp.dp),
         ) {
             rightPane()
@@ -138,7 +139,7 @@ fun SettingsTabletShell(
             modifier = Modifier
                 .preferredWidth(layoutPolicy.primaryRatio)
                 .fillMaxHeight()
-                .background(AppSurfaceTokens.groupedListContainer()),
+                .globalWallpaperAwareBackground(AppSurfaceTokens.groupedListContainer()),
         ) {
                 val config = LocalAppThemeConfig.current
                 val progressive = shouldUseBiliPaiProgressiveTopBlur(
@@ -262,7 +263,7 @@ fun SettingsTabletShell(
             modifier = Modifier
                 .preferredWidth(0.35f)
                 .fillMaxSize()
-                .background(AppSurfaceTokens.groupedListContainer())
+                .globalWallpaperAwareBackground(AppSurfaceTokens.groupedListContainer())
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

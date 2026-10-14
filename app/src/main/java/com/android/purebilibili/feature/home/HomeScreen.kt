@@ -1174,8 +1174,7 @@ fun HomeScreen(
     }?.takeIf { recoverableBlurEnabled(it) }
     val isDataSaverActive = homePerformanceConfig.isDataSaverActive
     val preloadAheadCount = homePerformanceConfig.preloadAheadCount
-    val configuredHomeWallpaperUri by SettingsManager.getHomeWallpaperUri(context).collectAsStateWithLifecycle(initialValue = ""
-        )
+    val configuredHomeWallpaperUri = com.android.purebilibili.core.ui.wallpaper.LocalHomeWallpaperSelection.current.uri
     val splashWallpaperUri by SettingsManager.getSplashWallpaperUri(context).collectAsStateWithLifecycle(initialValue = ""
         )
     val homeWallpaperUri = remember(configuredHomeWallpaperUri, splashWallpaperUri) {
@@ -1184,21 +1183,8 @@ fun HomeScreen(
             splashWallpaperUri = splashWallpaperUri
         )
     }
-    val wallpaperPalette by com.android.purebilibili.feature.home.components.cards.WallpaperPaletteStore.currentPalette.collectAsStateWithLifecycle()
-    val homeLifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    val homeLifecycleState by homeLifecycleOwner.lifecycle.currentStateFlow.collectAsStateWithLifecycle()
-    LaunchedEffect(homeWallpaperUri, wallpaperPalette == null, homeLifecycleState, homeFeedWorkAllowed) {
-        if (!homeFeedWorkAllowed) return@LaunchedEffect
-        if (homeLifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
-            if (wallpaperPalette == null || homeWallpaperUri.isNotBlank()) {
-                com.android.purebilibili.feature.home.components.cards.WallpaperPaletteStore.loadWallpaperPalette(
-                    context = context,
-                    uri = homeWallpaperUri,
-                    scope = this
-                )
-            }
-        }
-    }
+    val homeWallpaperIsStatic = com.android.purebilibili.core.ui.wallpaper.rememberIsStaticWallpaper(homeWallpaperUri)
+    val wallpaperPalette = com.android.purebilibili.feature.home.components.cards.LocalWallpaperPalette.current
 
     val appNavigationSettings by SettingsManager.getAppNavigationSettings(context).collectAsStateWithLifecycle(initialValue = AppNavigationSettings(),
         context = kotlin.coroutines.EmptyCoroutineContext
@@ -1417,7 +1403,7 @@ fun HomeScreen(
         homeSettings.homeCardFrostedGlassEnabled &&
             homeWallpaperBackdropAppearance.visible &&
             homeWallpaperUri.isNotBlank() &&
-            isStaticHomeWallpaperUri(homeWallpaperUri) &&
+            homeWallpaperIsStatic &&
             !isDataSaverActive
     val homeWallpaperBackdropSource = if (shouldCaptureHomeWallpaperBackdrop) {
         // Key the recorder by URI so a wallpaper replacement cannot briefly reuse the old
@@ -1941,7 +1927,7 @@ fun HomeScreen(
                         LocalHomeWallpaperBackdrop provides readyHomeWallpaperBackdrop,
                         LocalHomeWallpaperBackdropReady provides (readyHomeWallpaperBackdrop != null),
                         LocalHomeWallpaperIsStatic provides (
-                            homeWallpaperUri.isNotBlank() && isStaticHomeWallpaperUri(homeWallpaperUri)
+                            homeWallpaperUri.isNotBlank() && homeWallpaperIsStatic
                         ),
                         com.android.purebilibili.feature.home.components.cards.LocalWallpaperPalette provides wallpaperPalette,
                     ) {

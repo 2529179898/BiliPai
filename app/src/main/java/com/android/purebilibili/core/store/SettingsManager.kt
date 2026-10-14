@@ -1,6 +1,9 @@
 // 文件路径: core/store/SettingsManager.kt
 package com.android.purebilibili.core.store
 
+import com.android.purebilibili.core.store.home.HomeWallpaperSelection
+import com.android.purebilibili.core.ui.wallpaper.WallpaperTransform
+import com.android.purebilibili.core.ui.wallpaper.sanitizeWallpaperTransform
 import android.content.Context
 import com.android.purebilibili.BuildConfig
 import androidx.datastore.preferences.core.MutablePreferences
@@ -797,7 +800,7 @@ enum class HomeWallpaperEffectMode(val value: Int, val label: String) {
 
 enum class HomeWallpaperEffectScope(val value: Int, val label: String) {
     HOME_ONLY(0, "仅首页"),
-    GLOBAL(1, "首页与聊天");
+    GLOBAL(1, "全局页面");
 
     companion object {
         fun fromValue(value: Int): HomeWallpaperEffectScope =
@@ -1623,6 +1626,12 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private val KEY_HOME_CARD_BADGE_EFFECT_MODE = intPreferencesKey("home_card_badge_effect_mode")
     private val KEY_HOME_CARD_INFO_GLASS_MODE = intPreferencesKey("home_card_info_glass_mode")
     private val KEY_HOME_WALLPAPER_URI = stringPreferencesKey("home_wallpaper_uri")
+    private val KEY_HOME_WALLPAPER_SCALE_MOBILE = floatPreferencesKey("home_wallpaper_scale_mobile")
+    private val KEY_HOME_WALLPAPER_OFFSET_X_MOBILE = floatPreferencesKey("home_wallpaper_offset_x_mobile")
+    private val KEY_HOME_WALLPAPER_OFFSET_Y_MOBILE = floatPreferencesKey("home_wallpaper_offset_y_mobile")
+    private val KEY_HOME_WALLPAPER_SCALE_TABLET = floatPreferencesKey("home_wallpaper_scale_tablet")
+    private val KEY_HOME_WALLPAPER_OFFSET_X_TABLET = floatPreferencesKey("home_wallpaper_offset_x_tablet")
+    private val KEY_HOME_WALLPAPER_OFFSET_Y_TABLET = floatPreferencesKey("home_wallpaper_offset_y_tablet")
     private val KEY_HOME_WALLPAPER_EFFECT_MODE = intPreferencesKey("home_wallpaper_effect_mode")
     private val KEY_HOME_WALLPAPER_EFFECT_SCOPE = intPreferencesKey("home_wallpaper_effect_scope")
     private val KEY_HOME_UP_BADGES_VISIBLE = booleanPreferencesKey("home_up_badges_visible")
@@ -3493,9 +3502,38 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     fun getHomeWallpaperUri(context: Context): Flow<String> = context.settingsDataStore.data
         .map { preferences -> preferences[KEY_HOME_WALLPAPER_URI] ?: "" }
 
+    fun getHomeWallpaperSelection(context: Context): Flow<HomeWallpaperSelection> =
+        context.settingsDataStore.data.map { preferences ->
+            HomeWallpaperSelection(
+                uri = preferences[KEY_HOME_WALLPAPER_URI].orEmpty(),
+                mobileTransform = sanitizeWallpaperTransform(WallpaperTransform(
+                    scale = preferences[KEY_HOME_WALLPAPER_SCALE_MOBILE] ?: 1f,
+                    offsetX = preferences[KEY_HOME_WALLPAPER_OFFSET_X_MOBILE] ?: 0f,
+                    offsetY = preferences[KEY_HOME_WALLPAPER_OFFSET_Y_MOBILE] ?: 0f,
+                )),
+                tabletTransform = sanitizeWallpaperTransform(WallpaperTransform(
+                    scale = preferences[KEY_HOME_WALLPAPER_SCALE_TABLET] ?: 1f,
+                    offsetX = preferences[KEY_HOME_WALLPAPER_OFFSET_X_TABLET] ?: 0f,
+                    offsetY = preferences[KEY_HOME_WALLPAPER_OFFSET_Y_TABLET] ?: 0f,
+                )),
+            )
+        }
+
     suspend fun setHomeWallpaperUri(context: Context, uri: String) {
+        setHomeWallpaperSelection(context, HomeWallpaperSelection(uri = uri))
+    }
+
+    suspend fun setHomeWallpaperSelection(context: Context, selection: HomeWallpaperSelection) {
+        val mobile = sanitizeWallpaperTransform(selection.mobileTransform)
+        val tablet = sanitizeWallpaperTransform(selection.tabletTransform)
         context.settingsDataStore.edit { preferences ->
-            preferences[KEY_HOME_WALLPAPER_URI] = uri
+            preferences[KEY_HOME_WALLPAPER_URI] = selection.uri
+            preferences[KEY_HOME_WALLPAPER_SCALE_MOBILE] = mobile.scale
+            preferences[KEY_HOME_WALLPAPER_OFFSET_X_MOBILE] = mobile.offsetX
+            preferences[KEY_HOME_WALLPAPER_OFFSET_Y_MOBILE] = mobile.offsetY
+            preferences[KEY_HOME_WALLPAPER_SCALE_TABLET] = tablet.scale
+            preferences[KEY_HOME_WALLPAPER_OFFSET_X_TABLET] = tablet.offsetX
+            preferences[KEY_HOME_WALLPAPER_OFFSET_Y_TABLET] = tablet.offsetY
         }
     }
 
@@ -8270,7 +8308,14 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             ),
             BooleanShareablePreferenceDefinition(KEY_COMPACT_VIDEO_STATS_ON_COVER, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_HOME_WALLPAPER_URI, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_SCALE_MOBILE, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_OFFSET_X_MOBILE, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_OFFSET_Y_MOBILE, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_SCALE_TABLET, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_OFFSET_X_TABLET, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_OFFSET_Y_TABLET, SettingsShareSection.APPEARANCE),
             IntShareablePreferenceDefinition(KEY_HOME_WALLPAPER_EFFECT_MODE, SettingsShareSection.APPEARANCE),
+            IntShareablePreferenceDefinition(KEY_HOME_WALLPAPER_EFFECT_SCOPE, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_HOME_UP_BADGES_VISIBLE, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_HOME_REFRESH_TIP_VISIBLE, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_HOME_REFRESH_UNDO_VISIBLE, SettingsShareSection.APPEARANCE),

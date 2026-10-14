@@ -427,9 +427,10 @@ fun AppearanceSettingsContent(
         BackToTopSettingsStore.getCustomOffsetDp(context)
     }.collectAsStateWithLifecycle(initialValue = BackToTopSettingsStore.getCachedOffsetDp())
     val hasCustomBackToTopOffset = backToTopCustomOffset.first != 0f || backToTopCustomOffset.second != 0f
-    val dedicatedHomeWallpaperUri by SettingsManager
-        .getHomeWallpaperUri(context)
-        .collectAsStateWithLifecycle(initialValue = "")
+    val homeWallpaperSelection by SettingsManager.getHomeWallpaperSelection(context)
+        .collectAsStateWithLifecycle(initialValue = com.android.purebilibili.core.store.home.HomeWallpaperSelection())
+    val dedicatedHomeWallpaperUri = homeWallpaperSelection.uri
+    val wallpaperPreviewIsTablet = com.android.purebilibili.core.util.LocalWindowSizeClass.current.isTablet
     val splashWallpaperFallbackUri by SettingsManager
         .getSplashWallpaperUri(context)
         .collectAsStateWithLifecycle(initialValue = "")
@@ -437,6 +438,7 @@ fun AppearanceSettingsContent(
         dedicatedHomeWallpaperUri.ifBlank { splashWallpaperFallbackUri }.trim()
     }
     val homeWallpaperFollowsSplash = dedicatedHomeWallpaperUri.isBlank() && splashWallpaperFallbackUri.isNotBlank()
+    val homeWallpaperIsStatic = com.android.purebilibili.core.ui.wallpaper.rememberIsStaticWallpaper(resolvedHomeWallpaperUri)
     val homeWallpaperEffectMode by SettingsManager
         .getHomeWallpaperEffectMode(context)
         .collectAsStateWithLifecycle(initialValue = HomeWallpaperEffectMode.SOFT_BLUR)
@@ -454,7 +456,7 @@ fun AppearanceSettingsContent(
     val homeWallpaperEffectScopeOptions = remember {
         listOf(
             AppSegmentOption(HomeWallpaperEffectScope.HOME_ONLY, "仅首页"),
-            AppSegmentOption(HomeWallpaperEffectScope.GLOBAL, "首页与聊天")
+            AppSegmentOption(HomeWallpaperEffectScope.GLOBAL, "全局页面")
         )
     }
     val showPgcTimeline by SettingsManager
@@ -1692,6 +1694,12 @@ fun AppearanceSettingsContent(
                 Box(modifier = Modifier.entrance()) {
                     AppPreferenceGroup {
                         var showHomeWallpaperPicker by remember { mutableStateOf(false) }
+                        var editingWallpaper by remember {
+                            mutableStateOf<com.android.purebilibili.core.store.home.HomeWallpaperSelection?>(null)
+                        }
+                        var editingWallpaperPreviewUri by remember { mutableStateOf("") }
+                        var savingWallpaperTransform by remember { mutableStateOf(false) }
+                        var wallpaperTransformError by remember { mutableStateOf<String?>(null) }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1709,6 +1717,10 @@ fun AppearanceSettingsContent(
                                     com.android.purebilibili.core.ui.wallpaper.WallpaperMedia(
                                         uri = resolvedHomeWallpaperUri,
                                         playbackEnabled = false,
+                                        transformProvider = {
+                                            if (wallpaperPreviewIsTablet)
+                                                homeWallpaperSelection.tabletTransform else homeWallpaperSelection.mobileTransform
+                                        },
                                         imageModel = coil3.request.ImageRequest.Builder(context)
                                             .data(resolvedHomeWallpaperUri)
                                             .crossfade(true)
@@ -1757,6 +1769,49 @@ fun AppearanceSettingsContent(
                             )
                         }
 
+                        if (resolvedHomeWallpaperUri.isNotBlank()) {
+                            AppTextButton(
+                                onClick = {
+                                    wallpaperTransformError = null
+                                    editingWallpaperPreviewUri = resolvedHomeWallpaperUri
+                                    editingWallpaper = homeWallpaperSelection
+                                },
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                            ) { AppText("调整位置与缩放") }
+                        }
+                        editingWallpaper?.let { draft ->
+                            com.android.purebilibili.feature.profile.HomeWallpaperAdjustmentSheet(
+                                uri = editingWallpaperPreviewUri,
+                                initialMobileTransform = draft.mobileTransform,
+                                initialTabletTransform = draft.tabletTransform,
+                                effectMode = homeWallpaperEffectMode,
+                                saving = savingWallpaperTransform,
+                                saveError = wallpaperTransformError,
+                                onDismiss = { editingWallpaper = null },
+                                onSave = { mobile, tablet ->
+                                    if (!savingWallpaperTransform) {
+                                        savingWallpaperTransform = true
+                                        wallpaperTransformError = null
+                                        scope.launch {
+                                            try {
+                                                SettingsManager.setHomeWallpaperSelection(context, draft.copy(
+                                                    mobileTransform = mobile,
+                                                    tabletTransform = tablet,
+                                                ))
+                                                editingWallpaper = null
+                                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                                throw cancelled
+                                            } catch (error: Exception) {
+                                                wallpaperTransformError = error.message ?: "位置保存失败，请重试"
+                                            } finally {
+                                                savingWallpaperTransform = false
+                                            }
+                                        }
+                                    }
+                                },
+                            )
+                        }
+
                         if (showHomeWallpaperPicker) {
                             com.android.purebilibili.feature.profile.SplashWallpaperPickerSheet(
                                 target = com.android.purebilibili.feature.profile.WallpaperPickerTarget.HOME,
@@ -1769,7 +1824,7 @@ fun AppearanceSettingsContent(
                             SettingsSingleChoicePreference(
                                 title = settingItemTitle("appearance.home_wallpaper_effect_mode"),
                                 subtitle = when (homeWallpaperEffectMode) {
-                                    HomeWallpaperEffectMode.OFF -> "首页不使用开屏壁纸作为背景"
+                                    HomeWallpaperEffectMode.OFF -> "关闭所选页面范围的壁纸背景"
                                     HomeWallpaperEffectMode.SOFT_BLUR -> "轻微模糊壁纸，卡片背景半透明"
                                     HomeWallpaperEffectMode.STRONG_BLUR -> "加深模糊，保留颜色并减少背景干扰"
                                     HomeWallpaperEffectMode.ORIGINAL -> "显示原图，文字背景略微遮挡"
@@ -1796,7 +1851,13 @@ fun AppearanceSettingsContent(
                                         title = settingItemTitle("appearance.home_wallpaper_effect_scope"),
                                         subtitle = when (homeWallpaperEffectScope) {
                                             HomeWallpaperEffectScope.HOME_ONLY -> "仅首页使用该壁纸背景效果"
-                                            HomeWallpaperEffectScope.GLOBAL -> "首页和私信聊天使用同一壁纸"
+                                            HomeWallpaperEffectScope.GLOBAL -> if (
+                                                homeWallpaperIsStatic
+                                            ) {
+                                                "首页、动态、个人页、设置及消息等页面使用同一壁纸"
+                                            } else {
+                                                "动态壁纸用于首页、聊天及部分列表页面"
+                                            }
                                         },
                                         options = homeWallpaperEffectScopeOptions,
                                         selectedValue = homeWallpaperEffectScope,

@@ -83,6 +83,11 @@ fun SplashWallpaperPickerSheet(
     var selectedUrl by remember { mutableStateOf<String?>(null) }
     var saveToGallery by remember { mutableStateOf(false) }
     var showSplashAdjustmentSheet by remember { mutableStateOf(false) }
+    var showHomeAdjustmentSheet by remember { mutableStateOf(false) }
+    val homeSelection by SettingsManager.getHomeWallpaperSelection(context)
+        .collectAsStateWithLifecycle(initialValue = com.android.purebilibili.core.store.home.HomeWallpaperSelection())
+    val homeEffectMode by SettingsManager.getHomeWallpaperEffectMode(context)
+        .collectAsStateWithLifecycle(initialValue = com.android.purebilibili.core.store.HomeWallpaperEffectMode.SOFT_BLUR)
     var isImportingWallpaper by remember { mutableStateOf(false) }
     var importedWallpaper by remember { mutableStateOf<File?>(null) }
     val importScope = rememberCoroutineScope()
@@ -113,6 +118,7 @@ fun SplashWallpaperPickerSheet(
                     selectedUrl = Uri.fromFile(file).toString()
                     saveToGallery = false
                     showSplashAdjustmentSheet = target == WallpaperPickerTarget.SPLASH
+                    showHomeAdjustmentSheet = target == WallpaperPickerTarget.HOME
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Exception) {
@@ -344,9 +350,10 @@ fun SplashWallpaperPickerSheet(
                 }
             }
 
-            if (target == WallpaperPickerTarget.HOME && isUserSelectedSplashWallpaperUri(selectedUrl)) {
+            if (target == WallpaperPickerTarget.HOME && isUserSelectedSplashWallpaperUri(selectedUrl) && !showHomeAdjustmentSheet) {
                 com.android.purebilibili.core.ui.wallpaper.WallpaperMedia(
                     uri = selectedUrl.orEmpty(),
+                    playbackPriority = 5,
                     modifier = Modifier.fillMaxWidth().height(140.dp)
                         .clip(AppShapes.container(ContainerLevel.Card)),
                 )
@@ -375,23 +382,49 @@ fun SplashWallpaperPickerSheet(
                                 }
 
                                 WallpaperPickerTarget.HOME -> {
-                                    if (isUserSelectedSplashWallpaperUri(url)) {
-                                        viewModel.setCustomHomeWallpaper(uri = url) {
-                                            onDismiss()
-                                            Toast.makeText(context, "首页壁纸设置成功", Toast.LENGTH_SHORT).show()
-                                        }
-                                    } else {
-                                        viewModel.setAsHomeWallpaper(
-                                            url = url,
-                                            saveToGallery = saveToGallery
-                                        ) {
-                                            onDismiss()
-                                            Toast.makeText(context, "首页壁纸设置成功", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
+                                    showHomeAdjustmentSheet = true
                                 }
                             }
                         }
+                    }
+
+                    if (showHomeAdjustmentSheet && selectedUrl != null) {
+                        val previewUri = normalizeSplashWallpaperUrl(selectedUrl)
+                        val sameSelection = previewUri == homeSelection.uri
+                        HomeWallpaperAdjustmentSheet(
+                            uri = previewUri,
+                            initialMobileTransform = if (sameSelection) homeSelection.mobileTransform
+                                else com.android.purebilibili.core.ui.wallpaper.WallpaperTransform(),
+                            initialTabletTransform = if (sameSelection) homeSelection.tabletTransform
+                                else com.android.purebilibili.core.ui.wallpaper.WallpaperTransform(),
+                            effectMode = homeEffectMode,
+                            saving = isSaving,
+                            saveError = (saveState as? WallpaperSaveState.Error)?.message,
+                            onDismiss = { showHomeAdjustmentSheet = false },
+                            onSave = { mobile, tablet ->
+                                val done = {
+                                    showHomeAdjustmentSheet = false
+                                    onDismiss()
+                                    Toast.makeText(context, "壁纸设置成功", Toast.LENGTH_SHORT).show()
+                                }
+                                if (isUserSelectedSplashWallpaperUri(previewUri)) {
+                                    viewModel.setCustomHomeWallpaper(
+                                        uri = previewUri,
+                                        mobileTransform = mobile,
+                                        tabletTransform = tablet,
+                                        onComplete = done,
+                                    )
+                                } else {
+                                    viewModel.setAsHomeWallpaper(
+                                        url = previewUri,
+                                        saveToGallery = saveToGallery,
+                                        mobileTransform = mobile,
+                                        tabletTransform = tablet,
+                                        onComplete = done,
+                                    )
+                                }
+                            },
+                        )
                     }
 
                     if (showSplashAdjustmentSheet && selectedUrl != null) {

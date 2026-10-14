@@ -29,6 +29,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import com.android.purebilibili.core.ui.wallpaper.sharedGlobalWallpaperBackground
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
@@ -875,6 +877,14 @@ internal fun ElegantVideoCard(
     val nativeCoverOverlayLayer = rememberNativeVideoCardLayer()
     val freezeNativeCardLayer = remember(video.bvid) { mutableStateOf(false) }
 
+    val infoBaseContainerColor = AppSurfaceTokens.cardContainer()
+    fun resolvedInfoBackingColor(yFraction: Float): Color =
+        if (wallpaperTintEnabled && wallpaperPalette != null) {
+            interpolateWallpaperColor(wallpaperPalette, yFraction).copy(alpha = 1f)
+        } else {
+            infoBaseContainerColor.copy(alpha = 1f)
+        }
+
     val triggerCardClick = {
         cardCoordsRef.value?.takeIf { it.isAttached }?.boundsInRoot()?.let { bounds ->
             val sourceCoverBounds = coverCoordsRef.value
@@ -914,6 +924,31 @@ internal fun ElegantVideoCard(
                 // survives Loading and does not wait for destination ViewInfo.
                 sourceLayout = VideoCardSourceLayout.STACKED,
                 sourceChromeSnapshot = VideoCardSourceChromeSnapshot(
+                    infoContainerColor = if (useCardEffectSurface && wallpaperTintEnabled) {
+                        val infoY = infoLayoutCoordinates.value
+                            ?.takeIf { it.isAttached }?.positionInRoot()?.y
+                        val fraction = if (infoY != null && screenMetrics.heightPx > 0f) {
+                            (infoY / screenMetrics.heightPx).coerceIn(0f, 1f)
+                        } else cardYFraction.floatValue
+                        val backing = resolvedInfoBackingColor(fraction)
+                        val plate = if (useRealtimeWallpaperBackdrop) {
+                            infoBaseContainerColor.copy(alpha = if (isDarkCardTheme) 0.44f else 0.36f)
+                        } else {
+                            resolveVideoCardAmbientDrawSpec(
+                                wallpaperPalette = wallpaperPalette,
+                                yFraction = fraction,
+                                coverTint = animatedCoverTint.takeIf { it.alpha > 0f },
+                                wallpaperTintEnabled = wallpaperTintEnabled,
+                                isDarkTheme = isDarkCardTheme,
+                                defaultContainerColor = infoBaseContainerColor,
+                                defaultBorderColor = MediaContrastPalette.Foreground,
+                                isDataSaverActive = isDataSaverActive,
+                                frostedGlassEnabled = homeCardFrostedGlassEnabled,
+                                dynamicTintEnabled = homeCardDynamicTintEnabled,
+                            ).containerColor
+                        }
+                        plate.compositeOver(backing)
+                    } else null,
                     title = video.title,
                     ownerName = video.owner.name,
                     ownerFaceUrl = video.owner.face,
@@ -1592,6 +1627,15 @@ internal fun ElegantVideoCard(
             Modifier
                 .fillMaxWidth()
                 .clip(infoSurfaceShape)
+                // Include the wallpaper in the recorded native pixels before freezing on click.
+                // A translucent plate alone would blend with the detail page during handoff.
+                .then(
+                    if (wallpaperTintEnabled) {
+                        Modifier.sharedGlobalWallpaperBackground(
+                            fallbackColor = resolvedInfoBackingColor(cardYFraction.floatValue),
+                        )
+                    } else Modifier
+                )
                 .then(hazeModifier)
                 .then(wallpaperBackdropModifier)
                 .onPlaced { coordinates ->
