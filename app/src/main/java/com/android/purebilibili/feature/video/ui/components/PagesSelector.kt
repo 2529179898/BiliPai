@@ -4,7 +4,10 @@ import com.android.purebilibili.core.ui.AppContentColors
 
 import com.android.purebilibili.core.ui.components.appSearchElasticPress
 import android.content.res.Configuration
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -375,28 +378,30 @@ private fun PlayingEqualizerIcon(
     color: Color,
     modifier: Modifier = Modifier,
 ) {
-    val phase = remember { Animatable(0f) }
-    LaunchedEffect(playing) {
-        if (!playing) {
-            phase.snapTo(0f)
-            return@LaunchedEffect
-        }
-        while (true) {
-            phase.animateTo(
-                targetValue = 1f,
-                animationSpec = tween(durationMillis = 900, easing = LinearEasing),
-            )
-            phase.snapTo(0f)
-        }
+    val phase = if (playing) {
+        val transition = rememberInfiniteTransition(label = "pagePlayback")
+        transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 900, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "pagePlaybackPhase",
+        )
+    } else {
+        null
     }
     Canvas(modifier = modifier) {
         val barCount = 3
         val gap = size.width * 0.22f
         val barWidth = (size.width - gap * (barCount - 1)) / barCount
-        val currentPhase = phase.value
+        val currentPhase = phase?.value ?: 0f
         repeat(barCount) { index ->
             val ratio = if (playing) {
-                0.28f + 0.72f * sin((currentPhase + index * 0.24f) * PI.toFloat())
+                0.28f + 0.72f * (0.5f + 0.5f * sin(
+                    currentPhase * 2f * PI.toFloat() + index * 2.1f
+                ))
             } else {
                 IdleEqualizerRatios[index]
             }
