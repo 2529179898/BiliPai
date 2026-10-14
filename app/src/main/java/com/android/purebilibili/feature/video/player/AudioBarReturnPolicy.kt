@@ -6,5 +6,8 @@ internal fun shouldActivateAudioBarOnVideoExit(
     isLive: Boolean,
     isMiniOrPip: Boolean,
     isNavigatingToVideo: Boolean,
+    inAppMiniPlayerEnabled: Boolean = false,
+    stopPlaybackOnExit: Boolean = false,
 ): Boolean = barEnabled && hasVideoIdentity &&
-    !isLive && !isMiniOrPip && !isNavigatingToVideo
+    !isLive && !isMiniOrPip && !isNavigatingToVideo &&
+    !inAppMiniPlayerEnabled && !stopPlaybackOnExit

@@ -34,7 +34,7 @@ private val PiliPlusIconFont = FontFamily(Font(R.font.piliplus_custom_icons))
 fun PiliPlusDanmakuSendIcon(
     modifier: Modifier = Modifier,
     size: Dp = 24.dp,
-    tint: Color = AppContentColors.accent(),
+    tint: Color = AppContentColors.neutralAction(),
 ) {
     Box(modifier = modifier.size(size).clearAndSetSemantics { contentDescription = "发弹幕" }) {
         Canvas(Modifier.matchParentSize()) {

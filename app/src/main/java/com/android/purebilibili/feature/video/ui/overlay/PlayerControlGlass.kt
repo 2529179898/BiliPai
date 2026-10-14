@@ -22,6 +22,7 @@ import com.android.purebilibili.core.ui.LocalAppThemeConfig
 import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
 import com.android.purebilibili.core.ui.components.LocalElasticPressEnabled
 import com.android.purebilibili.core.ui.components.LocalAppTopBarIconDecorationEnabled
+import com.android.purebilibili.core.ui.components.LocalAppIconButtonGlassSurfaceProvided
 import com.android.purebilibili.core.ui.components.appElasticPress
 import com.android.purebilibili.core.ui.components.rememberAppElasticPressState
 import com.android.purebilibili.feature.home.components.biliPaiFloatingDockShell
@@ -72,6 +73,7 @@ internal fun PlayerControlGlassThumb(size: Dp, dragging: Boolean, modifier: Modi
                 pressProgress = if (dragging) 1f else 0f,
                 lensIntensity = 0.3f,
                 liquidGlassTuning = LocalLiquidGlassRenderConfig.current.tuning,
+                darkTheme = true,
                 interactionLayerBlock = {
                     scaleX = scale.value
                     scaleY = scale.value
@@ -124,6 +126,7 @@ internal fun PlayerControlGlassDock(
                 pressProgress = 0f,
                 lensIntensity = 1f,
                 liquidGlassTuning = tuning,
+                darkTheme = true,
                 interactionLayerBlock = elastic.layerBlock,
                 interactionState = elastic,
             ) else Modifier),
@@ -131,6 +134,12 @@ internal fun PlayerControlGlassDock(
         CompositionLocalProvider(
             LocalElasticPressEnabled provides (!feedbackEnabled && LocalElasticPressEnabled.current),
             LocalAppTopBarIconDecorationEnabled provides false,
+            // Video chrome owns a dark media surface even when the surrounding app is light.
+            // Preserve explicit white/active glyph colors instead of correcting them against
+            // the light page behind a transparent native IconButton.
+            LocalAppIconButtonGlassSurfaceProvided provides true,
+            androidx.compose.material3.LocalContentColor provides Color.White,
+            top.yukonga.miuix.kmp.theme.LocalContentColor provides Color.White,
         ) { content() }
     }
 }

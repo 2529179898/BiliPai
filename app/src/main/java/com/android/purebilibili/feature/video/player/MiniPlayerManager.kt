@@ -1823,6 +1823,9 @@ class MiniPlayerManager private constructor(private val context: Context) :
                 isLive = isLiveMode,
                 isMiniOrPip = isMiniMode || isSystemPipActive,
                 isNavigatingToVideo = isNavigatingToVideo,
+                // Explicit video-window settings take priority over the audio entry handoff.
+                inAppMiniPlayerEnabled = getCurrentMode().supportsInAppMiniPlayer,
+                stopPlaybackOnExit = SettingsManager.getStopPlaybackOnExitSync(context),
             )) return false
         PlaylistManager.adoptCurrentPlayback(
             PlaylistItem(

@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -37,6 +36,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
@@ -45,8 +47,6 @@ import kotlin.math.PI
 import kotlin.math.sin
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowDownward
-import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Search
@@ -56,7 +56,6 @@ import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.components.AppFilterChip
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppIconButton
-import com.android.purebilibili.core.ui.components.AppLazyColumn
 import androidx.compose.material3.MaterialTheme
 import com.android.purebilibili.core.ui.components.AppOutlinedTextField
 import com.android.purebilibili.core.ui.components.AppText
@@ -65,7 +64,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -74,10 +72,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Velocity
 import com.android.purebilibili.core.ui.AppModalBottomSheet
 import com.android.purebilibili.data.model.response.Page
-import com.android.purebilibili.data.model.response.UgcEpisode
-import com.android.purebilibili.data.model.response.UgcSeason
+
+/** Keep the part list's edge drag and remaining fling inside the list, away from its pager. */
+internal object PagePreviewNestedScrollConnection : NestedScrollConnection {
+    override fun onPostScroll(
+        consumed: Offset,
+        available: Offset,
+        source: NestedScrollSource,
+    ): Offset = Offset(x = available.x, y = 0f)
+
+    override suspend fun onPostFling(
+        consumed: Velocity,
+        available: Velocity,
+    ): Velocity = Velocity(x = available.x, y = 0f)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,13 +101,9 @@ fun PagesSelector(
     onDismissRequest: (() -> Unit)? = null,
     coverUrl: String = "",
     isPlaying: Boolean = false,
-    ugcSeason: UgcSeason? = null,
-    currentBvid: String = "",
-    currentCid: Long = 0L,
-    onEpisodeSelect: ((UgcEpisode) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    if (pages.isEmpty() && ugcSeason?.sections.isNullOrEmpty()) return
+    if (pages.isEmpty()) return
 
     val configuration = LocalConfiguration.current
     val isLandscape = remember(configuration.orientation, configuration.screenWidthDp, configuration.screenHeightDp) {
@@ -124,28 +131,6 @@ fun PagesSelector(
         navigationBarBottomDp = navigationBarBottomPadding.value.toInt()
     )
     val groups = remember(pages) { resolvePageSelectorGroups(pages) }
-
-    //  合集数据：多季分集与每集元信息（封面/时长/发布时间/播放数/弹幕数）
-    val collectionSections = remember(ugcSeason) {
-        ugcSeason?.sections.orEmpty().filter { it.episodes.isNotEmpty() }
-    }
-    val showCollection = collectionSections.isNotEmpty()
-    val totalCollectionEpisodes = remember(collectionSections) {
-        collectionSections.sumOf { it.episodes.size }
-    }
-    val initialSectionIndex = remember(collectionSections, currentBvid, currentCid) {
-        collectionSections.indexOfFirst { section ->
-            section.episodes.any { isCurrentUgcEpisode(currentBvid, currentCid, it) }
-        }.coerceAtLeast(0)
-    }
-    var activeSectionIndex by rememberSaveable(collectionSections.size, showCollection) {
-        mutableStateOf(initialSectionIndex)
-    }
-    val activeSection = collectionSections.getOrNull(activeSectionIndex) ?: collectionSections.firstOrNull()
-    val visibleEpisodes = activeSection?.episodes.orEmpty()
-    val currentEpisodeIndex = visibleEpisodes.indexOfFirst {
-        isCurrentUgcEpisode(currentBvid, currentCid, it)
-    }
 
     var inlineQuery by rememberSaveable(pages.size, forceGridMode) { mutableStateOf("") }
     var inlineGroupKey by rememberSaveable(pages.size, forceGridMode) { mutableStateOf<String?>(null) }
@@ -179,7 +164,7 @@ fun PagesSelector(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 AppText(
-                    text = "(${pages.size})",
+                    text = "(${pages.size}P)",
                     style = MaterialTheme.typography.bodySmall,
                     color = AppContentColors.secondaryText()
                 )
@@ -217,14 +202,9 @@ fun PagesSelector(
                 }
             }
         } else {
-            //  标题行：视频选集 + 正在播放：<当前分P 或 当前集> + 共N集
+            // 视频选集只展示当前视频的分 P，合集由独立入口处理。
             val currentPage = pages.getOrNull(currentPageIndex) ?: pages.firstOrNull()
-            val currentTitle = if (showCollection) {
-                visibleEpisodes.getOrNull(currentEpisodeIndex.coerceAtLeast(0))?.title.orEmpty()
-            } else {
-                currentPage?.part?.ifBlank { "第${currentPage.page}P" }.orEmpty()
-            }
-            val totalCount = if (showCollection) totalCollectionEpisodes else pages.size
+            val currentTitle = currentPage?.let { "P${it.page} · ${it.part.ifBlank { "第${it.page}P" }}" }.orEmpty()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -255,7 +235,7 @@ fun PagesSelector(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AppText(
-                        text = "共${totalCount}集",
+                        text = "共${pages.size}P",
                         fontSize = 13.sp,
                         color = AppContentColors.accent()
                     )
@@ -300,27 +280,11 @@ fun PagesSelector(
             )
         } else {
             Spacer(modifier = Modifier.height(6.dp))
-            val previewTitles = if (showCollection) {
-                visibleEpisodes.map { it.title }
-            } else {
-                pages.map { it.part.ifBlank { "第${it.page}P" } }
-            }
-            val previewCurrentIndex = if (showCollection) {
-                currentEpisodeIndex.coerceAtLeast(0)
-            } else {
-                currentPageIndex
-            }
             PagesHorizontalPreviewRow(
-                titles = previewTitles,
-                currentIndex = previewCurrentIndex,
+                titles = pages.map { "P${it.page} · ${it.part.ifBlank { "第${it.page}P" }}" },
+                currentIndex = currentPageIndex,
                 isPlaying = isPlaying,
-                onSelect = { index ->
-                    if (showCollection) {
-                        visibleEpisodes.getOrNull(index)?.let { onEpisodeSelect?.invoke(it) }
-                    } else {
-                        onPageSelect(index)
-                    }
-                },
+                onSelect = onPageSelect,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -349,7 +313,6 @@ fun PagesSelector(
                     .fillMaxWidth()
                     .fillMaxHeight(0.9f)
             ) {
-                val sheetTotalCount = if (showCollection) totalCollectionEpisodes else pages.size
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -357,7 +320,7 @@ fun PagesSelector(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     AppText(
-                        text = "分集(${sheetTotalCount})",
+                        text = "分P(${pages.size})",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = AppContentColors.primaryText()
@@ -372,134 +335,34 @@ fun PagesSelector(
                     }
                 }
 
-                if (showCollection) {
-                    //  合集：跳顶/跳底/跳当前 + 倒序 + 多季切换 + 每集封面/标题/时长/发布时间/播放数/弹幕数
-                    var collectionDescending by rememberSaveable { mutableStateOf(false) }
-                    val displayedEpisodes = remember(visibleEpisodes, collectionDescending) {
-                        if (collectionDescending) visibleEpisodes.asReversed() else visibleEpisodes
-                    }
-                    val currentEpisodePosition = remember(displayedEpisodes, currentBvid, currentCid) {
-                        displayedEpisodes.indexOfFirst { isCurrentUgcEpisode(currentBvid, currentCid, it) }
-                    }
-                    //  首次组合即定位当前集；切换季或倒序时重建滚动状态
-                    val collectionListState = remember(activeSectionIndex, collectionDescending) {
-                        LazyListState(firstVisibleItemIndex = currentEpisodePosition.coerceAtLeast(0))
-                    }
-                    val collectionScope = rememberCoroutineScope()
-                    fun scrollToEpisode(index: Int) {
-                        if (index !in displayedEpisodes.indices) return
-                        collectionScope.launch { collectionListState.animateScrollToItem(index) }
-                    }
+                PagesSelectorFilterBar(
+                    groups = groups,
+                    selectedGroupKey = expandedGroupKey,
+                    query = expandedQuery,
+                    totalCount = pages.size,
+                    onGroupSelect = { expandedGroupKey = it },
+                    onQueryChange = { expandedQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        EpisodeListNavigationActions(
-                            onTopClick = { scrollToEpisode(0) },
-                            onBottomClick = { scrollToEpisode(displayedEpisodes.lastIndex) },
-                            onCurrentClick = { scrollToEpisode(currentEpisodePosition) },
-                            hasItems = displayedEpisodes.isNotEmpty(),
-                            hasCurrent = currentEpisodePosition >= 0,
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        AppIconButton(onClick = { collectionDescending = !collectionDescending }) {
-                            AppIcon(
-                                imageVector = if (collectionDescending) {
-                                    Icons.Outlined.ArrowDownward
-                                } else {
-                                    Icons.Outlined.ArrowUpward
-                                },
-                                contentDescription = if (collectionDescending) "倒序，点击切换正序" else "正序，点击切换倒序",
-                                tint = AppContentColors.secondaryText(),
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                    if (collectionSections.size > 1) {
-                        LazyRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                        ) {
-                            items(collectionSections.size) { index ->
-                                val section = collectionSections[index]
-                                AppFilterChip(
-                                    selected = index == activeSectionIndex,
-                                    onClick = { activeSectionIndex = index },
-                                    label = {
-                                        AppText(
-                                            text = section.title.ifBlank { "第${index + 1}季" },
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
-
-                    AppLazyColumn(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        state = collectionListState,
-                        contentPadding = PaddingValues(bottom = gridBottomPaddingDp.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        items(
-                            count = displayedEpisodes.size,
-                            key = { index ->
-                                val episode = displayedEpisodes[index]
-                                "$activeSectionIndex-${episode.bvid}-${episode.cid}-${episode.id}"
-                            },
-                        ) { index ->
-                            val episode = displayedEpisodes[index]
-                            CollectionEpisodeRow(
-                                episode = episode,
-                                isCurrentEpisode = isCurrentUgcEpisode(currentBvid, currentCid, episode),
-                                onClick = {
-                                    showExpandedSheet = false
-                                    onEpisodeSelect?.invoke(episode)
-                                },
-                                onPartClick = { part ->
-                                    showExpandedSheet = false
-                                    onEpisodeSelect?.invoke(episode.copy(cid = part.cid))
-                                },
-                            )
-                        }
-                    }
-                } else {
-                    PagesSelectorFilterBar(
-                        groups = groups,
-                        selectedGroupKey = expandedGroupKey,
-                        query = expandedQuery,
-                        totalCount = pages.size,
-                        onGroupSelect = { expandedGroupKey = it },
-                        onQueryChange = { expandedQuery = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    PageCoverList(
-                        pages = pages,
-                        visiblePageIndices = expandedVisibleIndices,
-                        currentPageIndex = currentPageIndex,
-                        coverUrl = coverUrl,
-                        onPageSelect = { index ->
-                            onPageSelect(index)
-                            showExpandedSheet = false
-                        },
-                        blockParentVerticalScroll = true,
-                        bottomContentPaddingDp = gridBottomPaddingDp,
-                        onResetFilters = { expandedQuery = ""; expandedGroupKey = null },
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                    )
-                }
+                PageCoverList(
+                    pages = pages,
+                    visiblePageIndices = expandedVisibleIndices,
+                    currentPageIndex = currentPageIndex,
+                    coverUrl = coverUrl,
+                    onPageSelect = { index ->
+                        onPageSelect(index)
+                        showExpandedSheet = false
+                    },
+                    blockParentVerticalScroll = true,
+                    bottomContentPaddingDp = gridBottomPaddingDp,
+                    onResetFilters = { expandedQuery = ""; expandedGroupKey = null },
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                )
             }
         }
     }
@@ -583,7 +446,9 @@ private fun PagesHorizontalPreviewRow(
 
     LazyRow(
         state = listState,
-        modifier = modifier.height(PagesPreviewRowHeight),
+        modifier = modifier
+            .height(PagesPreviewRowHeight)
+            .nestedScroll(PagePreviewNestedScrollConnection),
         horizontalArrangement = Arrangement.spacedBy(PagesPreviewItemSpacing),
         contentPadding = PaddingValues(horizontal = 16.dp),
     ) {
