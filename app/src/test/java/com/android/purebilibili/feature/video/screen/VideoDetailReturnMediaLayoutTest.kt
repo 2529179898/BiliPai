@@ -4,12 +4,116 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Offset
 import com.android.purebilibili.core.ui.transition.VideoCardSourceLayout
 import java.io.File
+import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class VideoDetailReturnMediaLayoutTest {
+    @Test
+    fun stackedInfoFollowsMediaEdgeBeforeLandingWithTheOriginalGap() {
+        val layout = resolveVideoDetailReturnSourceCardLayout(
+            viewportWidthPx = 1080f,
+            sourceBounds = Rect(20f, 100f, 520f, 640f),
+            sourceCoverBounds = Rect(20f, 100f, 520f, 380f),
+            sourceInfoBounds = Rect(20f, 392f, 520f, 640f),
+            sourceLayout = VideoCardSourceLayout.STACKED,
+        )
+        // Include entering (handoff 0) and an early loading return (partial handoff).
+        for (handoff in listOf(0f, 0.25f, 0.75f, 1f)) {
+            val frame = resolveVideoDetailReturnMediaLayoutFrame(
+                containerWidthPx = 1080,
+                containerHeightPx = 608,
+                landingLayout = layout,
+                handoffProgress = handoff,
+                inverseScaleX = 1.7f,
+                inverseScaleY = 2f,
+                contentTopInsetPx = 63,
+            )
+            assertEquals(
+                frame.offsetYPx + frame.heightPx + 24,
+                resolveVideoDetailStackedInfoTopPx(layout, 2f, frame),
+            )
+        }
+        assertEquals(
+            584,
+            resolveVideoDetailStackedInfoTopPx(layout, 2f, null),
+        )
+    }
+
+    @Test
+    fun stackedCoverWithTopOffsetMeetsStationaryInfoWithoutAMeasuredGap() {
+        val layout = resolveVideoDetailReturnSourceCardLayout(
+            viewportWidthPx = 1080f,
+            sourceBounds = Rect(20f, 100f, 520f, 640f),
+            sourceCoverBounds = Rect(20f, 106f, 520f, 386f),
+            sourceLayout = VideoCardSourceLayout.STACKED,
+        )
+        for (inverseY in listOf(1f, 1.3f, 1.83f, 2f, 2.4f)) {
+            val frame = resolveVideoDetailReturnMediaLayoutFrame(
+                containerWidthPx = 1080,
+                containerHeightPx = 608,
+                landingLayout = layout,
+                handoffProgress = 1f,
+                inverseScaleY = inverseY,
+                contentTopInsetPx = 63,
+            )
+            val stationaryTop = (286f * inverseY).roundToInt()
+            assertEquals(stationaryTop, resolveVideoDetailStackedInfoTopPx(layout, inverseY, frame))
+            assertEquals(stationaryTop, resolveVideoDetailStackedInfoTopPx(layout, inverseY, null))
+        }
+    }
+
+    @Test
+    fun mediaBottomIsIndependentOfSystemBarInsetRounding() {
+        val layout = resolveVideoDetailReturnSourceCardLayout(
+            viewportWidthPx = 1080f,
+            sourceBounds = Rect(20f, 100f, 520f, 640f),
+            sourceCoverBounds = Rect(20f, 100f, 520f, 380f),
+            sourceLayout = VideoCardSourceLayout.STACKED,
+        )
+        for (step in 0..100) {
+            fun frame(inset: Int) = resolveVideoDetailReturnMediaLayoutFrame(
+                containerWidthPx = 1080,
+                containerHeightPx = 608,
+                landingLayout = layout,
+                handoffProgress = step / 100f,
+                inverseScaleY = 1.83f,
+                contentTopInsetPx = inset,
+            )
+            val cover = frame(63)
+            val backing = frame(0)
+            assertEquals(backing.offsetYPx + backing.heightPx, cover.offsetYPx + cover.heightPx)
+        }
+    }
+
+    @Test
+    fun fullBarSnapshotKeepsItsAspectRatioWhileTheOuterShellIsStillTall() {
+        val bounds = Rect(24f, 1800f, 1056f, 1968f)
+        // At depth 0.1 the page-height inverse is much larger than the width
+        // inverse. A bitmap must use the width inverse on both axes.
+        val inverse = com.android.purebilibili.navigation3.predictiveback
+            .resolveMiuixVideoCardInverseScaleForDepth(
+                sourceScaleX = bounds.width / 1080f,
+                sourceScaleY = bounds.height / 2400f,
+                depth = 0.1f,
+            )
+        assertTrue(inverse.scaleY > inverse.scaleX)
+        val frame = resolveVideoDetailReturnMediaLayoutFrame(
+            containerWidthPx = 1080,
+            containerHeightPx = 608,
+            landingLayout = null,
+            handoffProgress = 1f,
+            inverseScaleX = inverse.scaleX,
+            inverseScaleY = inverse.scaleX,
+            nativeSnapshotBounds = bounds,
+        )
+        assertEquals(bounds.width / bounds.height, frame.widthPx.toFloat() / frame.heightPx, 0.03f)
+        assertEquals(0, frame.offsetXPx)
+        assertEquals(0, frame.offsetYPx)
+    }
+
     @Test
     fun nativeCapsuleUsesLocalOriginAndOneInverseCompensation() {
         val bounds = Rect(20f, 880f, 660f, 952f)

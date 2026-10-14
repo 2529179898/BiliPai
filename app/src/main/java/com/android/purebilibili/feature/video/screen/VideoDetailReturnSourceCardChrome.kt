@@ -204,6 +204,16 @@ internal fun resolveVideoDetailFlyingSourceChromeAlpha(
     if (!followProgressEnabled && morphDepthProgress > 0f &&
         isVideoCardReturnContentYieldActive(phase, isReturnGestureInProgress, morphDepthProgress)
     ) return 0f
+    // The complete bar bitmap must use the same narrow window in both directions.
+    // Ordinary opening chrome stays visible until depth 0.72, which stretches the
+    // short capsule into large text before the real player has taken over.
+    if (isNowPlayingBar) return when {
+        phase == VideoCardTransitionBackgroundPhase.OPENING ||
+            isVideoCardReturnContentYieldActive(
+                phase, isReturnGestureInProgress, morphDepthProgress,
+            ) -> resolveNowPlayingBarSourceChromeReveal(morphDepthProgress)
+        else -> 0f
+    }
     // Opening, settled-detail return, quick reverse, and predictive seek all hide the
     // list slot. The flying entry must keep the complementary info band or the morph
     // is cover-only. COVER_ONLY has no info band; its cover badges still use this alpha.
@@ -212,20 +222,15 @@ internal fun resolveVideoDetailFlyingSourceChromeAlpha(
         phase = phase,
         isReturnGestureInProgress = isReturnGestureInProgress,
     )
-    if ((!detailContentLoading && !isNowPlayingBar) || !isVideoCardReturnContentYieldActive(
+    if (!detailContentLoading || !isVideoCardReturnContentYieldActive(
             phase = phase,
             isReturnGestureInProgress = isReturnGestureInProgress,
             morphDepthProgress = morphDepthProgress,
         )
     ) return regularAlpha
-    // A loading detail leaves a black flying shell until the shell-fill window completes;
-    // the compact playback bar follows the standard source-chrome window so its text only
-    // appears once the shell is close to bar size (early reveal scaled it into giant glyphs).
-    val returnProgress = if (isNowPlayingBar) {
-        resolveNowPlayingBarSourceChromeReveal(morphDepthProgress)
-    } else {
-        resolveSourceShellFillReveal(morphDepthProgress)
-    }
+    // Loading details need the early shell-fill fallback; playback bars use the
+    // separate geometry-safe window above.
+    val returnProgress = resolveSourceShellFillReveal(morphDepthProgress)
     return maxOf(regularAlpha, returnProgress)
 }
 
@@ -266,6 +271,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
     isReturnGestureInProgressProvider: () -> Boolean = { true },
     followProgressEnabledProvider: () -> Boolean = { true },
     horizontalMediaHandoffEnabled: Boolean = true,
+    mediaFrameProvider: () -> VideoDetailReturnMediaLayoutFrame? = { null },
     /** 返回是否已提交；IDLE 时重建壳必须与详情 chrome 同时归零。见 [resolveVideoDetailFlyingSourceChromeAlpha]。 */
     isCommittedCardReturn: Boolean = false,
 ) {
@@ -335,11 +341,22 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
         )
     }
 
+    fun infoTopPx(inverse: MiuixVideoCardInverseScale): Int =
+        if (layout.layout == VideoCardSourceLayout.STACKED) {
+            resolveVideoDetailStackedInfoTopPx(layout, inverse.scaleY, mediaFrameProvider())
+        } else {
+            (frozenInfoAnchorYPx * inverse.scaleY).roundToInt()
+        }
+
     fun Modifier.landingOffset(anchorXPx: Float, anchorYPx: Float): Modifier = offset {
         val inverse = currentInverseScale()
         IntOffset(
             x = (anchorXPx * inverse.scaleX).roundToInt(),
-            y = (anchorYPx * inverse.scaleY).roundToInt(),
+            y = if (layout.layout == VideoCardSourceLayout.STACKED) {
+                infoTopPx(inverse)
+            } else {
+                (anchorYPx * inverse.scaleY).roundToInt()
+            },
         )
     }
 
@@ -376,7 +393,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
     val nativeCardLayer = CardPositionManager.lastClickedNativeCardLayer
     if (nativeCardLayer != null) {
         val infoCropXPx = layout.coverOffsetXPx + layout.coverWidthPx
-        val infoCropYPx = layout.coverOffsetYPx + layout.coverHeightPx
+        val infoCropYPx = frozenInfoAnchorYPx
         fun Modifier.nativeInfoSlot(
             widthPx: Float,
             heightPx: Float,
@@ -386,7 +403,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
             val inverse = currentInverseScale()
             IntOffset(
                 x = (frozenInfoAnchorXPx * inverse.scaleX).roundToInt(),
-                y = (frozenInfoAnchorYPx * inverse.scaleY).roundToInt(),
+                y = infoTopPx(inverse),
             )
         }.layout { measurable, _ ->
             val inverse = currentInverseScale()
@@ -1058,6 +1075,14 @@ private fun LandingOwnerMetadata(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.ExtraSmall),
     ) {
+        if (model.followed) {
+            AppText(
+                text = "已关注",
+                style = contentTypography.coverBadge,
+                color = AppContentColors.accent(),
+                maxLines = 1,
+            )
+        }
         if (model.ownerName.isNotBlank()) {
             AppText(
                 text = model.ownerName,
@@ -1066,14 +1091,6 @@ private fun LandingOwnerMetadata(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
-            )
-        }
-        if (model.followed) {
-            AppText(
-                text = "已关注",
-                style = contentTypography.coverBadge,
-                color = AppContentColors.accent(),
-                maxLines = 1,
             )
         }
     }

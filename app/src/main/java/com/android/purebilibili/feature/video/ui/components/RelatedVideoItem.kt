@@ -389,7 +389,7 @@ fun RelatedVideoItem(
                         }
                         UpBadgeName(
                             name = video.owner.name,
-                            inlineTrailingContent = if (isFollowed) {
+                            nameLeadingContent = if (isFollowed) {
                                 {
                                     val followVisualPolicy = resolveVideoFollowVisualPolicy(
                                         isFollowing = true,
