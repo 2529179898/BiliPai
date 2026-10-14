@@ -5219,7 +5219,11 @@ internal fun VideoDetailScreenStateHolder(
                                         )
                                         .zIndex(1.5f)
                                         .graphicsLayer {
-                                            alpha = flyingSourceChromeAlphaProvider()
+                                            val liveHandoff = if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true) {
+                                                com.android.purebilibili.core.ui.transition
+                                                    .resolveNowPlayingBarLiveHandoff(miuixLandingState.progressProvider())
+                                            } else 0f
+                                            alpha = flyingSourceChromeAlphaProvider() * (1f - liveHandoff)
                                         },
                                 )
                             }

@@ -309,9 +309,9 @@ internal fun LinkedBottomDock(
             val verticalGap: Int
             with(density) {
                 maximumWidth = constraints.maxWidth.coerceAtMost(600.dp.roundToPx())
-                button = 56.dp.roundToPx()
-                barHeight = 64.dp.roundToPx()
-                controlHeight = 56.dp.roundToPx()
+                button = resolveBiliPaiBottomBarSearchCircleSize().roundToPx()
+                barHeight = resolveBiliPaiBottomBarDockHeight(searchExpanded = false).roundToPx()
+                controlHeight = barHeight
                 gap = 8.dp.roundToPx()
                 verticalGap = 4.dp.roundToPx()
             }
@@ -329,7 +329,7 @@ internal fun LinkedBottomDock(
                     itemCount = navigationItemCount,
                     minEdgePadding = navigationMinEdgePadding,
                     labelMode = navigationLabelMode,
-                    cornerRadius = 32.dp,
+                    cornerRadius = with(density) { barHeight.toDp() / 2 },
                 ).roundToPx()
             }
             val reservedSearchWidth = if (searchEnabled) button + gap else 0

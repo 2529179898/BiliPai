@@ -375,7 +375,10 @@ internal fun AudioNowPlayingBar(
                 .graphicsLayer {
                     // The transition host owns the source pixels during return; do not
                     // start a second settle animation when the real bar is revealed.
-                    alpha = if (sourceInActiveReturn || dissolveContentHidden) 0f else 1f
+                    alpha = if (dissolveContentHidden) 0f else resolveNowPlayingBarReturnVisibility(
+                        handoff = handoff,
+                        currentBvid = state.bvid,
+                    )
                 }
                 .recordNativeVideoCardLayer(
                     layer = nativeBarLayer,
@@ -638,8 +641,9 @@ private fun AudioNowPlayingBarContentRow(
     queue: @Composable () -> Unit,
     close: @Composable () -> Unit,
 ) {
-    // 统一 64dp：与底栏导航行同高，percent=50 共享胶囊的圆角随之严格一致。
-    val height = 64.dp
+    // Share the navigation dock's resting height and 50% capsule corner geometry.
+    val height = com.android.purebilibili.feature.home.components
+        .resolveBiliPaiBottomBarDockHeight(searchExpanded = false)
     Layout(
         modifier = modifier
             .fillMaxWidth()

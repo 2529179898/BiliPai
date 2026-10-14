@@ -4717,6 +4717,7 @@ fun AppNavigation(
                     NowPlayingBarHandoffState.Returning(
                         targetBvid = navigation3ReturnSession.transitionSession?.bvid,
                         isSourceOwner = capsuleOwnsNowPlayingPixels || videoCardSourceChromeVisible,
+                        morphDepthProvider = { videoCardTransitionClock.depthProgress() },
                     )
                 } else {
                     NowPlayingBarHandoffState.Idle

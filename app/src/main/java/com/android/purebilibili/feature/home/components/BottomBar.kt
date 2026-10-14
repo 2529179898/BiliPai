@@ -600,9 +600,9 @@ internal fun resolveBiliPaiBottomBarDockHeight(
     } else if (hasUiSkinDecoration) {
         resolveBottomBarSkinDockHeight()
     } else {
-        // 照搬 HyperIsland 的壳高 64dp：指示器静止 56dp、按下 78dp、
-        // 指示器 lens 绝对 10dp/14dp 都由此推导，静止时上下各留 4dp。
-        com.android.purebilibili.core.ui.BottomBarReferenceShellHeightDp.dp
+        // Keep the resting dock level with the adjacent search circle. Indicator
+        // inset and press bloom are derived proportionally from this compact height.
+        resolveBiliPaiBottomBarSearchCircleSize()
     }
 }
 
@@ -3661,11 +3661,8 @@ private fun BiliPaiFloatingBottomBarChrome(
         skinTrimTint = uiSkinDecoration?.bottomTrimTint
     )
     val readableContentColor = AppContentColors.primaryText()
-    val selectedColor = lerpColor(
-        skinContentColors.selectedColor,
-        readableContentColor,
-        if (neutralMiuixSelection) 0f else liquidGlassTuning.contentReadabilityBoost * 0.65f,
-    )
+    // Keep the moving capsule's captured glyphs in the selected theme/skin color.
+    val selectedColor = skinContentColors.selectedColor
     val unselectedColor = lerpColor(
         skinContentColors.unselectedColor,
         readableContentColor,
@@ -3838,7 +3835,8 @@ private fun BiliPaiFloatingBottomBarChrome(
                 searchExpanded = effectiveSearchExpanded,
                 labelMode = labelMode,
                 searchLayoutMode = bottomBarSearchLayoutMode,
-                hasUiSkinDecoration = uiSkinDecoration != null
+                hasUiSkinDecoration = uiSkinDecoration != null,
+                fillAllocatedDockWidth = embeddedDock,
             )
             val compactSearchLayout =
                 bottomBarSearchLayoutMode == BottomBarSearchLayoutMode.HOME_AND_SEARCH
@@ -4026,11 +4024,9 @@ private fun BiliPaiFloatingBottomBarChrome(
                                     shellHeight = dockHeight,
                                     indicatorHeight = resolveBiliPaiBottomBarIndicatorHeight(dockHeight),
                                     minimumIndicatorWidth = searchLayoutState.minimumIndicatorWidth,
-                                    proportionalIndicatorReferenceWidth = if (effectiveGlassEnabled) {
-                                        searchLayoutState.indicatorReferenceWidth
-                                    } else {
-                                        null
-                                    },
+                                    // Derive the inset capsule from the current dock height;
+                                    // reserving search width must not independently flatten it.
+                                    proportionalIndicatorReferenceWidth = null,
                                     indicatorPositionProvider = indicatorPositionProvider,
                                     externalPagerMotionEffectsEnabled = indicatorPositionProvider != null,
                                     isScrollInProgressProvider = isPagerScrollInProgressProvider,

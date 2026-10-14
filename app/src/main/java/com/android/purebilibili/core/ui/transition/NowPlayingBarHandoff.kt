@@ -32,12 +32,14 @@ sealed interface NowPlayingBarHandoffState {
     data class Returning(
         val targetBvid: String?,
         val isSourceOwner: Boolean,
+        val morphDepthProvider: () -> Float = { 1f },
     ) : NowPlayingBarHandoffState
 }
 
 /**
  * 返回 morph 中真条的显现度：0 = 飞行 chrome 持有源像素（真条隐藏），
- * 1 = 真条自主显现。落定瞬间真条直接以此完全显现落位，不再播第二次进场
+ * 1 = 真条自主显现。最后的源 chrome 窗口结束后，按 morph 进度交接到真条，
+ * 在出场 entry 被移除之前完成交接，不再等待会话清理或播第二次进场。
  * （唯一几何时间轴原则）；morph 期间几何不收缩，隐藏只发生在 alpha 层。
  */
 internal fun resolveNowPlayingBarReturnVisibility(
@@ -50,8 +52,16 @@ internal fun resolveNowPlayingBarReturnVisibility(
     val isReturnTarget = returning.targetBvid.isNullOrBlank() ||
         returning.targetBvid == currentBvid
     if (!returning.isSourceOwner || !isReturnTarget) return 1f
-    return 0f
+    return resolveNowPlayingBarLiveHandoff(returning.morphDepthProvider())
 }
+
+/** Transfer pixels before the outgoing entry is disposed, using the morph's final window. */
+internal fun resolveNowPlayingBarLiveHandoff(morphDepthProgress: Float): Float =
+    resolveVideoCardTimelineWindowProgress(
+        progress = resolveVideoCardReturnSettleFromMorphDepth(morphDepthProgress),
+        start = VideoCardTransitionVisualTimeline.SOURCE_CHROME_RETURN_END,
+        end = 1f,
+    )
 
 /**
  * 加载中详情等无 live/封面内容的壳填充窗口（settle 0→[SOURCE_SHELL_FILL_REVEAL_END]）。

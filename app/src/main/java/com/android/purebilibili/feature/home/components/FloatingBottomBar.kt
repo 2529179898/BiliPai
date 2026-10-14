@@ -57,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.draw.drawWithContent
@@ -535,7 +534,9 @@ fun FloatingBottomBar(
             colors.containerColor
         }
 
-    val tabsBackdropSource = if (isLiquidGlassMode) rememberChromeBackdropSource() else null
+    val tabsBackdropSource = if (isLiquidGlassMode) {
+        rememberChromeBackdropSource(drawContentToScreen = false)
+    } else null
     val tabsBackdrop = tabsBackdropSource?.backdrop
     val density = LocalDensity.current
     val shellLensDp = resolveCompactDockLensDp(shellHeight.value)
@@ -577,9 +578,9 @@ fun FloatingBottomBar(
         shellHeightDp = shellHeight.value,
         proportionalReferenceWidthDp = proportionalIndicatorReferenceWidth?.value,
     ).dp
-    // Top navigation's inner contour is derived from the actual shell, rather
-    // than an independently sized bottom-dock pill. Other dock modes retain theirs.
-    val indicatorShape = if (geometryMode == FloatingBottomBarGeometryMode.TopNavigation) {
+    // Navigation capsules share the shell's rounded contour, inset by the current
+    // resting margin. Derive the radius again as the dock changes size.
+    val indicatorShape = if (geometryMode != FloatingBottomBarGeometryMode.Segmented) {
         val restingInset = ((shellHeight - fittedIndicatorHeight) / 2).coerceAtLeast(0.dp)
         RoundedCornerShape(
             (shellHeight / 2 - restingInset)
@@ -870,8 +871,16 @@ fun FloatingBottomBar(
         }
     }
     val indicatorOpticalProgressProvider: () -> Float = {
+        // The press spring settles before the size springs. Keep the lens and surface
+        // transition alive through the complete shrink, including spring undershoot.
+        val sizeProgress = if (pressedScale > 1f) {
+            maxOf(
+                abs(dampedDragAnimation.scaleX - 1f),
+                abs(dampedDragAnimation.scaleY - 1f),
+            ) / (pressedScale - 1f)
+        } else 0f
         resolveFloatingDockRefractionProgress(
-            pressProgress = dampedDragAnimation.pressProgress,
+            pressProgress = maxOf(dampedDragAnimation.pressProgress, sizeProgress),
             tapPressRefractionEnabled = tapPressRefractionEnabled,
             isDragging = dampedDragAnimation.isDragging,
             isPagerScrolling = shouldStartExternalPagerIndicatorPress(
@@ -1194,7 +1203,6 @@ fun FloatingBottomBar(
                 Row(
                     Modifier
                         .clearAndSetSemantics {}
-                        .alpha(0f)
                         .then(tabsBackdropSource?.modifier ?: Modifier)
                         .graphicsLayer {
                             translationX = panelOffset
