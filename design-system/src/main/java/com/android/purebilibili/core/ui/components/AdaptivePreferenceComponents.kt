@@ -42,7 +42,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
@@ -76,8 +75,6 @@ import top.yukonga.miuix.kmp.basic.Card as MiuixCard
 import top.yukonga.miuix.kmp.basic.CardDefaults as MiuixCardDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.preference.ArrowPreference as MiuixArrowPreference
-import top.yukonga.miuix.kmp.preference.SliderPreference as MiuixSliderPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference as MiuixSwitchPreference
 import top.yukonga.miuix.kmp.basic.InputField
 import top.yukonga.miuix.kmp.basic.TextField as MiuixTextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults as MiuixTextFieldDefaults
@@ -85,9 +82,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-private object NoOpHapticFeedback : HapticFeedback {
-    override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
-}
 
 /**
  * Trailing preference value layout (version / channel / short detail on the right).
@@ -153,21 +147,19 @@ data class AdaptiveListVisualCapabilities(
 
 internal fun resolveAdaptiveListComponentVisualSpec(
     uiStyle: AppUiStyle,
-    liquidGlassEnabled: Boolean = true,
 ): AdaptiveListComponentVisualSpec {
     val chromeTokens = resolveAndroidNativeChromeTokens(uiStyle)
     val compactChrome = resolveCompactCapsuleChromeSpec(uiStyle)
-    val nonGlassMiuix = isMiuixNonGlassEnabled(uiStyle, liquidGlassEnabled)
     return if (uiStyle == AppUiStyle.MIUIX) {
         AdaptiveListComponentVisualSpec(
             sectionStartPaddingDp = chromeTokens.denseHorizontalSpacingDp,
-            groupCornerRadiusDp = if (nonGlassMiuix) 16 else chromeTokens.containerCornerRadiusDp,
+            groupCornerRadiusDp = 16,
             groupTonalElevationDp = chromeTokens.tonalSurfaceElevationDp,
             iconCornerRadiusDp = 10,
             iconContainerSizeDp = 38,
             iconGlyphSizeDp = 20,
             iconBackgroundAlpha = chromeTokens.selectedContainerAlpha,
-            gridCornerRadiusDp = if (nonGlassMiuix) 16 else chromeTokens.containerCornerRadiusDp,
+            gridCornerRadiusDp = 16,
             searchBarCornerRadiusDp = compactChrome.primaryCornerRadiusDp,
             searchBarHeightDp = compactChrome.primaryHeightDp,
             dividerThicknessDp = 0f,
@@ -194,20 +186,17 @@ internal fun resolveAdaptiveListComponentVisualSpec(
 @Composable
 private fun rememberAdaptiveListComponentVisualSpec(): AdaptiveListComponentVisualSpec {
     val style = LocalAppUiStyle.current
-    val glass = LocalAppThemeConfig.current.liquidGlassEnabled
-    return remember(style, glass) { resolveAdaptiveListComponentVisualSpec(style, glass) }
+    return remember(style) { resolveAdaptiveListComponentVisualSpec(style) }
 }
 
 @Composable
 private fun rememberAdaptiveListRowVisualSpec(): AdaptiveListRowVisualSpec {
     val style = LocalAppUiStyle.current
-    val glass = LocalAppThemeConfig.current.liquidGlassEnabled
-    return remember(style, glass) { resolveAdaptiveListRowVisualSpec(style, glass) }
+    return remember(style) { resolveAdaptiveListRowVisualSpec(style) }
 }
 
 internal fun resolveAdaptiveListRowVisualSpec(
     uiStyle: AppUiStyle,
-    liquidGlassEnabled: Boolean = true,
 ): AdaptiveListRowVisualSpec {
     val chromeTokens = resolveAndroidNativeChromeTokens(uiStyle)
     // 两种预设统一到各自官方规格的最小公分母：Miuix BasicComponentDefaults.InsideMargin
@@ -233,19 +222,17 @@ internal fun resolveAdaptiveListRowVisualSpec(
 
 internal fun resolveAdaptiveListVisualCapabilities(
     uiStyle: AppUiStyle,
-    liquidGlassEnabled: Boolean = true,
 ): AdaptiveListVisualCapabilities = AdaptiveListVisualCapabilities(
-    componentSpec = resolveAdaptiveListComponentVisualSpec(uiStyle, liquidGlassEnabled),
-    rowSpec = resolveAdaptiveListRowVisualSpec(uiStyle, liquidGlassEnabled),
+    componentSpec = resolveAdaptiveListComponentVisualSpec(uiStyle),
+    rowSpec = resolveAdaptiveListRowVisualSpec(uiStyle),
     showExplicitActionChevron = !shouldUseNativeMiuixSearchBar(uiStyle),
 )
 
 @Composable
 fun rememberAdaptiveListVisualCapabilities(): AdaptiveListVisualCapabilities {
     val uiStyle = LocalAppUiStyle.current
-    val glass = LocalAppThemeConfig.current.liquidGlassEnabled
-    return remember(uiStyle, glass) {
-        resolveAdaptiveListVisualCapabilities(uiStyle, glass)
+    return remember(uiStyle) {
+        resolveAdaptiveListVisualCapabilities(uiStyle)
     }
 }
 
@@ -697,56 +684,18 @@ private fun AdaptiveSwitchPreferenceBody(
         )
         return
     }
-    if (listItemStyle == AppListItemStyle.NATIVE && uiStyle == AppUiStyle.MIUIX && !useAppLiquidValueControls() && !hasAppTextSearchMatch(title, subtitle)) {
-        val platformHaptic = LocalHapticFeedback.current
-        val effectiveHaptic = if (LocalAppThemeConfig.current.hapticFeedbackEnabled) {
-            platformHaptic
-        } else {
-            NoOpHapticFeedback
-        }
-        CompositionLocalProvider(LocalHapticFeedback provides effectiveHaptic) {
-            MiuixSwitchPreference(
-                checked = checked,
-                onCheckedChange = onCheckedChange,
-                title = title,
-                titleColor = BasicComponentDefaults.titleColor(color = textColor),
-                summary = subtitle,
-                summaryColor = BasicComponentDefaults.summaryColor(color = subtitleColor),
-                enabled = enabled,
-                insideMargin = PaddingValues(
-                    horizontal = rowSpec.insideHorizontalPaddingDp.dp,
-                    vertical = rowSpec.insideVerticalPaddingDp.dp
-                ),
-                startAction = {
-                    if (icon != null) {
-                        Box(
-                            modifier = Modifier
-                                .size(visualSpec.iconContainerSizeDp.dp)
-                                .adaptiveSquircleBackground(
-                                    color = effectiveIconTint.copy(alpha = iconBackgroundAlpha),
-                                    cornerRadius = visualSpec.iconCornerRadiusDp.dp,
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = null,
-                                tint = iconContentColor,
-                                modifier = Modifier.size(visualSpec.iconGlyphSizeDp.dp)
-                            )
-                        }
-                    }
-                }
-            )
-        }
-        return
-    }
+    // The preference row is shared; only AppSwitch selects its native or glass material.
+    val haptic = LocalHapticFeedback.current
+    val hapticsEnabled = LocalAppThemeConfig.current.hapticFeedbackEnabled
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = rowSpec.minTouchTargetHeightDp.dp)
             .alpha(if (enabled) 1f else 0.6f)
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .clickable(enabled = enabled) {
+                if (hapticsEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onCheckedChange(!checked)
+            }
             .padding(
                 horizontal = rowSpec.insideHorizontalPaddingDp.dp,
                 vertical = rowSpec.insideVerticalPaddingDp.dp
@@ -803,7 +752,6 @@ fun AdaptiveSliderPreferenceRenderer(
     subtitleColor: Color = AppContentColors.secondaryText(),
     valueColor: Color = AppContentColors.primaryText()
 ) {
-    val uiStyle = LocalAppUiStyle.current
     val visualSpec = rememberAdaptiveListComponentVisualSpec()
     val rowSpec = rememberAdaptiveListRowVisualSpec()
     val iconTreatment = LocalAppPreferenceIconTreatment.current
@@ -822,44 +770,6 @@ fun AdaptiveSliderPreferenceRenderer(
         iconStyle,
     )
     val iconCornerRadius = visualSpec.iconCornerRadiusDp.dp
-    if (shouldRouteSliderPreferenceToMiuixSliderPreference(uiStyle) && !useAppLiquidValueControls() && !hasAppTextSearchMatch(title, subtitle)) {
-        MiuixSliderPreference(
-            value = value,
-            onValueChange = onValueChange,
-            title = title,
-            titleColor = BasicComponentDefaults.titleColor(color = textColor),
-            summary = subtitle,
-            summaryColor = BasicComponentDefaults.summaryColor(color = subtitleColor),
-            valueText = valueLabel,
-            valueRange = valueRange,
-            steps = steps,
-            insideMargin = PaddingValues(
-                horizontal = rowSpec.insideHorizontalPaddingDp.dp,
-                vertical = rowSpec.insideVerticalPaddingDp.dp
-            ),
-            startAction = {
-                if (icon != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(visualSpec.iconContainerSizeDp.dp)
-                            .adaptiveSquircleBackground(
-                                color = effectiveIconTint.copy(alpha = iconBackgroundAlpha),
-                                cornerRadius = visualSpec.iconCornerRadiusDp.dp,
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = iconContentColor,
-                            modifier = Modifier.size(visualSpec.iconGlyphSizeDp.dp)
-                        )
-                    }
-                }
-            }
-        )
-        return
-    }
     Column(
         modifier = Modifier
             .fillMaxWidth()

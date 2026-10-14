@@ -188,7 +188,7 @@ internal fun SettingsPageScaffold(
 
     CompositionLocalProvider(
         LocalAppPreferenceIconTreatment provides AppPreferenceIconTreatment.FILLED,
-        LocalAppPreferenceGroupPresentation provides if (nonGlassMiuix) {
+        LocalAppPreferenceGroupPresentation provides if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
             AppPreferenceGroupPresentation.CARD
         } else {
             AppPreferenceGroupPresentation.FLAT

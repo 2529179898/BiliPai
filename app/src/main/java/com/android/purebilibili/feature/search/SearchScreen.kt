@@ -140,8 +140,6 @@ import com.android.purebilibili.core.theme.resolveAccessibleContainerColors
 import com.android.purebilibili.core.theme.resolveFilledSelectionAccentColors
 import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import com.android.purebilibili.core.ui.AppSpacingTokens
-import com.android.purebilibili.core.ui.isMiuixNonGlassEnabled
-import com.android.purebilibili.core.ui.isMiuixNonGlassEnabled
 import com.android.purebilibili.core.ui.rememberContentCardSurfaceSpec
 import com.android.purebilibili.feature.home.components.BottomBarLiquidSegmentedControl
 import com.android.purebilibili.feature.home.components.resolveHomeTopSearchContainerShape
@@ -3499,13 +3497,13 @@ fun SearchFilterBar(
     }
     if (filterControls.isEmpty()) return
 
-    val miuixNonGlass = isMiuixNonGlassEnabled()
-    val filterRowPadding = if (miuixNonGlass) {
+    val useMiuixPresentation = LocalAppUiStyle.current == AppUiStyle.MIUIX
+    val filterRowPadding = if (useMiuixPresentation) {
         Modifier.padding(horizontal = AppSpacingTokens.Large, vertical = AppSpacingTokens.Small)
     } else {
         Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
     }
-    val chipSpacing = if (miuixNonGlass) 9.dp else 10.dp
+    val chipSpacing = if (useMiuixPresentation) 9.dp else 10.dp
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -3513,7 +3511,7 @@ fun SearchFilterBar(
     ) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(chipSpacing),
-                verticalArrangement = Arrangement.spacedBy(if (miuixNonGlass) AppSpacingTokens.Small else 8.dp)
+                verticalArrangement = Arrangement.spacedBy(if (useMiuixPresentation) AppSpacingTokens.Small else 8.dp)
             ) {
                 if (SearchFilterControl.VIDEO_ORDER in filterControls) {
                 Box {
@@ -3942,7 +3940,7 @@ fun SearchResultCard(
     index: Int,
     onClick: (String) -> Unit
 ) {
-    val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
+    val useMiuixPresentation = LocalAppUiStyle.current == AppUiStyle.MIUIX
     val coverUrl = remember(video.bvid) {
         FormatUtils.fixImageUrl(if (video.pic.startsWith("//")) "https:${video.pic}" else video.pic)
     }
@@ -3952,7 +3950,7 @@ fun SearchResultCard(
             .fillMaxWidth()
             .clip(AppShapes.container(ContainerLevel.Card))
             .clickable { onClick(video.bvid) }
-            .padding(bottom = if (useMiuixNonGlassPresentation) AppSpacingTokens.Small else 8.dp)
+            .padding(bottom = if (useMiuixPresentation) AppSpacingTokens.Small else 8.dp)
     ) {
         // 封面
         Box(
@@ -4000,7 +3998,7 @@ fun SearchResultCard(
 
         Spacer(
             modifier = Modifier.height(
-                if (useMiuixNonGlassPresentation) AppSpacingTokens.Small else 8.dp
+                if (useMiuixPresentation) AppSpacingTokens.Small else 8.dp
             )
         )
 
@@ -4018,7 +4016,7 @@ fun SearchResultCard(
 
         Spacer(
             modifier = Modifier.height(
-                if (useMiuixNonGlassPresentation) AppSpacingTokens.ExtraSmall else 6.dp
+                if (useMiuixPresentation) AppSpacingTokens.ExtraSmall else 6.dp
             )
         )
         HorizontalVideoStatRow(
@@ -4033,7 +4031,7 @@ fun SearchResultCard(
 
         Spacer(
             modifier = Modifier.height(
-                if (useMiuixNonGlassPresentation) AppSpacingTokens.ExtraSmall else 6.dp
+                if (useMiuixPresentation) AppSpacingTokens.ExtraSmall else 6.dp
             )
         )
 
@@ -4042,10 +4040,10 @@ fun SearchResultCard(
             modifier = Modifier.padding(horizontal = 2.dp),
             itemVerticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(
-                if (useMiuixNonGlassPresentation) AppSpacingTokens.ExtraSmall else 2.dp
+                if (useMiuixPresentation) AppSpacingTokens.ExtraSmall else 2.dp
             ),
             verticalArrangement = Arrangement.spacedBy(
-                if (useMiuixNonGlassPresentation) AppSpacingTokens.ExtraSmall else 2.dp
+                if (useMiuixPresentation) AppSpacingTokens.ExtraSmall else 2.dp
             )
         ) {
             UpBadgeName(
@@ -4098,7 +4096,7 @@ internal fun UpSearchResultCard(
     appearance: SearchResultCardAppearance,
     onClick: () -> Unit
 ) {
-    val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
+    val useMiuixPresentation = LocalAppUiStyle.current == AppUiStyle.MIUIX
     val cleanedItem = remember(upItem.mid) { upItem.cleanupFields() }
 
     val sharedTransitionScope = LocalSharedTransitionScope.current
@@ -4113,7 +4111,7 @@ internal fun UpSearchResultCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    if (useMiuixNonGlassPresentation) AppSpacingTokens.Medium else 12.dp
+                    if (useMiuixPresentation) AppSpacingTokens.Medium else 12.dp
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -4163,7 +4161,7 @@ internal fun UpSearchResultCard(
 
             Spacer(
                 modifier = Modifier.width(
-                    if (useMiuixNonGlassPresentation) AppSpacingTokens.Medium else 10.dp
+                    if (useMiuixPresentation) AppSpacingTokens.Medium else 10.dp
                 )
             )
 
@@ -4173,7 +4171,7 @@ internal fun UpSearchResultCard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(
-                        if (useMiuixNonGlassPresentation) AppSpacingTokens.ExtraSmall else 6.dp
+                        if (useMiuixPresentation) AppSpacingTokens.ExtraSmall else 6.dp
                     )
                 ) {
                     SearchResultText(
@@ -4193,7 +4191,7 @@ internal fun UpSearchResultCard(
 
                 Spacer(
                     modifier = Modifier.height(
-                        if (useMiuixNonGlassPresentation) AppSpacingTokens.ExtraSmall else 2.dp
+                        if (useMiuixPresentation) AppSpacingTokens.ExtraSmall else 2.dp
                     )
                 )
                 SearchResultText(
@@ -4206,7 +4204,7 @@ internal fun UpSearchResultCard(
                 if (verifyBadge != null && verifyBadge.text.isNotBlank()) {
                     Spacer(
                         modifier = Modifier.height(
-                            if (useMiuixNonGlassPresentation) AppSpacingTokens.ExtraSmall else 2.dp
+                            if (useMiuixPresentation) AppSpacingTokens.ExtraSmall else 2.dp
                         )
                     )
                     SearchResultText(
@@ -4233,7 +4231,7 @@ internal fun BangumiSearchResultCard(
     onClick: () -> Unit,
     categoryLabel: String? = null
 ) {
-    val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
+    val useMiuixPresentation = LocalAppUiStyle.current == AppUiStyle.MIUIX
     SearchResultCardSurface(
         appearance = appearance,
         onClick = onClick
@@ -4242,7 +4240,7 @@ internal fun BangumiSearchResultCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    if (useMiuixNonGlassPresentation) AppSpacingTokens.Medium else 12.dp
+                    if (useMiuixPresentation) AppSpacingTokens.Medium else 12.dp
                 ),
             verticalAlignment = Alignment.Top
         ) {
@@ -4355,7 +4353,7 @@ internal fun LiveSearchResultCard(
     appearance: SearchResultCardAppearance,
     onClick: () -> Unit
 ) {
-    val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
+    val useMiuixPresentation = LocalAppUiStyle.current == AppUiStyle.MIUIX
     SearchResultCardSurface(
         appearance = appearance,
         onClick = onClick
@@ -4364,7 +4362,7 @@ internal fun LiveSearchResultCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    if (useMiuixNonGlassPresentation) AppSpacingTokens.Medium else 12.dp
+                    if (useMiuixPresentation) AppSpacingTokens.Medium else 12.dp
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -4448,7 +4446,7 @@ internal fun LiveSearchResultCard(
                 )
                 Spacer(
                     modifier = Modifier.height(
-                        if (useMiuixNonGlassPresentation) AppSpacingTokens.ExtraSmall else 2.dp
+                        if (useMiuixPresentation) AppSpacingTokens.ExtraSmall else 2.dp
                     )
                 )
                 // 分区
@@ -4555,7 +4553,7 @@ internal fun LiveUserSearchResultCard(
     appearance: SearchResultCardAppearance,
     onClick: () -> Unit
 ) {
-    val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
+    val useMiuixPresentation = LocalAppUiStyle.current == AppUiStyle.MIUIX
     val cleaned = remember(item.uid, item.uname, item.uface) { item.cleanupFields() }
     SearchResultCardSurface(
         appearance = appearance,
@@ -4565,7 +4563,7 @@ internal fun LiveUserSearchResultCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    if (useMiuixNonGlassPresentation) AppSpacingTokens.Medium else 12.dp
+                    if (useMiuixPresentation) AppSpacingTokens.Medium else 12.dp
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -4628,7 +4626,7 @@ internal fun TopicSearchResultCard(
     appearance: SearchResultCardAppearance,
     onClick: () -> Unit
 ) {
-    val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
+    val useMiuixPresentation = LocalAppUiStyle.current == AppUiStyle.MIUIX
     val cleaned = remember(item.topicId, item.title, item.cover) { item.cleanupFields() }
     SearchResultCardSurface(
         appearance = appearance,
@@ -4638,7 +4636,7 @@ internal fun TopicSearchResultCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    if (useMiuixNonGlassPresentation) AppSpacingTokens.Medium else 12.dp
+                    if (useMiuixPresentation) AppSpacingTokens.Medium else 12.dp
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -4690,7 +4688,7 @@ internal fun PhotoSearchResultCard(
     item: SearchPhotoItem,
     appearance: SearchResultCardAppearance
 ) {
-    val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
+    val useMiuixPresentation = LocalAppUiStyle.current == AppUiStyle.MIUIX
     val cleaned = remember(item.id, item.title, item.cover) { item.cleanupFields() }
     SearchResultCardSurface(
         appearance = appearance.copy(
@@ -4702,7 +4700,7 @@ internal fun PhotoSearchResultCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    if (useMiuixNonGlassPresentation) AppSpacingTokens.Medium else 12.dp
+                    if (useMiuixPresentation) AppSpacingTokens.Medium else 12.dp
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -4761,7 +4759,7 @@ internal fun ArticleSearchResultCard(
     appearance: SearchResultCardAppearance,
     onClick: () -> Unit
 ) {
-    val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
+    val useMiuixPresentation = LocalAppUiStyle.current == AppUiStyle.MIUIX
     SearchResultCardSurface(
         appearance = appearance,
         onClick = onClick
@@ -4770,7 +4768,7 @@ internal fun ArticleSearchResultCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    if (useMiuixNonGlassPresentation) AppSpacingTokens.Medium else 14.dp
+                    if (useMiuixPresentation) AppSpacingTokens.Medium else 14.dp
                 ),
             horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Medium),
             verticalAlignment = Alignment.Top

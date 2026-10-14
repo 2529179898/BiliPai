@@ -228,21 +228,25 @@ private class LiquidValueMotion(private val scope: CoroutineScope, initial: Floa
 
 }
 
+// Primitive parameters avoid boxing coordinates for each drag event.
+private fun interface LiquidValueDrag {
+    fun update(positionOrDeltaPx: Float, widthPx: Float)
+}
+
 /** Horizontal drag claims input only after slop; vertical list scrolling remains native. */
 @Composable
 private fun Modifier.liquidValueGesture(
     motion: LiquidValueMotion,
-    onDelta: (Float, Float) -> Unit,
+    absoluteDrag: Boolean,
+    onDrag: LiquidValueDrag,
     onFinish: (Boolean, Float?, Float) -> Unit,
     onCancel: () -> Unit,
-    onStart: () -> Unit = {},
     interactionSource: MutableInteractionSource? = null,
 ): Modifier {
-    val latestDelta by rememberUpdatedState(onDelta)
+    val latestDrag by rememberUpdatedState(onDrag)
     val latestFinish by rememberUpdatedState(onFinish)
     val latestCancel by rememberUpdatedState(onCancel)
-    val latestStart by rememberUpdatedState(onStart)
-    return pointerInput(motion, interactionSource) {
+    return pointerInput(motion, interactionSource, absoluteDrag) {
     awaitEachGesture {
         // Slop detection also reads Main. Starting in Initial would re-read this
         // consumed down in Main and immediately cancel instead of seeing movement.
@@ -254,18 +258,20 @@ private fun Modifier.liquidValueGesture(
         val pressInteraction = PressInteraction.Press(down.position)
         interactionSource?.tryEmit(pressInteraction)
         motion.beginGesture()
-        latestStart()
         motion.pressed(true)
         try {
             val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
                 if (currentEvent.changes.count { it.pressed } > 1) throw CancellationException("Multiple pointers")
                 change.consume()
-                latestDelta(over, size.width.toFloat())
+                latestDrag.update(if (absoluteDrag) change.position.x else over, size.width.toFloat())
             }
             if (drag != null) {
                 complete = horizontalDrag(drag.id) { change ->
                     if (currentEvent.changes.count { it.pressed } > 1) throw CancellationException("Multiple pointers")
-                    latestDelta(change.position.x - change.previousPosition.x, size.width.toFloat())
+                    latestDrag.update(
+                        if (absoluteDrag) change.position.x else change.position.x - change.previousPosition.x,
+                        size.width.toFloat(),
+                    )
                     change.consume()
                 }
                 if (complete) latestFinish(true, null, size.width.toFloat())
@@ -429,7 +435,8 @@ internal fun AppLiquidSwitch(
         .focusable(enabled = interactive)
         .then(if (interactive) Modifier.liquidValueGesture(
             motion,
-            onDelta = { delta, _ ->
+            absoluteDrag = false,
+            onDrag = LiquidValueDrag { delta, _ ->
                 val travel = switchTravel()
                 if (travel > 0f) motion.trackPointer(motion.target + delta / travel * if (latestLtr) 1f else -1f)
             },
@@ -519,14 +526,16 @@ internal fun AppLiquidSlider(
             .focusable(enabled = enabled)
             .then(if (enabled) Modifier.liquidValueGesture(
                 motion,
-                onDelta = { delta, width ->
-                    val travel = (width - sliderInsetPx() * 2f).coerceAtLeast(0f)
-                    if (travel > 0f) {
-                        rawDragFraction = (rawDragFraction + delta / travel * if (latestLtr) 1f else -1f).coerceIn(0f, 1f)
-                        update(rawDragFraction, fromPointer = true)
-                    }
+                absoluteDrag = true,
+                onDrag = LiquidValueDrag { position, width ->
+                    rawDragFraction = resolveAppSliderPointerFraction(
+                        positionPx = position,
+                        widthPx = width,
+                        insetPx = sliderInsetPx(),
+                        isLtr = latestLtr,
+                    )
+                    update(rawDragFraction, fromPointer = true)
                 },
-                onStart = { rawDragFraction = motion.target },
                 onFinish = { dragged, position, width ->
                     if (dragged) update(rawDragFraction)
                     else if (position != null) {
