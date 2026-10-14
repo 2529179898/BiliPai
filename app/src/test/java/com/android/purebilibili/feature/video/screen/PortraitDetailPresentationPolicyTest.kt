@@ -9,6 +9,38 @@ import kotlin.test.assertTrue
 class PortraitDetailPresentationPolicyTest {
 
     @Test
+    fun commentTabUsesCompactPlayerWhenCoverRecognitionMissesShortViewport() {
+        assertTrue(
+            shouldUseCompactInlinePortraitPlayerForCommentTab(
+                useOfficialInlinePortraitDetailExperience = true,
+                selectedTabIndex = 1,
+                isPortraitFullscreen = false,
+                isCompactFoldableCoverWindow = false,
+                availableCommentHeightDp = 180f,
+            )
+        )
+    }
+
+    @Test
+    fun viewportProtectionDoesNotCollapseIntroFullscreenOrRoomyCommentPage() {
+        for ((tab, fullscreen, remainingHeight) in listOf(
+            Triple(0, false, 180f),
+            Triple(1, true, 180f),
+            Triple(1, false, MIN_INLINE_COMMENT_VIEWPORT_HEIGHT_DP),
+            Triple(1, false, 360f),
+        )) {
+            assertFalse(
+                shouldUseCompactInlinePortraitPlayerForCommentTab(
+                    useOfficialInlinePortraitDetailExperience = true,
+                    selectedTabIndex = tab,
+                    isPortraitFullscreen = fullscreen,
+                    availableCommentHeightDp = remainingHeight,
+                )
+            )
+        }
+    }
+
+    @Test
     fun portraitFullscreenPlayback_reusesSharedPlayerForSeamlessSurfaceHandoff() {
         assertTrue(shouldUseSharedPlayerForPortraitFullscreen())
     }

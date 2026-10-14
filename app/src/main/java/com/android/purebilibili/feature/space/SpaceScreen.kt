@@ -1549,6 +1549,7 @@ private fun SpaceContent(
                     upStat = state.headerState.upStat ?: state.upStat,
                     collapseFractionProvider = { headerCollapseFraction.value },
                     bannerScrollOffsetPxProvider = { bannerScrollOffsetPx.value },
+                    bannerScrollState = gridState,
                     chargeGroup = state.chargeGroup,
                     guardGroup = state.guardGroup,
                     onWebClick = onWebClick,
@@ -2615,6 +2616,42 @@ private fun SpaceContent(
                 }
             }
         }
+        // Short overview/empty tabs must still have enough scroll travel to finish the
+        // header-to-cutout handoff. Measure only the missing tail space, not a fixed footer.
+        item(key = "space_header_collapse_tail", span = { GridItemSpan(maxLineSpan) }) {
+            // Keep the derived measurement stable when LazyGrid publishes a new layout result.
+            val retainedHeight = remember { intArrayOf(0) }
+            val tailHeight = remember(gridState, headerCollapseRangePx, spaceSkeletonBannerHeightDp, density) {
+                derivedStateOf {
+                    val info = gridState.layoutInfo
+                    val tail = info.visibleItemsInfo.firstOrNull { it.key == "space_header_collapse_tail" }
+                    val requiredTravelPx = maxOf(
+                        headerCollapseRangePx,
+                        with(density) { spaceSkeletonBannerHeightDp.dp.toPx() },
+                    )
+                    if (gridState.firstVisibleItemIndex == 0) {
+                        if (tail == null) requiredTravelPx.toInt() else {
+                            val naturalTailTop = tail.offset.y + gridState.firstVisibleItemScrollOffset
+                            (info.viewportEndOffset - info.afterContentPadding + requiredTravelPx - naturalTailTop)
+                                .toInt().coerceAtLeast(0)
+                        }
+                    } else {
+                        // Do not remove reserved travel as the header leaves the viewport.
+                        retainedHeight[0]
+                    }
+                }
+            }
+            Spacer(
+                Modifier.fillMaxWidth().layout { measurable, constraints ->
+                    val missingHeight = tailHeight.value
+                    retainedHeight[0] = missingHeight
+                    val placeable = measurable.measure(
+                        constraints.copy(minHeight = missingHeight, maxHeight = missingHeight)
+                    )
+                    layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+                }
+            )
+        }
     }
 
         // 投稿视频悬浮工具条（对齐 PiliPlus 的 SliverFloatingHeaderWidget）：
@@ -2681,6 +2718,7 @@ private fun SpaceHeader(
     upStat: UpStatData?,
     collapseFractionProvider: () -> Float,
     bannerScrollOffsetPxProvider: () -> Float = { 0f },
+    bannerScrollState: androidx.compose.foundation.gestures.ScrollableState,
     chargeGroup: SpaceSupporterGroup? = null,
     guardGroup: SpaceSupporterGroup? = null,
     onWebClick: (String, String) -> Unit = { _, _ -> },
@@ -2782,6 +2820,7 @@ private fun SpaceHeader(
         val bannerTotalHeightDp = bannerMetrics.heightDp.dp
         val heroHeight = bannerMetrics.heroHeightDp.dp
         val avatarTopPadding = (heroHeight - avatarBannerOverlap).coerceAtLeast(0.dp)
+        val density = LocalDensity.current
         // 视差余量 = 背景图向上溢出窗口的量（chromeTopInset）。平移钳在该范围内，
         // 图片永远不会滑出窗口顶部露底；效果为背景以约 1/4 速率跟随滚动。
         val maxBannerParallaxTranslationPx = with(LocalDensity.current) {
@@ -2808,8 +2847,6 @@ private fun SpaceHeader(
                         translationY = (bannerScrollOffsetPxProvider() * 0.75f)
                             .coerceIn(0f, maxBannerParallaxTranslationPx)
                     }
-                    .imagePreviewSourceBounds(topPhotoRect)
-                    .alpha(if (topPhotoHidden) 0f else 1f)
                     .layout { measurable, constraints ->
                         val horizontalInsetPx = outerPadding.coerceAtLeast(0.dp).roundToPx()
                         val topInsetPx = chromeTopInset.coerceAtLeast(0.dp).roundToPx()
@@ -2829,34 +2866,51 @@ private fun SpaceHeader(
                         }
                     }
                     .align(Alignment.TopCenter)
-                    .clickable(
-                        interactionSource = null,
-                        indication = null,
-                        enabled = skinSpaceBackgroundPaths.isEmpty() &&
-                            (shouldEnableSpaceTopPhotoPreview(topPhotoUrl) || userInfo.topImages.isNotEmpty()),
-                        onClick = { onTopPhotoClick(topPhotoRect.value, currentBannerUrl) }
-                    )
             ) {
-                SpaceHeaderBanner(
-                    topImages = userInfo.topImages,
-                    fallbackTopPhotoUrl = topPhotoUrl,
-                    onCurrentBannerUrlChange = { currentBannerUrl = it },
-                    skinBackgroundPaths = skinSpaceBackgroundPaths,
-                    isDarkTheme = isDarkTheme,
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(chromeTopInset.coerceAtLeast(48.dp))
-                        .background(
-                            Brush.verticalGradient(
-                                0.0f to Color.Black.copy(alpha = 0.18f),
-                                1.0f to Color.Transparent
+                SpaceBannerFusionEffect(
+                    collapseFractionProvider = {
+                        val rangePx = maxBannerParallaxTranslationPx + with(density) { heroHeight.toPx() }
+                        (bannerScrollOffsetPxProvider() / rangePx.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                    },
+                    scrollOffsetPxProvider = bannerScrollOffsetPxProvider,
+                    maxParallaxTranslationPx = maxBannerParallaxTranslationPx,
+                    scrollState = bannerScrollState,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    Box(
+                        Modifier.fillMaxSize()
+                            .imagePreviewSourceBounds(topPhotoRect)
+                            .alpha(if (topPhotoHidden) 0f else 1f)
+                            .clickable(
+                                interactionSource = null,
+                                indication = null,
+                                enabled = skinSpaceBackgroundPaths.isEmpty() &&
+                                    (shouldEnableSpaceTopPhotoPreview(topPhotoUrl) || userInfo.topImages.isNotEmpty()),
+                                onClick = { onTopPhotoClick(topPhotoRect.value, currentBannerUrl) },
                             )
+                    ) {
+                        SpaceHeaderBanner(
+                            topImages = userInfo.topImages,
+                            fallbackTopPhotoUrl = topPhotoUrl,
+                            onCurrentBannerUrlChange = { currentBannerUrl = it },
+                            skinBackgroundPaths = skinSpaceBackgroundPaths,
+                            isDarkTheme = isDarkTheme,
+                            modifier = Modifier.fillMaxSize()
                         )
-                )
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(chromeTopInset.coerceAtLeast(48.dp))
+                                .background(
+                                    Brush.verticalGradient(
+                                        0.0f to Color.Black.copy(alpha = 0.18f),
+                                        1.0f to Color.Transparent
+                                    )
+                                )
+                        )
+                    }
+                }
             }
 
             // PiliPlus 风格头部结构：
@@ -5630,5 +5684,10 @@ private fun SpaceTopChromeGlass(
         useNeutralLiquidContainer = true,
         shellLensIntensity = com.android.purebilibili.feature.home.components.resolveFloatingDockGeometryScale(48f),
         modifier = Modifier.size(48.dp),
-    ) { _ -> content() }
+    ) { _ ->
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) { content() }
+    }
 }

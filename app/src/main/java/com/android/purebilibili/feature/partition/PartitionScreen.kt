@@ -797,11 +797,60 @@ private fun PartitionSideRail(
                 .background(AppSurfaceTokens.background())
         )
 
+        if (liquidGlassIndicatorEnabled) {
+            // Separate export material from the visible list: only resting indicator bands
+            // are opaque, leaving their gaps available to the shared upstream lens.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                    .clearAndSetSemantics {}
+                    .alpha(0f)
+                    .graphicsLayer {
+                        translationY = contentTopPaddingPx -
+                            listState.firstVisibleItemIndex * itemSlotHeightPx -
+                            listState.firstVisibleItemScrollOffset
+                        clip = false
+                    }
+                    .layerBackdrop(railContentBackdrop)
+                    .then(interactiveHighlight?.modifier ?: Modifier),
+                verticalArrangement = Arrangement.spacedBy(PartitionSideRailItemSpacing),
+            ) {
+                partitions.forEach { partition ->
+                    Box(
+                        Modifier.fillMaxWidth().height(PartitionSideRailItemHeight),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        PartitionSideRailItem(
+                            partition = partition,
+                            selected = true,
+                            selectionProgress = 1f,
+                            showIcon = showIcon,
+                            showText = showText,
+                            iconFamily = iconFamily,
+                            onClick = {},
+                            interactive = false,
+                            contentColorOverride = AppContentColors.accent(),
+                            itemHeight = PartitionSideRailIndicatorHeight,
+                            modifier = Modifier
+                                .width(indicatorWidth)
+                                .background(
+                                    com.android.purebilibili.feature.home.components.resolveBiliPaiBottomBarContainerColor(
+                                        darkTheme = isDarkTheme,
+                                        liquidGlassTuning = liquidGlassTuning,
+                                        surfaceColor = AppSurfaceTokens.surfaceContainer(),
+                                    ),
+                                    resolveSharedBottomBarCapsuleShape(),
+                                ),
+                        )
+                    }
+                }
+            }
+        }
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (liquidGlassIndicatorEnabled) Modifier.layerBackdrop(railContentBackdrop) else Modifier)
                 .zIndex(if (liquidGlassIndicatorEnabled) 0f else 2f),
             contentPadding = contentPadding,
             verticalArrangement = Arrangement.spacedBy(PartitionSideRailItemSpacing)
@@ -1007,6 +1056,7 @@ private fun PartitionSideRailItem(
     onClick: () -> Unit,
     interactive: Boolean = true,
     contentColorOverride: Color? = null,
+    itemHeight: androidx.compose.ui.unit.Dp = PartitionSideRailItemHeight,
     modifier: Modifier = Modifier,
 ) {
     val selectedColor = AppContentColors.accent()
@@ -1017,7 +1067,7 @@ private fun PartitionSideRailItem(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(PartitionSideRailItemHeight)
+            .height(itemHeight)
             .clip(resolveSharedBottomBarCapsuleShape())
             .then(
                 if (interactive) {

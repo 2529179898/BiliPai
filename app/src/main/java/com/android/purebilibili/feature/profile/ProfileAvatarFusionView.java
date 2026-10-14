@@ -20,6 +20,7 @@ import android.graphics.Shader;
 import android.os.Build;
 import android.view.Gravity;
 import android.view.View;
+import android.view.WindowInsets;
 import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
@@ -33,20 +34,26 @@ public class ProfileAvatarFusionView extends FrameLayout {
 
     private final Paint blackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
-    private final Impl impl;
+    private Impl impl;
+    private boolean hardwareEffectsAllowed;
     private final float density;
     private Runnable frameUpdater;
     private int statusBarHeight;
     private float viewportLeft, viewportTop;
+    private final int[] windowOrigin = new int[2];
+    private boolean rectangularContent;
+    /** Rectangular hosts need their full banner in the CPU buffer, rather than an avatar strip. */
+    public void setRectangularContent(boolean rectangular) { rectangularContent = rectangular; }
+    public float getViewportTop() { return viewportTop; }
     public void setViewportOrigin(float left, float top) {
         if (viewportLeft == left && viewportTop == top) return;
         viewportLeft = left; viewportTop = top;
         refreshCutout();
     }
     private void refreshCutout() {
-        notchInfo = ProfileCameraCutout.getInfo(getContext());
-        if ((notchInfo != null && notchInfo.gravity != Gravity.CENTER) ||
-                getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+        notchInfo = ProfileCameraCutout.getInfo(this);
+        if (!rectangularContent && ((notchInfo != null && notchInfo.gravity != Gravity.CENTER) ||
+                getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE)) {
             notchInfo = null;
         }
         if (notchInfo != null) {
@@ -64,7 +71,22 @@ public class ProfileAvatarFusionView extends FrameLayout {
         return lerp(from, to, MathUtils.clamp(ilerp(value, start, end), 0f, 1f));
     }
     public void setFrameUpdater(Runnable updater) { frameUpdater = updater; }
+    @Override public WindowInsets onApplyWindowInsets(WindowInsets insets) {
+        WindowInsets result = super.onApplyWindowInsets(insets);
+        refreshCutout();
+        invalidate();
+        return result;
+    }
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        requestApplyInsets();
+    }
     public void prepareFrame() {
+        // Lazy-grid placement and parallax can move the host without a Compose layout callback.
+        if (isAttachedToWindow()) {
+            getLocationInWindow(windowOrigin);
+            setViewportOrigin(windowOrigin[0], windowOrigin[1]);
+        }
         float previousProgress = pullProgress;
         float previousBlur = blurIntensity;
         boolean previousEnabled = enabled;
@@ -74,9 +96,27 @@ public class ProfileAvatarFusionView extends FrameLayout {
     }
     public void setStatusBarHeight(int height) { statusBarHeight = height; }
     public void updateFrame(float progress, boolean motionEnabled) {
-        setPullProgress(progress);
-        setBlurIntensity(motionEnabled ? Math.min((MathUtils.clamp(progress, 0.2f, 0.7f) - 0.2f) / 0.5f, 0.75f) : 0f);
-        setGooeyEnabled(motionEnabled && progress > 0f && progress < 1f);
+        updateFrame(progress, progress, motionEnabled);
+    }
+    /** Wide banners blur during the full crop, while cutout fusion uses its later phase. */
+    public void updateFrame(float fusionProgress, float blurProgress, boolean motionEnabled) {
+        setPullProgress(fusionProgress);
+        setBlurIntensity(motionEnabled ? Math.min((MathUtils.clamp(blurProgress, 0.2f, 0.7f) - 0.2f) / 0.5f, 0.75f) : 0f);
+        setGooeyEnabled(motionEnabled && fusionProgress < 1f && (fusionProgress > 0f || blurIntensity > 0f));
+    }
+    public void setHardwareEffectsEnabled(boolean allowed) {
+        if (hardwareEffectsAllowed == allowed) return;
+        hardwareEffectsAllowed = allowed;
+        invalidate();
+    }
+    private void selectBackend(boolean hardwareCanvas) {
+        boolean useGpu = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && hardwareEffectsAllowed && hardwareCanvas;
+        if (useGpu == (impl instanceof GPUImpl)) return;
+        impl.release();
+        impl = useGpu ? new GPUImpl(1.5f) : new CPUImpl();
+        impl.setIntensity(intensity);
+        impl.setBlurIntensity(blurIntensity);
+        if (getWidth() > 0 && getHeight() > 0) impl.onSizeChanged(getWidth(), getHeight());
     }
     public void release() { impl.release(); frameUpdater = null; }
 
@@ -91,6 +131,7 @@ public class ProfileAvatarFusionView extends FrameLayout {
     public ProfileAvatarFusionView(Context context, boolean hardwareEffects) {
         super(context);
         density = context.getResources().getDisplayMetrics().density;
+        hardwareEffectsAllowed = hardwareEffects;
         setClipChildren(false);
         setClipToPadding(false);
 
@@ -162,7 +203,7 @@ public class ProfileAvatarFusionView extends FrameLayout {
         super.onSizeChanged(w, h, oldw, oldh);
         refreshCutout();
 
-        impl.onSizeChanged(w, h);
+        if (w > 0 && h > 0) impl.onSizeChanged(w, h);
     }
 
     @Override
@@ -173,6 +214,9 @@ public class ProfileAvatarFusionView extends FrameLayout {
             super.draw(canvas);
             return;
         }
+        // RenderNode cannot draw onto a software canvas. Recreate the matching backend
+        // after transient visual guards or canvas changes, retaining the current frame.
+        selectBackend(canvas.isHardwareAccelerated());
         impl.draw(c -> {
             c.save();
             c.translate(0, dp(BLACK_KING_BAR));
@@ -214,12 +258,12 @@ public class ProfileAvatarFusionView extends FrameLayout {
                 bitmap = null;
             }
 
-            optimizedW = Math.min(dp(120), w);
-            optimizedH = Math.min(dp(220), h);
+            optimizedW = rectangularContent ? w : Math.min(dp(120), w);
+            optimizedH = rectangularContent ? h : Math.min(dp(220), h);
 
             bitmapOrigW = optimizedW;
             bitmapOrigH = optimizedH + dp(BLACK_KING_BAR);
-            bitmap = Bitmap.createBitmap((int) (bitmapOrigW / scaleConst), (int) (bitmapOrigH / scaleConst), Bitmap.Config.ARGB_8888);
+            bitmap = Bitmap.createBitmap(Math.max(1, (int) (bitmapOrigW / scaleConst)), Math.max(1, (int) (bitmapOrigH / scaleConst)), Bitmap.Config.ARGB_8888);
 
             bitmapCanvas = new Canvas(bitmap);
         }
@@ -394,7 +438,9 @@ public class ProfileAvatarFusionView extends FrameLayout {
             // Record everything into buffer
             c = node.beginRecording();
             c.translate(-left, -top);
-            final int imageAlphaNoClamp = (int) ((1f - ilerp(pullProgress, 0.5f, 1.0f)) * 255);
+            final int imageAlphaNoClamp = (int) ((1f - ilerp(pullProgress, rectangularContent ? 0.85f : 0.5f, 1.0f)) * 255);
+            // Photos retain their colour as they contract; the avatar's black absorption
+            // silhouette looks like a large grey block when applied to a wide banner.
             final int imageAlpha = MathUtils.clamp(imageAlphaNoClamp, 0, 255);
             drawer.draw(c);
             node.endRecording();
@@ -421,7 +467,9 @@ public class ProfileAvatarFusionView extends FrameLayout {
                 final View child = getChildAt(0);
                 final float cx = child.getX() + child.getWidth() * child.getScaleX() / 2.0f - left;
                 final float cy = child.getY() + child.getHeight() * child.getScaleY() / 2.0f + dp(BLACK_KING_BAR) - top;
-                final float r = child.getWidth() / 2.0f * child.getScaleX();
+                final float r = rectangularContent
+                        ? Math.min(child.getWidth() * child.getScaleX(), child.getHeight() * child.getScaleY()) / 2f
+                        : child.getWidth() / 2.0f * child.getScaleX();
 
                 path.rewind();
                 path.moveTo(cx - r, cy - (float) Math.cos(Math.PI / 4) * r);
@@ -488,7 +536,7 @@ public class ProfileAvatarFusionView extends FrameLayout {
             canvas.translate(left, top - dp(BLACK_KING_BAR));
 
             if (notchInfo != null) {
-                canvas.clipRect(0, notchInfo.bounds.top, width, height);
+                canvas.clipRect(0, notchInfo.bounds.top - top + dp(BLACK_KING_BAR), width, height);
             }
 
             // Filter alpha + fade, then draw
@@ -499,7 +547,7 @@ public class ProfileAvatarFusionView extends FrameLayout {
             canvas.restore();
 
             // Fade, draw blurred
-            final int blurImageAlpha = MathUtils.clamp(imageAlphaNoClamp * 3 / 4, 0, 255);
+            final int blurImageAlpha = MathUtils.clamp(rectangularContent ? imageAlphaNoClamp : imageAlphaNoClamp * 3 / 4, 0, 255);
             if (blurImageAlpha < 255) {
                 canvas.saveLayer(wholeOptimized, null);
                 if (blurIntensity != 0) {

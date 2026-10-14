@@ -242,7 +242,7 @@ class BottomBarGlassMaterialPolicyTest {
             glassEnabled = true, fallbackAlpha = 1f
         )
 
-        assertEquals(0.38f, tuned.alpha, 0.005f)
+        assertEquals(0.40f, tuned.alpha, 0.005f)
         assertEquals(0.40f, ios26Light.alpha, 0.005f)
         assertEquals(0.40f, ios26Dark.alpha, 0.005f)
     }

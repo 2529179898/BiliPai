@@ -144,6 +144,9 @@ internal fun resolvePortraitFullscreenButtonAction(
     return PortraitFullscreenButtonAction.ENTER_PORTRAIT_FULLSCREEN
 }
 
+// Includes the tab row, sort header, action dock and a usable comment drag region.
+internal const val MIN_INLINE_COMMENT_VIEWPORT_HEIGHT_DP = 240f
+
 internal fun shouldUseCompactInlinePortraitPlayerForCommentTab(
     useOfficialInlinePortraitDetailExperience: Boolean,
     selectedTabIndex: Int,
@@ -153,12 +156,12 @@ internal fun shouldUseCompactInlinePortraitPlayerForCommentTab(
     isVerticalVideo: Boolean = true,
     isPlaybackPaused: Boolean = false,
     isCompactFoldableCoverWindow: Boolean = false,
+    availableCommentHeightDp: Float = Float.POSITIVE_INFINITY,
 ): Boolean {
-    // Switching between 简介/评论 must keep the inline portrait player visible. The player is
-    // collapsed only by the detail list gesture, except on short foldable cover windows where
-    // the expanded player leaves no usable comment viewport.
+    // Keep the player visible, but do not require a list gesture when expanded video leaves
+    // no usable comment hit region. Window geometry also covers unrecognized foldable covers.
     if (
-        isCompactFoldableCoverWindow &&
+        (isCompactFoldableCoverWindow || availableCommentHeightDp < MIN_INLINE_COMMENT_VIEWPORT_HEIGHT_DP) &&
         useOfficialInlinePortraitDetailExperience &&
         selectedTabIndex == 1 &&
         !isPortraitFullscreen

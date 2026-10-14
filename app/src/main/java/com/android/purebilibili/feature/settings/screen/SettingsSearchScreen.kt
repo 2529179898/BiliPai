@@ -87,6 +87,7 @@ fun SettingsSearchScreen(
                 query = searchQuery,
                 onQueryChange = { searchQuery = it; visibleCount = 20 },
                 onSearch = { viewModel.recordSearchQuery(searchQuery) },
+                autoFocusEnabled = !navigationTransitionRunning,
             )
         },
     ) {

@@ -54,6 +54,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -1417,9 +1418,13 @@ private fun ProfileSpaceContent(
                 }
                 }
             }
+            ProfilePinnedSpaceTopBarBackground(
+                progressiveTopChrome = progressiveTopChrome,
+                statusBarTopPadding = statusBarTopPadding,
+                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+            )
             ProfilePinnedSpaceTopBar(
                 listState = mobileListState,
-                progressiveTopChrome = progressiveTopChrome,
                 heroTextColor = heroChrome.textColor,
                 contentColor = contentChrome.onSurfaceColor,
                 statusBarTopPadding = statusBarTopPadding,
@@ -1433,7 +1438,11 @@ private fun ProfileSpaceContent(
                 onSettingsClick = onSettingsClick,
                 onWallpaperClick = { showWallpaperActionSheet = true },
                 onEditClick = { showEditDialog = true },
-                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                // Only transparent actions sit above the avatar; the chrome background stays below it.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .zIndex(1f),
             )
             ProfileIdentityHeader(
                 user = user,
@@ -1453,9 +1462,26 @@ private fun ProfileSpaceContent(
 }
 
 @Composable
+private fun ProfilePinnedSpaceTopBarBackground(
+    progressiveTopChrome: ProfileProgressiveTopChrome,
+    statusBarTopPadding: Dp,
+    modifier: Modifier = Modifier,
+) {
+    BiliPaiImmersiveTopBar(
+        backdrop = progressiveTopChrome.backdrop,
+        enabled = progressiveTopChrome.enabled,
+        headerBlurActive = false,
+        fadeEnabled = if (progressiveTopChrome.enabled) false else null,
+        opaqueBackgroundFallback = false,
+        modifier = modifier,
+    ) {
+        Spacer(Modifier.fillMaxWidth().height(statusBarTopPadding + 56.dp))
+    }
+}
+
+@Composable
 private fun ProfilePinnedSpaceTopBar(
     listState: LazyListState,
-    progressiveTopChrome: ProfileProgressiveTopChrome,
     heroTextColor: Color,
     contentColor: Color,
     statusBarTopPadding: Dp,
@@ -1484,49 +1510,40 @@ private fun ProfilePinnedSpaceTopBar(
         contentColor,
         topChromeScrim.value,
     )
-    BiliPaiImmersiveTopBar(
-        backdrop = progressiveTopChrome.backdrop,
-        enabled = progressiveTopChrome.enabled,
-        headerBlurActive = false,
-        fadeEnabled = if (progressiveTopChrome.enabled) false else null,
-        opaqueBackgroundFallback = false,
-        modifier = modifier,
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = statusBarTopPadding)
+            .height(56.dp)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = statusBarTopPadding)
-                .height(56.dp)
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            var showQrAuthorization by remember { mutableStateOf(false) }
-            if (showQrAuthorization) {
-                OfficialQrAuthorizationDialog(onDismiss = { showQrAuthorization = false })
-            }
-            AppIconButton(onClick = { showQrAuthorization = true }) {
-                AppIcon(Icons.Rounded.QrCodeScanner, contentDescription = "扫码授权登录", tint = topBarIconColor)
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            AppWindowActionMenu(
-                groups = listOf(
-                    listOf(
-                        AppWindowAction(label = "搜索", onClick = onSearchClick),
-                        AppWindowAction(label = "消息", onClick = onInboxClick),
-                        AppWindowAction(label = "编辑资料", onClick = onEditClick),
-                        AppWindowAction(label = "切换账号", onClick = onAccountManageClick),
-                    ),
-                    listOf(
-                        AppWindowAction(label = if (privacyModeEnabled) "关闭无痕模式" else "开启无痕模式", onClick = onPrivacyClick),
-                        AppWindowAction(label = "切换主题", onClick = onThemeClick),
-                        AppWindowAction(label = "更换背景", onClick = onWallpaperClick),
-                        AppWindowAction(label = "设置", onClick = onSettingsClick),
-                        AppWindowAction(label = "返回", onClick = onBack),
-                    ),
+        var showQrAuthorization by remember { mutableStateOf(false) }
+        if (showQrAuthorization) {
+            OfficialQrAuthorizationDialog(onDismiss = { showQrAuthorization = false })
+        }
+        AppIconButton(onClick = { showQrAuthorization = true }) {
+            AppIcon(Icons.Rounded.QrCodeScanner, contentDescription = "扫码授权登录", tint = topBarIconColor)
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        AppWindowActionMenu(
+            groups = listOf(
+                listOf(
+                    AppWindowAction(label = "搜索", onClick = onSearchClick),
+                    AppWindowAction(label = "消息", onClick = onInboxClick),
+                    AppWindowAction(label = "编辑资料", onClick = onEditClick),
+                    AppWindowAction(label = "切换账号", onClick = onAccountManageClick),
                 ),
-            ) {
-                AppIcon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = topBarIconColor)
-            }
+                listOf(
+                    AppWindowAction(label = if (privacyModeEnabled) "关闭无痕模式" else "开启无痕模式", onClick = onPrivacyClick),
+                    AppWindowAction(label = "切换主题", onClick = onThemeClick),
+                    AppWindowAction(label = "更换背景", onClick = onWallpaperClick),
+                    AppWindowAction(label = "设置", onClick = onSettingsClick),
+                    AppWindowAction(label = "返回", onClick = onBack),
+                ),
+            ),
+        ) {
+            AppIcon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = topBarIconColor)
         }
     }
 }

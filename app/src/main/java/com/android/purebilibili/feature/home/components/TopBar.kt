@@ -1096,7 +1096,7 @@ private fun LightweightHomeTopTabs(
         enabled = adaptiveReadabilityEnabled,
     )
     val adaptiveTopTabContentColor = rememberLiquidGlassAdaptiveContentColor(
-        stableColor = AppContentColors.secondaryText(),
+        stableColor = AppContentColors.primaryText(),
         state = adaptiveReadabilityState,
         enabled = adaptiveReadabilityEnabled,
     )
@@ -1448,6 +1448,14 @@ private fun LightweightHomeTopTabs(
         val dockIndicatorVerticalGap = resolveTopTabDockIndicatorVerticalGapDp(
             hasOuterChromeSurface = hasOuterChromeSurface
         ).dp
+        // Like upstream's 56dp capture inside its 64dp shell, record only the resting
+        // indicator band. Its top/bottom material boundary is part of the lens input.
+        val topTabCaptureHeight = resolveTopTabDockIndicatorHeightDp(
+            rowHeightDp = rowHeight.value,
+            verticalGapDp = dockIndicatorVerticalGap.value,
+            minHeightDp = com.android.purebilibili.core.ui.resolveMatchedLiquidIndicatorHeightDp(rowHeight.value),
+            indicatorWidthDp = resolveTopTabDockIndicatorWidthDp(itemWidth.value, dockIndicatorHorizontalGap.value),
+        ).dp
         val md3TopTabRowVerticalTranslationPx = with(density) {
             resolveMd3TopTabRowVerticalTranslationDp(
                 skinPlainStyle = skinPlainStyle,
@@ -1703,7 +1711,11 @@ private fun LightweightHomeTopTabs(
             else -> topTabMiuixContentBackdrop
         }
         val topTabIndicatorCaptureSurfaceColor =
-            resolveBiliPaiBottomBarContainerColor(darkTheme = isDarkTheme)
+            resolveBiliPaiBottomBarContainerColor(
+                darkTheme = isDarkTheme,
+                liquidGlassTuning = resolvedLiquidGlassTuning,
+                surfaceColor = AppSurfaceTokens.surfaceContainer(),
+            )
         val useTopTabGlassColorPath = resolveTopTabUsesGlassExportForSelectedGlyphs(
             liquidGlassEnabled = shouldUseLiquidGlassIndicator,
         )
@@ -1885,15 +1897,35 @@ private fun LightweightHomeTopTabs(
                 // Keep the sampled and visible labels fixed. Moving this whole group makes the
                 // tab strip rebound with the indicator and desynchronizes backdrop sampling from
                 // LazyRow's own gesture transform. Only the indicator receives the liquid offset.
-                Box(modifier = Modifier.fillMaxSize()) {
-                // Match the bottom bar: keep the export capture inside the dock band.
-                // When the indicator scales beyond it, the combined backdrop exposes the
-                // page source above and below instead of stretching dock material outward.
+                val captureHighlightScope = rememberCoroutineScope()
+                val topTabCaptureHighlight = if (shouldPrimeTopTabLiquidGlassCapture &&
+                    com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current
+                ) {
+                    remember(captureHighlightScope, listState, rowHeight, topTabCaptureHeight, density, itemWidth, topTabHorizontalPadding) {
+                        com.android.purebilibili.feature.home.components.miuix.InteractiveHighlight(
+                            animationScope = captureHighlightScope,
+                            position = { _, point ->
+                                androidx.compose.ui.geometry.Offset(
+                                    point.x - topTabHorizontalPaddingPx + topTabListScrollOffsetPxProvider(),
+                                    point.y - with(density) { (rowHeight - topTabCaptureHeight).toPx() / 2f },
+                                )
+                            },
+                        )
+                    }
+                } else null
+                Box(
+                    modifier = Modifier.fillMaxSize()
+                        .then(topTabCaptureHighlight?.gestureModifier ?: Modifier),
+                ) {
+                // Match the bottom bar's resting-indicator capture height. Sampling the
+                // full shell erases the narrow material boundary used by rim dispersion.
                 // Capture layer: BiliPai-style tabsBackdrop (export-tinted glyphs under glass).
                 if (shouldPrimeTopTabLiquidGlassCapture) {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
+                            .height(topTabCaptureHeight)
+                            .align(Alignment.Center)
                             .clearAndSetSemantics {}
                             .alpha(0f)
                             .zIndex(0f)
@@ -1926,7 +1958,8 @@ private fun LightweightHomeTopTabs(
                                         }
                                         .background(topTabIndicatorCaptureSurfaceColor)
                                 }
-                            },
+                            }
+                            .then(topTabCaptureHighlight?.modifier ?: Modifier),
                         contentAlignment = Alignment.CenterStart
                     ) {
                         Row(
@@ -2691,7 +2724,7 @@ private fun LightweightTopTabItem(
     }
     val contentColor = when (colorMode) {
         TopTabLiquidColorMode.GLASS_EXPORT -> exportMonochromeColor
-        TopTabLiquidColorMode.GLASS_VISIBLE -> adaptiveContentColorOverride ?: unselectedColor
+        TopTabLiquidColorMode.GLASS_VISIBLE -> adaptiveContentColorOverride ?: AppContentColors.primaryText()
         TopTabLiquidColorMode.NORMAL -> androidx.compose.ui.graphics.lerp(
             adaptiveContentColorOverride ?: unselectedColor,
             selectedColor,

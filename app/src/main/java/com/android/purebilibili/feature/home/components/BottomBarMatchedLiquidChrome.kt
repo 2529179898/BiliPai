@@ -359,6 +359,7 @@ internal fun BottomBarMatchedReusableLiquidDock(
         resolveBiliPaiBottomBarContainerColor(
             darkTheme = isDarkTheme,
             liquidGlassTuning = liquidGlassTuning,
+            surfaceColor = AppSurfaceTokens.surfaceContainer(),
         )
     } else {
         resolveAndroidNativeFloatingBottomBarContainerColor(

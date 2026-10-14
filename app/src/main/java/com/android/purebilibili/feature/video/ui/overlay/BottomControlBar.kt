@@ -744,6 +744,7 @@ fun BottomControlBar(
             progressPlacement = progressPlacement
         )
     }
+    val inlineTimeGlassDock = !isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val glassProgressDock = isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val expandInlineActionDock = !isFullscreen && uiLayoutWidthDp < 600 &&
         !showDanmakuInput && !showCompactDanmakuSend
@@ -865,12 +866,22 @@ fun BottomControlBar(
                 )
                 PlayerControlGlassDock(
                     enabled = true,
-                    modifier = if (isFullscreen) Modifier.height(48.dp) else Modifier,
+                    modifier = when {
+                        isFullscreen -> Modifier.height(48.dp)
+                        inlineTimeGlassDock -> Modifier.heightIn(min = 40.dp)
+                        else -> Modifier
+                    },
                 ) {
                     Row(
-                        modifier = if (isFullscreen) Modifier
-                            .fillMaxHeight()
-                            .padding(horizontal = 4.dp) else Modifier,
+                        modifier = when {
+                            isFullscreen -> Modifier
+                                .fillMaxHeight()
+                                .padding(horizontal = 4.dp)
+                            inlineTimeGlassDock -> Modifier
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                .heightIn(min = 28.dp)
+                            else -> Modifier
+                        },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (isFullscreen && uiLayoutWidthDp >= 840 && showNextEpisodeButton) {
@@ -894,7 +905,9 @@ fun BottomControlBar(
                             fontSp = layoutPolicy.timeFontSp,
                         )
 
-                        Spacer(modifier = Modifier.width(layoutPolicy.afterTimeSpacingDp.dp))
+                        if (!inlineTimeGlassDock || showDanmakuToggle) {
+                            Spacer(modifier = Modifier.width(layoutPolicy.afterTimeSpacingDp.dp))
+                        }
 
                         if (showDanmakuToggle) {
                             val danmakuActiveColor = Color.White.copy(alpha = 0.96f)

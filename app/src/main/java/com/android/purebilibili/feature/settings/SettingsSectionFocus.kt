@@ -17,12 +17,19 @@ internal fun SettingsSectionFocusEffect(
     LaunchedEffect(request?.token, target, sectionKeys) {
         val current = request ?: return@LaunchedEffect
         if (current.target != target) return@LaunchedEffect
-        val sectionKey = legacyKeys[current.focusId] ?: current.focusId
+        val sectionKey = resolveSettingsItemScrollKey(current.settingId)
+            ?: legacyKeys[current.focusId] ?: current.focusId
         val index = sectionKeys.indexOf(sectionKey)
-        if (index < 0) return@LaunchedEffect
+        if (index < 0) {
+            SettingsSearchFocusController.clear(current.token)
+            return@LaunchedEffect
+        }
         if (current.settingId == null) {
             listState.animateScrollToItem(index)
             SettingsSearchFocusController.clear(current.token)
-        } else listState.scrollToItem(index)
+        } else {
+            listState.scrollToItem(index)
+            clearUnclaimedSettingsFocusRequest(current.token)
+        }
     }
 }

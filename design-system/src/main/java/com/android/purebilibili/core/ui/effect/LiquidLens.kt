@@ -3,6 +3,7 @@
 
 package com.android.purebilibili.core.ui.effect
 
+// Matched to compose-miuix-ui/miuix revision 5c91d5e5, component/liquid/Lens.kt.
 // Adapted from Kyant0/AndroidLiquidGlass — https://github.com/Kyant0/AndroidLiquidGlass (Apache 2.0).
 
 import androidx.compose.foundation.shape.CornerBasedShape
@@ -87,11 +88,6 @@ private fun BackdropEffectScope.roundedRectCornerRadii(): FloatArray? {
 }
 
 private const val ROUNDED_RECT_SDF = """
-// 圆角轴线与中心可能产生零向量；避免 NaN 传播到纹理采样。
-float2 safeNormalize(float2 vector) {
-    return vector / max(length(vector), 0.0001);
-}
-
 float radiusAt(float2 coord, float4 radii) {
     if (coord.x >= 0.0) {
         if (coord.y <= 0.0) return radii.y;
@@ -112,7 +108,7 @@ float sdRoundedRect(float2 coord, float2 halfSize, float radius) {
 float2 gradSdRoundedRect(float2 coord, float2 halfSize, float radius) {
     float2 cornerCoord = abs(coord) - (halfSize - float2(radius));
     if (cornerCoord.x >= 0.0 || cornerCoord.y >= 0.0) {
-        return sign(coord) * safeNormalize(max(cornerCoord, 0.0));
+        return sign(coord) * normalize(max(cornerCoord, 0.0));
     } else {
         float gradX = step(cornerCoord.y, cornerCoord.x);
         return sign(coord) * float2(gradX, 1.0 - gradX);
@@ -133,8 +129,7 @@ uniform float depthEffect;
 $ROUNDED_RECT_SDF
 
 float circleMap(float x) {
-    float clampedX = clamp(x, 0.0, 1.0);
-    return 1.0 - sqrt(max(1.0 - clampedX * clampedX, 0.0));
+    return 1.0 - sqrt(1.0 - x * x);
 }
 
 half4 main(float2 coord) {
@@ -150,7 +145,7 @@ half4 main(float2 coord) {
 
     float d = circleMap(1.0 - -sd / refractionHeight) * refractionAmount;
     float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
-    float2 grad = safeNormalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + depthEffect * safeNormalize(centeredCoord));
+    float2 grad = normalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + depthEffect * normalize(centeredCoord));
 
     float2 refractedCoord = coord + d * grad;
     return content.eval(refractedCoord);
@@ -171,8 +166,7 @@ uniform float chromaticAberration;
 $ROUNDED_RECT_SDF
 
 float circleMap(float x) {
-    float clampedX = clamp(x, 0.0, 1.0);
-    return 1.0 - sqrt(max(1.0 - clampedX * clampedX, 0.0));
+    return 1.0 - sqrt(1.0 - x * x);
 }
 
 half4 main(float2 coord) {
@@ -188,24 +182,46 @@ half4 main(float2 coord) {
 
     float d = circleMap(1.0 - -sd / refractionHeight) * refractionAmount;
     float gradRadius = min(radius * 1.5, min(halfSize.x, halfSize.y));
-    float2 grad = safeNormalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + depthEffect * safeNormalize(centeredCoord));
+    float2 grad = normalize(gradSdRoundedRect(centeredCoord, halfSize, gradRadius) + depthEffect * normalize(centeredCoord));
 
     float2 refractedCoord = coord + d * grad;
     float dispersionIntensity = chromaticAberration * ((centeredCoord.x * centeredCoord.y) / (halfSize.x * halfSize.y));
     float2 dispersedCoord = d * grad * dispersionIntensity;
 
-    // 物理光学三通道（RGB）波长色散：采样数从 7 次降低至 3 次（减少 57% GPU 纹理采样），
-    // 消除冗余多次采样的混色浑浊感，色散边缘更清澈通透，大幅降低显存带宽与 TMU 压力。
-    half4 rSample = content.eval(refractedCoord + dispersedCoord);
-    half4 gSample = content.eval(refractedCoord);
-    half4 bSample = content.eval(refractedCoord - dispersedCoord);
+    half4 color = half4(0.0);
 
-    // 输入是预乘透明度颜色。通道采到透明边缘时回退到中心样本，
-    // 并统一预乘输出，避免透明黑被当成不透明的色散边缘。
-    half r = rSample.a > 0.0001 ? rSample.r / rSample.a :
-        (gSample.a > 0.0001 ? gSample.r / gSample.a : 0.0);
-    half b = bSample.a > 0.0001 ? bSample.b / bSample.a :
-        (gSample.a > 0.0001 ? gSample.b / gSample.a : 0.0);
-    return half4(r * gSample.a, gSample.g, b * gSample.a, gSample.a);
+    half4 red = content.eval(refractedCoord + dispersedCoord);
+    color.r += red.r / 3.5;
+    color.a += red.a / 7.0;
+
+    half4 orange = content.eval(refractedCoord + dispersedCoord * (2.0 / 3.0));
+    color.r += orange.r / 3.5;
+    color.g += orange.g / 7.0;
+    color.a += orange.a / 7.0;
+
+    half4 yellow = content.eval(refractedCoord + dispersedCoord * (1.0 / 3.0));
+    color.r += yellow.r / 3.5;
+    color.g += yellow.g / 3.5;
+    color.a += yellow.a / 7.0;
+
+    half4 green = content.eval(refractedCoord);
+    color.g += green.g / 3.5;
+    color.a += green.a / 7.0;
+
+    half4 cyan = content.eval(refractedCoord - dispersedCoord * (1.0 / 3.0));
+    color.g += cyan.g / 3.5;
+    color.b += cyan.b / 3.0;
+    color.a += cyan.a / 7.0;
+
+    half4 blue = content.eval(refractedCoord - dispersedCoord * (2.0 / 3.0));
+    color.b += blue.b / 3.0;
+    color.a += blue.a / 7.0;
+
+    half4 purple = content.eval(refractedCoord - dispersedCoord);
+    color.r += purple.r / 7.0;
+    color.b += purple.b / 3.0;
+    color.a += purple.a / 7.0;
+
+    return color;
 }
 """

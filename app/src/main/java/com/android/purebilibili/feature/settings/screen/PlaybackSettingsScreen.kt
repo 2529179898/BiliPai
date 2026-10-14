@@ -152,11 +152,16 @@ fun PlaybackSettingsContent(
             PlaybackSettingsPage.DECODER -> listOf(SettingsSearchFocusIds.PLAYBACK_DECODER)
             PlaybackSettingsPage.DIAGNOSTICS -> listOf(SettingsSearchFocusIds.PLAYBACK_DEBUG)
         }.flatMap { listOf(it + "_title", it) }
-        val key = if (playbackFocusId == SettingsSearchFocusIds.PLAYBACK_GESTURE) SettingsSearchFocusIds.PLAYBACK_FULLSCREEN else playbackFocusId
+        val key = resolveSettingsItemScrollKey(request.settingId)
+            ?: if (playbackFocusId == SettingsSearchFocusIds.PLAYBACK_GESTURE) SettingsSearchFocusIds.PLAYBACK_FULLSCREEN else playbackFocusId
         val index = keys.indexOf(key)
-        if (index < 0) return@LaunchedEffect
+        if (index < 0) {
+            SettingsSearchFocusController.clear(request.token)
+            return@LaunchedEffect
+        }
         if (request.settingId != null) listState.scrollToItem(index) else listState.animateScrollToItem(index)
         if (request.settingId == null) SettingsSearchFocusController.clear(request.token)
+        else clearUnclaimedSettingsFocusRequest(request.token)
     }
 
 

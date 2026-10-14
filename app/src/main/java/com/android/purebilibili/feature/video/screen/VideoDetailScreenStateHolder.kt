@@ -4273,6 +4273,18 @@ internal fun VideoDetailScreenStateHolder(
                                 inlinePlayerCollapseState.restore()
                             }
                         }
+                        val expandedPortraitInlineSpec = remember(
+                            configuration.screenWidthDp,
+                            configuration.screenHeightDp,
+                            displayContext.isFoldableCoverWindow,
+                        ) {
+                            resolvePortraitInlinePlayerLayoutSpec(
+                                screenWidthDp = configuration.screenWidthDp.toFloat(),
+                                screenHeightDp = configuration.screenHeightDp.toFloat(),
+                                isCollapsed = false,
+                                isFoldableCoverWindow = displayContext.isFoldableCoverWindow,
+                            )
+                        }
                         val compactInlinePlayerForCommentTab =
                             shouldUseCompactInlinePortraitPlayerForCommentTab(
                                 useOfficialInlinePortraitDetailExperience = useOfficialInlinePortraitDetailExperience,
@@ -4284,6 +4296,9 @@ internal fun VideoDetailScreenStateHolder(
                                 isPlaybackPaused = isPlaybackPaused,
                                 isCompactFoldableCoverWindow = displayContext.isFoldableCoverWindow &&
                                     configuration.screenHeightDp < FOLDABLE_COVER_COMPACT_HEIGHT_MAX_DP,
+                                availableCommentHeightDp = configuration.screenHeightDp.toFloat() -
+                                    expandedPortraitInlineSpec.heightDp - stableStatusBarHeight.value -
+                                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().value,
                             )
                         val compactInlinePlayerForIntroScroll = !hidePausedPlayerForComments &&
                             shouldUseCompactInlinePortraitPlayerForIntroScroll(
@@ -4298,18 +4313,6 @@ internal fun VideoDetailScreenStateHolder(
                             )
 
                         // 📏 [Collapsing Player] 上滑隐藏播放器逻辑
-                        val expandedPortraitInlineSpec = remember(
-                            configuration.screenWidthDp,
-                            configuration.screenHeightDp,
-                            displayContext.isFoldableCoverWindow,
-                        ) {
-                            resolvePortraitInlinePlayerLayoutSpec(
-                                screenWidthDp = configuration.screenWidthDp.toFloat(),
-                                screenHeightDp = configuration.screenHeightDp.toFloat(),
-                                isCollapsed = false,
-                                isFoldableCoverWindow = displayContext.isFoldableCoverWindow,
-                            )
-                        }
                         val collapsedPortraitInlineSpec = remember(
                             configuration.screenWidthDp,
                             configuration.screenHeightDp,

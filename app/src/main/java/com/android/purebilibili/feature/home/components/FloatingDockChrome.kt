@@ -378,6 +378,37 @@ private fun rememberFloatingDockBackdropEffects(
     }
 }
 
+/** One optical recipe for the home indicator and every compact/vertical reuse. */
+internal fun homeIndicatorOpticalScale(restHeightDp: Float): Float =
+    (restHeightDp / com.android.purebilibili.core.ui.BottomBarReferenceIndicatorHeightDp).coerceIn(0f, 1f)
+
+internal fun BackdropEffectScope.homeIndicatorLens(
+    restHeightDp: Float,
+    progress: Float,
+    tuning: LiquidGlassTuning,
+) {
+    val reach = homeIndicatorOpticalScale(restHeightDp) * progress.coerceIn(0f, 1f)
+    lens(
+        refractionHeight = 10.dp.toPx() * reach * tuning.indicatorLensBoost * tuning.contentDistortionScale,
+        refractionAmount = 14.dp.toPx() * reach * tuning.indicatorEdgeWarpBoost * tuning.contentDistortionScale,
+        depthEffect = true,
+        chromaticAberration = resolveLiquidGlassIndicatorChromaticAberration(tuning),
+    )
+}
+
+internal fun DrawScope.drawHomeIndicatorSurface(
+    progress: Float,
+    darkTheme: Boolean,
+    idleColor: Color? = null,
+) {
+    val pressed = progress.coerceIn(0f, 1f)
+    drawRect(
+        color = idleColor ?: if (darkTheme) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.1f),
+        alpha = 1f - pressed,
+    )
+    drawRect(Color.Black.copy(alpha = 0.03f * pressed))
+}
+
 /**
  * Moving liquid indicator — BiliPai FloatingBottomBar indicator box:
  * combined backdrop + tuning-driven lens + velocity stretch + innerShadow.
@@ -418,19 +449,7 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
                             shape = { shape },
                             effects = {
                                 val progress = pressProgress
-                                lens(
-                                    refractionHeight = 10.dp.toPx() * progress *
-                                        liquidGlassTuning.indicatorLensBoost *
-                                        liquidGlassTuning.contentDistortionScale,
-                                    refractionAmount = 14.dp.toPx() * progress *
-                                        liquidGlassTuning.indicatorEdgeWarpBoost *
-                                        liquidGlassTuning.contentDistortionScale,
-                                    depthEffect = true,
-                                    chromaticAberration =
-                                        resolveLiquidGlassIndicatorChromaticAberration(
-                                            liquidGlassTuning
-                                        ),
-                                )
+                                homeIndicatorLens(height.value, progress, liquidGlassTuning)
                             },
                             highlight = { pillHighlight.value.copy(alpha = pressProgress) },
                             layerBlock = {
@@ -440,21 +459,12 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
                                 this.scaleX /= 1f - (abs(v) * 0.75f).fastCoerceIn(0f, 0.2f)
                             },
                             onDrawSurface = {
-                                val progress = pressProgress
-                                drawRect(
-                                    color = if (!isDark) {
-                                        Color.Black.copy(alpha = 0.1f)
-                                    } else {
-                                        Color.White.copy(alpha = 0.1f)
-                                    },
-                                    alpha = 1f - progress,
-                                )
-                                drawRect(Color.Black.copy(alpha = 0.03f * progress))
+                                drawHomeIndicatorSurface(pressProgress, isDark)
                             },
                         )
                         .innerShadow(shape = shape) {
                             InnerShadow(
-                                radius = 8.dp * pressProgress,
+                                radius = 8.dp * homeIndicatorOpticalScale(height.value) * pressProgress,
                                 color = Color.Black.copy(alpha = 0.15f),
                                 alpha = pressProgress,
                             )

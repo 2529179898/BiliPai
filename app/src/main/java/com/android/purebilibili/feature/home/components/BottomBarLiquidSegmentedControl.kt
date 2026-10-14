@@ -557,7 +557,7 @@ internal fun AndroidNativeUnderlinedSegmentedControl(
     val safeSelectedIndex = selectedIndex.coerceIn(0, itemCount - 1)
     val selectedTextColor = selectedTextColorOverride ?: AppContentColors.accent()
     val unselectedTextColor = unselectedTextColorOverride
-        ?: AppContentColors.primaryText().copy(alpha = if (enabled) 0.78f else 0.42f)
+        ?: resolveLiquidSegmentedControlUnselectedTextColor(AppContentColors.primaryText(), enabled)
     val underlineShape = CircleShape
     val density = LocalDensity.current
     val measuredLabelWidths: SnapshotStateList<Float> = remember(items) {

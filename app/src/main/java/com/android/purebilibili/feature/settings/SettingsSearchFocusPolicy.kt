@@ -48,11 +48,39 @@ data class SettingsSceneDetailFocus(
     val focusId: String
 )
 
+internal fun resolveSettingsItemScrollKey(settingId: String?): String? =
+    settingId?.let { id -> settingsItemDirectory.firstOrNull { it.settingId == id }?.sectionKey }
+
+internal object SettingsSearchHighlightTiming {
+    const val HOLD_MILLIS = 1_600L
+    const val FADE_MILLIS = 280
+    const val UNCLAIMED_TIMEOUT_MILLIS = 5_000L
+}
+
+/** One timeout per page request; a row that is already locating owns its completion. */
+internal suspend fun clearUnclaimedSettingsFocusRequest(token: Long) {
+    kotlinx.coroutines.delay(SettingsSearchHighlightTiming.UNCLAIMED_TIMEOUT_MILLIS)
+    SettingsSearchFocusController.clearIfUnclaimed(token)
+}
+
 object SettingsSearchFocusController {
     private val _request = MutableStateFlow<SettingsSearchFocusRequest?>(null)
     val request = _request.asStateFlow()
 
+    private var claimedToken: Long? = null
+
+    internal fun claim(token: Long): Boolean {
+        if (_request.value?.token != token) return false
+        claimedToken = token
+        return true
+    }
+
+    internal fun clearIfUnclaimed(token: Long) {
+        if (claimedToken != token) clear(token)
+    }
+
     fun submit(target: SettingsSearchTarget, focusId: String?, settingId: String? = null, query: String = "") {
+        claimedToken = null
         if (focusId.isNullOrBlank()) {
             _request.value = null
             return
@@ -63,6 +91,7 @@ object SettingsSearchFocusController {
     fun clear(token: Long? = null) {
         val current = _request.value ?: return
         if (token == null || current.token == token) {
+            claimedToken = null
             _request.value = null
         }
     }
