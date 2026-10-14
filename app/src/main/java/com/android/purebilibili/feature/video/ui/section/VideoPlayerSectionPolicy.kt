@@ -1425,7 +1425,9 @@ internal fun resolveVideoPlayerEntryPresentationSpec(
         fillCoverViewport = fillCoverViewport,
         showManualStartPlayButton = shouldKeepCoverForManualStart,
         enableManualStartCoverOverlay = shouldKeepCoverForManualStart,
-        coverContentScaleMode = if (fillCoverViewport && isVerticalVideo) {
+        coverContentScaleMode = if ((!isVerticalVideo && !forceCoverDuringReturnAnimation) ||
+            (fillCoverViewport && isVerticalVideo)
+        ) {
             VideoPlayerCoverContentScaleMode.Fit
         } else {
             VideoPlayerCoverContentScaleMode.Crop

@@ -394,3 +394,51 @@ private fun LandscapeDanmakuComposerContent(
         )
     }
 }
+
+@Composable
+fun LandscapeDanmakuComposerForPlayer(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    onSend: (message: String, color: Int, mode: Int, fontSize: Int, attentionCommand: Boolean) -> Unit,
+    isSending: Boolean,
+    initialColor: Int,
+    initialMode: Int,
+    initialFontSize: Int,
+    initialText: String,
+    initialAttentionCommand: Boolean,
+    onDraftChange: (String, Boolean) -> Unit,
+    onSelectionChange: (color: Int, mode: Int, fontSize: Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+        LandscapeDanmakuComposer(
+            visible = visible,
+            onDismiss = onDismiss,
+            onSend = onSend,
+            isSending = isSending,
+            initialColor = initialColor,
+            initialMode = initialMode,
+            initialFontSize = initialFontSize,
+            initialText = initialText,
+            initialAttentionCommand = initialAttentionCommand,
+            onDraftChange = onDraftChange,
+            onSelectionChange = onSelectionChange,
+            modifier = modifier,
+        )
+    } else {
+        PlainLandscapeDanmakuComposer(
+            visible = visible,
+            onDismiss = onDismiss,
+            onSend = onSend,
+            isSending = isSending,
+            initialColor = initialColor,
+            initialMode = initialMode,
+            initialFontSize = initialFontSize,
+            initialText = initialText,
+            initialAttentionCommand = initialAttentionCommand,
+            onDraftChange = onDraftChange,
+            onSelectionChange = onSelectionChange,
+            modifier = modifier,
+        )
+    }
+}

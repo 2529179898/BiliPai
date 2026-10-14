@@ -3,6 +3,8 @@ package com.android.purebilibili.feature.video.screen
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Offset
 import com.android.purebilibili.core.ui.transition.VideoCardSourceLayout
+import com.android.purebilibili.core.ui.transition.VideoCardTransitionBackgroundPhase
+import com.android.purebilibili.core.ui.transition.resolveVideoDetailMediaLayoutHandoffProgress
 import java.io.File
 import kotlin.math.roundToInt
 import kotlin.test.Test
@@ -11,6 +13,47 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class VideoDetailReturnMediaLayoutTest {
+    @Test
+    fun sixteenByTenSourceCoverHasTheSameOpeningReturnAndIdleEndpoint() {
+        val layout = resolveVideoDetailReturnSourceCardLayout(
+            viewportWidthPx = 1080f,
+            sourceBounds = Rect(20f, 100f, 520f, 660f),
+            sourceCoverBounds = Rect(20f, 100f, 520f, 412.5f),
+            sourceInfoBounds = Rect(20f, 412.5f, 520f, 660f),
+            sourceLayout = VideoCardSourceLayout.STACKED,
+        )
+        val inverse = com.android.purebilibili.navigation3.predictiveback
+            .resolveMiuixVideoCardInverseScaleForDepth(
+                sourceScaleX = 500f / 1080f,
+                sourceScaleY = 560f / 2400f,
+                depth = 0f,
+            )
+        for (phase in listOf(
+            VideoCardTransitionBackgroundPhase.OPENING,
+            VideoCardTransitionBackgroundPhase.RETURNING,
+            VideoCardTransitionBackgroundPhase.IDLE,
+        )) {
+            val handoff = resolveVideoDetailMediaLayoutHandoffProgress(
+                morphDepthProgress = 0f,
+                phase = phase,
+                isReturnGestureInProgress = false,
+                sourceLayout = VideoCardSourceLayout.STACKED,
+                isCommittedCardReturn = phase != VideoCardTransitionBackgroundPhase.OPENING,
+            )
+            val frame = resolveVideoDetailReturnMediaLayoutFrame(
+                containerWidthPx = 1080,
+                containerHeightPx = 608,
+                landingLayout = layout,
+                handoffProgress = handoff,
+                inverseScaleX = inverse.scaleX,
+                inverseScaleY = inverse.scaleY,
+            )
+            assertEquals(675, frame.heightPx)
+            assertEquals(312.5f, frame.heightPx * layout.sourceScale, 0.001f)
+            assertEquals(frame.heightPx, resolveVideoDetailStackedInfoTopPx(layout, inverse.scaleY, frame))
+        }
+    }
+
     @Test
     fun stackedInfoFollowsMediaEdgeBeforeLandingWithTheOriginalGap() {
         val layout = resolveVideoDetailReturnSourceCardLayout(

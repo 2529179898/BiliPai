@@ -88,12 +88,16 @@ internal fun PlayerControlGlassDock(
     enabled: Boolean,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(50),
+    followDrag: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val glass = enabled && LocalAppThemeConfig.current.liquidGlassEnabled
     val tuning = LocalLiquidGlassRenderConfig.current.tuning
     val feedbackEnabled = enabled && LocalComponentMotionEnabled.current && LocalElasticPressEnabled.current
-    val elastic = rememberAppElasticPressState(feedbackStrength = if (shape == CircleShape) 1f else 0.6f)
+    val elastic = rememberAppElasticPressState(
+        feedbackStrength = if (shape == CircleShape) 1f else 0.6f,
+        dragFollowFraction = if (followDrag) 0.35f else null,
+    )
     val ownsDrag = remember { mutableStateOf(false) }
     val providedBackdrop = LocalPlayerControlBackdrop.current
     Box(

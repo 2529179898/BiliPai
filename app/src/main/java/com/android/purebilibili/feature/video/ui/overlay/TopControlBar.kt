@@ -29,6 +29,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -183,7 +186,7 @@ fun TopControlBar(
     showCastButton: Boolean = true,
     onMoreClick: () -> Unit = {},
     isLoggedIn: Boolean = true,
-    onDanmakuInputClick: (() -> Unit)? = null,
+    onDanmakuSettingsClick: (() -> Unit)? = null,
     backButtonStartPaddingDp: Int? = null,
     actionEndPaddingDp: Int? = null,
     modifier: Modifier = Modifier
@@ -297,7 +300,7 @@ fun TopControlBar(
                             displayCutoutInsets.getRight(this, layoutDirection) -
                             layoutPolicy.horizontalPaddingDp.dp.roundToPx()).coerceAtLeast(0)
                     } else 0
-                    val videoInset = if (isFullscreen && onDanmakuInputClick == null && bounds != null && origin != null && constraints.hasBoundedWidth) {
+                    val videoInset = if (isFullscreen && onDanmakuSettingsClick == null && bounds != null && origin != null && constraints.hasBoundedWidth) {
                         resolveTopActionsVideoInsetPx(
                             rowLeftPx = origin.x,
                             rowWidthPx = constraints.maxWidth,
@@ -374,16 +377,16 @@ fun TopControlBar(
             PlayerControlGlassDock(
                 enabled = isFullscreen,
                 modifier = (if (isFullscreen) Modifier.layout { measurable, constraints ->
-                    // Reserve both left circles and the trailing send button before measuring actions.
-                    val sendButtonWidthDp = if (onDanmakuInputClick != null) {
+                    // Reserve both left circles and the trailing danmaku settings button before measuring actions.
+                    val settingsButtonWidthDp = if (onDanmakuSettingsClick != null) {
                         layoutPolicy.buttonSizeDp + PlayerChromeLayout.ActionGapDp
                     } else 0
-                    val reservedWidth = (layoutPolicy.buttonSizeDp * 2 + sendButtonWidthDp +
+                    val reservedWidth = (layoutPolicy.buttonSizeDp * 2 + settingsButtonWidthDp +
                         layoutPolicy.backToTitleSpacingDp + layoutPolicy.sectionGapDp).dp.roundToPx()
                     val actionWidth = (constraints.maxWidth - reservedWidth).coerceAtLeast(0)
                     val placeable = measurable.measure(constraints.copy(minWidth = 0, maxWidth = actionWidth))
                     layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
-                } else Modifier).then(if (isFullscreen && onDanmakuInputClick != null) {
+                } else Modifier).then(if (isFullscreen && onDanmakuSettingsClick != null) {
                     Modifier.widthIn(max = (configuration.screenWidthDp * 0.38f).dp)
                 } else Modifier),
             ) {
@@ -475,17 +478,19 @@ fun TopControlBar(
                     }
                 }
             }
-            if (isFullscreen && onDanmakuInputClick != null) {
+            if (isFullscreen && onDanmakuSettingsClick != null) {
                 Spacer(modifier = Modifier.width(PlayerChromeLayout.ActionGapDp.dp))
                 PlayerControlGlassDock(
                     enabled = isFullscreen,
                     shape = androidx.compose.foundation.shape.CircleShape,
                 ) {
                     AppIconButton(
-                        onClick = onDanmakuInputClick,
-                        modifier = Modifier.size(layoutPolicy.buttonSizeDp.dp),
+                        onClick = onDanmakuSettingsClick,
+                        modifier = Modifier.size(layoutPolicy.buttonSizeDp.dp)
+                            .testTag("player_top_danmaku_settings")
+                            .semantics { contentDescription = "弹幕设置" },
                     ) {
-                        com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSendIcon(
+                        com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSettingsIcon(
                             size = layoutPolicy.iconSizeDp.dp,
                             tint = Color.White,
                         )

@@ -1925,7 +1925,8 @@ private fun VideoPlayerSectionContent(
 
     var rootModifier = Modifier
         .fillMaxSize()
-        .clipToBounds()
+        // Inline control docks may draw beyond the player viewport while being dragged.
+        .then(if (isFullscreen) Modifier.clipToBounds() else Modifier)
         .background(Color.Black)
         .hazeSourceCompat(overlayDrawerHazeState)
     val inputDevicePolicy = com.android.purebilibili.core.ui.adaptive.resolveInputDevicePolicy(
@@ -3749,6 +3750,7 @@ private fun VideoPlayerSectionContent(
             val playerVideoSize = playerState.player.videoSize
             BoxWithConstraints(
                 modifier = playerContentModifier
+                    .clipToBounds()
                     .then(if (capturePlayerPage) playerPageBackdrop.video.modifier else Modifier)
                     .background(Color.Black),
                 contentAlignment = Alignment.Center
@@ -4358,7 +4360,9 @@ private fun VideoPlayerSectionContent(
             modifier = playerContentModifier
                 .then(if (capturePlayerPage) playerPageBackdrop.cover.modifier else Modifier),
         ) {
-            val coverContainerModifier = if (fillPlayerViewportForManualStartCover) {
+            val coverContainerModifier = if (fillPlayerViewportForManualStartCover ||
+                (!isVerticalVideo && !isFullscreen && !forceCoverDuringReturnAnimation)
+            ) {
                 sharedCoverOverlayModifier
                     .matchParentSize()
                     .background(Color.Black)

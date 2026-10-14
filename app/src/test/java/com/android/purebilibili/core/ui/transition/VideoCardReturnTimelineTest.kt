@@ -8,6 +8,63 @@ import kotlin.test.assertTrue
 
 class VideoCardReturnTimelineTest {
     @Test
+    fun stackedOpeningStartsAtTheMeasuredCoverAndReleasesWithSourceChrome() {
+        for (depth in listOf(0f, 0.1f, 0.3f, 0.5f, 0.72f, 1f)) {
+            val expected = 1f - resolveVideoCardDetailChromeAlpha(
+                depth, VideoCardTransitionBackgroundPhase.OPENING, false,
+            )
+            assertEquals(expected, resolveVideoDetailMediaLayoutHandoffProgress(
+                morphDepthProgress = depth,
+                phase = VideoCardTransitionBackgroundPhase.OPENING,
+                isReturnGestureInProgress = false,
+                sourceLayout = VideoCardSourceLayout.STACKED,
+            ), 0.0001f)
+        }
+    }
+
+    @Test
+    fun heldPredictiveSeekCannotRevealSourceChromeOnADetailSizedCover() {
+        for (depth in listOf(0f, 0.02f, 0.1f, 0.17f)) {
+            val alpha = 1f - resolveVideoCardDetailChromeAlpha(
+                depth, VideoCardTransitionBackgroundPhase.HELD, false,
+            )
+            assertTrue(alpha > 0f)
+            assertEquals(1f, resolveVideoDetailMediaLayoutHandoffProgress(
+                morphDepthProgress = depth,
+                phase = VideoCardTransitionBackgroundPhase.HELD,
+                isReturnGestureInProgress = false,
+                sourceLayout = VideoCardSourceLayout.STACKED,
+                sourceChromeAlpha = alpha,
+            ))
+        }
+        // Ordinary playback and cancelled back must retain the detail viewport.
+        for (depth in listOf(0.5f, 0.99f, 1f)) {
+            assertEquals(0f, resolveVideoDetailMediaLayoutHandoffProgress(
+                morphDepthProgress = depth,
+                phase = VideoCardTransitionBackgroundPhase.HELD,
+                isReturnGestureInProgress = false,
+                sourceLayout = VideoCardSourceLayout.STACKED,
+            ))
+        }
+    }
+
+    @Test
+    fun committedIdleKeepsTheMeasuredCoverUntilTheOutgoingEntryLeaves() {
+        for (committed in listOf(false, true)) {
+            assertEquals(if (committed) 1f else 0f,
+                resolveVideoDetailMediaLayoutHandoffProgress(
+                    morphDepthProgress = 0f,
+                    phase = VideoCardTransitionBackgroundPhase.IDLE,
+                    isReturnGestureInProgress = false,
+                    sourceLayout = VideoCardSourceLayout.STACKED,
+                    sourceChromeAlpha = 0f,
+                    isCommittedCardReturn = committed,
+                ),
+            )
+        }
+    }
+
+    @Test
     fun disabledContentFollowKeepsDetailBodyUntilLandingIncludingGestureRestore() {
         for (gesture in listOf(false, true)) {
             for (depth in listOf(1f, .5f, .1f, .01f, .0001f)) {

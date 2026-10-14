@@ -69,7 +69,7 @@ import com.android.purebilibili.feature.video.ui.components.SpeedSelectionMenuDi
 import com.android.purebilibili.feature.video.ui.components.SpeedSelectionMenuPlacement
 import com.android.purebilibili.feature.video.ui.components.PlayerListPopupPlacement
 import com.android.purebilibili.feature.video.ui.components.DanmakuSettingsPanel
-import com.android.purebilibili.feature.video.ui.components.LandscapeDanmakuComposer
+import com.android.purebilibili.feature.video.ui.components.LandscapeDanmakuComposerForPlayer
 import com.android.purebilibili.feature.video.ui.components.VideoAspectRatio
 import com.android.purebilibili.feature.video.ui.components.AspectRatioMenu
 import com.android.purebilibili.feature.video.ui.components.VideoSettingsPanel
@@ -559,6 +559,7 @@ private fun VideoPlayerOverlayContent(
     val onSponsorContributionMarkBoundary = actions.onSponsorContributionMarkBoundary
     val onSponsorContributionMarkWholeVideo = actions.onSponsorContributionMarkWholeVideo
     val onSponsorContributionCancel = actions.onSponsorContributionCancel
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val danmakuEnabled = state.danmakuEnabled
     val onDanmakuToggle = actions.onDanmakuToggle
     val onDanmakuInputClick = actions.onDanmakuInputClick
@@ -1464,7 +1465,9 @@ private fun VideoPlayerOverlayContent(
                         },
                         onCommentClick = onLandscapeCommentClick,
                         isLoggedIn = isLoggedIn,
-                        onDanmakuInputClick = onDanmakuInputClick,
+                        onDanmakuSettingsClick = if (liquidGlassEnabled) {
+                            { showDanmakuSettings = true }
+                        } else null,
                         onCastClick = onCastClickAction,
                         showCastButton = playerControlVisibility.showCastButton,
                         onMoreClick = {
@@ -1509,7 +1512,7 @@ private fun VideoPlayerOverlayContent(
                     isPlaying = effectiveIsPlaying,
                     progressProvider = progressProvider,
                     isFullscreen = isFullscreen,
-                    danmakuSendInTopBar = isFullscreen,
+                    fullscreenDanmakuActionsInDedicatedDocks = isFullscreen,
                     compactPlayerChrome = playerControlVisibility.compactPlayerChrome,
                     currentSpeed = currentSpeed,
                     currentRatio = currentAspectRatio,
@@ -1610,7 +1613,7 @@ private fun VideoPlayerOverlayContent(
         }
 
         if (isFullscreen && danmakuComposerVisible) {
-            LandscapeDanmakuComposer(
+            LandscapeDanmakuComposerForPlayer(
                 visible = true,
                 onDismiss = onDismissDanmakuComposer,
                 onSend = onSendDanmakuComposer,
@@ -1626,7 +1629,7 @@ private fun VideoPlayerOverlayContent(
         }
 
         CenterPlaybackControl(
-            visible = isVisible &&
+            visible = (!isFullscreen || liquidGlassEnabled) && isVisible &&
                 (pluginPlaybackStatus.first || player.playbackState == Player.STATE_READY || player.playbackState == Player.STATE_ENDED) &&
                 centerLoadingUiState == null &&
                 !isScreenLocked && !isSeekScrubbing && !danmakuComposerVisible &&

@@ -334,11 +334,11 @@ class PortraitDetailPresentationPolicyTest {
     }
 
     @Test
-    fun landscapeDetailPlayerHeight_matchesActualLayoutWidthFor16By9() {
-        // vivo 类窄机：按真实布局宽算 9/16，避免 screenWidthDp 偏差导致左右黑边
-        assertEquals(608, resolveLandscapeDetailPlayerContentHeightPx(layoutWidthPx = 1080))
-        assertEquals(684, resolveLandscapeDetailPlayerContentHeightPx(layoutWidthPx = 1216))
-        assertEquals(1, resolveLandscapeDetailPlayerContentHeightPx(layoutWidthPx = 0))
+    fun phoneDetailPlayerHeight_matchesActualLayoutWidthFor16By10() {
+        // vivo 类窄机：按真实布局宽算 10/16，避免 screenWidthDp 偏差导致左右黑边
+        assertEquals(675, resolvePhoneDetailPlayerContentHeightPx(layoutWidthPx = 1080))
+        assertEquals(760, resolvePhoneDetailPlayerContentHeightPx(layoutWidthPx = 1216))
+        assertEquals(1, resolvePhoneDetailPlayerContentHeightPx(layoutWidthPx = 0))
     }
 
     @Test
@@ -673,23 +673,23 @@ class PortraitDetailPresentationPolicyTest {
     fun continuousPlayerInlineHeight_prefersLayoutWidthWhenExpandedButHonorsCollapse() {
         val layoutWidth = 1080
         val layoutExpanded =
-            resolveLandscapeDetailPlayerContentHeightPx(layoutWidthPx = layoutWidth) + 80
+            resolvePhoneDetailPlayerContentHeightPx(layoutWidthPx = layoutWidth) + 80
         // screenWidthDp 估高：caller 展开高度大于真布局宽 → 取 layout 消黑边
         assertEquals(
             layoutExpanded,
             resolveContinuousPlayerInlineHeightPx(
                 layoutWidthPx = layoutWidth,
-                preferLayoutWidth16x9Inline = true,
+                preferLayoutWidth16x10Inline = true,
                 callerInlineHeightPx = layoutExpanded + 40,
                 inlineTopInsetPx = 80,
             ),
         )
-        // 评论上滑折叠：caller 更小 → 必须跟着缩小，不能卡死在 16:9
+        // 评论上滑折叠：caller 更小 → 必须跟着缩小，不能卡死在 16:10
         assertEquals(
             120,
             resolveContinuousPlayerInlineHeightPx(
                 layoutWidthPx = layoutWidth,
-                preferLayoutWidth16x9Inline = true,
+                preferLayoutWidth16x10Inline = true,
                 callerInlineHeightPx = 120,
                 inlineTopInsetPx = 80,
             ),
@@ -699,7 +699,7 @@ class PortraitDetailPresentationPolicyTest {
             200,
             resolveContinuousPlayerInlineHeightPx(
                 layoutWidthPx = layoutWidth,
-                preferLayoutWidth16x9Inline = false,
+                preferLayoutWidth16x10Inline = false,
                 callerInlineHeightPx = 200,
                 inlineTopInsetPx = 80,
             ),

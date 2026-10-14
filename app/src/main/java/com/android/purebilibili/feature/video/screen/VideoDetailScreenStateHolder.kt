@@ -4918,6 +4918,14 @@ internal fun VideoDetailScreenStateHolder(
                         val returnMediaHandoffProgressProvider: () -> Float = {
                             if (!entryOwnsMiuixCardTransition) {
                                 0f
+                            } else if (isCommittedCardReturn &&
+                                !videoCardDepthBackgroundState.isReturnGestureInProgressProvider() &&
+                                !videoCardDepthBackgroundState.isGestureRestoreInProgressProvider() &&
+                                videoCardDepthBackgroundState.phaseProvider() ==
+                                    VideoCardTransitionBackgroundPhase.IDLE
+                            ) {
+                                // Keep every media path at its source endpoint until the entry leaves.
+                                1f
                             } else {
                                 if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true) {
                                     com.android.purebilibili.core.ui.transition
@@ -4931,7 +4939,7 @@ internal fun VideoDetailScreenStateHolder(
                                         )
                                 } else {
                                     com.android.purebilibili.core.ui.transition
-                                        .resolveVideoDetailReturnMediaLayoutHandoffProgress(
+                                        .resolveVideoDetailMediaLayoutHandoffProgress(
                                             morphDepthProgress = miuixLandingState.progressProvider(),
                                             phase = videoCardDepthBackgroundState.phaseProvider(),
                                             isReturnGestureInProgress =
@@ -4942,9 +4950,13 @@ internal fun VideoDetailScreenStateHolder(
                                             sourceLayout = landingLayoutForMedia?.layout
                                                 ?: miuixLandingState.sourceLayout,
                                             sourceChromeAlpha = flyingSourceChromeAlphaProvider(),
+                                            isCommittedCardReturn = isCommittedCardReturn,
                                         )
                                 }
                             }
+                        }
+                        val residentCoverContentScale = remember(returnMediaHandoffProgressProvider) {
+                            VideoDetailCoverContentScale(returnMediaHandoffProgressProvider)
                         }
                         val nowPlayingMediaAlphaProvider: () -> Float = {
                             if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar != true) {
@@ -5018,8 +5030,8 @@ internal fun VideoDetailScreenStateHolder(
                                     inlineHeight = inlinePlayerHeight,
                                     fullscreenHeight = fullscreenPlayerHeight,
                                     enabled = continuousFullscreenTransitionEnabled,
-                                    // 横屏 16:9：按真实布局宽度算高度，消除 vivo 等机型左右黑边。
-                                    preferLayoutWidth16x9Inline = !useOfficialInlinePortraitDetailExperience &&
+                                    // 竖屏详情 16:10：按真实布局宽度算高度，与静止封面共用容器。
+                                    preferLayoutWidth16x10Inline = !useOfficialInlinePortraitDetailExperience &&
                                         !suppressPhoneDetailBodyForDirectPortrait,
                                     inlineTopInset = if (!useOfficialInlinePortraitDetailExperience) {
                                         playerTopInset
@@ -5134,8 +5146,15 @@ internal fun VideoDetailScreenStateHolder(
                                         .zIndex(1f)
                                         .graphicsLayer {
                                             alpha = returnMediaFrameProvider().coverAlpha * nowPlayingMediaAlphaProvider()
-                                        },
-                                    contentScale = ContentScale.Crop
+                                        }
+                                        // Keep letterboxing inside the cover alpha layer. An outer background
+                                        // would remain opaque after the image yields to the playback surface.
+                                        .background(Color.Black),
+                                    contentScale = if (isVerticalVideo) {
+                                        ContentScale.Crop
+                                    } else {
+                                        residentCoverContentScale
+                                    }
                                 )
                             }
                             var collapsedPlayerMoreRequestKey by remember(currentBvid) {

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -11,6 +12,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.android.purebilibili.core.ui.AppThemeConfig
+import com.android.purebilibili.core.ui.LocalAppThemeConfig
 import com.android.purebilibili.core.store.PlayerProgressPlacement
 import com.android.purebilibili.feature.video.ui.overlay.BottomControlBar
 import com.android.purebilibili.feature.video.ui.overlay.PlayerProgress
@@ -25,6 +28,73 @@ class PlayerControlsUiRegressionTest {
 
     @get:Rule
     val composeTestRule = createComposeRule()
+
+    @Test
+    fun fullscreenGlassSwitch_routesBottomActionsAndPreservesPortraitControls() {
+        val glass = mutableStateOf(false)
+        val fullscreen = mutableStateOf(true)
+        var sends = 0
+        var settings = 0
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalAppThemeConfig provides AppThemeConfig(liquidGlassEnabled = glass.value)) {
+                MaterialTheme {
+                    BottomControlBar(
+                        isPlaying = false,
+                        isFullscreen = fullscreen.value,
+                        viewportWidthDpOverride = 960,
+                        fullscreenDanmakuActionsInDedicatedDocks = fullscreen.value,
+                        onPlayPauseClick = {},
+                        onSeek = {},
+                        onToggleFullscreen = {},
+                        onDanmakuInputClick = { sends++ },
+                        onDanmakuSettingsClick = { settings++ },
+                    )
+                }
+            }
+        }
+        composeTestRule.onNodeWithTag("player_play_pause").assertExists()
+        composeTestRule.onNodeWithTag("player_danmaku_settings").performClick()
+        composeTestRule.onNodeWithTag("player_danmaku_send").performClick()
+        composeTestRule.runOnIdle {
+            assertTrue(sends == 1 && settings == 1)
+            glass.value = true
+        }
+        composeTestRule.onNodeWithTag("player_play_pause").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("player_danmaku_settings").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("player_danmaku_send").performClick()
+        composeTestRule.runOnIdle {
+            assertTrue(sends == 2 && settings == 1)
+            fullscreen.value = false
+        }
+        composeTestRule.onNodeWithTag("player_play_pause").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("player_danmaku_settings").performClick()
+        composeTestRule.runOnIdle { glass.value = false }
+        composeTestRule.onNodeWithTag("player_play_pause").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("player_danmaku_settings").performClick()
+        composeTestRule.runOnIdle { assertTrue(sends == 2 && settings == 3) }
+    }
+
+    @Test
+    fun glassFullscreenTopDanmakuAction_opensSettings() {
+        var settings = 0
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalAppThemeConfig provides AppThemeConfig(liquidGlassEnabled = true)) {
+                MaterialTheme {
+                    TopControlBar(
+                        title = "测试视频",
+                        isFullscreen = true,
+                        likeStatusKnown = false,
+                        showCurrentTime = false,
+                        showInteractiveActions = false,
+                        onBack = {},
+                        onDanmakuSettingsClick = { settings++ },
+                    )
+                }
+            }
+        }
+        composeTestRule.onNodeWithTag("player_top_danmaku_settings").performClick()
+        composeTestRule.runOnIdle { assertTrue(settings == 1) }
+    }
 
     @Test
     fun castButton_respectsVisibilitySetting() {
