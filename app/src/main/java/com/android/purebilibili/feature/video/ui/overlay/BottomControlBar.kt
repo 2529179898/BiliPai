@@ -858,7 +858,7 @@ fun BottomControlBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (plainLandscapeControls) {
-                PlayerControlGlassDock(enabled = true, followDrag = !isFullscreen, shape = CircleShape) {
+                PlayerControlGlassDock(enabled = true, shape = CircleShape) {
                     AppIconButton(
                         onClick = onPlayPauseClick,
                         modifier = Modifier
@@ -888,7 +888,6 @@ fun BottomControlBar(
                 ) {
                     PlayerControlGlassDock(
                         enabled = true,
-                        followDrag = !isFullscreen,
                         modifier = Modifier.then(
                             when {
                                 isFullscreen -> Modifier.height(48.dp)
@@ -985,7 +984,6 @@ fun BottomControlBar(
                     // Right: Function Buttons
                     PlayerControlGlassDock(
                         enabled = true,
-                        followDrag = !isFullscreen,
                         modifier = if (isFullscreen) Modifier.height(48.dp) else Modifier,
                     ) {
                         PlainLandscapeDockActionRow(
@@ -1300,7 +1298,6 @@ fun BottomControlBar(
                     )
                     PlayerControlGlassDock(
                         enabled = true,
-                        followDrag = !isFullscreen,
                         modifier = when {
                             isFullscreen -> Modifier.height(48.dp)
                             inlineTimeGlassDock -> Modifier.heightIn(min = 40.dp)
@@ -1465,7 +1462,6 @@ fun BottomControlBar(
                     // Right: Function Buttons
                     PlayerControlGlassDock(
                         enabled = true,
-                        followDrag = !isFullscreen,
                         modifier = if (isFullscreen) Modifier
                             .then(
                                 if (fullscreenDanmakuActionsInDedicatedDocks) Modifier.weight(1f)
@@ -1794,7 +1790,7 @@ fun BottomControlBar(
             }
             Spacer(modifier = Modifier.width(if (isFullscreen) 8.dp else layoutPolicy.rightActionSpacingDp.dp))
             // Fullscreen
-            PlayerControlGlassDock(enabled = true, followDrag = !isFullscreen, shape = androidx.compose.foundation.shape.CircleShape) {
+            PlayerControlGlassDock(enabled = true, shape = androidx.compose.foundation.shape.CircleShape) {
                 Box(
                     modifier = Modifier
                         .size(fullscreenToggleTouchTargetDp.dp)
