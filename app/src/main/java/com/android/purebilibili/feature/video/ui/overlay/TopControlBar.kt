@@ -183,7 +183,6 @@ fun TopControlBar(
     showCastButton: Boolean = true,
     onMoreClick: () -> Unit = {},
     isLoggedIn: Boolean = true,
-    onDanmakuInputClick: (() -> Unit)? = null,
     backButtonStartPaddingDp: Int? = null,
     actionEndPaddingDp: Int? = null,
     modifier: Modifier = Modifier
@@ -297,7 +296,7 @@ fun TopControlBar(
                             displayCutoutInsets.getRight(this, layoutDirection) -
                             layoutPolicy.horizontalPaddingDp.dp.roundToPx()).coerceAtLeast(0)
                     } else 0
-                    val videoInset = if (isFullscreen && onDanmakuInputClick == null && bounds != null && origin != null && constraints.hasBoundedWidth) {
+                    val videoInset = if (isFullscreen && bounds != null && origin != null && constraints.hasBoundedWidth) {
                         resolveTopActionsVideoInsetPx(
                             rowLeftPx = origin.x,
                             rowWidthPx = constraints.maxWidth,
@@ -374,17 +373,12 @@ fun TopControlBar(
             PlayerControlGlassDock(
                 enabled = isFullscreen,
                 modifier = (if (isFullscreen) Modifier.layout { measurable, constraints ->
-                    // Reserve both left circles and the trailing send button before measuring actions.
-                    val sendButtonWidthDp = if (onDanmakuInputClick != null) {
-                        layoutPolicy.buttonSizeDp + PlayerChromeLayout.ActionGapDp
-                    } else 0
-                    val reservedWidth = (layoutPolicy.buttonSizeDp * 2 + sendButtonWidthDp +
+                    // Reserve the back button and minimum title dock before measuring actions.
+                    val reservedWidth = (layoutPolicy.buttonSizeDp * 2 +
                         layoutPolicy.backToTitleSpacingDp + layoutPolicy.sectionGapDp).dp.roundToPx()
                     val actionWidth = (constraints.maxWidth - reservedWidth).coerceAtLeast(0)
                     val placeable = measurable.measure(constraints.copy(minWidth = 0, maxWidth = actionWidth))
                     layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
-                } else Modifier).then(if (isFullscreen && onDanmakuInputClick != null) {
-                    Modifier.widthIn(max = (configuration.screenWidthDp * 0.38f).dp)
                 } else Modifier),
             ) {
                 Row(
@@ -471,23 +465,6 @@ fun TopControlBar(
                             contentDescription = "更多",
                             tint = Color.White,
                             modifier = Modifier.size(layoutPolicy.iconSizeDp.dp)
-                        )
-                    }
-                }
-            }
-            if (isFullscreen && onDanmakuInputClick != null) {
-                Spacer(modifier = Modifier.width(PlayerChromeLayout.ActionGapDp.dp))
-                PlayerControlGlassDock(
-                    enabled = isFullscreen,
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                ) {
-                    AppIconButton(
-                        onClick = onDanmakuInputClick,
-                        modifier = Modifier.size(layoutPolicy.buttonSizeDp.dp),
-                    ) {
-                        com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSendIcon(
-                            size = layoutPolicy.iconSizeDp.dp,
-                            tint = Color.White,
                         )
                     }
                 }

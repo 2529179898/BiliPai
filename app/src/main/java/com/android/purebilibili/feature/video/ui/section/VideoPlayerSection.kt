@@ -4651,8 +4651,7 @@ private fun VideoPlayerSectionContent(
                 )
                 val commandControlsReservePx = with(density) {
                     (maxOf(
-                        commandControlsLayout.playButtonSizeDp,
-                        commandControlsLayout.danmakuInputHeightDp,
+                        if (isFullscreen) com.android.purebilibili.feature.video.ui.overlay.PlayerChromeLayout.CircularButtonSizeDp else commandControlsLayout.playButtonSizeDp,
                         com.android.purebilibili.feature.video.ui.overlay.resolveFullscreenToggleTouchTargetDp(
                             commandControlsLayout.fullscreenIconSizeDp
                         ),
