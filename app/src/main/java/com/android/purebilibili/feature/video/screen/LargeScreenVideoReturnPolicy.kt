@@ -3,6 +3,8 @@ package com.android.purebilibili.feature.video.screen
 import com.android.purebilibili.core.ui.transition.VideoCardSourceLayout
 import com.android.purebilibili.core.ui.transition.VideoCardTransitionBackgroundPhase
 import com.android.purebilibili.core.ui.transition.resolveVideoDetailReturnMediaLayoutHandoffProgress
+import com.android.purebilibili.core.ui.transition.resolveVideoCardDetailChromeAlpha
+import com.android.purebilibili.core.ui.transition.resolveNowPlayingBarMediaLayoutHandoff
 import kotlin.math.roundToInt
 
 internal fun resolveLargeScreenSidePanelRevealWidthPx(
@@ -22,15 +24,28 @@ internal fun resolveLargeScreenVideoReturnMediaProgress(
     isCommittedReturn: Boolean,
     depth: Float,
     sourceLayout: VideoCardSourceLayout,
+    sourceChromeAlpha: Float? = null,
+    isNowPlayingBar: Boolean = false,
 ): Float {
     if (!hasLandingGeometry) return 0f
     if (isCommittedReturn && phase == VideoCardTransitionBackgroundPhase.IDLE) return 1f
+    // Opening and returning share the same source endpoint. Leaving the player at its
+    // detail size during opening exposes a wide black strip inside the flying row.
+    if (phase == VideoCardTransitionBackgroundPhase.OPENING) {
+        return sourceChromeAlpha ?: (1f - resolveVideoCardDetailChromeAlpha(
+            morphDepthProgress = depth,
+            phase = phase,
+            isReturnGestureInProgress = false,
+        ))
+    }
     if (!isReturning && phase != VideoCardTransitionBackgroundPhase.RETURNING) return 0f
+    if (isNowPlayingBar) return resolveNowPlayingBarMediaLayoutHandoff(depth)
     return resolveVideoDetailReturnMediaLayoutHandoffProgress(
         morphDepthProgress = depth,
         phase = phase,
         isReturnGestureInProgress = isReturning,
         sourceLayout = sourceLayout,
+        sourceChromeAlpha = sourceChromeAlpha,
     )
 }
 

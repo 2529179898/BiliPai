@@ -393,7 +393,13 @@ internal fun TabletVideoLayout(
                         playerModifier = playerContainerModifier
                             .width(playerWidth)
                             .height(videoHeight)
-                            .background(MaterialTheme.colorScheme.scrim)
+                            .then(
+                                // The transition host owns the moving media backing. A fixed
+                                // black slot here remains visible after the player shrinks.
+                                if (playerContent == null) {
+                                    Modifier.background(MaterialTheme.colorScheme.scrim)
+                                } else Modifier
+                            )
                     ) {
                         if (playerContent != null) {
                             playerContent(Modifier.fillMaxSize())

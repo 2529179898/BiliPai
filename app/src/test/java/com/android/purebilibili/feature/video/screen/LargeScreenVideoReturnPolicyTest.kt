@@ -16,8 +16,37 @@ class LargeScreenVideoReturnPolicyTest {
     }
 
     @Test
-    fun openingNeverShrinksTheSplitPlayerIntoTheSourceRow() {
-        assertEquals(0f, progress(VideoCardTransitionBackgroundPhase.OPENING, depth = 0.1f))
+    fun openingStartsAtSourceAndReleasesIntoDetailViewport() {
+        assertEquals(1f, progress(VideoCardTransitionBackgroundPhase.OPENING, depth = 0f))
+        assertEquals(0f, progress(VideoCardTransitionBackgroundPhase.OPENING, depth = 1f))
+    }
+
+    @Test
+    fun horizontalMediaUsesTheSameHandoffAsSourceInformation() {
+        assertEquals(0.4f, resolveLargeScreenVideoReturnMediaProgress(
+            hasLandingGeometry = true,
+            phase = VideoCardTransitionBackgroundPhase.RETURNING,
+            isReturning = true,
+            isCommittedReturn = false,
+            depth = 0.5f,
+            sourceLayout = VideoCardSourceLayout.SIDE_BY_SIDE,
+            sourceChromeAlpha = 0.4f,
+        ))
+    }
+
+    @Test
+    fun compactBarReachesItsGeometryBeforeTextAndControlsAppear() {
+        val mediaProgress = resolveLargeScreenVideoReturnMediaProgress(
+            hasLandingGeometry = true,
+            phase = VideoCardTransitionBackgroundPhase.RETURNING,
+            isReturning = true,
+            isCommittedReturn = true,
+            depth = 0.18f,
+            sourceLayout = VideoCardSourceLayout.SIDE_BY_SIDE,
+            sourceChromeAlpha = 0f,
+            isNowPlayingBar = true,
+        )
+        assertEquals(1f, mediaProgress, 0.0001f)
     }
 
     @Test

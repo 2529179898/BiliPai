@@ -4028,7 +4028,7 @@ internal fun VideoDetailScreenStateHolder(
                         continuousPlayerContent, continuousPlayerUnitState,
                         largeScreenGeometry, largeScreenTransition, videoCardDepthBackgroundState,
                         entryOwnsMiuixCardTransition, isCommittedCardReturn, residentCoverSource,
-                        uiState is VideoPlaybackUiState.Loading,
+                        uiState is VideoPlaybackUiState.Loading, hasRenderedFirstFrameForReturn,
                     ) {
                         { playerModifier ->
                             LargeScreenVideoPlayerTransitionHost(
@@ -4043,6 +4043,10 @@ internal fun VideoDetailScreenStateHolder(
                                 },
                                 isCommittedReturn = isCommittedCardReturn,
                                 coverSource = residentCoverSource,
+                                hasRenderedFirstFrame = hasRenderedFirstFrameForReturn,
+                                detailContentLoading = uiState is VideoPlaybackUiState.Loading,
+                                followProgressEnabledProvider = videoCardDepthBackgroundState
+                                    .returnContentFollowProgressEnabledProvider,
                                 modifier = playerModifier,
                             ) { viewportWidth ->
                                 continuousPlayerContent(
@@ -5536,7 +5540,7 @@ internal fun VideoDetailScreenStateHolder(
                     ) {
                         VideoDetailReturnSourceCardChrome(
                             info = sourceCardInfo,
-                            horizontalMediaHandoffEnabled = !useTabletLayout,
+                            horizontalMediaHandoffEnabled = true,
                             sourceChromeSnapshot = miuixCardTransitionState.sourceChromeSnapshot,
                             detailContentLoading = uiState is VideoPlaybackUiState.Loading,
                             sourceLayout = miuixCardTransitionState.sourceLayout,
