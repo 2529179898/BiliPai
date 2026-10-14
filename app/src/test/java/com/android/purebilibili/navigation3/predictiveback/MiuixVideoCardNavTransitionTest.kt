@@ -2,6 +2,7 @@ package com.android.purebilibili.navigation3.predictiveback
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.Color
 import top.yukonga.miuix.kmp.nav.transition.NavTransitions
 import com.android.purebilibili.navigation3.resolveRelatedReturnSourceRestoreDecision
 import com.android.purebilibili.core.ui.transition.VideoCardTransitionExposure
@@ -27,6 +28,28 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 
 class MiuixVideoCardNavTransitionTest {
+    @Test
+    fun relatedVideoBackingDoesNotExposeWhiteThemeSurfaceAtTheWindowEdges() {
+        assertEquals(Color.Black, resolveMiuixVideoCardBackingColor("video/BV123", Color.White))
+        assertEquals(Color.Black, resolveMiuixVideoCardBackingColor("video/BV123?cid=10", Color.White))
+        assertEquals(Color.White, resolveMiuixVideoCardBackingColor("home", Color.White))
+        assertEquals(Color.White, resolveMiuixVideoCardBackingColor(null, Color.White))
+    }
+
+
+    @Test
+    fun coveredPageDepthIsClampedReversibleAndDisabledForReducedMotion() {
+        assertEquals(1f, resolveMiuixVideoCardCoveredScale(-1f, false))
+        assertEquals(1f, resolveMiuixVideoCardCoveredScale(0f, false))
+        assertEquals(0.985f, resolveMiuixVideoCardCoveredScale(0.5f, false), 0.0001f)
+        assertEquals(0.97f, resolveMiuixVideoCardCoveredScale(1f, false), 0.0001f)
+        assertEquals(0.97f, resolveMiuixVideoCardCoveredScale(2f, false), 0.0001f)
+        // An interrupted return reuses its current depth; cancel restores the same path.
+        for (depth in listOf(1f, 0.6f, 0.3f, 0.6f, 1f)) {
+            assertEquals(1f - 0.03f * depth, resolveMiuixVideoCardCoveredScale(depth, false), 0.0001f)
+            assertEquals(1f, resolveMiuixVideoCardCoveredScale(depth, true))
+        }
+    }
     @Test
     fun ordinaryReturnTracksDepthAndRoleChangesWithinOneFrame() {
         val scope = object : NavTransitionScope {

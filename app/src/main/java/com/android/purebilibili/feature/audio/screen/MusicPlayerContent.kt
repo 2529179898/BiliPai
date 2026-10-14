@@ -553,10 +553,8 @@ internal fun MusicPlayerContent(
     )
     val pageBackground = backgroundColor
     val resolvedContentColor = Color.White
-    val resolvedAccentColor = resolveMusicPlayerAccentColor(
-        AppContentColors.accent(),
-        MaterialTheme.colorScheme.inversePrimary,
-    )
+    // Immersive artwork owns this page's contrast; ordinary controls use one neutral foreground.
+    val resolvedAccentColor = resolvedContentColor
     val isDarkEnvironment = true
     val materialMode = when {
         glassEnabled -> MusicGlassMaterialMode.LIQUID
@@ -578,6 +576,7 @@ internal fun MusicPlayerContent(
 
     CompositionLocalProvider(
         LocalMusicPlayerMaterial provides musicMaterial,
+        com.android.purebilibili.core.ui.LocalAppButtonSlotColorCorrectionEnabled provides false,
     ) {
     BoxWithConstraints(
         modifier = modifier

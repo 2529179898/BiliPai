@@ -2465,6 +2465,13 @@ class MiniPlayerManager private constructor(private val context: Context) :
         return true
     }
 
+    /** Explicit pause also clears playback intent while the player is buffering. */
+    fun pausePlayback(): Boolean {
+        if (player == null) return false
+        performMediaControl(MediaControlType.PAUSE)
+        return true
+    }
+
     private fun performMediaControl(controlType: MediaControlType) {
         when (controlType) {
             MediaControlType.PREVIOUS -> playPrevious()

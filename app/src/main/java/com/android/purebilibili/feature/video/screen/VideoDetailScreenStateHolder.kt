@@ -4816,6 +4816,16 @@ internal fun VideoDetailScreenStateHolder(
                         val miuixLandingState =
                             com.android.purebilibili.core.ui.transition
                                 .LocalMiuixVideoCardTransitionState.current
+                        val floatingPlayerTopInsetProvider: () -> Dp = {
+                            if (entryOwnsMiuixCardTransition && miuixLandingState.enabled) {
+                                playerTopInset * resolveVideoDetailCardTopInsetFraction(
+                                    miuixLandingState.progressProvider(),
+                                )
+                            } else playerTopInset
+                        }
+                        val removedPlayerTopInsetProvider: () -> Dp = {
+                            playerTopInset - floatingPlayerTopInsetProvider()
+                        }
                         val landingLayoutForMedia = run {
                             if (
                                 !entryOwnsMiuixCardTransition ||
@@ -4836,21 +4846,25 @@ internal fun VideoDetailScreenStateHolder(
                         // A frozen now-playing snapshot contains the whole capsule, not just
                         // its cover. Land it in the complete source bounds for either bar layout.
                         val nativeSnapshotTargetBoundsProvider: (() -> Rect?)? =
-                            if (CardPositionManager.lastClickedNativeCardBitmap != null &&
-                                (miuixLandingState.sourceLayout == VideoCardSourceLayout.COVER_ONLY ||
-                                    miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true)
+                            if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true ||
+                                (CardPositionManager.lastClickedNativeCardBitmap != null &&
+                                    miuixLandingState.sourceLayout == VideoCardSourceLayout.COVER_ONLY)
                             ) {
                                 { miuixLandingState.sourceBoundsProvider() }
                             } else {
                                 null
                             }
                         // Only the source-card endpoint is rounded; the detail player fills its viewport.
-                        val returnMediaClipCornerDp = AppShapes.mediaCoverCornerDp()
+                        // The complete native capsule already has one navigation-shell clip.
+                        // A second media-cover radius exposes the live layer around its baked corners.
+                        val returnMediaClipCornerDp = if (nativeSnapshotTargetBoundsProvider != null) {
+                            0.dp
+                        } else AppShapes.mediaCoverCornerDp()
                         val returnMediaInverseScaleProvider: () ->
                             com.android.purebilibili.navigation3.predictiveback.MiuixVideoCardInverseScale = {
                             val landing = landingLayoutForMedia
                             val frozenX = landing?.sourceScale ?: 1f
-                            if (landing == null || !entryOwnsMiuixCardTransition) {
+                            if (!entryOwnsMiuixCardTransition || !miuixLandingState.enabled) {
                                 com.android.purebilibili.navigation3.predictiveback
                                     .MiuixVideoCardInverseScale(1f / frozenX, 1f / frozenX)
                             } else {
@@ -4861,12 +4875,18 @@ internal fun VideoDetailScreenStateHolder(
                                     }
                                 val sourceH = miuixLandingState.sourceBoundsProvider()
                                     ?.height
-                                    ?: landing.cardHeightPx
+                                    ?: landing?.cardHeightPx
+                                    ?: viewportH
+                                val viewportW = miuixLandingState.layoutWidthProvider()
+                                    .takeIf { it > 1f }
+                                    ?: with(videoCardTransitionDensity) { configuration.screenWidthDp.dp.toPx() }
+                                val sourceScaleX = landing?.sourceScale
+                                    ?: ((miuixLandingState.sourceBoundsProvider()?.width ?: viewportW) / viewportW)
                                 val sourceScaleY = (sourceH / viewportH.coerceAtLeast(1f))
                                     .coerceIn(0.01f, 1f)
                                 com.android.purebilibili.navigation3.predictiveback
                                     .resolveMiuixVideoCardInverseScaleForDepth(
-                                        sourceScaleX = landing.sourceScale,
+                                        sourceScaleX = sourceScaleX,
                                         sourceScaleY = sourceScaleY,
                                         depth = miuixLandingState.progressProvider(),
                                     )
@@ -4972,6 +4992,7 @@ internal fun VideoDetailScreenStateHolder(
                                     } else {
                                         0.dp
                                     },
+                                    removedInlineTopInsetProvider = removedPlayerTopInsetProvider,
                                 )
                                 .drawBehind {
                                     // The compact source is translucent in both plain and glass modes.
@@ -5061,6 +5082,8 @@ internal fun VideoDetailScreenStateHolder(
                                             // Match the section cover below the status-bar backdrop
                                             // before the resident cover hands off to manual playback.
                                             contentTopInset = playerTopInset,
+                                            contentTopInsetProvider = floatingPlayerTopInsetProvider,
+                                            nativeSnapshotBoundsProvider = nativeSnapshotTargetBoundsProvider,
                                             handoffProgressProvider =
                                                 returnMediaHandoffProgressProvider,
                                             inverseScaleXProvider = {
@@ -5097,7 +5120,9 @@ internal fun VideoDetailScreenStateHolder(
                                             returnMediaInverseScaleProvider().scaleY
                                         },
                                         clipCornerDp = returnMediaClipCornerDp,
+                                        nativeSnapshotBoundsProvider = nativeSnapshotTargetBoundsProvider,
                                     )
+                                    .videoDetailRemoveFloatingTopInset(removedPlayerTopInsetProvider)
                                     .zIndex(0f)
                                     .graphicsLayer {
                                         alpha = returnMediaFrameProvider().playerAlpha
@@ -5231,7 +5256,8 @@ internal fun VideoDetailScreenStateHolder(
                                     // morph depth (not only LIVE surface). Cover-first related/home
                                     // returns need the same gradual player-below ↔ cover-below handoff.
                                     val useMorphSecondaryYield =
-                                        (liveReturnMorph || detailShellSharedBoundsEnabled) &&
+                                        (if (scopedHeroDriver.enabled) entryOwnsMiuixCardTransition
+                                        else liveReturnMorph || detailShellSharedBoundsEnabled) &&
                                             !holdFullyOpaque
                                     if (useMorphSecondaryYield) {
                                         val frame = resolveVideoCardSecondaryContentVisualFrame(
@@ -5251,14 +5277,15 @@ internal fun VideoDetailScreenStateHolder(
                                             isCommittedCardReturn = isCommittedCardReturn,
                                         )
                                         alpha = frame.alpha
-                                        // Shrink toward card-info size so type size meets source chrome
-                                        // instead of a pure alpha crossfade (avoids size 穿帮).
-                                        scaleX = frame.scale
-                                        scaleY = frame.scale
+                                        // Native entry already owns geometry. Keep only its content
+                                        // handoff alpha; the legacy path retains its internal transform.
+                                        scaleX = if (scopedHeroDriver.enabled) 1f else frame.scale
+                                        scaleY = if (scopedHeroDriver.enabled) 1f else frame.scale
                                         transformOrigin = TransformOrigin(0.5f, 0f)
                                         clip = frame.handoffProgress > 0.001f
                                         translationY = with(videoCardTransitionDensity) {
-                                            (frame.translationYDp + (1f - reveal) * 12f).dp.toPx()
+                                            ((if (scopedHeroDriver.enabled) 0f else frame.translationYDp) +
+                                                (1f - reveal) * 12f).dp.toPx()
                                         }
                                     } else {
                                         alpha = resolveVideoDetailReturnContentAlpha(

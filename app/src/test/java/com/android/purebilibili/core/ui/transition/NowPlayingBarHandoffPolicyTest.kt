@@ -4,6 +4,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class NowPlayingBarHandoffPolicyTest {
+    @Test
+    fun capsuleCornerTracksActualHeightAndCompactWidth() {
+        assertEquals(28, resolveNowPlayingBarSourceCornerDp(900f, 168f, 3f))
+        assertEquals(32, resolveNowPlayingBarSourceCornerDp(900f, 192f, 3f))
+        assertEquals(20, resolveNowPlayingBarSourceCornerDp(120f, 192f, 3f))
+        assertEquals(0, resolveNowPlayingBarSourceCornerDp(900f, 192f, 0f))
+    }
+
 
     @Test
     fun `idle handoff leaves the bar fully visible`() {

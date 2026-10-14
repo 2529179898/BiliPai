@@ -8,12 +8,14 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -89,6 +91,16 @@ internal const val MIUIX_VIDEO_CARD_GESTURE_CAMERA_DISTANCE_DP = 8f
 internal const val MIUIX_VIDEO_CARD_GESTURE_CAMERA_PULL_DP = 1.0f
 internal const val MIUIX_VIDEO_CARD_GESTURE_SHADOW_DP = 12f
 internal const val MIUIX_VIDEO_CARD_FLOATING_CORNER_DP = 28f
+
+/** Covered-entry treatment, owned by the Miuix navigation boundary, never by page children. */
+internal fun resolveMiuixVideoCardCoveredScale(depth: Float, reducedMotion: Boolean): Float =
+    if (reducedMotion) 1f else 1f - 0.03f * depth.coerceIn(0f, 1f)
+
+internal val MiuixVideoCardCoveredShape = RoundedCornerShape(24.dp)
+
+/** Video-to-video transitions extend the black player/window canvas into the scale gap. */
+internal fun resolveMiuixVideoCardBackingColor(sourceRoute: String?, surface: Color): Color =
+    if (sourceRoute?.substringBefore('?')?.startsWith("video/") == true) Color.Black else surface
 
 internal fun resolveMiuixVideoCardGesturePoseWeight(morphProgress: Float): Float {
     val pull = (1f - morphProgress.coerceIn(0f, 1f)).coerceIn(0f, 1f)
@@ -872,6 +884,18 @@ internal fun miuixVideoCardNavTransition(
                             // allocating and resolving the full gesture transform a second time.
                             shadowElevation = MIUIX_VIDEO_CARD_GESTURE_SHADOW_DP.dp.toPx() * poseWeight
                         }
+                    } else {
+                        // Same boundary ownership as Miuix's cross-activity example: transform
+                        // the complete covered entry once, including its page chrome.
+                        val coveredScale = resolveMiuixVideoCardCoveredScale(
+                            depth = progress.depthOr(depth),
+                            reducedMotion = heroMotionSpec.reducedMotion,
+                        )
+                        scaleX = coveredScale
+                        scaleY = coveredScale
+                        transformOrigin = TransformOrigin.Center
+                        clip = coveredScale < 1f
+                        shape = MiuixVideoCardCoveredShape
                     }
                 }.graphicsLayer {
                     val depth = scope.relativeDepth

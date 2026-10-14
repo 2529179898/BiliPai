@@ -668,7 +668,10 @@ fun SearchScreen(
     onEntryMotionConsumed: (Int) -> Unit = {},
     isReturningFromVideoDetail: Boolean = false,
     isQuickReturningFromVideoDetail: Boolean = false,
-    onVideoDetailReturnAnimationConsumed: () -> Unit = {}
+    onVideoDetailReturnAnimationConsumed: () -> Unit = {},
+    onUpResultClick: ((Long, String) -> Unit)? = null,
+    onBangumiResultClick: ((Long, String) -> Unit)? = null,
+    backEnabled: Boolean = true,
 ) {
     val topChromePolicy = rememberAppTopChromePolicy()
     val semanticVisualPolicy = rememberAppSemanticVisualPolicy()
@@ -1151,7 +1154,7 @@ fun SearchScreen(
         }
     }
 
-    BackHandler(onBack = handleSearchBack)
+    BackHandler(enabled = backEnabled, onBack = handleSearchBack)
 
     // Entering results must drop focus so the keyboard cannot reappear.
     LaunchedEffect(state.showResults) {
@@ -2031,7 +2034,10 @@ fun SearchScreen(
                                         UpSearchResultCard(
                                             upItem = upItem,
                                             appearance = genericResultCardAppearance,
-                                            onClick = { onUpClick(upItem.mid) }
+                                            onClick = { onUpClick(upItem.mid) },
+                                            onTransitionClick = onUpResultClick?.let { openResult ->
+                                                { transitionKey: String -> openResult(upItem.mid, transitionKey) }
+                                            },
                                         )
                                         if (targetSearchType == state.searchType && index == pageResultState.upResults.size - 3 && pageResultState.hasMoreResults && !pageResultState.isLoadingMore) {
                                             LaunchedEffect(pageResultState.currentPage, targetSearchType) {
@@ -2111,7 +2117,14 @@ fun SearchScreen(
                                                 if (bangumiItem.seasonId > 0) {
                                                     onBangumiClick(bangumiItem.seasonId)
                                                 }
-                                            }
+                                            },
+                                            onTransitionClick = onBangumiResultClick?.let { openResult ->
+                                                { transitionKey: String ->
+                                                    if (bangumiItem.seasonId > 0L) {
+                                                        openResult(bangumiItem.seasonId, transitionKey)
+                                                    }
+                                                }
+                                            },
                                         )
                                         if (targetSearchType == state.searchType && index == pageResultState.bangumiResults.size - 3 && pageResultState.hasMoreResults && !pageResultState.isLoadingMore) {
                                             LaunchedEffect(pageResultState.currentPage, targetSearchType) {
@@ -4128,18 +4141,22 @@ fun SearchResultCard(
 internal fun UpSearchResultCard(
     upItem: com.android.purebilibili.data.model.response.SearchUpItem,
     appearance: SearchResultCardAppearance,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onTransitionClick: ((String) -> Unit)? = null,
 ) {
     val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
     val cleanedItem = remember(upItem.mid) { upItem.cleanupFields() }
+    val transitionKey = rememberSaveable(upItem.mid) {
+        "${searchUpContainerKey(upItem.mid)}:${java.util.UUID.randomUUID()}"
+    }
 
     val sharedTransitionScope = LocalSharedTransitionScope.current
     val animatedVisibilityScope = LocalAnimatedVisibilityScope.current
 
     SearchResultCardSurface(
         appearance = appearance,
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        onClick = { onTransitionClick?.invoke(transitionKey) ?: onClick() },
+        modifier = Modifier.fillMaxWidth().searchResultContainerBounds(transitionKey)
     ) {
         Row(
             modifier = Modifier
@@ -4263,12 +4280,17 @@ internal fun BangumiSearchResultCard(
     item: com.android.purebilibili.data.model.response.BangumiSearchItem,
     appearance: SearchResultCardAppearance,
     onClick: () -> Unit,
-    categoryLabel: String? = null
+    categoryLabel: String? = null,
+    onTransitionClick: ((String) -> Unit)? = null,
 ) {
     val useMiuixNonGlassPresentation = isMiuixNonGlassEnabled()
+    val transitionKey = rememberSaveable(item.seasonId) {
+        "${searchBangumiContainerKey(item.seasonId)}:${java.util.UUID.randomUUID()}"
+    }
     SearchResultCardSurface(
         appearance = appearance,
-        onClick = onClick
+        onClick = { onTransitionClick?.invoke(transitionKey) ?: onClick() },
+        modifier = Modifier.searchResultContainerBounds(transitionKey),
     ) {
         Row(
             modifier = Modifier

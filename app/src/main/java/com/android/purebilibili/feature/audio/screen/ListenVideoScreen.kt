@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
@@ -57,6 +58,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,10 +106,12 @@ internal fun ListenVideoRoute(
     onNowPlayingClick: (bvid: String, coverUrl: String) -> Unit,
     onLogin: () -> Unit,
     onPlayCollection: (mediaId: Long, seasonId: Long, title: String) -> Unit,
+    onPlayFromHistory: (bvid: String, cid: Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ListenVideoViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var showPlayHistory by rememberSaveable { mutableStateOf(false) }
     val playlistState by PlaylistManager.uiState.collectAsStateWithLifecycle(
         initialValue = com.android.purebilibili.feature.video.player.PlaylistUiState()
     )
@@ -132,6 +138,7 @@ internal fun ListenVideoRoute(
         nowPlaying = nowPlaying,
         onNowPlayingClick = onNowPlayingClick,
         onRefresh = viewModel::refresh,
+        onOpenHistory = { showPlayHistory = true },
         onSectionSelected = viewModel::selectSection,
         onPlaylistSelected = { playlist ->
             viewModel.pauseBackgroundLoading()
@@ -154,6 +161,17 @@ internal fun ListenVideoRoute(
         onLogin = onLogin,
         modifier = modifier
     )
+
+    if (showPlayHistory) {
+        PlayHistorySheet(
+            onPlay = { entry ->
+                showPlayHistory = false
+                viewModel.pauseBackgroundLoading()
+                onPlayFromHistory(entry.bvid, entry.cid)
+            },
+            onDismiss = { showPlayHistory = false },
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -163,6 +181,7 @@ internal fun ListenVideoScreen(
     nowPlaying: ListenVideoNowPlaying?,
     onNowPlayingClick: (bvid: String, coverUrl: String) -> Unit,
     onRefresh: () -> Unit,
+    onOpenHistory: () -> Unit,
     onSectionSelected: (ListenVideoSection) -> Unit,
     onPlaylistSelected: (ListenVideoPlaylist) -> Unit,
     onAlbumSelected: (ListenVideoAlbum) -> Unit,
@@ -229,6 +248,7 @@ internal fun ListenVideoScreen(
                 nowPlaying = nowPlaying,
                 onNowPlayingClick = onNowPlayingClick,
                 onRefresh = onRefresh,
+                onOpenHistory = onOpenHistory,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 12.dp)
@@ -300,6 +320,7 @@ private fun ListenVideoHeader(
     nowPlaying: ListenVideoNowPlaying?,
     onNowPlayingClick: (bvid: String, coverUrl: String) -> Unit,
     onRefresh: () -> Unit,
+    onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -316,6 +337,10 @@ private fun ListenVideoHeader(
                     color = AppContentColors.secondaryText()
                 )
             }
+            AppIconButton(onClick = onOpenHistory, modifier = Modifier.size(40.dp)) {
+                AppIcon(Icons.Filled.History, contentDescription = "最近播放")
+            }
+            Spacer(modifier = Modifier.width(4.dp))
             AppIconButton(onClick = onRefresh, modifier = Modifier.size(40.dp)) {
                 AppIcon(Icons.Filled.Refresh, contentDescription = "刷新音乐资料")
             }

@@ -26,6 +26,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -60,7 +62,6 @@ import com.android.purebilibili.core.ui.transition.LocalPredictiveBackBackground
 import com.android.purebilibili.core.ui.transition.PredictiveBackBackgroundState
 import com.android.purebilibili.core.ui.transition.VideoCardTransitionClock
 import com.android.purebilibili.core.ui.transition.VideoCardTransitionHostDepthLayer
-import com.android.purebilibili.core.ui.transition.VideoCardTransitionNavBackdrop
 import com.android.purebilibili.core.ui.transition.rememberVideoCardTransitionSnapshotHandle
 import com.android.purebilibili.core.ui.transition.resolveVideoCardTransitionExposure
 import com.android.purebilibili.core.ui.transition.resolveVideoHeroMotionSpec
@@ -70,7 +71,6 @@ import com.android.purebilibili.core.ui.transition.VideoCardTransitionDiagnostic
 import com.android.purebilibili.core.ui.transition.LocalVideoSharedTransitionSpeedSettings
 import com.android.purebilibili.core.ui.transition.resolvePredictiveBackGestureBlurProgress
 import com.android.purebilibili.core.ui.transition.shouldReleaseHostOwnedDepthLayer
-import com.android.purebilibili.core.ui.transition.shouldShowVideoCardTransitionNavBackdrop
 import com.android.purebilibili.core.ui.transition.shouldUseHostOwnedVideoCardTransitionSnapshot
 import com.android.purebilibili.core.ui.adaptive.MotionTier
 import com.android.purebilibili.core.util.CardPositionManager
@@ -83,6 +83,9 @@ import com.android.purebilibili.navigation3.predictiveback.miuixVideoCardNavTran
 import com.android.purebilibili.navigation3.predictiveback.MiuixVideoCardContentScale
 import com.android.purebilibili.navigation3.predictiveback.resolveMiuixVideoCardContentScaleForSourceLayout
 import com.android.purebilibili.navigation3.predictiveback.MiuixVideoCardTransitionProgress
+import com.android.purebilibili.navigation3.predictiveback.MiuixVideoCardCoveredShape
+import com.android.purebilibili.navigation3.predictiveback.resolveMiuixVideoCardCoveredScale
+import com.android.purebilibili.navigation3.predictiveback.resolveMiuixVideoCardBackingColor
 import com.android.purebilibili.navigation3.predictiveback.shouldUseMiuixPredictiveBackProgress
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
@@ -586,12 +589,6 @@ internal fun BiliPaiNavDisplayHost(
         }
     }
     val currentBackTarget = stackSnapshot.getOrNull(stackSnapshot.lastIndex - 1)
-    val showVideoCardNavBackdrop = shouldShowVideoCardTransitionNavBackdrop(
-        cardTransitionEnabled = cardMorphAvailable,
-        exposure = effectiveVideoCardExposure,
-        isVideoDetailOnStack = isCardMorphDestinationNavKey(currentKey),
-        isReturningToVideoDetail = isCardMorphDestinationNavKey(currentBackTarget),
-    )
     // 只以真正会改变「被捕获数据」的值作为键。provider 一律是上面已 remember 的稳定引用，
     // 把它们放进键里会让任意一次重组都重建整个 state —— 下游模糊/缩放/圆角/scrim effect
     // 全部换新实例，本帧参数不连续，视觉上就是「闪一下」。state 只捕获引用，读值发生在
@@ -713,12 +710,14 @@ internal fun BiliPaiNavDisplayHost(
     // during nested related-video navigation, which darkens that page a second time.
     val hostDimAmount = if (videoCardMorphOwnsCorners) 0f else 0.5f
     val backdropColor = AppSurfaceTokens.surface()
+    val videoCardBackingColor = resolveMiuixVideoCardBackingColor(sourceMetadata.sourceRoute, backdropColor)
     val effects = remember(
         navCornerRadius,
         roundAllCorners,
         enableHostCornerClip,
         hostDimAmount,
         backdropColor,
+        videoCardMorphOwnsCorners,
     ) {
         NavDisplayEffects(
             enableCornerClip = enableHostCornerClip,
@@ -729,7 +728,9 @@ internal fun BiliPaiNavDisplayHost(
                 NavCornerClipMode.Leading
             },
             dimAmount = hostDimAmount,
-            backdropColor = backdropColor,
+            // The fixed host backing must sit BELOW the retained source snapshot. A second
+            // opaque backing inside NavDisplay would cover that snapshot on its preparation frame.
+            backdropColor = if (videoCardMorphOwnsCorners) Color.Unspecified else backdropColor,
             blockInputDuringTransition = false,
         )
     }
@@ -775,7 +776,9 @@ internal fun BiliPaiNavDisplayHost(
                 }
             }
             .background(
-                if (globalWallpaperVisible) {
+                if (videoCardMorphOwnsCorners) {
+                    videoCardBackingColor
+                } else if (globalWallpaperVisible) {
                     Color.Transparent
                 } else {
                     AppSurfaceTokens.groupedListContainer()
@@ -794,12 +797,19 @@ internal fun BiliPaiNavDisplayHost(
             isLightBackgroundProvider = { isLightBackground },
             realtimeBlurEnabledProvider = { effectiveVideoCardBlurEnabled },
             sourceBoundsProvider = { sourceMetadata.sourceBounds },
-        )
-        VideoCardTransitionNavBackdrop(
-            visible = showVideoCardNavBackdrop,
-            progressProvider = videoCardProgressProvider,
-            phase = videoCardClock.phase,
-            isLightBackground = isLightBackground,
+            // A detached source has no navigation entry to transform. Apply exactly the same
+            // covered-page geometry to this fallback; inner snapshot effects remain unscaled.
+            modifier = Modifier.graphicsLayer {
+                val scale = resolveMiuixVideoCardCoveredScale(
+                    depth = videoCardProgressProvider(),
+                    reducedMotion = transitionMotionTier == MotionTier.Reduced,
+                )
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = TransformOrigin.Center
+                clip = scale < 1f
+                shape = MiuixVideoCardCoveredShape
+            },
         )
         @Suppress("UNCHECKED_CAST")
         NavDisplay(

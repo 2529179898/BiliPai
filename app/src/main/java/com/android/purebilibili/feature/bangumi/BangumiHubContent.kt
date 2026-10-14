@@ -10,6 +10,8 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +46,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -97,6 +101,20 @@ import top.yukonga.miuix.kmp.blur.Backdrop
 
 internal const val BANGUMI_POSTER_ASPECT_RATIO = 0.75f
 
+private val BangumiGridStatesSaver = Saver<MutableMap<String, LazyGridState>, List<Any>>(
+    save = { states ->
+        states.flatMap { (key, state) ->
+            listOf(key, state.firstVisibleItemIndex, state.firstVisibleItemScrollOffset)
+        }
+    },
+    restore = { values ->
+        values.chunked(3).associate { (key, index, offset) ->
+            (key as String) to LazyGridState(index as Int, offset as Int)
+        }.toMutableMap()
+    },
+)
+
+
 @Composable
 internal fun BangumiHubContent(
     state: BangumiHubUiState,
@@ -134,11 +152,12 @@ internal fun BangumiHubContent(
     tabBackdrop: Backdrop? = null,
     showFollowStatusTabs: Boolean = true,
 ) {
-    val homeGridStates = remember { mutableMapOf<BangumiChannel, LazyGridState>() }
-    val indexGridStates = remember { mutableMapOf<BangumiIndexCategory, LazyGridState>() }
-    val followGridStates = remember { mutableMapOf<Pair<BangumiChannel, BangumiFollowStatus>, LazyGridState>() }
+    val homeGridStates = rememberSaveable(saver = BangumiGridStatesSaver) { mutableMapOf<String, LazyGridState>() }
+    val indexGridStates = rememberSaveable(saver = BangumiGridStatesSaver) { mutableMapOf<String, LazyGridState>() }
+    val followGridStates = rememberSaveable(saver = BangumiGridStatesSaver) { mutableMapOf<String, LazyGridState>() }
     val searchGridState = rememberLazyGridState()
-    val activeHomeGrid = homeGridStates.getOrPut(state.channel) { LazyGridState() }
+    var handledScrollToTopRequestId by rememberSaveable { mutableIntStateOf(0) }
+    val activeHomeGrid = homeGridStates.getOrPut(state.channel.name) { LazyGridState() }
     LaunchedEffect(activeHomeGrid, state.page, state.channel) {
         if (state.page != BangumiHubPage.HOME) return@LaunchedEffect
         snapshotFlow {
@@ -148,11 +167,12 @@ internal fun BangumiHubContent(
         }
     }
     LaunchedEffect(scrollToTopRequestId, state.page, state.channel, state.followStatus, state.indexCategory) {
-        if (scrollToTopRequestId <= 0) return@LaunchedEffect
+        if (scrollToTopRequestId <= handledScrollToTopRequestId) return@LaunchedEffect
+        handledScrollToTopRequestId = scrollToTopRequestId
         val target = when (state.page) {
             BangumiHubPage.HOME -> activeHomeGrid
-            BangumiHubPage.INDEX -> indexGridStates.getOrPut(state.indexCategory) { LazyGridState() }
-            BangumiHubPage.FOLLOW -> followGridStates.getOrPut(state.channel to state.followStatus) { LazyGridState() }
+            BangumiHubPage.INDEX -> indexGridStates.getOrPut(state.indexCategory.name) { LazyGridState() }
+            BangumiHubPage.FOLLOW -> followGridStates.getOrPut("${state.channel.name}:${state.followStatus.name}") { LazyGridState() }
             BangumiHubPage.SEARCH -> searchGridState
         }
         if (target.firstVisibleItemIndex > 0 || target.firstVisibleItemScrollOffset > 0) {
@@ -185,7 +205,7 @@ internal fun BangumiHubContent(
             channel = state.channel,
             category = state.indexCategory,
             state = state.indexStates[state.indexCategory] ?: BangumiIndexState(),
-            gridState = indexGridStates.getOrPut(state.indexCategory) { LazyGridState() },
+            gridState = indexGridStates.getOrPut(state.indexCategory.name) { LazyGridState() },
             onCategorySelected = onIndexCategorySelected,
             onFilterSelected = onIndexFilterSelected,
             onToggleExpanded = onToggleFiltersExpanded,
@@ -203,7 +223,7 @@ internal fun BangumiHubContent(
             channel = state.channel,
             status = state.followStatus,
             state = state.followStates[state.channel to state.followStatus] ?: BangumiFollowManagerState(),
-            gridState = followGridStates.getOrPut(state.channel to state.followStatus) { LazyGridState() },
+            gridState = followGridStates.getOrPut("${state.channel.name}:${state.followStatus.name}") { LazyGridState() },
             onStatusSelected = onFollowStatusSelected,
             onRefresh = onRefreshFollow,
             onLoadMore = onLoadMoreFollow,
@@ -961,9 +981,15 @@ private fun PosterGridCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
+    val transition = rememberBangumiCardTransition(onClick)
     // Only the poster is rounded; keep the title block square for cleaner media rows.
     Column(
-        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        modifier = transition.modifier.combinedClickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = if (transition.enabled) null else LocalIndication.current,
+            onClick = transition.onClick,
+            onLongClick = onLongClick,
+        ),
     ) {
         PosterImage(
             cover = item.cover,
@@ -996,8 +1022,14 @@ private fun SearchPosterCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
+    val transition = rememberBangumiCardTransition(onClick)
     Column(
-        modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        modifier = transition.modifier.combinedClickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = if (transition.enabled) null else LocalIndication.current,
+            onClick = transition.onClick,
+            onLongClick = onLongClick,
+        ),
     ) {
         PosterImage(
             cover = item.cover,
@@ -1065,8 +1097,14 @@ private fun FollowPosterCard(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val transition = rememberBangumiCardTransition(onClick)
     Column(
-        modifier = modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        modifier = modifier.then(transition.modifier).combinedClickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = if (transition.enabled) null else LocalIndication.current,
+            onClick = transition.onClick,
+            onLongClick = onLongClick,
+        ),
     ) {
         PosterImage(
             cover = item.cover,
@@ -1095,10 +1133,16 @@ private fun FollowPosterCard(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TimelineEpisodeCard(episode: TimelineEpisode, onClick: () -> Unit) {
+    val transition = rememberBangumiCardTransition(onClick)
     Column(
         modifier = Modifier
+            .then(transition.modifier)
             .width(104.dp)
-            .combinedClickable(onClick = onClick),
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = if (transition.enabled) null else LocalIndication.current,
+                onClick = transition.onClick,
+            ),
     ) {
         PosterImage(
             cover = resolveTimelineEpisodeCover(episode, preferEpisodeCover = false),
@@ -1135,13 +1179,20 @@ private fun FollowInfoCard(
     onLongClick: () -> Unit,
     onMore: () -> Unit,
 ) {
+    val transition = rememberBangumiCardTransition(onClick)
     AppSurface(
         color = if (selected) AppSurfaceTokens.secondaryContainer() else AppSurfaceTokens.cardContainer(),
         shape = AppShapes.container(ContainerLevel.Card),
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 150.dp)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .then(transition.modifier)
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = if (transition.enabled) null else LocalIndication.current,
+                onClick = transition.onClick,
+                onLongClick = onLongClick,
+            ),
     ) {
         Row(
             modifier = Modifier.padding(10.dp),

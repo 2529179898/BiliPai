@@ -38,11 +38,6 @@ import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.core.util.bouncyClickable
 import com.android.purebilibili.data.model.response.RelatedVideo
 import com.android.purebilibili.data.model.response.ViewInfo
-import com.android.purebilibili.core.theme.ActionLikeDark
-import com.android.purebilibili.core.theme.ActionCoinDark
-import com.android.purebilibili.core.theme.ActionFavoriteDark
-import com.android.purebilibili.core.theme.ActionShareDark
-import com.android.purebilibili.core.theme.ActionCommentDark
 import com.android.purebilibili.core.ui.components.UserUpBadge
 import com.android.purebilibili.core.ui.components.AppSurface
 import com.android.purebilibili.core.ui.rememberAppBookmarkIcon

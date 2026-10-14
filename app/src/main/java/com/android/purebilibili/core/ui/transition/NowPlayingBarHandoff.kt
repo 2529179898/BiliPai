@@ -1,5 +1,13 @@
 package com.android.purebilibili.core.ui.transition
 
+import kotlin.math.roundToInt
+
+/** Matches RoundedCornerShape(percent = 50), including the compact icon-only bar. */
+internal fun resolveNowPlayingBarSourceCornerDp(widthPx: Float, heightPx: Float, density: Float): Int {
+    if (!widthPx.isFinite() || !heightPx.isFinite() || !density.isFinite() || density <= 0f) return 0
+    return (minOf(widthPx, heightPx).coerceAtLeast(0f) / (2f * density)).roundToInt()
+}
+
 /**
  * 小横条（听视频 NowPlaying 条）与视频共享过渡的返回交接协议（纯 Kotlin，无 Compose）。
  *

@@ -25,3 +25,33 @@ historical name, not an AndroidX runtime dependency.
 
 See [the navigation upgrade review](UPGRADE_REVIEW.md)
 for verified release claims, deep-link integration, and validation limits.
+
+## Video-card depth integration
+
+The app follows the covered-entry ownership in the upstream
+[CrossActivityTransition example](https://github.com/compose-miuix-ui/miuix/blob/main/example/shared/src/commonMain/kotlin/navigation/CrossActivityTransition.kt)
+and the fixed backdrop placement in
+[AppContent](https://github.com/compose-miuix-ui/miuix/blob/main/example/shared/src/commonMain/kotlin/AppContent.kt).
+It retains its video-card bounds morph rather than copying the full cross-activity animation.
+
+The video transition transforms the entire covered navigation entry once, centered at 97% at
+full depth, with a 24dp rounded clip. Inner snapshot/chrome effects retain zero scale reduction.
+Reduced motion keeps the entry at full size. The detached source snapshot uses the same scale,
+shape and visual progress as the covered entry; it stops drawing once the source renderer is ready.
+
+During a video-card session the fixed opaque backing belongs to the app host, below the retained
+snapshot. NavDisplay's internal backdrop is unspecified for this session so it cannot cover the
+snapshot. Other navigation transitions retain the upstream backdrop. Global wallpaper remains
+root-owned without an additional depth scale. Related-video sources retain their real player entry
+because a Compose GraphicsLayer recording cannot include its Surface video content.
+
+Video-to-video scale gaps extend the black player/window canvas instead of exposing a white
+theme-surface frame. Native card transitions no longer apply the legacy secondary-body 88%
+yield scale or translation. The player's fixed system-bar inset is cropped out while floating;
+it is restored over the last 10% of expansion, using deferred layout reads shared with the
+cover and viewport height. Covered parent details do not follow the child's body-yield animation.
+
+Now-playing capsules use host-space bounds only as outer navigation metadata. Their inner media
+frame starts at zero and compensates dimensions once; frozen bitmap/layer pixels are fitted to
+that measured frame without another inverse transform. Cover, real player and capsule snapshot
+share this target even when the bar is icon-only or its bitmap capture is unavailable.

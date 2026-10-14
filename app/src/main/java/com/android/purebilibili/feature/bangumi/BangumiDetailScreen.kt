@@ -81,10 +81,13 @@ fun BangumiDetailScreen(
     onSeasonClick: (Long) -> Unit = {},        //  点击切换季度
     onReviewsClick: (Long, String) -> Unit = { _, _ -> },
     onUserClick: (Long) -> Unit = {},
-    viewModel: BangumiViewModel = viewModel()
+    viewModel: BangumiViewModel = viewModel(),
+    modifier: Modifier = Modifier,
+    contentTransitionReady: Boolean = true,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val detailState = uiState.detailState
+    // Keep the entering container stable while bounds animate. Never replace loaded content on return.
+    val detailState = if (contentTransitionReady) uiState.detailState else BangumiDetailState.Loading
 
     // 加载详情
     LaunchedEffect(seasonId, epId, mediaId) {
@@ -92,6 +95,7 @@ fun BangumiDetailScreen(
     }
 
     AppScaffold(
+        modifier = modifier,
         blurContentReady = detailState !is BangumiDetailState.Loading,
         topBar = {
             val isCourse = (detailState as? BangumiDetailState.Success)?.detail?.let {

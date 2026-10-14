@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.android.purebilibili.core.ui.rememberBackToTopButtonEnabled
@@ -77,6 +78,36 @@ fun BangumiScreen(
     onBangumiEpisodeClick: (Long, Long) -> Unit = { seasonId, _ -> onBangumiClick(seasonId) },
     initialType: Int = 1,
     viewModel: BangumiHubViewModel = viewModel(),
+    onPlayEpisode: ((Long, com.android.purebilibili.data.model.response.BangumiEpisode) -> Unit)? = null,
+    onReviewsClick: (Long, String) -> Unit = { _, _ -> },
+    onUserClick: (Long) -> Unit = {},
+) {
+    BangumiCardTransitionHost(
+        onBangumiClick = onBangumiClick,
+        onBangumiEpisodeClick = onBangumiEpisodeClick,
+        onPlayEpisode = onPlayEpisode,
+        onReviewsClick = onReviewsClick,
+        onUserClick = onUserClick,
+    ) { openSeason, openEpisode, hubVisible ->
+        BangumiHubScreen(
+            onBack = onBack,
+            onBangumiClick = openSeason,
+            onBangumiEpisodeClick = openEpisode,
+            initialType = initialType,
+            viewModel = viewModel,
+            backEnabled = hubVisible,
+        )
+    }
+}
+
+@Composable
+private fun BangumiHubScreen(
+    onBack: () -> Unit,
+    onBangumiClick: (Long) -> Unit,
+    onBangumiEpisodeClick: (Long, Long) -> Unit,
+    initialType: Int,
+    viewModel: BangumiHubViewModel,
+    backEnabled: Boolean,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -84,12 +115,12 @@ fun BangumiScreen(
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     val selectionActive = state.page == BangumiHubPage.FOLLOW &&
         state.followStates[state.channel to state.followStatus]?.selectedIds?.isNotEmpty() == true
-    var scrollToTopRequestId by remember { mutableIntStateOf(0) }
-    var homeScrollIndex by remember { mutableIntStateOf(0) }
-    var homeScrollOffset by remember { mutableIntStateOf(0) }
+    var scrollToTopRequestId by rememberSaveable { mutableIntStateOf(0) }
+    var homeScrollIndex by rememberSaveable { mutableIntStateOf(0) }
+    var homeScrollOffset by rememberSaveable { mutableIntStateOf(0) }
     val shouldShowBackToTop by remember {
         derivedStateOf<Boolean> {
             state.page == BangumiHubPage.HOME &&
@@ -112,7 +143,7 @@ fun BangumiScreen(
     val handleBack = {
         if (!viewModel.consumeBack()) onBack()
     }
-    LocalNavigationBackHandler(enabled = true, onBackCompleted = handleBack)
+    LocalNavigationBackHandler(enabled = backEnabled, onBackCompleted = handleBack)
 
     val themeConfig = LocalAppThemeConfig.current
     val solidNativeHeader =
@@ -231,22 +262,6 @@ fun BangumiScreen(
                             ),
                         )
                     }
-                    if (state.page != BangumiHubPage.SEARCH) {
-                        AppLiquidAwareTabRow(
-                            role = com.android.purebilibili.core.ui.components.AppTabRowRole.PRIMARY,
-                            options = BangumiChannel.entries.map { AppSegmentOption(it, it.label) },
-                            selectedValue = state.channel,
-                            enabled = !selectionActive,
-                            onSelectionChange = viewModel::selectChannel,
-                            dragSelectionEnabled = true,
-                            tapPressRefractionEnabled = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .responsiveContentWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            miuixBackdrop = chromeBackdrop,
-                        )
-                    }
                     if (state.page == BangumiHubPage.FOLLOW) {
                         AppLiquidAwareTabRow(
                             role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
@@ -260,6 +275,22 @@ fun BangumiScreen(
                                 .fillMaxWidth()
                                 .responsiveContentWidth()
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
+                            miuixBackdrop = chromeBackdrop,
+                        )
+                    }
+                    if (state.page != BangumiHubPage.SEARCH) {
+                        AppLiquidAwareTabRow(
+                            role = com.android.purebilibili.core.ui.components.AppTabRowRole.PRIMARY,
+                            options = BangumiChannel.entries.map { AppSegmentOption(it, it.label) },
+                            selectedValue = state.channel,
+                            enabled = !selectionActive,
+                            onSelectionChange = viewModel::selectChannel,
+                            dragSelectionEnabled = true,
+                            tapPressRefractionEnabled = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .responsiveContentWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
                             miuixBackdrop = chromeBackdrop,
                         )
                     }

@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -121,6 +122,7 @@ internal fun AudioNowPlayingBar(
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
+    onCancelPlayback: () -> Unit,
     onDismiss: () -> Unit,
     onManualHide: (() -> Unit)? = null,
     expandDestinationLabel: String = "听视频",
@@ -160,7 +162,8 @@ internal fun AudioNowPlayingBar(
         val dissolveContext = LocalContext.current
 
         // 从窗口已绘制的像素截取横条，避免离屏重绘实时模糊/旋转图层。
-        // 粒子首帧出现后隐藏本体，消散完成后再暂停并关闭。
+        // 点按取消立即暂停；粒子首帧隐藏本体，消散完成后再关闭会话。
+        val dismissAfterCancel by rememberUpdatedState(onDismiss)
         var cancelDissolving by remember(state.bvid) { mutableStateOf(false) }
         var dissolveContentHidden by remember(state.bvid) { mutableStateOf(false) }
         var dissolveEffectView by remember { mutableStateOf<ThanosEffectView?>(null) }
@@ -176,11 +179,12 @@ internal fun AudioNowPlayingBar(
 
         val handleCancelClick: () -> Unit = {
             if (!cancelDissolving) {
+                cancelDissolving = true
+                onCancelPlayback()
                 val hostWindow = dissolveContext.findHostActivity()?.window
                 if (hostWindow == null || !isThanosEffectSupported(dissolveContext)) {
-                    onDismiss()
+                    dismissAfterCancel()
                 } else {
-                    cancelDissolving = true
                     snapshotScope.launch {
                         try {
                             withFrameNanos { }
@@ -194,7 +198,7 @@ internal fun AudioNowPlayingBar(
                             }
                             if (snapshot == null) {
                                 finishCancelDissolveCleanup()
-                                onDismiss()
+                                dismissAfterCancel()
                                 return@launch
                             }
                             val bitmap = snapshot.bitmap
@@ -206,13 +210,13 @@ internal fun AudioNowPlayingBar(
                                 onFirstFrame = { dissolveContentHidden = true },
                                 onComplete = {
                                     finishCancelDissolveCleanup()
-                                    onDismiss()
+                                    dismissAfterCancel()
                                 },
                             )
                             if (dissolveEffectView == null) {
                                 if (!bitmap.isRecycled) bitmap.recycle()
                                 finishCancelDissolveCleanup()
-                                onDismiss()
+                                dismissAfterCancel()
                             }
                         } catch (cancelled: CancellationException) {
                             throw cancelled
@@ -221,7 +225,7 @@ internal fun AudioNowPlayingBar(
                                 "AudioNowPlayingBar", "Cancel dissolve failed: ${error.message}",
                             )
                             finishCancelDissolveCleanup()
-                            onDismiss()
+                            dismissAfterCancel()
                         }
                     }
                 }
@@ -258,7 +262,8 @@ internal fun AudioNowPlayingBar(
                             screenWidth = screenWidthPx,
                             screenHeight = screenHeightPx,
                             density = density.density,
-                            sourceCornerDp = 28,
+                            sourceCornerDp = com.android.purebilibili.core.ui.transition
+                                .resolveNowPlayingBarSourceCornerDp(bounds.width, bounds.height, density.density),
                             coverBounds = sourceCoverBounds,
                             sourceLayout = effectiveSourceLayout,
                             sourceChromeSnapshot = VideoCardSourceChromeSnapshot(
