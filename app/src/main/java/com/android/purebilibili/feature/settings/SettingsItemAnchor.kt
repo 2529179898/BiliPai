@@ -6,7 +6,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.CompositionLocalProvider
 import com.android.purebilibili.core.ui.components.LocalAppTextSearchQuery
 import androidx.compose.runtime.Composable
@@ -41,7 +42,7 @@ internal fun SettingsItemAnchor(
     var searchQuery by rememberSaveable(settingId) { mutableStateOf("") }
     LaunchedEffect(request?.token, settingId) {
         val current = request ?: return@LaunchedEffect
-        if (current.settingId != settingId) return@LaunchedEffect
+        if (current.settingId != settingId || !SettingsSearchFocusController.claim(current.token)) return@LaunchedEffect
         try {
             searchQuery = current.query
             keyboard?.hide()
@@ -49,12 +50,17 @@ internal fun SettingsItemAnchor(
             bringIntoView.bringIntoView()
             highlighted = true
             view.announceForAccessibility("已定位到${settingsItemDirectory.firstOrNull { it.settingId == settingId }?.title.orEmpty()}")
-            delay(1600)
+            delay(SettingsSearchHighlightTiming.HOLD_MILLIS)
         } finally {
             highlighted = false
             SettingsSearchFocusController.clear(current.token)
         }
     }
+    val highlightProgress = animateFloatAsState(
+        targetValue = if (highlighted) 1f else 0f,
+        animationSpec = tween(SettingsSearchHighlightTiming.FADE_MILLIS),
+        label = "settingsSearchRowHighlight",
+    )
     val highlightColor = AppContentColors.accent()
     Box(
         modifier.fillMaxWidth()
@@ -62,11 +68,12 @@ internal fun SettingsItemAnchor(
             .drawWithContent {
                 drawContent()
                 // Draw above the preference surface so native row backgrounds cannot hide it.
-                if (highlighted) {
+                val progress = highlightProgress.value
+                if (progress > 0f) {
                     val radius = CornerRadius(12.dp.toPx())
-                    drawRoundRect(color = highlightColor.copy(alpha = 0.12f), cornerRadius = radius)
+                    drawRoundRect(color = highlightColor.copy(alpha = 0.12f * progress), cornerRadius = radius)
                     drawRoundRect(
-                        color = highlightColor.copy(alpha = 0.45f),
+                        color = highlightColor.copy(alpha = 0.45f * progress),
                         cornerRadius = radius,
                         style = Stroke(width = 1.dp.toPx()),
                     )

@@ -33,6 +33,7 @@ import com.android.purebilibili.core.ui.components.AppPreference
 import com.android.purebilibili.core.ui.components.AppPreferenceDivider
 import com.android.purebilibili.core.ui.components.AppPreferenceGroup
 import com.android.purebilibili.core.ui.components.AppLiquidAwareSearchField
+import com.android.purebilibili.core.ui.components.AppSearchFieldPresentation
 import com.android.purebilibili.core.ui.components.AppSearchEntry
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.rememberAdaptiveListVisualCapabilities
@@ -44,6 +45,7 @@ internal fun SettingsSearchBarSection(
     query: String,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit = {},
+    autoFocusEnabled: Boolean = true,
 ) {
     val placeholder = stringResource(R.string.settings_search_placeholder)
     AppLiquidAwareSearchField(
@@ -51,6 +53,8 @@ internal fun SettingsSearchBarSection(
         onQueryChange = onQueryChange,
         onSearch = onSearch,
         placeholder = placeholder,
+        presentation = AppSearchFieldPresentation.TOP_BAR,
+        autoFocusEnabled = autoFocusEnabled,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
     )
 }
