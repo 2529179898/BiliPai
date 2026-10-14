@@ -262,22 +262,6 @@ private fun BangumiHubScreen(
                             ),
                         )
                     }
-                    if (state.page == BangumiHubPage.FOLLOW) {
-                        AppLiquidAwareTabRow(
-                            role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
-                            options = BangumiFollowStatus.entries.map { AppSegmentOption(it, it.label) },
-                            selectedValue = state.followStatus,
-                            enabled = state.followStates[state.channel to state.followStatus]?.isMutating != true,
-                            onSelectionChange = viewModel::selectFollowStatus,
-                            dragSelectionEnabled = true,
-                            tapPressRefractionEnabled = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .responsiveContentWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            miuixBackdrop = chromeBackdrop,
-                        )
-                    }
                     if (state.page != BangumiHubPage.SEARCH) {
                         AppLiquidAwareTabRow(
                             role = com.android.purebilibili.core.ui.components.AppTabRowRole.PRIMARY,
@@ -291,6 +275,22 @@ private fun BangumiHubScreen(
                                 .fillMaxWidth()
                                 .responsiveContentWidth()
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
+                            miuixBackdrop = chromeBackdrop,
+                        )
+                    }
+                    if (state.page == BangumiHubPage.FOLLOW) {
+                        AppLiquidAwareTabRow(
+                            role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
+                            options = BangumiFollowStatus.entries.map { AppSegmentOption(it, it.label) },
+                            selectedValue = state.followStatus,
+                            enabled = state.followStates[state.channel to state.followStatus]?.isMutating != true,
+                            onSelectionChange = viewModel::selectFollowStatus,
+                            dragSelectionEnabled = true,
+                            tapPressRefractionEnabled = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .responsiveContentWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
                             miuixBackdrop = chromeBackdrop,
                         )
                     }

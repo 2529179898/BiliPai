@@ -786,7 +786,8 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
      */
     fun loadMoreUserDynamics() {
         val uid = _selectedUserId.value ?: return
-        if (!_uiState.value.hasUserMore || _uiState.value.isLoading || isUserLoadingLocked) return
+        if (!_uiState.value.hasUserMore || _uiState.value.userIsLoading ||
+            _uiState.value.userError != null || isUserLoadingLocked) return
         launchAccount {
             loadUserDynamics(
                 uid = uid,
@@ -1058,8 +1059,31 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
     fun loadMore(selectedTab: Int = _selectedTab.value) {
         val requestType = resolveDynamicFeedRequestType(selectedTab)
         val page = _uiState.value.timelinePage(requestType)
-        if (!page.hasMore || page.isLoading || _isRefreshing.value || isTimelineLoading(requestType)) return
+        if (!page.hasMore || page.isLoading || page.error != null ||
+            _isRefreshing.value || isTimelineLoading(requestType)) return
         loadDynamicFeed(refresh = false, requestType = requestType)
+    }
+
+    fun retryDynamicFeed(selectedTab: Int = _selectedTab.value) {
+        val uid = resolveDynamicRefreshUserId(selectedTab, _selectedUserId.value)
+        if (uid != null) {
+            if (isUserLoadingLocked || _isRefreshing.value) return
+            launchAccount {
+                loadUserDynamics(
+                    uid = uid,
+                    refresh = _uiState.value.userItems.isEmpty(),
+                    requestToken = activeUserDynamicsRequestToken
+                )
+            }
+            return
+        }
+        val requestType = resolveDynamicFeedRequestType(selectedTab)
+        if (isTimelineLoading(requestType) || _isRefreshing.value) return
+        val page = _uiState.value.timelinePage(requestType)
+        loadDynamicFeed(
+            refresh = page.items.isEmpty() || page.errorSource == DynamicFeedErrorSource.REFRESH,
+            requestType = requestType
+        )
     }
 
     private fun dynamicItemKey(item: DynamicItem): String {

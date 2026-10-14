@@ -616,6 +616,7 @@ fun DynamicScreen(
     val shouldLoadMore by remember(
         activeListState,
         activeLoading,
+        activeError,
         currentHasMore,
         allowAutomaticLoadMore,
     ) {
@@ -632,6 +633,7 @@ fun DynamicScreen(
                 allowAutomaticLoadMore = allowAutomaticLoadMore,
                 isLoading = activeLoading,
                 hasMore = currentHasMore,
+                error = activeError,
             )
         }
     }
@@ -929,6 +931,7 @@ fun DynamicScreen(
                                         state = state,
                                         activeLoading = pagePresentation.isLoading,
                                         activeError = pagePresentation.error,
+                                        onRetry = { viewModel.retryDynamicFeed(tab.logicalIndex) },
                                         hasMore = pagePresentation.hasMore,
                                         selectedTab = tab.logicalIndex,
                                         isSelectedUserTabActive = pagePresentation.isSelectedUserFeed,
@@ -1120,6 +1123,7 @@ fun DynamicScreen(
                                     state = state,
                                     activeLoading = pagePresentation.isLoading,
                                     activeError = pagePresentation.error,
+                                    onRetry = { viewModel.retryDynamicFeed(tab.logicalIndex) },
                                     hasMore = pagePresentation.hasMore,
                                     selectedTab = tab.logicalIndex,
                                     isSelectedUserTabActive = pagePresentation.isSelectedUserFeed,
@@ -1468,6 +1472,7 @@ private fun DynamicList(
     state: DynamicUiState,
     activeLoading: Boolean,
     activeError: String?,
+    onRetry: () -> Unit,
     hasMore: Boolean,
     selectedTab: Int,
     isSelectedUserTabActive: Boolean,
@@ -1717,6 +1722,27 @@ private fun DynamicList(
                     contentAlignment = Alignment.Center
                 ) {
                     LoadingAnimation(size = AppSpacingTokens.DoubleExtraLarge + AppSpacingTokens.Small)
+                }
+            }
+        }
+
+        if (activeError != null && !activeLoading && filteredItems.isNotEmpty()) {
+            item(
+                key = "dynamic_error_footer",
+                contentType = "dynamic_error_footer",
+                span = StaggeredGridItemSpan.FullLine
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(AppSpacingTokens.Large),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    AppText(activeError, color = AppContentColors.error())
+                    Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
+                    if (activeError.contains("未登录")) {
+                        AppPrimaryButton(text = "去登录", onClick = onLoginClick)
+                    } else {
+                        AppPrimaryButton(text = "重试", onClick = onRetry)
+                    }
                 }
             }
         }

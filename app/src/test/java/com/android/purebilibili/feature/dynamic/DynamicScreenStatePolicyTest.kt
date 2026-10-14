@@ -271,6 +271,30 @@ class DynamicScreenStatePolicyTest {
     }
 
     @Test
+    fun `dynamic feed pauses automatic pagination after a request error`() {
+        assertFalse(
+            shouldLoadMoreDynamicFeed(
+                furthestVisibleItemIndex = 2,
+                totalItemsCount = 3,
+                allowAutomaticLoadMore = true,
+                isLoading = false,
+                hasMore = true,
+                error = "请求数据发生错误",
+            )
+        )
+        assertTrue(
+            shouldLoadMoreDynamicFeed(
+                furthestVisibleItemIndex = 2,
+                totalItemsCount = 3,
+                allowAutomaticLoadMore = true,
+                isLoading = false,
+                hasMore = true,
+                error = null,
+            )
+        )
+    }
+
+    @Test
     fun `no more footer should follow active hasMore and list size`() {
         assertTrue(shouldShowDynamicNoMoreFooter(hasMore = false, activeItemsCount = 1))
         assertFalse(shouldShowDynamicNoMoreFooter(hasMore = true, activeItemsCount = 1))
