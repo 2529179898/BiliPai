@@ -301,6 +301,10 @@ internal fun resolveVideoContentEffectiveSelectedTabIndex(
     }
 }
 
+/** Extend the shared material with the visible comment page, never with scroll activity. */
+internal fun resolveVideoContentCommentChromeHeightFraction(pagePosition: Float): Float =
+    if (pagePosition.isFinite()) pagePosition.coerceIn(0f, 1f) else 0f
+
 /** 简介与评论页之间始终支持横向分页，方向仲裁由共享的纵向优先手势门控处理。 */
 internal fun shouldEnableVideoContentHorizontalPagerSwipe(
     currentPage: Int,
@@ -1077,15 +1081,17 @@ internal fun VideoContentSection(
             // 在相邻边界重新起算而形成断层。
             // 液态玻璃开启时，播放器折叠/隐藏后 chrome 仍对滚动中的评论内容做
             // 模糊采样；关闭时保持原有行为——折叠态使用内容页底色背景层。
-            val commentChromeHeight = if (
-                pagerState.currentPage == 1 || pagerState.isScrollInProgress
-            ) 46.dp else 0.dp
+            // A scroll-state toggle must not add/remove 46dp and remap the entire blur/fade
+            // gradient in one frame. Read continuous page geometry only during measurement.
             val chromeBlurActive = !isPlayerCollapsed || liquidGlassEnabled
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .videoContentHeight {
-                        tabBarVisibleHeightPx() + with(density) { commentChromeHeight.toPx() }
+                        val commentFraction = resolveVideoContentCommentChromeHeightFraction(
+                            pagerState.currentPage + pagerState.currentPageOffsetFraction,
+                        )
+                        tabBarVisibleHeightPx() + with(density) { 46.dp.toPx() } * commentFraction
                     }
                     .background(
                         if (isPlayerCollapsed && !liquidGlassEnabled) {

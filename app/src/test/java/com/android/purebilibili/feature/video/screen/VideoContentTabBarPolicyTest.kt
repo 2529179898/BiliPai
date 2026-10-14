@@ -10,6 +10,19 @@ import kotlin.test.assertTrue
 class VideoContentTabBarPolicyTest {
 
     @Test
+    fun `shared top material follows visible comment fraction continuously through pager settle`() {
+        val pagePositions = listOf(0f, 0.25f, 0.5f, 0.75f, 1f, 0.75f, 0.5f, 0.25f, 0f)
+        for (position in pagePositions) {
+            assertEquals(position, resolveVideoContentCommentChromeHeightFraction(position), 0.0001f)
+        }
+        // At the intro endpoint, beginning or ending a scroll cannot extend the material.
+        assertEquals(0f, resolveVideoContentCommentChromeHeightFraction(0f), 0.0001f)
+        assertEquals(1f, resolveVideoContentCommentChromeHeightFraction(1.01f), 0.0001f)
+        assertEquals(0f, resolveVideoContentCommentChromeHeightFraction(-0.01f), 0.0001f)
+        assertEquals(0f, resolveVideoContentCommentChromeHeightFraction(Float.NaN), 0.0001f)
+    }
+
+    @Test
     fun `pager motion does not reveal collapsed comment tabs or reset their height`() {
         for (pagerScrolling in listOf(false, true, false)) {
             val keepCollapsed = shouldKeepVideoContentTabBarCollapse(
