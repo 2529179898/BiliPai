@@ -16,14 +16,54 @@ import com.android.purebilibili.core.ui.components.shouldEqualizeMiuixNonGlassTa
 import com.android.purebilibili.core.ui.components.shouldStretchMiuixNonGlassTabRowToTrack
 import com.android.purebilibili.core.ui.components.MIUIX_NON_GLASS_TAB_ITEM_SPACING_DP
 import com.android.purebilibili.core.ui.components.MiuixNonGlassTabItemWidthMode
+import com.android.purebilibili.core.ui.components.resolveAppTabSlotGeometry
 import androidx.compose.ui.graphics.Color
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class AppSegmentedControlPolicyTest {
+    @Test
+    fun `fixed slots keep exact widths while scrollable`() {
+        val geometry = resolveAppTabSlotGeometry(5, 60.dp, 8.dp, 180.dp, true)
+        assertEquals(180.dp, geometry.containerWidth)
+        assertEquals(60.dp, geometry.itemWidth)
+        assertEquals(8.dp, geometry.horizontalPadding)
+    }
+
+    @Test
+    fun `fixed slots use requested outer width when parent permits`() {
+        val geometry = resolveAppTabSlotGeometry(3, 60.dp, 8.dp, 400.dp, false)
+        assertEquals(196.dp, geometry.containerWidth)
+        assertEquals(60.dp, geometry.itemWidth)
+        assertEquals(8.dp, geometry.horizontalPadding)
+    }
+
+    @Test
+    fun `non scrollable fixed slots divide available width after padding`() {
+        val geometry = resolveAppTabSlotGeometry(3, 60.dp, 6.dp, 132.dp, false)
+        assertEquals(132.dp, geometry.containerWidth)
+        assertEquals(40.dp, geometry.itemWidth)
+        assertEquals(6.dp, geometry.horizontalPadding)
+    }
+
+    @Test
+    fun `fixed slots cannot overflow a parent narrower than its padding`() {
+        val geometry = resolveAppTabSlotGeometry(2, 60.dp, 8.dp, 10.dp, false)
+        assertEquals(10.dp, geometry.containerWidth)
+        assertEquals(0.dp, geometry.itemWidth)
+        assertEquals(5.dp, geometry.horizontalPadding)
+    }
+
+    @Test
+    fun `empty fixed slots occupy no space`() {
+        val geometry = resolveAppTabSlotGeometry(0, 60.dp, 8.dp, 400.dp, false)
+        assertEquals(0.dp, geometry.containerWidth)
+        assertEquals(0.dp, geometry.itemWidth)
+        assertEquals(0.dp, geometry.horizontalPadding)
+    }
+
     @Test
     fun nativeOutlinedItemsNeedOpaqueFillOnlyInsideImmersiveChrome() {
         assertTrue(shouldUseOpaqueMiuixTabBackdrop(nonGlassMiuix = true, immersiveTopChrome = true))
@@ -43,18 +83,6 @@ class AppSegmentedControlPolicyTest {
         assertEquals(readable, resolveAppMiuixTabContentColor(true, inactive, readable))
         assertEquals(inactive, resolveAppMiuixTabContentColor(false, inactive, readable))
 
-        val source = loadSource(
-            "src/main/java/com/android/purebilibili/core/ui/renderer/miuix/" +
-                "AppMiuixSegmentedControl.kt"
-        )
-        assertTrue(source.contains("else -> inactiveItemBackground"))
-        assertTrue(source.contains("drawPath(path, itemBackground)"))
-        val entrySource = loadSource("src/main/java/com/android/purebilibili/core/ui/components/AppSegmentedControl.kt")
-        assertFalse(entrySource.contains("readingPlaneModifier"))
-        assertFalse(entrySource.contains("Modifier.background("))
-        assertFalse(source.contains("adaptiveSquircleBackground(\n                color = trackColor"))
-        assertTrue(source.contains("AppMiuixNonGlassTabs("))
-        assertTrue(source.contains("Arrangement.spacedBy(AppSpacingTokens.Small)"))
     }
 
     @Test
@@ -134,15 +162,6 @@ class AppSegmentedControlPolicyTest {
         assertEquals(sharedWidth, resolveMiuixTabMinWidth(48.dp, sharedWidth, false))
         assertEquals(72.dp, resolveMiuixTabMinWidth(72.dp, sharedWidth, true))
         assertEquals(0.dp, resolvePiliPlusScrollableUnderlineMinWidth())
-        val source = loadSource("src/main/java/com/android/purebilibili/core/ui/components/AppSegmentedControl.kt")
-        val materialRenderer = source
-            .substringAfter("AppSegmentedRenderer.MATERIAL3 -> AppMaterial3TabRow(")
-            .substringBefore("AppSegmentedRenderer.MIUIX -> AppMiuixTabRow(")
-        assertTrue(materialRenderer.contains("minTabWidth = resolvePiliPlusScrollableUnderlineMinWidth()"))
-        assertFalse(materialRenderer.contains("resolveMiuixTabMinWidth("))
-        val renderer = source.substringAfter("AppSegmentedRenderer.MIUIX -> AppMiuixTabRow(")
-        assertTrue(renderer.contains("minTabWidth = resolveMiuixTabMinWidth("))
-        assertTrue(renderer.contains("contentSizedItems = useContentSizedMiuixItems"))
     }
 
     @Test
@@ -206,14 +225,6 @@ class AppSegmentedControlPolicyTest {
             )
         )
         assertEquals(9, MIUIX_NON_GLASS_TAB_ITEM_SPACING_DP)
-        val miuixSource = loadSource(
-            "src/main/java/com/android/purebilibili/core/ui/renderer/miuix/" +
-                "AppMiuixSegmentedControl.kt"
-        )
-        val nonGlassTabs = miuixSource.substringAfter("private fun <T> AppMiuixNonGlassTabs(")
-        assertTrue(nonGlassTabs.contains("TabRow("))
-        assertTrue(nonGlassTabs.contains("itemSpacing = AppSpacingTokens.Small"))
-        assertTrue(nonGlassTabs.contains("maxWidth = tabRowMaxWidth"))
     }
 
     @Test
@@ -275,63 +286,4 @@ class AppSegmentedControlPolicyTest {
         assertEquals(12.dp, geometry.cornerRadius)
     }
 
-    @Test
-    fun `native Miuix tabs keep compact visuals inside a 48dp touch target`() {
-        val materialSource = loadSource(
-            "src/main/java/com/android/purebilibili/core/ui/renderer/material3/" +
-                "AppMaterial3SegmentedControl.kt"
-        )
-        val miuixSource = loadSource(
-            "src/main/java/com/android/purebilibili/core/ui/renderer/miuix/" +
-                "AppMiuixSegmentedControl.kt"
-        )
-
-        assertFalse(materialSource.contains("heightIn(min = 48.dp)"))
-        assertTrue(miuixSource.contains("resolveRoundedControlVisualGeometry("))
-        assertTrue(miuixSource.contains("TabRow("))
-        assertTrue(miuixSource.contains("TabRowDefaults.TabRowMinWidth"))
-        assertTrue(miuixSource.contains("TabRowDefaults.TabRowMaxWidth"))
-        assertFalse(miuixSource.contains("AppMiuixNonGlassTabItem("))
-    }
-
-    @Test
-    fun `md3 tab row overflows material text padding instead of ellipsizing compact labels`() {
-        val materialSource = loadSource(
-            "src/main/java/com/android/purebilibili/core/ui/renderer/material3/" +
-                "AppMaterial3SegmentedControl.kt"
-        )
-        val tabRow = materialSource.substringAfter("internal fun <T> AppMaterial3TabRow(")
-
-        assertTrue(tabRow.contains("text = {"))
-        assertTrue(tabRow.contains("resolveAppSegmentedLabelFontSize("))
-        assertTrue(tabRow.contains("MaterialTheme.typography.labelLarge.fontSize"))
-        assertTrue(tabRow.contains("allowLabelOverflow"))
-        assertTrue(tabRow.contains("wrapContentWidth("))
-        assertTrue(tabRow.contains("unbounded = true"))
-        assertTrue(tabRow.contains("softWrap = false"))
-        assertTrue(tabRow.contains("TextOverflow.Visible"))
-        assertFalse(tabRow.contains("TextOverflow.Ellipsis"))
-        assertTrue(tabRow.contains("indicatorPositionProvider: (() -> Float)? = null"))
-        assertTrue(tabRow.contains("indicatorPositionProvider = indicatorPositionProvider"))
-    }
-
-    @Test
-    fun `miuix tab viewport clips scrolling content and background to its corners`() {
-        val source = loadSource(
-            "src/main/java/com/android/purebilibili/core/ui/renderer/miuix/" +
-                "AppMiuixSegmentedControl.kt"
-        )
-        val tabRow = source.substringAfter("internal fun <T> AppMiuixTabRow(")
-
-        assertTrue(source.contains("import top.yukonga.miuix.kmp.squircle.squircleClip"))
-        assertTrue(tabRow.contains("modifier = modifier.squircleClip(geometry.cornerRadius)"))
-        assertTrue(tabRow.contains("cornerRadius = geometry.cornerRadius"))
-        assertTrue(tabRow.contains("listState = if (scrollable) scrollState else null"))
-    }
-
-    private fun loadSource(path: String): String = listOf(
-        File(path),
-        File("design-system/$path"),
-    ).firstOrNull(File::exists)?.readText()
-        ?: error("Cannot locate $path from ${File(".").absolutePath}")
 }

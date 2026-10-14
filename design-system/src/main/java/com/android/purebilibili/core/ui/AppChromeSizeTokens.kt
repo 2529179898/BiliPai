@@ -6,10 +6,12 @@ import androidx.compose.ui.unit.dp
 
 object AppChromeSizeTokens {
     val MinimumTouchTarget = 48.dp
+    val TopBarIconVisualSize = 40.dp
+    val CompactTabMinWidth = 52.dp
     const val CompactControlHeightDp = 44
     const val CompactControlCornerRadiusDp = 20
-    // Native Miuix controls use compact visual geometry while retaining their
-    // surrounding accessibility hit target.
+    // Visual geometry is independent of the global accessibility default;
+    // compact chrome scopes input to its actual UI bounds.
     const val MiuixNativeCompactControlHeightDp = 36
     const val MiuixNativeCompactControlMinWidthDp = 52
     const val MiuixNativeCompactCornerRadiusDp = 10

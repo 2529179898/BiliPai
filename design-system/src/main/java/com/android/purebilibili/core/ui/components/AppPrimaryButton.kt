@@ -42,7 +42,7 @@ fun AppPrimaryButton(
     enabled: Boolean = true,
     isLoading: Boolean = false,
     leadingIcon: ImageVector? = null,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = enabled && !isLoading) {
         val haptic = LocalHapticFeedback.current
         val hapticEnabled = LocalAppThemeConfig.current.hapticFeedbackEnabled

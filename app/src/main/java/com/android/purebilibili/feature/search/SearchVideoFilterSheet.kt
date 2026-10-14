@@ -59,6 +59,7 @@ import com.android.purebilibili.feature.home.components.BottomBarMatchedReusable
 import com.android.purebilibili.feature.home.components.resolveFloatingDockGeometryScale
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.blur.Backdrop as MiuixBackdrop
+import com.android.purebilibili.core.ui.components.AppExactTouchTargets
 import com.android.purebilibili.core.ui.components.AppFilterChip
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -81,7 +82,7 @@ fun SearchVideoFilterBar(
     onOrderChange: (SearchOrder) -> Unit,
     modifier: Modifier = Modifier,
     miuixBackdrop: MiuixBackdrop? = null,
-) {
+): Unit = AppExactTouchTargets {
     val orderOptions = remember { resolveSearchVideoOrderOptions() }
     Row(
         modifier = modifier

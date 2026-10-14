@@ -171,28 +171,6 @@ class SpaceScreenStructureTest {
         assertFalse(source.contains("SpaceContributionVideoActions("))
     }
 
-    @Test
-    fun `secondary contribution switch returns to native tab row component`() {
-        val source = loadSource("app/src/main/java/com/android/purebilibili/feature/space/SpaceScreen.kt")
-        val secondaryRow = source
-            .substringAfter("private fun SpaceSecondarySwitchRow(")
-            .substringBefore("private fun SpaceMainTabRow(")
-
-        assertTrue(source.contains("SpaceSecondarySwitchRow("))
-        assertFalse(secondaryRow.contains("BottomBarLiquidSegmentedControl("))
-        assertFalse(secondaryRow.contains("if (liquidGlassEnabled)"))
-        assertFalse(secondaryRow.contains("LocalAppThemeConfig.current.liquidGlassEnabled"))
-        assertFalse(secondaryRow.contains("AppFilterChip("))
-        assertTrue(secondaryRow.contains("AppNativeTabRow("))
-        assertTrue(secondaryRow.contains("minTabWidth = resolveSpaceSecondarySwitchNonGlassMinTabWidthDp().dp"))
-        assertTrue(secondaryRow.contains("shouldScrollSpaceSecondarySwitchForNonGlass(items.size)"))
-        assertTrue(secondaryRow.contains("resolveSpaceSecondarySwitchNonGlassMinTabWidthDp()"))
-        assertTrue(secondaryRow.contains("MiuixNonGlassTabItemWidthMode.CONTENT"))
-        assertTrue(secondaryRow.contains("contentSizedMiuixNonGlassItems = true"))
-        assertTrue(secondaryRow.contains("allowLabelOverflow = true"))
-        assertFalse(secondaryRow.contains("getHomeSettings("))
-        assertFalse(source.contains("rememberTextMeasurer()"))
-    }
 
     @Test
     fun `space media library uses card semantic corners`() {

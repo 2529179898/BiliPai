@@ -62,13 +62,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalViewConfiguration
-import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.android.purebilibili.core.ui.components.AppExactTouchTargets
 import com.android.purebilibili.core.util.HapticType
 import com.android.purebilibili.core.util.rememberHapticFeedback
 import com.android.purebilibili.feature.home.UserState
@@ -1497,16 +1495,7 @@ private fun HomeHeaderControlBounds(
     modifier: Modifier,
     content: @Composable BoxWithConstraintsScope.() -> Unit,
 ) {
-    val viewConfiguration = LocalViewConfiguration.current
-    val boundedViewConfiguration = remember(viewConfiguration) {
-        object : ViewConfiguration by viewConfiguration {
-            override val minimumTouchTargetSize: DpSize = DpSize.Zero
-        }
-    }
-    CompositionLocalProvider(
-        LocalViewConfiguration provides boundedViewConfiguration,
-        LocalMinimumInteractiveComponentSize provides 0.dp,
-    ) {
+    AppExactTouchTargets {
         BoxWithConstraints(modifier = modifier, content = content)
     }
 }

@@ -1,9 +1,5 @@
 package com.android.purebilibili.feature.home.components
 
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -112,22 +108,6 @@ internal fun resolveCompactDockInnerShadowRadiusDp(shellHeightDp: Float): Float 
 internal fun resolveCompactDockTabPressScale(shellHeightDp: Float): Float =
     1f + FLOATING_DOCK_TAB_PRESS_SCALE_EXTRA * resolveFloatingDockGeometryScale(shellHeightDp)
 
-/**
- * Half the extra height a pressed indicator needs beyond the dock.
- * Compact 40dp chrome must reserve this or the 78/56 bloom is clipped by
- * siblings such as the detail-page pager.
- */
-internal fun resolveCompactDockScaleOverflowDp(
-    shellHeightDp: Float,
-    indicatorHeightDp: Float,
-): Float {
-    val geometry = com.android.purebilibili.core.ui.resolveMatchedLiquidIndicatorGeometry(
-        dockHeightDp = shellHeightDp,
-        indicatorHeightDp = indicatorHeightDp,
-    )
-    return ((geometry.pressedHeightDp - shellHeightDp) / 2f).coerceAtLeast(0f)
-}
-
 /** Signed speed near the logical viewport edges; zero in the middle or invalid geometry. */
 internal fun resolveDockDragEdgeScrollFraction(
     indicatorCenterPx: Float,
@@ -157,58 +137,6 @@ internal fun resolveFloatingDockRestIndicatorVerticalInsetDp(
     return shellHeightDp * FLOATING_DOCK_REST_INDICATOR_INSET_RATIO
 }
 
-/**
- * Press bloom needs extra vertical room. Only consume it from the layout when the
- * caller did not already lock height to the shell; otherwise the 56dp rest pill is
- * clamped to the same height as the 64dp dock and the idle inset becomes 0.
- */
-internal fun shouldReserveFloatingDockScaleOverflow(
-    incomingMaxHeightPx: Int,
-    shellHeightPx: Int,
-    overflowPx: Int,
-): Boolean {
-    if (overflowPx <= 0 || shellHeightPx <= 0) return false
-    if (incomingMaxHeightPx == Constraints.Infinity) return true
-    return incomingMaxHeightPx >= shellHeightPx + overflowPx * 2
-}
-
-internal fun Modifier.floatingDockScaleOverflow(
-    overflow: Dp,
-    shellHeight: Dp,
-): Modifier = layout { measurable, constraints ->
-    val overflowPx = overflow.roundToPx().coerceAtLeast(0)
-    val shellPx = shellHeight.roundToPx().coerceAtLeast(0)
-    val reserve = shouldReserveFloatingDockScaleOverflow(
-        incomingMaxHeightPx = if (constraints.hasBoundedHeight) {
-            constraints.maxHeight
-        } else {
-            Constraints.Infinity
-        },
-        shellHeightPx = shellPx,
-        overflowPx = overflowPx,
-    )
-    if (!reserve) {
-        val placeable = measurable.measure(constraints)
-        layout(placeable.width, placeable.height) {
-            placeable.placeRelative(0, 0)
-        }
-    } else {
-        val innerMaxHeight = if (constraints.hasBoundedHeight) {
-            (constraints.maxHeight - overflowPx * 2).coerceAtLeast(0)
-        } else {
-            constraints.maxHeight
-        }
-        val placeable = measurable.measure(
-            constraints.copy(minHeight = 0, maxHeight = innerMaxHeight)
-        )
-        val width = placeable.width.coerceIn(constraints.minWidth, constraints.maxWidth)
-        val height = (placeable.height + overflowPx * 2)
-            .coerceIn(constraints.minHeight, constraints.maxHeight)
-        layout(width, height) {
-            placeable.placeRelative(0, overflowPx)
-        }
-    }
-}
 
 internal const val FLOATING_DOCK_INDICATOR_VELOCITY_DIVISOR = 10f
 internal const val FLOATING_DOCK_INDICATOR_VELOCITY_SCALE_X_MULTIPLIER = 0.75f

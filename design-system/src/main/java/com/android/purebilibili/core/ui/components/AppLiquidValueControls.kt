@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Density
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 import androidx.compose.ui.graphics.Color
@@ -46,6 +47,9 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.DpSize
+import com.android.purebilibili.core.theme.LocalAppUiStyle
+import com.android.purebilibili.core.theme.AppUiStyle
 import androidx.compose.material3.MaterialTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -224,15 +228,25 @@ private class LiquidValueMotion(private val scope: CoroutineScope, initial: Floa
 
 }
 
+// Primitive parameters avoid boxing coordinates for each drag event.
+private fun interface LiquidValueDrag {
+    fun update(positionOrDeltaPx: Float, widthPx: Float)
+}
+
 /** Horizontal drag claims input only after slop; vertical list scrolling remains native. */
+@Composable
 private fun Modifier.liquidValueGesture(
     motion: LiquidValueMotion,
-    onDelta: (Float, Float) -> Unit,
-    onFinish: (Boolean, Float?) -> Unit,
+    absoluteDrag: Boolean,
+    onDrag: LiquidValueDrag,
+    onFinish: (Boolean, Float?, Float) -> Unit,
     onCancel: () -> Unit,
-    onStart: () -> Unit = {},
     interactionSource: MutableInteractionSource? = null,
-): Modifier = pointerInput(motion, interactionSource) {
+): Modifier {
+    val latestDrag by rememberUpdatedState(onDrag)
+    val latestFinish by rememberUpdatedState(onFinish)
+    val latestCancel by rememberUpdatedState(onCancel)
+    return pointerInput(motion, interactionSource, absoluteDrag) {
     awaitEachGesture {
         // Slop detection also reads Main. Starting in Initial would re-read this
         // consumed down in Main and immediately cancel instead of seeing movement.
@@ -244,35 +258,38 @@ private fun Modifier.liquidValueGesture(
         val pressInteraction = PressInteraction.Press(down.position)
         interactionSource?.tryEmit(pressInteraction)
         motion.beginGesture()
-        onStart()
         motion.pressed(true)
         try {
             val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
                 if (currentEvent.changes.count { it.pressed } > 1) throw CancellationException("Multiple pointers")
                 change.consume()
-                onDelta(over, size.width.toFloat())
+                latestDrag.update(if (absoluteDrag) change.position.x else over, size.width.toFloat())
             }
             if (drag != null) {
                 complete = horizontalDrag(drag.id) { change ->
                     if (currentEvent.changes.count { it.pressed } > 1) throw CancellationException("Multiple pointers")
-                    onDelta(change.position.x - change.previousPosition.x, size.width.toFloat())
+                    latestDrag.update(
+                        if (absoluteDrag) change.position.x else change.position.x - change.previousPosition.x,
+                        size.width.toFloat(),
+                    )
                     change.consume()
                 }
-                if (complete) onFinish(true, null)
+                if (complete) latestFinish(true, null, size.width.toFloat())
             } else {
                 val end = currentEvent.changes.firstOrNull { it.id == down.id }
                 if (end != null && !end.pressed && !end.isConsumed) {
                     complete = true
                     end.consume()
-                    onFinish(false, end.position.x / size.width.coerceAtLeast(1))
+                    latestFinish(false, end.position.x / size.width.coerceAtLeast(1), size.width.toFloat())
                 }
             }
         } finally {
             interactionSource?.tryEmit(if (complete) PressInteraction.Release(pressInteraction) else PressInteraction.Cancel(pressInteraction))
-            if (!complete) onCancel()
+            if (!complete) latestCancel()
             motion.pressed(false)
         }
     }
+}
 }
 
 /** Fill the lens's complete sampling area before compositing its sibling track. */
@@ -311,10 +328,11 @@ private class LiquidValueBackdrop(
 
 @Composable
 private fun LiquidValueThumb(
-    motion: LiquidValueMotion, track: Backdrop, modifier: Modifier,
+    motion: LiquidValueMotion, track: Backdrop, modifier: Modifier, thumbSize: DpSize,
     thumbColor: Color = appControlThumbColor(),
     content: (@Composable () -> Unit)? = null,
 ) {
+    val lensScale = (minOf(thumbSize.width, thumbSize.height) / 24.dp).coerceAtMost(1f)
     Box(modifier
         .dropShadow(CircleShape, Shadow(radius = 4.dp, color = Color.Black, alpha = 0.05f))
         .drawBackdrop(
@@ -323,7 +341,7 @@ private fun LiquidValueThumb(
             effects = {
                 val progress = motion.press.value
                 blur(8.dp.toPx() * (1f - progress))
-                lens(5.dp.toPx() * progress, 10.dp.toPx() * progress, chromaticAberration = 1f)
+                lens(5.dp.toPx() * lensScale * progress, 10.dp.toPx() * lensScale * progress, chromaticAberration = 1f)
             },
             highlight = { Highlight(width = (0.5f / 1.5f).dp, alpha = motion.press.value.coerceIn(0f, 1f)) },
             layerBlock = {
@@ -338,7 +356,7 @@ private fun LiquidValueThumb(
             alpha = motion.press.value.coerceIn(0f, 1f)
             color = Color.Black.copy(alpha = 0.15f)
         }
-        .size(40.dp, 24.dp), contentAlignment = Alignment.Center) { content?.invoke() }
+        .size(thumbSize), contentAlignment = Alignment.Center) { content?.invoke() }
 }
 
 @Composable
@@ -346,8 +364,24 @@ internal fun AppLiquidSwitch(
     checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, modifier: Modifier,
     enabled: Boolean, thumbContent: (@Composable () -> Unit)?,
     interactionSource: MutableInteractionSource?,
+    showThumbIcon: Boolean,
 ) {
+    val uiStyle = LocalAppUiStyle.current
+    val geometry = appSwitchGeometry(uiStyle, checked, thumbContent != null || showThumbIcon)
+    val trackBounds = if (uiStyle == AppUiStyle.MATERIAL3) {
+        Modifier.requiredSize(geometry.track)
+    } else {
+        Modifier.size(geometry.track)
+    }
     val thisDensity = androidx.compose.ui.platform.LocalDensity.current.density
+    var trackWidthPx by remember(geometry.track, thisDensity) {
+        mutableFloatStateOf(geometry.track.width.value * thisDensity)
+    }
+    fun switchTravel(): Float {
+        val thumb = (geometry.thumb.value * thisDensity).coerceAtMost(trackWidthPx)
+        val inset = (geometry.inset.value * thisDensity).coerceAtMost((trackWidthPx - thumb) / 2f)
+        return (trackWidthPx - thumb - inset * 2f).coerceAtLeast(0f)
+    }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val hapticsEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.hapticFeedbackEnabled
     val scope = rememberCoroutineScope()
@@ -384,8 +418,9 @@ internal fun AppLiquidSwitch(
     }
     fun activate() { motion.pressed(true); select(!latestChecked); motion.pressed(false) }
     Box(modifier
+        .wrapContentSize(Alignment.Center)
+        .then(trackBounds)
         .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
-        .sizeIn(minWidth = 64.dp, minHeight = 48.dp)
         .semantics {
             role = Role.Switch
             toggleableState = if (checked) ToggleableState.On else ToggleableState.Off
@@ -400,17 +435,26 @@ internal fun AppLiquidSwitch(
         .focusable(enabled = interactive)
         .then(if (interactive) Modifier.liquidValueGesture(
             motion,
-            onDelta = { delta, _ -> motion.trackPointer(motion.target + delta / (20.dp.value * thisDensity) * if (latestLtr) 1f else -1f) },
-            onFinish = { dragged, _ -> select(if (dragged) motion.target >= 0.5f else !latestChecked) },
+            absoluteDrag = false,
+            onDrag = LiquidValueDrag { delta, _ ->
+                val travel = switchTravel()
+                if (travel > 0f) motion.trackPointer(motion.target + delta / travel * if (latestLtr) 1f else -1f)
+            },
+            onFinish = { dragged, _, _ -> select(if (dragged) motion.target >= 0.5f else !latestChecked) },
             onCancel = { motion.finishGesture(if (latestChecked) 1f else 0f) },
             interactionSource = interactionSource,
         ) else Modifier), contentAlignment = Alignment.CenterStart) {
-        Box(Modifier.align(Alignment.CenterStart).size(64.dp, 28.dp).layerBackdrop(track).clip(CircleShape)
+        Box(Modifier.matchParentSize()
+            .onSizeChanged { trackWidthPx = it.width.toFloat() }
+            .layerBackdrop(track).clip(CircleShape)
             .drawBehind { drawRect(lerp(inactive, active, motion.position.coerceIn(0f, 1f))) })
-        LiquidValueThumb(motion, switchBackdrop, Modifier.align(Alignment.CenterStart).graphicsLayer {
-            val fraction = if (isLtr) motion.position else 1f - motion.position
-            translationX = 2.dp.toPx() + 20.dp.toPx() * fraction
-        }, content = thumbContent)
+        Box(Modifier.matchParentSize()) {
+            LiquidValueThumb(motion, switchBackdrop, Modifier.align(Alignment.CenterStart).graphicsLayer {
+                val fraction = if (isLtr) motion.position else 1f - motion.position
+                val inset = geometry.inset.toPx().coerceAtMost((trackWidthPx - size.width).coerceAtLeast(0f) / 2f)
+                translationX = inset + (trackWidthPx - size.width - inset * 2f).coerceAtLeast(0f) * fraction
+            }, DpSize(geometry.thumb, geometry.thumb), content = thumbContent)
+        }
     }
 }
 
@@ -420,6 +464,23 @@ internal fun AppLiquidSlider(
     valueRange: ClosedFloatingPointRange<Float>, steps: Int, onValueChangeFinished: (() -> Unit)?,
     colors: AppSliderColors?, enabled: Boolean, interactionSource: MutableInteractionSource?,
 ) {
+    val uiStyle = LocalAppUiStyle.current
+    val geometry = appSliderGeometry(uiStyle)
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val measuredHeight = if (uiStyle == AppUiStyle.MIUIX) {
+        remember(density, geometry) { mutableFloatStateOf(with(density) { geometry.height.toPx() }) }
+    } else {
+        null
+    }
+    fun sliderInsetPx(): Float = measuredHeight?.let { it.floatValue / 2f }
+        ?: with(density) { geometry.horizontalInset.toPx() }
+    val boundsModifier = modifier.fillMaxWidth().height(geometry.height).then(
+        if (uiStyle == AppUiStyle.MATERIAL3) {
+            Modifier.requiredSizeIn(minWidth = geometry.thumb.width, minHeight = geometry.trackHeight)
+        } else {
+            Modifier.onSizeChanged { measuredHeight!!.floatValue = it.height.toFloat() }
+        }
+    )
     val scope = rememberCoroutineScope()
     val span = valueRange.endInclusive - valueRange.start
     fun fraction(value: Float) = ((value - valueRange.start) / span).coerceIn(0f, 1f)
@@ -448,7 +509,7 @@ internal fun AppLiquidSlider(
     }
     LaunchedEffect(value, valueRange, motion) { motion.update(fraction(value)) }
     BoxWithConstraints(
-        modifier.fillMaxWidth().heightIn(min = 48.dp)
+        boundsModifier
             .graphicsLayer { alpha = if (enabled) 1f else 0.38f }
             .semantics {
                 progressBarRangeInfo = ProgressBarRangeInfo(value.coerceIn(valueRange), valueRange, steps)
@@ -465,16 +526,26 @@ internal fun AppLiquidSlider(
             .focusable(enabled = enabled)
             .then(if (enabled) Modifier.liquidValueGesture(
                 motion,
-                onDelta = { delta, width ->
-                    if (width > 0f) {
-                        rawDragFraction = (rawDragFraction + delta / width * if (latestLtr) 1f else -1f).coerceIn(0f, 1f)
-                        update(rawDragFraction, fromPointer = true)
-                    }
+                absoluteDrag = true,
+                onDrag = LiquidValueDrag { position, width ->
+                    rawDragFraction = resolveAppSliderPointerFraction(
+                        positionPx = position,
+                        widthPx = width,
+                        insetPx = sliderInsetPx(),
+                        isLtr = latestLtr,
+                    )
+                    update(rawDragFraction, fromPointer = true)
                 },
-                onStart = { rawDragFraction = motion.target },
-                onFinish = { dragged, position ->
+                onFinish = { dragged, position, width ->
                     if (dragged) update(rawDragFraction)
-                    else if (position != null) update(if (latestLtr) position else 1f - position)
+                    else if (position != null) {
+                        update(resolveAppSliderPointerFraction(
+                            positionPx = position * width,
+                            widthPx = width,
+                            insetPx = sliderInsetPx(),
+                            isLtr = latestLtr,
+                        ))
+                    }
                     latestFinish?.invoke()
                 },
                 onCancel = { motion.finishGesture(fraction(latestValue)) },
@@ -483,16 +554,33 @@ internal fun AppLiquidSlider(
         contentAlignment = Alignment.CenterStart,
     ) {
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth.toFloat() else 144.dp.value * androidx.compose.ui.platform.LocalDensity.current.density
-        Box((if (constraints.hasBoundedWidth) Modifier.fillMaxWidth() else Modifier.width(144.dp)).height(6.dp).layerBackdrop(track).clip(CircleShape).background(inactive)) {
+        val trackHeight = if (uiStyle == AppUiStyle.MIUIX) maxHeight else geometry.trackHeight
+        val thumbSize = if (uiStyle == AppUiStyle.MIUIX) {
+            DpSize(trackHeight * 0.72f, trackHeight * 0.72f)
+        } else {
+            geometry.thumb
+        }
+        val thumbModifier = if (uiStyle == AppUiStyle.MATERIAL3) Modifier.fillMaxHeight() else Modifier
+        Box((if (constraints.hasBoundedWidth) Modifier.fillMaxWidth() else Modifier.width(144.dp))
+            .padding(horizontal = geometry.trackHorizontalInset)
+            .height(trackHeight).layerBackdrop(track).clip(CircleShape).background(inactive)) {
             Box(Modifier.fillMaxSize().drawBehind {
                 val progress = motion.position.coerceIn(0f, 1f)
                 val left = if (isLtr) 0f else size.width * (1f - progress)
                 drawRect(active, topLeft = Offset(left, 0f), size = androidx.compose.ui.geometry.Size(size.width * progress, size.height))
             })
         }
-        LiquidValueThumb(motion, sliderBackdrop, Modifier.graphicsLayer {
+        LiquidValueThumb(motion, sliderBackdrop, thumbModifier.graphicsLayer {
             val progress = if (isLtr) motion.position else 1f - motion.position
-            translationX = (-size.width / 2f + width * progress).coerceIn(-size.width / 4f, (width - size.width * 3f / 4f).coerceAtLeast(-size.width / 4f))
-        }, thumbColor = colors?.thumbColor ?: appControlThumbColor())
+            val insetPx = sliderInsetPx()
+            val corner = if (steps > 0 && progress > 0f && progress < 1f) {
+                geometry.discreteThumbInset.toPx()
+                    .coerceAtMost((width - insetPx * 2f).coerceAtLeast(0f) / 2f)
+            } else {
+                0f
+            }
+            val travel = (width - insetPx * 2f - corner * 2f).coerceAtLeast(0f)
+            translationX = insetPx + corner - size.width / 2f + travel * progress
+        }, thumbSize, thumbColor = colors?.thumbColor ?: appControlThumbColor())
     }
 }

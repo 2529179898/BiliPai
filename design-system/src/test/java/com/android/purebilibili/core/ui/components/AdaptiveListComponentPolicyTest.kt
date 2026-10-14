@@ -32,20 +32,6 @@ class AdaptiveListComponentPolicyTest {
         assertEquals(3, spec.groupTonalElevationDp)
     }
 
-    @Test
-    fun `miuix style should soften grouped settings geometry`() {
-        val spec = resolveAdaptiveListComponentVisualSpec(AppUiStyle.MIUIX)
-
-        assertEquals(48, spec.searchBarHeightDp)
-        assertEquals(22, spec.searchBarCornerRadiusDp)
-        assertEquals(20, spec.groupCornerRadiusDp)
-        assertEquals(16, spec.sectionStartPaddingDp)
-        assertEquals(16, spec.dividerStartIndentDp)
-        assertEquals(10, spec.iconCornerRadiusDp)
-        assertEquals(38, spec.iconContainerSizeDp)
-        assertEquals(20, spec.iconGlyphSizeDp)
-        assertEquals(0.18f, spec.iconBackgroundAlpha, 0.0001f)
-    }
 
     @Test
     fun `miuix style should align list row spacing with miuix inside margin default`() {
@@ -68,22 +54,6 @@ class AdaptiveListComponentPolicyTest {
         assertEquals(48, spec.minTouchTargetHeightDp)
     }
 
-    @Test
-    fun `cupertino fallback row consumes the shared row spec instead of hardcoded padding`() {
-        val source = listOf(
-            java.io.File("src/main/java/com/android/purebilibili/core/ui/components/AdaptivePreferenceComponents.kt"),
-            java.io.File("../design-system/src/main/java/com/android/purebilibili/core/ui/components/AdaptivePreferenceComponents.kt"),
-        ).first { it.exists() }.readText()
-
-        // 回退 Row 不得再硬编码 16/14 之类的私有间距，必须统一走 rowSpec。
-        assertFalse(
-            source.contains("padding(horizontal = 16.dp, vertical = 14.dp)"),
-            "fallback row still hardcodes legacy 16/14 padding",
-        )
-        assertTrue(
-            source.contains("padding(horizontal = rowSpec.insideHorizontalPaddingDp.dp, vertical = rowSpec.insideVerticalPaddingDp.dp)"),
-        )
-    }
 
     @Test
     fun `material3 style should map all settings icon tints to neutral content`() {

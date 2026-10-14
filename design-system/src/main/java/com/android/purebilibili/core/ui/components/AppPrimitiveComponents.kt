@@ -487,7 +487,7 @@ fun AppButton(
     contentPadding: PaddingValues = appButtonPadding(AppButtonDefaults.ContentPadding),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = enabled) {
         val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
         val interactionModifier = modifier.appElasticPress(enabled = enabled, highlightShape = shape)
@@ -555,7 +555,7 @@ fun AppButton(
     contentPadding: PaddingValues = appButtonPadding(AppButtonDefaults.ContentPadding),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = enabled) {
         val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
         val interactionModifier = modifier.appElasticPress(enabled = enabled, highlightShape = shape)
@@ -638,7 +638,7 @@ fun AppTextButton(
     contentPadding: PaddingValues = appButtonPadding(AppButtonDefaults.TextButtonContentPadding),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = enabled) {
         val readableColors = colors.copy(
             contentColor = resolveButtonContentColor(colors.containerColor, colors.contentColor, MaterialTheme.colorScheme),
@@ -942,7 +942,7 @@ fun AppOutlinedButton(
     contentPadding: PaddingValues = appButtonPadding(AppButtonDefaults.ContentPadding),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = enabled) {
         val readableColors = colors.copy(
             contentColor = resolveButtonContentColor(colors.containerColor, colors.contentColor, MaterialTheme.colorScheme),
@@ -1003,7 +1003,7 @@ fun AppAssistChip(
     horizontalArrangement: Arrangement.Horizontal = AssistChipDefaults.horizontalArrangement(),
     contentPadding: PaddingValues = AssistChipDefaults.ContentPadding,
     interactionSource: MutableInteractionSource? = null,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = enabled) {
         if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
             AppMiuixChip(
@@ -1052,7 +1052,7 @@ fun AppFilterChip(
     horizontalArrangement: Arrangement.Horizontal = FilterChipDefaults.horizontalArrangement(),
     contentPadding: PaddingValues = FilterChipDefaults.ContentPadding,
     interactionSource: MutableInteractionSource? = null,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = enabled) {
         if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
             AppMiuixChip(
@@ -1095,7 +1095,7 @@ fun AppInputChip(
     enabled: Boolean = true,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = enabled) {
         if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
             AppMiuixChip(
@@ -1165,7 +1165,7 @@ fun AppFloatingActionButton(
     elevation: FloatingActionButtonElevation = FloatingActionButtonDefaults.elevation(),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable () -> Unit,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = true) {
         val (resolvedContainerColor, resolvedContentColor) = resolveReadableFloatingActionButtonColors(
             requestedContainerColor = containerColor,
@@ -1205,7 +1205,7 @@ fun AppSmallFloatingActionButton(
     elevation: FloatingActionButtonElevation = FloatingActionButtonDefaults.elevation(),
     interactionSource: MutableInteractionSource? = null,
     content: @Composable () -> Unit,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = true) {
         val (resolvedContainerColor, resolvedContentColor) = resolveReadableFloatingActionButtonColors(
             requestedContainerColor = containerColor,
@@ -1356,7 +1356,7 @@ fun AppSuggestionChip(
     horizontalArrangement: Arrangement.Horizontal = SuggestionChipDefaults.horizontalArrangement(),
     contentPadding: PaddingValues = SuggestionChipDefaults.ContentPadding,
     interactionSource: MutableInteractionSource? = null,
-) {
+): Unit = AppExactTouchTargets {
     ProvideAppElasticFeedback(enabled = enabled) {
         if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
             AppMiuixChip(

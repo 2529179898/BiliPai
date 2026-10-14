@@ -126,6 +126,8 @@ internal val LocalFloatingBottomBarIndicatorStretchX =
 /** 激活内容捕获层会为指示器提供每个槽位的选中态图标。 */
 internal val LocalFloatingBottomBarActiveContent = staticCompositionLocalOf { false }
 
+private val LocalFloatingBottomBarContentVerticalPadding = staticCompositionLocalOf { 0.dp }
+
 // Keep wide dock shells calmer than individual elastic buttons.
 private const val DOCK_SHELL_ELASTIC_GAIN = 0.6f
 private const val DOCK_SHELL_MAX_EXTRA_STRETCH = 0.025f
@@ -413,6 +415,7 @@ fun RowScope.FloatingBottomBarItem(
             }
             .fillMaxHeight()
             .weight(1f)
+            .padding(vertical = LocalFloatingBottomBarContentVerticalPadding.current)
             .graphicsLayer {
                 val s = scale()
                 val stretch = if (activeContent) indicatorStretchX() else 1f
@@ -572,11 +575,6 @@ fun FloatingBottomBar(
         )
     }
     val pressedScale = matchedGeometry.pressedScale
-    val scaleOverflowDp = remember(shellHeight, fittedIndicatorHeight, pressedScale) {
-        ((fittedIndicatorHeight.value * pressedScale - shellHeight.value) / 2f)
-            .coerceAtLeast(0f)
-            .dp
-    }
     class DockDragHitTest {
         var dockWindowLeftPx = 0f
         var screenWidthPx = 0f
@@ -908,10 +906,6 @@ fun FloatingBottomBar(
                 state = adaptiveReadabilityState,
                 enabled = adaptiveReadabilityEnabled,
             )
-            .floatingDockScaleOverflow(
-                overflow = scaleOverflowDp,
-                shellHeight = shellHeight,
-            )
             .then(
                 if (allowOverflow) {
                     Modifier.graphicsLayer { clip = false }
@@ -926,6 +920,7 @@ fun FloatingBottomBar(
             LocalFloatingBottomBarIndicatorPosition provides visualIndicatorPositionProvider,
             LocalFloatingBottomBarItemAlignmentOffset provides itemAlignmentOffsetProvider,
             LocalFloatingBottomBarBaseContentAlpha provides baseContentAlphaProvider,
+            LocalFloatingBottomBarContentVerticalPadding provides verticalPadding,
         ) {
             val shellModifier = if (drawShell) {
                 Modifier
@@ -1044,7 +1039,7 @@ fun FloatingBottomBar(
                     }
                     .then(shellModifier)
                     .height(shellHeight)
-                    .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+                    .padding(horizontal = horizontalPadding),
                 verticalAlignment = Alignment.CenterVertically,
                 content = { content(this) }
             )
