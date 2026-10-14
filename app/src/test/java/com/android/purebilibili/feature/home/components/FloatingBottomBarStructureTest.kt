@@ -75,8 +75,8 @@ class FloatingBottomBarStructureTest {
 
         assertTrue(body.contains("rememberCombinedBackdrop(backdrop, tabsBackdrop)"))
         assertTrue(body.contains("depthEffect = true"))
-        assertTrue(body.contains("resolveLiquidGlassIndicatorChromaticAberration("))
-        assertTrue(body.contains("refractionHeight = indicatorLensHeightPx * progress"))
+        assertTrue(body.contains("homeIndicatorLens("))
+        assertTrue(body.contains("homeIndicatorLens(fittedIndicatorHeight.value, progress, liquidGlassTuning)"))
         assertTrue(body.contains("refractionAmount = indicatorLensAmountPx * progress"))
         assertTrue(body.contains("LiquidGlassReadabilityMode.ADAPTIVE"))
         assertTrue(body.contains("rememberLiquidGlassAdaptiveReadabilityState("))

@@ -115,7 +115,7 @@ class BottomBarMiuixStructureTest {
         assertTrue(floating.contains("onSelected(index)"))
         assertFalse(floating.contains("horizontalDragGesture"))
         assertFalse(floating.contains("rememberDampedDragAnimationState"))
-        assertTrue(floating.contains("resolveLiquidGlassIndicatorChromaticAberration("))
+        assertTrue(floating.contains("homeIndicatorLens("))
         assertTrue(floating.contains("rememberGravityRotatedHighlight("))
 
         // Host must not re-implement the three-layer drawBackdrop path.

@@ -937,7 +937,8 @@ internal fun resolveBiliPaiBottomBarShellColor(
     return if (liquidGlassEnabled) {
         resolveBiliPaiBottomBarContainerColor(
             darkTheme = darkTheme,
-            liquidGlassTuning = liquidGlassTuning
+            liquidGlassTuning = liquidGlassTuning,
+            surfaceColor = containerColor,
         )
     } else {
         containerColor
@@ -1297,9 +1298,10 @@ internal fun resolveAndroidNativeIdleIndicatorSurfaceColor(
 
 internal fun resolveBiliPaiBottomBarContainerColor(
     darkTheme: Boolean,
-    liquidGlassTuning: LiquidGlassTuning = resolveLiquidGlassTuning(progress = 0.5f)
+    liquidGlassTuning: LiquidGlassTuning = resolveLiquidGlassTuning(progress = 0.5f),
+    surfaceColor: Color? = null,
 ): Color {
-    val surfaceContainer = if (darkTheme) {
+    val surfaceContainer = surfaceColor ?: if (darkTheme) {
         HomeVisualPalette.BiliPaiDarkSurface
     } else {
         OpticalContrastPalette.Highlight
@@ -3658,7 +3660,7 @@ private fun BiliPaiFloatingBottomBarChrome(
     } else {
         AppContentColors.accent()
     }
-    val baseUnselectedColor = if (neutralMiuixSelection || iconStyle == SharedFloatingBottomBarIconStyle.MATERIAL) {
+    val baseUnselectedColor = if (!effectiveGlassEnabled && (neutralMiuixSelection || iconStyle == SharedFloatingBottomBarIconStyle.MATERIAL)) {
         AppContentColors.secondaryText()
     } else {
         AppContentColors.primaryText()
@@ -4412,33 +4414,14 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                         shape = { shellShape },
                         effects = {
                             if (shouldUseBottomBarIndicatorLens(liquidGlassPreset)) {
-                                miuixLens(
-                                    refractionHeight = indicatorLensSpec.refractionHeightDp.dp.toPx(),
-                                    refractionAmount = indicatorLensSpec.refractionAmountDp.dp.toPx(),
-                                    depthEffect = true,
-                                    chromaticAberration =
-                                        resolveLiquidGlassIndicatorChromaticAberration(
-                                            liquidGlassTuning
-                                        )
-                                )
+                                homeIndicatorLens(indicatorHeight.value, effectivePressProgress, liquidGlassTuning)
                             }
                         },
                         highlight = {
                             pillHighlight?.value?.copy(alpha = effectivePressProgress)
                         },
                         onDrawSurface = {
-                            val surfaceFade = (1f - effectivePressProgress).coerceIn(0f, 1f)
-                            if (surfaceFade > 0f) {
-                                drawRect(
-                                    color = indicatorIdleSurfaceColor,
-                                    alpha = surfaceFade
-                                )
-                            }
-                            if (effectivePressProgress > 0f) {
-                                drawRect(
-                                    OpticalContrastPalette.Shadow.copy(alpha = 0.03f * effectivePressProgress)
-                                )
-                            }
+                            drawHomeIndicatorSurface(effectivePressProgress, isDarkTheme, indicatorIdleSurfaceColor)
                         },
                         layerBlock = {
                             if (effectiveIndicatorEffectsEnabled) {
@@ -4448,7 +4431,7 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                         }
                     ).miuixInnerShadow(shape = shellShape) {
                         MiuixInnerShadow(
-                            radius = AppSpacingTokens.Small * effectivePressProgress,
+                            radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * effectivePressProgress,
                             color = OpticalContrastPalette.Shadow.copy(alpha = 0.15f),
                             alpha = effectivePressProgress
                         )

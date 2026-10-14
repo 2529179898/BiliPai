@@ -91,10 +91,10 @@ class BottomBarMatchedLiquidChromeStructureTest {
         assertFalse(floating.contains(".drawBackdrop("))
         assertTrue(sharedChrome.contains("drawShellLens = drawShellLens"))
         assertTrue(
-            bottomBar.contains("resolveLiquidGlassIndicatorChromaticAberration(")
+            bottomBar.contains("homeIndicatorLens(")
         )
         assertTrue(
-            floating.contains("resolveLiquidGlassIndicatorChromaticAberration(")
+            floating.contains("homeIndicatorLens(")
         )
         assertFalse(bottomBar.contains("chromaticAberration = 0.5f"))
         assertFalse(segmented.contains(".biliPaiFloatingDockSurface("))

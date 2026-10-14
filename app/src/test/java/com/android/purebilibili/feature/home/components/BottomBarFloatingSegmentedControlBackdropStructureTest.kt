@@ -61,7 +61,7 @@ class BottomBarFloatingSegmentedControlBackdropStructureTest {
         assertTrue(source.contains("if (isLiquidGlassMode) rememberChromeBackdropSource()"))
         assertTrue(source.contains("rememberCombinedBackdrop(backdrop, tabsBackdrop)"))
         assertTrue(source.contains("LocalFloatingBottomBarIndicatorStretchX provides indicatorStretchXProvider"))
-        assertTrue(source.contains("resolveLiquidGlassIndicatorChromaticAberration("))
+        assertTrue(source.contains("homeIndicatorLens("))
         assertTrue(source.contains(".height(capturedContentHeight)"))
         assertTrue(!source.contains("separateForeground"))
     }

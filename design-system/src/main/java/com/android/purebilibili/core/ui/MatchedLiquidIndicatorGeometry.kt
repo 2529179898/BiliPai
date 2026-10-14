@@ -43,7 +43,7 @@ fun resolveMatchedLiquidIndicatorPressedScale(
     // physical glass body at 78dp so short global controls do not turn into oversized bubbles.
     val pressedHeight = minOf(
         BottomBarReferencePressedHeightDp,
-        dockHeightDp * BottomBarReferencePressedScale,
+        dockHeightDp * BottomBarReferencePressedHeightDp / BottomBarReferenceShellHeightDp,
     )
     return (pressedHeight / indicatorHeightDp).coerceAtLeast(1f)
 }
