@@ -3243,6 +3243,7 @@ object NetworkModule {
                 val isAppBiliEndpoint = url.host == "app.bilibili.com" || isAndroidHdLoginEndpoint
                 val explicitReferer = original.header("Referer")
                 val explicitUserAgent = original.header("User-Agent")
+                val useBilibiliHeaders = usesDefaultBilibiliHeaders(url.host)
                 val builder = original.newBuilder()
                     .header(
                         "User-Agent",
@@ -3253,7 +3254,7 @@ object NetworkModule {
                             else -> "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
                         }
                     )
-                if (!isAppBiliEndpoint && explicitReferer.isNullOrBlank()) {
+                if (useBilibiliHeaders && !isAppBiliEndpoint && explicitReferer.isNullOrBlank()) {
                     builder.header("Origin", origin) //  动态 Origin 头
                 }
                 if (androidHdLoginAppKeyHeader != null || isHdFeedRequest) {
@@ -3297,7 +3298,7 @@ object NetworkModule {
                 //  [关键修复] WBI 签名接口绝对不能设置 Referer 头，否则会失败
                 // 参考：https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md
                 val isWbiEndpoint = url.encodedPath.contains("/wbi/")
-                if (explicitReferer.isNullOrBlank() &&
+                if (useBilibiliHeaders && explicitReferer.isNullOrBlank() &&
                     !isWbiEndpoint && !isAppBiliEndpoint
                 ) {
                     builder.header("Referer", referer)

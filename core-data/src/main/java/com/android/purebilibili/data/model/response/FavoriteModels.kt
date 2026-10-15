@@ -200,6 +200,7 @@ data class WatchLaterChargingPay(val level: Int? = null)
 @Serializable
 data class WatchLaterRights(
     @SerialName("is_cooperation") val isCooperation: Int? = null,
+    @SerialName("is_stein_gate") val isSteinGate: Int? = null,
 )
 
 @Serializable

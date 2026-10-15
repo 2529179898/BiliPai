@@ -2221,6 +2221,8 @@ private fun VideoContentTabBar(
                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                 centerContent = false,
                 options = tabs.mapIndexed { index, label -> AppSegmentOption(index, label) },
+                // Count-bearing detail tabs keep compact glass spacing; native layouts ignore this override.
+                liquidGlassLabelHorizontalPadding = 10.dp,
                 selectedValue = selectedTabIndex,
                 onSelectionChange = onTabSelected,
                 modifier = Modifier.weight(1f),

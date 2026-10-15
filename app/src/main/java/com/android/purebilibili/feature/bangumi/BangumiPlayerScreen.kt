@@ -1116,29 +1116,25 @@ fun BangumiPlayerScreen(
         val nestedScrollConnection = remember(inlineCollapseEnabled, isFullscreen, collapseRangePx) {
             object : NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                    if (available.y != 0f) inlinePlayerCollapseState.beginScroll()
                     val scrollUpdate = reduceVideoDetailPreScroll(
                         currentOffsetPx = inlinePlayerCollapseState.offsetPx,
                         deltaPx = available.y,
                         minOffsetPx = -collapseRangePx,
                         inlinePortraitScrollEnabled = inlineCollapseEnabled,
                         isPortraitFullscreen = isFullscreen
-                    ) ?: return Offset.Zero
-                    inlinePlayerCollapseState.updateOffset(scrollUpdate.nextOffsetPx)
-                    return Offset(0f, scrollUpdate.consumedDeltaPx)
+                    )
+                    return Offset(0f, inlinePlayerCollapseState.consumeScroll(scrollUpdate))
                 }
 
                 override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                    if (available.y != 0f) inlinePlayerCollapseState.beginScroll()
                     val scrollUpdate = reduceVideoDetailPostScroll(
                         currentOffsetPx = inlinePlayerCollapseState.offsetPx,
                         deltaPx = available.y,
                         minOffsetPx = -collapseRangePx,
                         inlinePortraitScrollEnabled = inlineCollapseEnabled,
                         isPortraitFullscreen = isFullscreen
-                    ) ?: return Offset.Zero
-                    inlinePlayerCollapseState.updateOffset(scrollUpdate.nextOffsetPx)
-                    return Offset(0f, scrollUpdate.consumedDeltaPx)
+                    )
+                    return Offset(0f, inlinePlayerCollapseState.consumeScroll(scrollUpdate))
                 }
             }
         }

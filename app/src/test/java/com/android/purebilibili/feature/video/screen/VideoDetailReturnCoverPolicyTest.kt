@@ -259,24 +259,40 @@ class VideoDetailReturnCoverPolicyTest {
             isVideoDetailEntryActiveMiuixTransitionSource(
                 entrySourceRoute = "video/BV_PARENT",
                 activeSourceRoute = "video/BV_PARENT",
+                miuixTransitionEnabled = true,
             )
         )
         assertTrue(
             isVideoDetailEntryActiveMiuixTransitionSource(
                 entrySourceRoute = "video/BV_PARENT?title=parent",
                 activeSourceRoute = "video/BV_PARENT?from=related",
+                miuixTransitionEnabled = true,
             )
         )
         assertFalse(
             isVideoDetailEntryActiveMiuixTransitionSource(
                 entrySourceRoute = "home",
                 activeSourceRoute = "video/BV_PARENT",
+                miuixTransitionEnabled = true,
             )
         )
         assertFalse(
             isVideoDetailEntryActiveMiuixTransitionSource(
                 entrySourceRoute = null,
                 activeSourceRoute = "video/BV_PARENT",
+                miuixTransitionEnabled = true,
+            )
+        )
+    }
+
+    @Test
+    fun matchingSourceDoesNotOwnDisabledCardTransition() {
+        // The now-playing bar still records its source route and capsule bounds with motion off.
+        assertFalse(
+            isVideoDetailEntryActiveMiuixTransitionSource(
+                entrySourceRoute = "home",
+                activeSourceRoute = "home",
+                miuixTransitionEnabled = false,
             )
         )
     }

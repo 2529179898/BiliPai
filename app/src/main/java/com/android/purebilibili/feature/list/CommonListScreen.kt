@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.list
 
+import com.android.purebilibili.core.ui.components.wallpaperMediaCardSurface
 import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.foundation.horizontalScroll
@@ -3178,9 +3179,13 @@ private fun HistoryArticleCard(
     } else {
         baseCoverModifier
     }
+    val cardSurface = wallpaperMediaCardSurface(
+        AppSurfaceTokens.cardContainer(), AppShapes.container(ContainerLevel.Sheet),
+    )
     AppCard(
         modifier = modifier
             .fillMaxWidth()
+            .then(cardSurface.modifier)
             .onGloballyPositioned { coordinates ->
                 cardBoundsRef.value = coordinates.boundsInRoot()
             }
@@ -3190,7 +3195,7 @@ private fun HistoryArticleCard(
             ),
         shape = AppCardShape.Semantic(ContainerLevel.Sheet),
         colors = AppCardDefaults.colors(
-            containerColor = AppSurfaceTokens.cardContainer()
+            containerColor = cardSurface.containerColor
         ),
         variant = AppCardVariant.Elevated,
     ) {
@@ -3322,6 +3327,10 @@ private fun FavoriteSubscribedFolderRow(
     val previewCover = remember(folder.cover) {
         resolveFavoriteFolderPreviewCover(folder, emptyList())
     }
+    val cardSurface = wallpaperMediaCardSurface(
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
+        AppShapes.container(ContainerLevel.Card),
+    )
     AppSurface(
         modifier = Modifier
             .fillMaxWidth()
@@ -3329,8 +3338,9 @@ private fun FavoriteSubscribedFolderRow(
                 route = sharedElementRoute,
                 transitionEnabled = transitionEnabled
             )
+            .then(cardSurface.modifier)
             .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
+        color = cardSurface.containerColor,
         shape = AppShapes.container(ContainerLevel.Card)
     ) {
         Row(
@@ -3448,11 +3458,16 @@ private fun FavoriteCollectionRow(
     }
     val subtitle = remember(subtitleParts) { subtitleParts.joinToString(separator = " · ") }
 
+    val cardSurface = wallpaperMediaCardSurface(
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        AppShapes.container(ContainerLevel.Card),
+    )
     AppSurface(
         modifier = Modifier
             .fillMaxWidth()
+            .then(cardSurface.modifier)
             .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        color = cardSurface.containerColor,
         shape = AppShapes.container(ContainerLevel.Card)
     ) {
         Row(

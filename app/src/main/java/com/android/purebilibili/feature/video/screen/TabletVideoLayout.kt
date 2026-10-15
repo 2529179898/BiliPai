@@ -38,6 +38,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.unit.dp // Add this back
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.lazy.LazyRow
 import com.android.purebilibili.core.ui.AppChromeSizeTokens
@@ -174,13 +176,28 @@ internal fun TabletSecondaryLiquidTabRow(
     isScrollInProgressProvider: () -> Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val liquidGlassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
     AppThemeAdaptiveTabRow(
         role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
         centerContent = false,
         options = labels.mapIndexed { index, label -> AppSegmentOption(index, label) },
         selectedValue = selectedIndex,
         onSelectionChange = onSelected,
-        modifier = modifier,
+        // The weighted slot is the right pane's real viewport, after reserving
+        // the danmaku actions. Glass capture/press overflow must not escape it
+        // into the player or adjacent buttons. Keep native MD3/Miuix unchanged.
+        modifier = modifier.then(
+            if (liquidGlassEnabled) {
+                Modifier.drawWithContent {
+                    clipRect(
+                        left = 0f,
+                        right = size.width,
+                        top = -size.height,
+                        bottom = size.height * 2f,
+                    ) { this@drawWithContent.drawContent() }
+                }
+            } else Modifier
+        ),
         scrollable = true,
         compactMiuixWhenTwoOptions = false,
         height = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,

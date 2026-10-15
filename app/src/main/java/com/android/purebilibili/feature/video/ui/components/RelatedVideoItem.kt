@@ -297,9 +297,7 @@ fun RelatedVideoItem(
         Unit
     }
     // 排版对齐首页单列卡片:标题用 feed 紧凑级,统计用 labelSmall。
-    val contentTypography = com.android.purebilibili.core.ui.feedContentTypography(
-        com.android.purebilibili.core.ui.FeedTitleHierarchy.Standard,
-    )
+    val contentTypography = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography()
     val moreHaptic = rememberHapticFeedback()
 
     Box(
@@ -341,20 +339,9 @@ fun RelatedVideoItem(
                 )
             },
             coverOverlayContent = {
-                AppText(
+                com.android.purebilibili.feature.home.components.cards.VideoCardCoverDurationText(
                     text = FormatUtils.formatDuration(video.duration),
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        shadow = Shadow(
-                            color = Color.Black.copy(alpha = 0.6f),
-                            blurRadius = 4f,
-                            offset = Offset(0f, 1f),
-                        ),
-                    ),
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(6.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
                 )
             },
             infoContent = {
@@ -450,7 +437,6 @@ fun RelatedVideoItem(
                 {
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
                             .size(48.dp)
                             .clip(CircleShape)
                             .clickable(

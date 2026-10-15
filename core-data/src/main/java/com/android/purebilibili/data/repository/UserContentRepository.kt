@@ -53,5 +53,9 @@ object UserContentRepository {
 fun durationSeconds(text: String): Int = text.split(':').fold(0) { total, part -> total * 60 + (part.toIntOrNull() ?: 0) }
 
 fun SpaceVideoItem.asVideoItem(mid: Long): VideoItem = VideoItem(aid = aid, bvid = bvid, title = title, pic = pic,
+    cooperation = isCooperation, isUnionVideo = isUnionVideo,
+    isSteins = isSteins, isLessonVideo = isLessonVideo,
+    isChargingArc = isChargingArc || elecArcType == 1 || isUgcpay || ugcPay > 0 || ugcPayPreview > 0,
+    badges = badges.map { VideoContentBadge(it.text) },
     owner = Owner(mid = mid, name = author), duration = durationSeconds(length), pubdate = created,
     stat = Stat(view = play, reply = comment))

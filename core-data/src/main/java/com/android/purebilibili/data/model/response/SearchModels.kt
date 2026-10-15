@@ -153,7 +153,19 @@ data class SearchVideoItem(
     // 视频分区 id，外部歌单匹配时用于过滤不相关分区
     @SerialName("typeid")
     @Serializable(with = FlexibleIntSerializer::class)
-    val typeId: Int = 0
+    val typeId: Int = 0,
+    @SerialName("is_union_video")
+    @Serializable(with = FlexibleIntSerializer::class)
+    val isUnionVideo: Int = 0,
+    @SerialName("is_steins")
+    @Serializable(with = FlexibleBooleanSerializer::class)
+    val isSteins: Boolean = false,
+    @SerialName("is_lesson_video")
+    @Serializable(with = FlexibleBooleanSerializer::class)
+    val isLessonVideo: Boolean = false,
+    @SerialName("charging_pay") val chargingPay: WatchLaterChargingPay? = null,
+    @SerialName("pgc_label") val pgcLabel: String? = null,
+    val badges: List<VideoContentBadge> = emptyList()
 ) {
     fun toVideoItem(): VideoItem {
         return VideoItem(
@@ -170,6 +182,12 @@ data class SearchVideoItem(
             pubdate = pubdate,
             contentType = type,
             navigationUrl = arcurl,
+            isUnionVideo = isUnionVideo,
+            isSteins = isSteins,
+            isLessonVideo = isLessonVideo,
+            chargingPay = chargingPay,
+            pgcLabel = pgcLabel,
+            badges = badges,
             tid = typeId
         )
     }

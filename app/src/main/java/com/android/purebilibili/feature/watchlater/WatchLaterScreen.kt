@@ -1,6 +1,7 @@
 // 文件路径: feature/watchlater/WatchLaterScreen.kt
 package com.android.purebilibili.feature.watchlater
 
+import com.android.purebilibili.core.ui.components.VideoStatusBadges
 import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.foundation.rememberScrollState
@@ -1673,8 +1674,7 @@ private fun WatchLaterVideoCard(
         headlineContent = {
             AppText(
                 text = item.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().title,
                 maxLines = videoCardTitleMaxLines(),
                 overflow = videoCardTitleOverflow(),
                 color = AppContentColors.primaryText(),
@@ -1684,7 +1684,7 @@ private fun WatchLaterVideoCard(
             {
                 AppText(
                     badges,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().statistic,
                     color = AppContentColors.accent(),
                     overflow = TextOverflow.Visible,
                 )
@@ -1701,9 +1701,10 @@ private fun WatchLaterVideoCard(
             ) {
                 AppText(
                     text = item.owner.name,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().author,
                     color = AppContentColors.secondaryText(),
-                    overflow = TextOverflow.Visible,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 HorizontalVideoStatRow(
                     playText = formatNumber(item.stat.view),
@@ -1720,6 +1721,10 @@ private fun WatchLaterVideoCard(
             )
         },
         coverOverlayContent = {
+            VideoStatusBadges(
+                labels = item.statusLabels,
+                modifier = Modifier.align(Alignment.TopEnd).padding(AppSpacingTokens.ExtraSmall),
+            )
             val progressState = com.android.purebilibili.data.model.resolveWatchLaterDisplayProgressState(item)
             VideoCardCoverDurationText(
                 text = if (progressState.progressSec == -1) "已看完" else formatDuration(item.duration),

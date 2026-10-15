@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import com.android.purebilibili.feature.video.policy.VideoDetailScrollUpdate
 
 
 @Stable
@@ -30,8 +31,11 @@ internal class InlinePortraitPlayerCollapseState(
         restoreRequested = false
     }
 
-    fun beginScroll() {
+    fun consumeScroll(update: VideoDetailScrollUpdate?): Float {
+        if (update == null || update.consumedDeltaPx == 0f) return 0f
         restoreRequested = false
+        offsetPx = update.nextOffsetPx
+        return update.consumedDeltaPx
     }
 
     fun restore() {

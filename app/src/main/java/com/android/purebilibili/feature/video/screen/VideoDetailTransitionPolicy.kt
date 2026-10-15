@@ -31,7 +31,10 @@ internal const val VIDEO_CONTENT_COMMENT_TAB_INDEX = 1
 internal fun isVideoDetailEntryActiveMiuixTransitionSource(
     entrySourceRoute: String?,
     activeSourceRoute: String?,
+    miuixTransitionEnabled: Boolean,
 ): Boolean {
+    // Source metadata survives even when the navigation host disables the card morph.
+    if (!miuixTransitionEnabled) return false
     val normalizedEntrySource =
         normalizeSharedElementSourceRoute(entrySourceRoute) ?: return false
     val normalizedActiveSource =

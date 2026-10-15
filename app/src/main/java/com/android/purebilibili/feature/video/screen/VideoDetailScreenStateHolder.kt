@@ -558,8 +558,9 @@ internal fun VideoDetailScreenStateHolder(
     val scopedHeroDriver = com.android.purebilibili.core.ui.transition.LocalMiuixVideoCardTransitionState.current
     val entryHeroDriver = scopedHeroDriver
         .takeIf {
-            it.enabled && isVideoDetailEntryActiveMiuixTransitionSource(
+            isVideoDetailEntryActiveMiuixTransitionSource(
                 sourceRouteForSharedElement, videoCardDepthBackgroundState.sourceRouteProvider(),
+                miuixTransitionEnabled = it.enabled,
             )
         }
     val frozenTransitionSourceCornerDp =
@@ -4530,7 +4531,6 @@ internal fun VideoDetailScreenStateHolder(
                         ) {
                             object : NestedScrollConnection {
                                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                                    if (available.y != 0f) inlinePlayerCollapseState.beginScroll()
                                     val scrollUpdate = reduceVideoDetailPreScroll(
                                         currentOffsetPx = inlinePlayerCollapseState.offsetPx,
                                         deltaPx = available.y,
@@ -4538,13 +4538,11 @@ internal fun VideoDetailScreenStateHolder(
                                         inlinePortraitScrollEnabled = inlinePortraitScrollEnabled,
                                         isPortraitFullscreen = isPortraitFullscreen,
                                         layoutAlreadyCollapsed = skipGesturePlayerCollapse,
-                                    ) ?: return Offset.Zero
-                                    inlinePlayerCollapseState.updateOffset(scrollUpdate.nextOffsetPx)
-                                    return Offset(0f, scrollUpdate.consumedDeltaPx)
+                                    )
+                                    return Offset(0f, inlinePlayerCollapseState.consumeScroll(scrollUpdate))
                                 }
 
                                 override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                                    if (available.y != 0f) inlinePlayerCollapseState.beginScroll()
                                     val scrollUpdate = reduceVideoDetailPostScroll(
                                         currentOffsetPx = inlinePlayerCollapseState.offsetPx,
                                         deltaPx = available.y,
@@ -4552,9 +4550,8 @@ internal fun VideoDetailScreenStateHolder(
                                         inlinePortraitScrollEnabled = inlinePortraitScrollEnabled,
                                         isPortraitFullscreen = isPortraitFullscreen,
                                         layoutAlreadyCollapsed = skipGesturePlayerCollapse,
-                                    ) ?: return Offset.Zero
-                                    inlinePlayerCollapseState.updateOffset(scrollUpdate.nextOffsetPx)
-                                    return Offset(0f, scrollUpdate.consumedDeltaPx)
+                                    )
+                                    return Offset(0f, inlinePlayerCollapseState.consumeScroll(scrollUpdate))
                                 }
                             }
                         }
@@ -4850,9 +4847,11 @@ internal fun VideoDetailScreenStateHolder(
                         // A frozen now-playing snapshot contains the whole capsule, not just
                         // its cover. Land it in the complete source bounds for either bar layout.
                         val nativeSnapshotTargetBoundsProvider: (() -> Rect?)? =
-                            if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true ||
-                                (CardPositionManager.lastClickedNativeCardBitmap != null &&
-                                    miuixLandingState.sourceLayout == VideoCardSourceLayout.COVER_ONLY)
+                            if (
+                                entryOwnsMiuixCardTransition && miuixLandingState.enabled &&
+                                (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true ||
+                                    (CardPositionManager.lastClickedNativeCardBitmap != null &&
+                                        miuixLandingState.sourceLayout == VideoCardSourceLayout.COVER_ONLY))
                             ) {
                                 { miuixLandingState.sourceBoundsProvider() }
                             } else {
@@ -4916,7 +4915,7 @@ internal fun VideoDetailScreenStateHolder(
                             )
                         }
                         val returnMediaHandoffProgressProvider: () -> Float = {
-                            if (!entryOwnsMiuixCardTransition) {
+                            if (!entryOwnsMiuixCardTransition || !miuixLandingState.enabled) {
                                 0f
                             } else if (isCommittedCardReturn &&
                                 !videoCardDepthBackgroundState.isReturnGestureInProgressProvider() &&
@@ -4959,7 +4958,9 @@ internal fun VideoDetailScreenStateHolder(
                             VideoDetailCoverContentScale(returnMediaHandoffProgressProvider)
                         }
                         val nowPlayingMediaAlphaProvider: () -> Float = {
-                            if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar != true) {
+                            if (!entryOwnsMiuixCardTransition || !miuixLandingState.enabled ||
+                                miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar != true
+                            ) {
                                 1f
                             } else if (isCommittedCardReturn &&
                                 videoCardDepthBackgroundState.phaseProvider() ==

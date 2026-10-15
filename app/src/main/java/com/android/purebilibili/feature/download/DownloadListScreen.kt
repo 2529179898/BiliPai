@@ -371,8 +371,6 @@ private fun DownloadTaskItem(
     // 与相关推荐/个人列表一致：复用全局横向卡骨架（顶对齐、共享封面宽度与信息区排版）。
     HorizontalVideoCardFrame(
         stacked = stacked,
-        coverAspectRatio = 16f / 9f,
-        coverModifier = Modifier.padding(top = AppSpacingTokens.Small),
         modifier = modifier
             .fillMaxWidth()
             .clip(AppShapes.container(ContainerLevel.Card))
@@ -448,42 +446,36 @@ private fun DownloadTaskItem(
                 AppText(
                     text = task.qualityDesc,
                     color = Color.White,
-                    style = MaterialTheme.typography.labelSmall
+                    style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().statistic
                 )
             }
         },
         infoContent = {
             AppText(
                 text = task.title,
-                fontWeight = FontWeight.Medium,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().title,
+                maxLines = com.android.purebilibili.core.ui.videoCardTitleMaxLines(),
+                overflow = com.android.purebilibili.core.ui.videoCardTitleOverflow(),
                 color = AppContentColors.primaryText()
             )
-
-            Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
 
             resolveDownloadTaskSecondaryText(task)?.let { secondaryText ->
                 AppText(
                     text = secondaryText,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().author,
                     color = AppContentColors.accent(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
             }
 
             AppText(
                 text = task.ownerName,
-                style = MaterialTheme.typography.bodySmall,
+                style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().author,
                 color = AppContentColors.secondaryText(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-
-            Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
 
             // 状态文字
             val assetSummary = resolveDownloadAssetSummary(task)
@@ -513,7 +505,7 @@ private fun DownloadTaskItem(
             if (statusText != null) {
                 AppText(
                     text = statusText,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().statistic,
                     color = when (task.status) {
                         DownloadStatus.COMPLETED -> MaterialTheme.colorScheme.secondary
                         DownloadStatus.FAILED -> AppContentColors.error()
@@ -523,11 +515,10 @@ private fun DownloadTaskItem(
             }
 
             if (hasAssetSummary) {
-                Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
                 // 单行省略：小横卡信息区宽度有限，折行会截断成“弹幕完/成”
                 AppText(
                     text = assetTexts.joinToString(" · "),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().statistic,
                     color = MaterialTheme.colorScheme.secondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -535,14 +526,13 @@ private fun DownloadTaskItem(
             }
 
             if (task.isComplete && !offlinePlayable) {
-                Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
                 AppText(
                     text = if (!task.exportedFileUri.isNullOrBlank()) {
                         "已导出到自定义目录，当前列表不直接离线播放"
                     } else {
                         "本地缓存文件不可用"
                     },
-                    style = MaterialTheme.typography.labelSmall,
+                    style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().statistic,
                     color = AppContentColors.secondaryText(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -551,7 +541,6 @@ private fun DownloadTaskItem(
         },
         trailingContent = {
             Column(
-                modifier = Modifier.align(Alignment.BottomEnd),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // 暂停/继续
