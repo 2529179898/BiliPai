@@ -2025,7 +2025,9 @@ fun AppNavigation(
         val shouldCaptureBottomBarBackdrop =
             homeSettings.androidNativeLiquidGlassEnabled || isBottomBarBlurEnabled
         val bottomBarBackdropSource = if (shouldCaptureBottomBarBackdrop) {
-            rememberChromeBackdropSource()
+            // Bind the shared recording to every frame of the app theme palette,
+            // rather than waiting for navigation/layout to invalidate a static page.
+            rememberChromeBackdropSource(recordingBackground = backgroundColor)
         } else {
             null
         }

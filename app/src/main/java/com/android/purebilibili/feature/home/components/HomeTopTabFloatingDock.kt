@@ -79,6 +79,19 @@ internal fun shouldUseOfficialMiuixHomeTopTabs(
     liquidGlassEnabled: Boolean,
 ): Boolean = uiStyle == AppUiStyle.MIUIX && !liquidGlassEnabled
 
+/** Glass exports the selected glyph in the exact accent, matching the bottom dock.
+ * Its translucent shell alone is not the composited backdrop for contrast checks.
+ * Native renderers retain the existing readable-foreground policy.
+ */
+internal fun resolveHomeTopTabSelectedContentColor(
+    accent: Color,
+    shellColor: Color,
+    liquidGlassEnabled: Boolean,
+): Color = if (liquidGlassEnabled) accent else resolveReadableBottomBarSkinForeground(
+    preferredColor = accent,
+    backgroundColor = shellColor,
+)
+
 /** Uses shared dock width policy with the top shell's own corner geometry. */
 internal fun resolveHomeTopTabFloatingDockWidth(
     containerWidth: Dp,
@@ -166,6 +179,13 @@ internal fun HomeTopTabFloatingDock(
                                 selected = selected,
                             ),
                             contentDescription = if (showText) null else label,
+                            modifier = if (showIcon && !showText) {
+                                Modifier.size(
+                                    resolveHomeTopDockIconSizeDp(1, liquidGlassEnabled = false).dp,
+                                )
+                            } else {
+                                Modifier
+                            },
                         )
                     }
                     val onClick = {
@@ -224,9 +244,10 @@ internal fun HomeTopTabFloatingDock(
         darkTheme = isDarkTheme,
         liquidGlassTuning = liquidGlassTuning,
     )
-    val selectedContentColor = resolveReadableBottomBarSkinForeground(
-        preferredColor = AppContentColors.accent(),
-        backgroundColor = shellColor,
+    val selectedContentColor = resolveHomeTopTabSelectedContentColor(
+        accent = AppContentColors.selectionAccent(liquidGlassEffectsEnabled),
+        shellColor = shellColor,
+        liquidGlassEnabled = liquidGlassEffectsEnabled,
     )
     val unselectedContentColor = resolveReadableBottomBarSkinForeground(
         preferredColor = AppContentColors.secondaryText(),
