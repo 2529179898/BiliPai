@@ -347,11 +347,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         SettingsManager.getMd3CustomColorHex(context).asAnyFlow(),
         SettingsManager.getThemeColorStyle(context).asAnyFlow(),
         SettingsManager.getThemeColorSpec(context).asAnyFlow(),
-        SettingsManager.getThemeColorContrast(context).asAnyFlow(),
         SettingsManager.getMiniPlayerMode(context)
             .map { it != SettingsManager.MiniPlayerMode.OFF }
             .asAnyFlow(),
-        SettingsManager.getDarkThemeSchedule(context).asAnyFlow()
+        SettingsManager.getDarkThemeSchedule(context).asAnyFlow(),
+        // 新增偏好一律追加到末尾：这里按下标取值，插在中间会让后面所有项错位。
+        SettingsManager.getThemeColorContrast(context).asAnyFlow()
     ) { values ->
         CoreSettings(
             themeSelection = values[0] as AppUiStyle,
