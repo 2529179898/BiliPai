@@ -1,6 +1,7 @@
 package com.android.purebilibili.feature.message.notification
 
 import android.content.Context
+import com.android.purebilibili.core.network.DynamicAuthorUpdatesApi
 import com.android.purebilibili.core.network.NetworkModule
 import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.core.network.grpc.DynamicPersonalFeedApi
@@ -17,7 +18,13 @@ import com.android.purebilibili.data.repository.MessageRepository
 import com.android.purebilibili.feature.message.MessagePreviewParser
 import com.android.purebilibili.navigation.ScreenRoutes
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.withLock
 
@@ -28,6 +35,7 @@ internal interface MessageNotificationSource {
     suspend fun feedUnread(): MessageFeedUnreadData
     suspend fun systemNotices(): List<SystemNoticeItem>
     suspend fun dynamicUpdateCount(baseline: String): Int
+    suspend fun dynamicAuthorUpdates(): Map<Long, Boolean>
     suspend fun followings(selfMid: Long, page: Int): FollowingsData
     suspend fun personalDynamicFeed(hostUid: Long, offset: String, page: Int): DynamicPersonalFeedPage
     suspend fun followedLive(page: Int): FollowedLiveData
@@ -50,6 +58,7 @@ private object NetworkMessageNotificationSource : MessageNotificationSource {
         check(response.code == 0) { "Dynamic update code ${response.code}" }
         return checkNotNull(response.data).update_num
     }
+    override suspend fun dynamicAuthorUpdates() = DynamicAuthorUpdatesApi.load()
     override suspend fun followings(selfMid: Long, page: Int): FollowingsData {
         val response = NetworkModule.api.getFollowings(vmid = selfMid, pn = page, ps = 50)
         check(response.code == 0) { "Followings code ${response.code}" }
@@ -72,6 +81,17 @@ internal data class MessageNotificationCheckResult(
     val cancelNotificationKeys: Set<String> = emptySet(),
 )
 
+private data class DynamicNotificationCandidates(
+    val ids: List<String>,
+    val previews: List<DynamicItem>,
+)
+
+private data class DynamicUpScanResult(
+    val baseline: String?,
+    val candidates: DynamicNotificationCandidates? = null,
+    val shouldRetry: Boolean = false,
+)
+
 private class NotificationSessionChanged : Exception()
 
 internal class MessageNotificationPoller(
@@ -79,10 +99,52 @@ internal class MessageNotificationPoller(
     private val ensureSession: () -> Unit = {},
 ) {
     private suspend fun <T> fetch(block: suspend () -> T): T {
+        currentCoroutineContext().ensureActive()
         ensureSession()
         val result = block()
+        currentCoroutineContext().ensureActive()
         ensureSession()
         return result
+    }
+
+    private suspend fun scanDynamicUp(mid: Long, previousBaseline: String?, selfMid: Long): DynamicUpScanResult = try {
+        val initializing = previousBaseline == null
+        val baseline = previousBaseline.orEmpty()
+        var newest = baseline
+        var offset = ""
+        var pageNumber = 1
+        val offsets = hashSetOf("")
+        val seen = hashSetOf<String>()
+        val previews = ArrayList<DynamicItem>(MAX_DYNAMIC_NOTIFICATION_PREVIEWS)
+        val ids = ArrayList<String>()
+        while (true) {
+            val page = fetch { source.personalDynamicFeed(mid, offset, pageNumber) }
+            var lastRegularId: String? = null
+            for (item in page.items) {
+                if (item.type == "DYNAMIC_TYPE_AD" || item.type == "DYNAMIC_TYPE_BANNER" ||
+                    item.type == "0" || item.type == "5" || item.id_str.isBlank()) continue
+                if (isNewerDynamicNotificationId(item.id_str, newest)) newest = item.id_str
+                if (item.modules.module_tag?.text != "置顶") lastRegularId = item.id_str
+                if (!initializing && isNewerDynamicNotificationId(item.id_str, baseline) &&
+                    seen.add(item.id_str) && item.modules.module_author?.mid == mid &&
+                    shouldNotifyDynamicItem(item, selfMid)) {
+                    ids += item.id_str
+                    addNewestDynamicNotificationPreview(previews, item)
+                }
+            }
+            if (initializing || !page.hasMore ||
+                (lastRegularId != null && !isNewerDynamicNotificationId(lastRegularId, baseline))) break
+            check(page.offset.isNotBlank() && offsets.add(page.offset)) { "动态预加载分页未推进" }
+            offset = page.offset
+            pageNumber++
+        }
+        DynamicUpScanResult(newest, if (ids.isEmpty()) null else DynamicNotificationCandidates(ids, previews))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: NotificationSessionChanged) {
+        throw e
+    } catch (e: Exception) {
+        DynamicUpScanResult(null, shouldRetry = e is IOException)
     }
 
     private suspend fun dynamicFollowingUsers(selfMid: Long): Map<Long, FollowingUser> {
@@ -241,95 +303,100 @@ internal class MessageNotificationPoller(
                 if ("dynamic:summary" in activeNotificationKeys) state.pendingDynamicIds
                 else state.pendingDynamicIds.filterKeys { "dynamic:$it" in activeNotificationKeys }
             )
-            val pendingByUp = pending.entries.groupBy({ it.value }, { it.key })
-            fun clearReadDynamics(mid: Long, readOffset: String) {
-                for (id in pendingByUp[mid].orEmpty()) {
-                    if (isDynamicNotificationRead(id, readOffset)) {
-                        cancelNotificationKeys += "dynamic:$id"
-                        pending.remove(id)
-                    }
-                }
-            }
             // The full following set is required: an incomplete page must never look like an unfollow.
             val users = dynamicFollowingUsers(selfMid)
             val previousByUp = state.dynamicUpBaselines
             val retained = if (previousByUp.keys.all { it in users }) previousByUp
                 else previousByUp.filterKeys { it in users }
-            val hasUpdates = users.isNotEmpty() && (state.dynamicBaseline.isBlank() ||
-                fetch { source.dynamicUpdateCount(state.dynamicBaseline) } > 0)
-            // Pending notices still need read-state polling when no new dynamics were published.
-            for (mid in pendingByUp.keys) {
-                if (hasUpdates && mid in users) continue
-                category(null) {
-                    val page = fetch { source.personalDynamicFeed(mid, "", 1) }
-                    clearReadDynamics(mid, page.readOffset)
-                }
-            }
-            if (!hasUpdates && users.keys.all { it in retained }) {
-                state = state.copy(
-                    dynamicBaseline = if (users.isEmpty()) "0" else state.dynamicBaseline,
-                    dynamicUpBaselines = retained, pendingDynamicIds = pending,
-                )
-                return@category
+            var safeProbe = "0"
+            for (id in retained.values) if (isNewerDynamicNotificationId(id, safeProbe)) safeProbe = id
+            val previousProbe = state.dynamicProbeBaseline
+            var scanAll = users.isNotEmpty()
+            if (scanAll && previousProbe != null) category(null) {
+                // A failed probe must not block content or read-state reconciliation.
+                scanAll = fetch { source.dynamicUpdateCount(previousProbe) } > 0
             }
             val baselines = LinkedHashMap(retained)
-            val previews = ArrayList<DynamicItem>(MAX_DYNAMIC_NOTIFICATION_PREVIEWS)
-            var freshCount = 0
+            val freshByUp = LinkedHashMap<Long, DynamicNotificationCandidates>()
             var complete = true
-            for ((mid, user) in users) {
-                if (!hasUpdates && mid in retained) continue
-                val success = category(null) {
-                    val initializing = mid !in retained
-                    val baseline = retained[mid].orEmpty()
-                    var newest = baseline
-                    var offset = ""
-                    var pageNumber = 1
-                    val offsets = hashSetOf("")
-                    val seen = hashSetOf<String>()
-                    val hostPreviews = ArrayList<DynamicItem>(MAX_DYNAMIC_NOTIFICATION_PREVIEWS)
-                    var hostFreshCount = 0
-                    val hostPendingIds = ArrayList<String>()
-                    var readOffset = ""
-                    while (true) {
-                        val page = fetch { source.personalDynamicFeed(mid, offset, pageNumber) }
-                        if (pageNumber == 1) readOffset = page.readOffset
-                        var lastRegularId: String? = null
-                        for (item in page.items) {
-                            if (item.type == "DYNAMIC_TYPE_AD" || item.type == "DYNAMIC_TYPE_BANNER" ||
-                                item.type == "0" || item.type == "5" || item.id_str.isBlank()) continue
-                            if (isNewerDynamicNotificationId(item.id_str, newest)) newest = item.id_str
-                            if (item.modules.module_tag?.text != "置顶") lastRegularId = item.id_str
-                            if (!initializing && isNewerDynamicNotificationId(item.id_str, baseline) &&
-                                seen.add(item.id_str) && item.modules.module_author?.mid == mid &&
-                                shouldNotifyDynamicItem(item, selfMid) &&
-                                !isDynamicNotificationRead(item.id_str, readOffset)) {
-                                hostFreshCount++
-                                hostPendingIds += item.id_str
-                                addNewestDynamicNotificationPreview(hostPreviews, item)
+            val targets = when {
+                scanAll -> users.keys.toList()
+                retained.size == users.size -> emptyList()
+                else -> users.keys.filterNot { it in retained }
+            }
+            if (targets.isNotEmpty()) {
+                val nextIndex = AtomicInteger()
+                val scans = arrayOfNulls<DynamicUpScanResult>(targets.size)
+                coroutineScope {
+                    // Fixed workers avoid allocating one coroutine per followed UP. Each UP owns
+                    // its entire sequential page scan; transaction state is untouched until join.
+                    repeat(minOf(MAX_DYNAMIC_NOTIFICATION_CONCURRENCY, targets.size)) {
+                        launch {
+                            try {
+                                while (true) {
+                                    ensureActive()
+                                    val index = nextIndex.getAndIncrement()
+                                    if (index >= targets.size) break
+                                    val mid = targets[index]
+                                    scans[index] = scanDynamicUp(mid, retained[mid], selfMid)
+                                }
+                            } catch (e: CancellationException) {
+                                // A child cancellation alone does not cancel a launch-based scope.
+                                this@coroutineScope.cancel(e)
+                                throw e
                             }
                         }
-                        // IDs are the numeric publish baseline; pinned old cards cannot stop a scan.
-                        if (initializing || !page.hasMore ||
-                            (lastRegularId != null && !isNewerDynamicNotificationId(lastRegularId, baseline))) break
-                        check(page.offset.isNotBlank() && offsets.add(page.offset)) { "动态预加载分页未推进" }
-                        offset = page.offset
-                        pageNumber++
                     }
-                    // Commit an UP only after its complete new range was fetched. A failed UP
-                    // keeps its old baseline, while successful UPs need not replay their notices.
-                    baselines[mid] = newest
-                    clearReadDynamics(mid, readOffset)
-                    for (id in hostPendingIds) pending[id] = mid
-                    freshCount += hostFreshCount
-                    for (item in hostPreviews) addNewestDynamicNotificationPreview(previews, item)
                 }
-                if (!success) complete = false
+                // All writers have joined. Merge in following-list order, never completion order.
+                for (index in targets.indices) {
+                    val mid = targets[index]
+                    val scan = checkNotNull(scans[index])
+                    val baseline = scan.baseline
+                    if (baseline == null) {
+                        complete = false
+                        if (scan.shouldRetry) shouldRetry = true
+                    } else {
+                        baselines[mid] = baseline
+                        scan.candidates?.let { freshByUp[mid] = it }
+                    }
+                }
             }
-            var latest = state.dynamicBaseline.ifBlank { "0" }
-            if (complete) {
-                for (id in baselines.values) if (isNewerDynamicNotificationId(id, latest)) latest = id
+
+            // Query after scanning content: an earlier false snapshot must not suppress a later post.
+            // Only an explicit author-level false closes that author's red dot. Missing entries,
+            // failed snapshots and read_offset acknowledgement tokens are never read evidence.
+            var authorUpdates: Map<Long, Boolean> = emptyMap()
+            if (pending.isNotEmpty() || freshByUp.isNotEmpty()) category(null) {
+                authorUpdates = fetch { source.dynamicAuthorUpdates() }
             }
-            state = state.copy(dynamicBaseline = latest, dynamicUpBaselines = baselines, pendingDynamicIds = pending)
+            val pendingIterator = pending.entries.iterator()
+            while (pendingIterator.hasNext()) {
+                val (id, mid) = pendingIterator.next()
+                if (authorUpdates[mid] == false) {
+                    cancelNotificationKeys += "dynamic:$id"
+                    pendingIterator.remove()
+                }
+            }
+            val previews = ArrayList<DynamicItem>(MAX_DYNAMIC_NOTIFICATION_PREVIEWS)
+            var freshCount = 0
+            for ((mid, candidates) in freshByUp) {
+                if (authorUpdates[mid] == false) continue
+                for (id in candidates.ids) pending[id] = mid
+                freshCount += candidates.ids.size
+                for (item in candidates.previews) addNewestDynamicNotificationPreview(previews, item)
+            }
+            state = state.copy(
+                // Commit only IDs already known before this full scan. A post arriving between
+                // two UP requests can be below the later UP's newest ID, so the end maximum is unsafe.
+                dynamicProbeBaseline = when {
+                    users.isEmpty() -> "0"
+                    scanAll && complete -> safeProbe
+                    else -> previousProbe
+                },
+                dynamicUpBaselines = baselines,
+                pendingDynamicIds = pending,
+            )
             for (item in previews) {
                 val route = resolveDynamicNotificationRoute(item) ?: continue
                 val author = item.modules.module_author?.name.orEmpty().ifBlank {
