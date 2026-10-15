@@ -4954,9 +4954,7 @@ internal fun VideoDetailScreenStateHolder(
                                 }
                             }
                         }
-                        val residentCoverContentScale = remember(returnMediaHandoffProgressProvider) {
-                            VideoDetailCoverContentScale(returnMediaHandoffProgressProvider)
-                        }
+                        val residentCoverContentScale = VideoDetailCoverContentScale
                         val nowPlayingMediaAlphaProvider: () -> Float = {
                             if (!entryOwnsMiuixCardTransition || !miuixLandingState.enabled ||
                                 miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar != true
@@ -5031,8 +5029,8 @@ internal fun VideoDetailScreenStateHolder(
                                     inlineHeight = inlinePlayerHeight,
                                     fullscreenHeight = fullscreenPlayerHeight,
                                     enabled = continuousFullscreenTransitionEnabled,
-                                    // 竖屏详情 16:10：按真实布局宽度算高度，与静止封面共用容器。
-                                    preferLayoutWidth16x10Inline = !useOfficialInlinePortraitDetailExperience &&
+                                    // Loading cover and playback share 16:9 geometry; the first frame must not resize the viewport.
+                                    preferLayoutWidthInline = !useOfficialInlinePortraitDetailExperience &&
                                         !suppressPhoneDetailBodyForDirectPortrait,
                                     inlineTopInset = if (!useOfficialInlinePortraitDetailExperience) {
                                         playerTopInset
@@ -5148,8 +5146,8 @@ internal fun VideoDetailScreenStateHolder(
                                         .graphicsLayer {
                                             alpha = returnMediaFrameProvider().coverAlpha * nowPlayingMediaAlphaProvider()
                                         }
-                                        // Keep letterboxing inside the cover alpha layer. An outer background
-                                        // would remain opaque after the image yields to the playback surface.
+                                        // Keep the loading backing inside the cover alpha layer so it
+                                        // yields together with the image to the playback surface.
                                         .background(Color.Black),
                                     contentScale = if (isVerticalVideo) {
                                         ContentScale.Crop
@@ -5400,7 +5398,8 @@ internal fun VideoDetailScreenStateHolder(
                                             }
                                         } else {
                                             VideoDetailSkeleton(
-                                                animated = entryTransitionFinished,
+                                                // Loading feedback is independent of the card-transition switch.
+                                                animated = !transitionEnabled || entryTransitionFinished,
                                             )
                                         }
                                     }
