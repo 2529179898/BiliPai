@@ -533,7 +533,7 @@ internal fun ElegantVideoCard(
     onDismiss: (() -> Unit)? = null,    //  [新增] 删除/过滤回调（长按触发）
     onWatchLater: (() -> Unit)? = null,  //  [新增] 稍后再看回调
     onUnfavorite: (() -> Unit)? = null,  //  [新增] 取消收藏回调
-    dismissMenuText: String = "\uD83D\uDEAB 不感兴趣", //  [新增] 自定义长按菜单删除文案
+    dismissMenuText: String = "不感兴趣", //  [新增] 自定义长按菜单删除文案
     onLongClick: ((VideoItem) -> Unit)? = null, // [Feature] Long Press Preview
     onUpClick: ((Long) -> Unit)? = null,
     singleColumn: Boolean = false,
@@ -1987,7 +1987,7 @@ internal fun ElegantVideoCard(
                         AppDropdownMenuItem(
                             text = {
                                 AppText(
-                                    "🕐 稍后再看",
+                                    "稍后再看",
                                     color = AppContentColors.primaryText()
                                 )
                             },
@@ -2003,7 +2003,7 @@ internal fun ElegantVideoCard(
                          AppDropdownMenuItem(
                             text = {
                                 AppText(
-                                    "💔 取消收藏",
+                                    "取消收藏",
                                     color = AppContentColors.error()  // 使用错误色强调删除操作
                                 )
                             },
