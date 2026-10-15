@@ -1834,6 +1834,7 @@ fun BottomControlBar(
                 Column(
                     modifier = Modifier
                         .widthIn(min = 140.dp, max = 220.dp)
+                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
