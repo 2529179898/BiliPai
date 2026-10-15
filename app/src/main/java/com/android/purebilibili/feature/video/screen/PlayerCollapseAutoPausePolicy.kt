@@ -1,6 +1,21 @@
 package com.android.purebilibili.feature.video.screen
 
 /**
+ * Comment layout compaction survives pause-driven gesture changes. Gesture consumption is
+ * not a layout state: pausing enables the hide gesture without expanding the player.
+ */
+internal fun resolvePlayerCollapsedForAutoPause(
+    swipeHidePlayerEnabled: Boolean,
+    playerHeightOffsetPx: Float,
+    videoHeightPx: Float,
+    compactForCommentTab: Boolean,
+): Boolean = compactForCommentTab || resolveIsPlayerCollapsed(
+    swipeHidePlayerEnabled = swipeHidePlayerEnabled,
+    playerHeightOffsetPx = playerHeightOffsetPx,
+    videoHeightPx = videoHeightPx,
+)
+
+/**
  * When the detail player is swipe-collapsed (e.g. browsing related), optionally auto-pause
  * so audio does not keep playing under the list.
  */
