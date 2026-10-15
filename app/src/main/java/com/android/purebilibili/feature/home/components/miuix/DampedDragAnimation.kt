@@ -190,10 +190,10 @@ class DampedDragAnimation(
         }
     }
 
-    fun release() {
+    fun release(waitForBloom: Boolean = true) {
         releaseJob?.cancel()
         releaseJob = animationScope.launch {
-            if (pressJob?.isActive == true || pressProgressAnimation.value > 0f) {
+            if (waitForBloom && (pressJob?.isActive == true || pressProgressAnimation.value > 0f)) {
                 withTimeoutOrNull(LiquidIndicatorMotion.BloomWaitMillis) {
                     snapshotFlow { minOf(scaleX, scaleY) }.first { it >= pressedScale }
                 }
@@ -232,6 +232,23 @@ class DampedDragAnimation(
             valueAnimation.snapTo(next)
             // Pager motion bypasses updateValue; sample its actual frame positions too.
             if (trackVelocity) updateVelocity()
+        }
+    }
+
+    /** Follow the pager's position and bloom on the same timeline, without a second spring. */
+    fun followPagerPosition(value: Float) {
+        val next = value.coerceIn(valueRange)
+        requestedValue = next
+        pressJob?.cancel()
+        releaseJob?.cancel()
+        val progress = LiquidIndicatorMotion.pagerPressProgress(next)
+        val scale = initialScale + (pressedScale - initialScale) * progress
+        launchValueTracking {
+            valueAnimation.snapTo(next)
+            updateVelocity()
+            pressProgressAnimation.snapTo(progress)
+            scaleXAnimation.snapTo(scale)
+            scaleYAnimation.snapTo(scale)
         }
     }
 

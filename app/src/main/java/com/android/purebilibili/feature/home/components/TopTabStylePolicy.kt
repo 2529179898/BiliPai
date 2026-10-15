@@ -619,6 +619,16 @@ fun resolveTopTabIconSizeDp(labelMode: Int): Float {
     }
 }
 
+/** Native top-dock standalone icons need a clearer 24dp glyph; glass already uses AppIcon defaults. */
+internal fun resolveHomeTopDockIconSizeDp(labelMode: Int, liquidGlassEnabled: Boolean): Float {
+    val baseSize = resolveTopTabIconSizeDp(labelMode)
+    return if (!liquidGlassEnabled && normalizeTopTabLabelMode(labelMode) == 1) {
+        maxOf(baseSize, 24f)
+    } else {
+        baseSize
+    }
+}
+
 fun resolveTopTabIconTextSpacingDp(labelMode: Int): Float {
     return if (normalizeTopTabLabelMode(labelMode) == 0) {
         resolveTopTabVisualTuning().tabIconTextSpacingDp

@@ -41,6 +41,7 @@ import com.android.purebilibili.core.ui.components.AppExactTouchTargets
 import com.android.purebilibili.core.ui.components.AppNativeSegmentedControl
 import com.android.purebilibili.core.ui.components.AppTabRowIndicatorPresentation
 import com.android.purebilibili.core.ui.components.rememberMeasuredTabMinWidth
+import com.android.purebilibili.core.ui.components.resolveLiquidGlassTabSlotHorizontalPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -69,7 +70,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.core.store.HomeSettings
@@ -406,7 +406,7 @@ fun BottomBarLiquidSegmentedControl(
     containerHorizontalPadding: Dp = AppSpacingTokens.ExtraSmall,
     containerVerticalPadding: Dp = AppSpacingTokens.ExtraSmall,
     liquidGlassEffectsEnabled: Boolean = true,
-    // Kept for source compatibility; shared floating docks always allow enabled multi-item drag.
+    // False reserves horizontal gestures for the scrollable rail; taps still select a tab.
     dragSelectionEnabled: Boolean = true,
     // Compatibility alias for drag enablement; indicators now always start dragging directly.
     longPressDragSelectionEnabled: Boolean = false,
@@ -432,13 +432,11 @@ fun BottomBarLiquidSegmentedControl(
     externalPagerMotionEffectsEnabled: Boolean = false,
     liquidGlassTuningOverride: LiquidGlassTuning? = null,
     geometryMode: FloatingBottomBarGeometryMode = FloatingBottomBarGeometryMode.Segmented,
+    centerGlassContent: Boolean = false,
+    liquidGlassLabelHorizontalPadding: Dp? = null,
 ): Unit = AppExactTouchTargets {
     if (items.isEmpty()) return@AppExactTouchTargets
-    val effectiveLabelFontSize = if (labelFontSize.isSpecified) {
-        labelFontSize
-    } else {
-        com.android.purebilibili.core.ui.appTabLabelFontSize()
-    }
+    val effectiveLabelFontSize = com.android.purebilibili.core.ui.appTabLabelFontSize(labelFontSize)
     if (com.android.purebilibili.core.ui.isMiuixNonGlassEnabled()) {
         val nativeOptions = remember(items) {
             items.mapIndexed { index, label -> AppSegmentOption(index, label) }
@@ -570,13 +568,31 @@ fun BottomBarLiquidSegmentedControl(
             )
             return@BoxWithConstraints
         }
+        // Material boundary: only tune glass sizing below the native-renderer returns above.
+        // Direct consumers (search, listen-video, settings and page filters) bypass
+        // AppLiquidAwareTabRow. Give them the same measured compact slots here.
+        val liquidItemWidth = renderedItemWidth ?: if (
+            !forceEqualWidth && geometryMode == FloatingBottomBarGeometryMode.Segmented
+        ) {
+            rememberMeasuredTabMinWidth(
+                requestedMinWidth = AppChromeSizeTokens.MinimumTouchTarget,
+                labels = items,
+                textStyle = MaterialTheme.typography.labelLarge.copy(
+                    fontSize = effectiveLabelFontSize,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+                horizontalPadding = liquidGlassLabelHorizontalPadding ?: resolveLiquidGlassTabSlotHorizontalPadding(items.size),
+            )
+        } else null
         BottomBarFloatingSegmentedControl(
             items = items,
+            liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
             selectedIndex = selectedIndex,
             onSelected = onSelected,
-            modifier = Modifier,
+            // Only the glass child is centered; native branches keep their established placement.
+            modifier = if (centerGlassContent) Modifier.align(Alignment.Center) else Modifier,
             enabled = enabled,
-            itemWidth = renderedItemWidth,
+            itemWidth = liquidItemWidth,
             height = shellHeight,
             indicatorHeight = indicatorHeight,
             labelFontSize = effectiveLabelFontSize,

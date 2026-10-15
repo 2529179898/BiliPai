@@ -233,6 +233,9 @@ fun DynamicScreen(
     val selectedUserId by viewModel.selectedUserId.collectAsStateWithLifecycle()
     val accountIdentity by TokenManager.accountIdentity.collectAsStateWithLifecycle()
     val selfUid = accountIdentity.mid ?: 0L
+    var showAuthorSearch by rememberSaveable(selfUid) { mutableStateOf(false) }
+    var authorSearchTabEnabled by rememberSaveable(selfUid) { mutableStateOf(false) }
+    val authorSearchLoading by viewModel.authorSearchLoading.collectAsStateWithLifecycle()
     LaunchedEffect(accountIdentity.generation) {
         listStates.values.forEach { it.scrollToItem(0) }
         sidebarUserListState.scrollToItem(0)
@@ -318,8 +321,13 @@ fun DynamicScreen(
     val dynamicTopActionsCollapsed by SettingsManager
         .getDynamicTopActionsCollapsed(context)
         .collectAsStateWithLifecycle(initialValue = false)
-    val visibleTabs = remember(dynamicVisibleTabIds, dynamicTabOrder) {
-        resolveDynamicVisibleTabs(dynamicVisibleTabIds, dynamicTabOrder)
+    val visibleTabs = remember(dynamicVisibleTabIds, dynamicTabOrder, authorSearchTabEnabled) {
+        // A search result must open the author's dynamic feed even when the user
+        // hid the UP tab. Reveal it for this screen session without changing settings.
+        resolveDynamicVisibleTabs(
+            if (authorSearchTabEnabled) dynamicVisibleTabIds + "up" else dynamicVisibleTabIds,
+            dynamicTabOrder,
+        )
     }
     val isUserTabVisible = remember(visibleTabs) {
         isDynamicUserTabVisible(visibleTabs)
@@ -1008,6 +1016,10 @@ fun DynamicScreen(
                                     onTabSelected = onDynamicTabSelected,
                                     displayMode = displayMode,
                                     onDisplayModeChange = { viewModel.setDisplayMode(it) },
+                                    onAuthorSearchClick = {
+                                        showAuthorSearch = true
+                                        viewModel.prepareAuthorSearch()
+                                    },
                                     onPublishClick = { showPublishDialog = true },
                                     actionDockCollapsed = dynamicTopActionsCollapsed,
                                     onActionDockCollapsedChange = onDynamicTopActionsCollapsedChange,
@@ -1209,6 +1221,10 @@ fun DynamicScreen(
                                     onTabSelected = onDynamicTabSelected,
                                     displayMode = displayMode,
                                     onDisplayModeChange = { viewModel.setDisplayMode(it) },
+                                    onAuthorSearchClick = {
+                                        showAuthorSearch = true
+                                        viewModel.prepareAuthorSearch()
+                                    },
                                     onPublishClick = { showPublishDialog = true },
                                     actionDockCollapsed = dynamicTopActionsCollapsed,
                                     onActionDockCollapsedChange = onDynamicTopActionsCollapsedChange,
@@ -1327,6 +1343,21 @@ fun DynamicScreen(
                 }
             }
         }
+    }
+
+    if (showAuthorSearch) {
+        com.android.purebilibili.feature.dynamic.components.DynamicAuthorSearchDialog(
+            users = followedUsers,
+            isLoading = authorSearchLoading,
+            onAuthorSelected = { uid ->
+                showAuthorSearch = false
+                authorSearchTabEnabled = true
+                selectedUserContentFilterName = DynamicUserContentFilter.ALL.name
+                viewModel.setSelectedTab(4)
+                viewModel.selectUser(uid)
+            },
+            onDismiss = { showAuthorSearch = false },
+        )
     }
 
     DynamicCommentOverlayHost(
@@ -1803,11 +1834,13 @@ private fun DynamicSelectedUserFeedHeader(
             items = filters.map(DynamicUserContentFilter::label),
             selectedIndex = filters.indexOf(selectedFilter).coerceAtLeast(0),
             onSelected = { index -> filters.getOrNull(index)?.let(onFilterSelected) },
-            itemWidth = 96.dp,
+            itemWidth = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) null else 96.dp,
             height = AppChromeSizeTokens.MinimumTouchTarget,
             indicatorHeight = 42.dp,
             labelFontSize = MaterialTheme.typography.labelLarge.fontSize,
-            modifier = Modifier.width(304.dp),
+            modifier = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+                Modifier.widthIn(max = 304.dp)
+            } else Modifier.width(304.dp),
         )
     }
 }

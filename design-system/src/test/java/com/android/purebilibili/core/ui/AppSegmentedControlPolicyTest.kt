@@ -109,6 +109,8 @@ class AppSegmentedControlPolicyTest {
         assertEquals(114.dp, resolveMeasuredTabMinWidth(48.dp, listOf(90.dp, 20.dp)))
         assertEquals(72.dp, resolveMeasuredTabMinWidth(72.dp, listOf(20.dp)))
         assertEquals(48.dp, resolveMeasuredTabMinWidth(48.dp, emptyList()))
+        assertEquals(106.dp, resolveMeasuredTabMinWidth(52.dp, listOf(32.dp, 90.dp), horizontalPadding = 8.dp))
+        assertEquals(52.dp, resolveMeasuredTabMinWidth(52.dp, listOf(32.dp), horizontalPadding = 8.dp))
     }
 
     @Test

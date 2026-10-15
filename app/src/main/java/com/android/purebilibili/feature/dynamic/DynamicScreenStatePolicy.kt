@@ -6,7 +6,7 @@ import com.android.purebilibili.data.model.response.DynamicItem
 import kotlinx.collections.immutable.toImmutableList
 import kotlin.math.max
 
-internal const val DynamicTopBarReservedHeightDp = 60
+internal const val DynamicTopBarReservedHeightDp = 108
 // 头像、名称基线及字体下行（如英文 y）都需要落在裁切边界内。
 internal const val DynamicHorizontalUserListReservedHeightDp = 96
 internal const val DynamicHorizontalExpandedHeaderReservedHeightDp =

@@ -947,7 +947,14 @@ private fun LiveAreaHomeChipRow(
         ?.value
         ?: LIVE_HOME_RECOMMEND_INDEX
     val uiStyle = LocalAppUiStyle.current
-    val categoryMinWidth = if (uiStyle == AppUiStyle.MATERIAL3) {
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+    // The 82dp compact-chrome slot belongs to native Miuix. Glass categories should use
+    // the common text measurement rather than inherit that larger fixed minimum.
+    val categoryMinWidth = if (liquidGlassEnabled) {
+        // Short category labels should stay close to the rail's leading edge;
+        // the touch-target wrapper still preserves accessible hit regions.
+        40.dp
+    } else if (uiStyle == AppUiStyle.MATERIAL3) {
         AppChromeSizeTokens.MinimumTouchTarget
     } else {
         rememberAppTopChromePolicy()
@@ -972,6 +979,7 @@ private fun LiveAreaHomeChipRow(
             onSelectionChange = onAreaSelected,
             scrollable = true,
             minTabWidth = categoryMinWidth,
+            liquidGlassLabelHorizontalPadding = if (liquidGlassEnabled) 4.dp else null,
             modifier = Modifier.weight(1f),
         )
         AppIconButton(
@@ -1030,7 +1038,8 @@ internal fun LiveSortTagChipRow(
         ?.takeIf { selected -> options.any { it.value == selected } }
         ?: options.first().value
     val uiStyle = LocalAppUiStyle.current
-    val sortTagMinWidth = if (uiStyle == AppUiStyle.MATERIAL3) {
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+    val sortTagMinWidth = if (liquidGlassEnabled || uiStyle == AppUiStyle.MATERIAL3) {
         AppChromeSizeTokens.MinimumTouchTarget
     } else {
         72.dp

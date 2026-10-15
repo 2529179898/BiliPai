@@ -142,6 +142,12 @@ internal fun resolveAppTabSlotGeometry(
     }
     return AppTabSlotGeometry(width, slot, padding)
 }
+/** Glass-only slot breathing room. Native renderers retain their existing 12dp default. */
+val LiquidGlassTabSlotHorizontalPadding: Dp = 10.dp
+
+fun resolveLiquidGlassTabSlotHorizontalPadding(itemCount: Int): Dp =
+    if (itemCount == 2) 16.dp else LiquidGlassTabSlotHorizontalPadding
+
 internal fun resolveMeasuredTabMinWidth(
     requestedMinWidth: Dp,
     labelWidths: List<Dp>,
@@ -177,10 +183,11 @@ fun rememberMeasuredTabMinWidth(
     requestedMinWidth: Dp,
     labels: List<String>,
     textStyle: androidx.compose.ui.text.TextStyle,
+    horizontalPadding: Dp = 12.dp,
 ): Dp {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-    return androidx.compose.runtime.remember(requestedMinWidth, labels, textStyle, density, measurer) {
+    return androidx.compose.runtime.remember(requestedMinWidth, labels, textStyle, horizontalPadding, density, measurer) {
         resolveMeasuredTabMinWidth(
             requestedMinWidth,
             labels.map { label ->
@@ -190,6 +197,7 @@ fun rememberMeasuredTabMinWidth(
                     ).size.width.toDp()
                 }
             },
+            horizontalPadding = horizontalPadding,
         )
     }
 }

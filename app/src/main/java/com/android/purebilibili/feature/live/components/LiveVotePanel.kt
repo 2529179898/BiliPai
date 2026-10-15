@@ -83,9 +83,18 @@ private fun LiveVoteCard(vote: LiveVoteInfo) {
                 )
             }
             vote.options.forEach { option ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    AppText(option.description, style = MaterialTheme.typography.bodyMedium)
-                    AppText("${(option.percent * 100f).roundToInt()}%", style = MaterialTheme.typography.labelMedium)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AppText(
+                        option.description,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppContentColors.primaryText()
+                    )
+                    AppText(
+                        "${(option.percent * 100f).roundToInt()}%",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppContentColors.primaryText()
+                    )
                 }
                 AppLinearProgressIndicator(
                     progress = { option.percent.coerceIn(0f, 1f) },

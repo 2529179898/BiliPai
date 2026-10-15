@@ -46,6 +46,7 @@ fun <T> AppThemeAdaptiveTabRow(
     enabled: Boolean = true,
     scrollable: Boolean = false,
     minTabWidth: Dp = Dp.Unspecified,
+    liquidGlassLabelHorizontalPadding: Dp? = null,
     compactMiuixWhenTwoOptions: Boolean = true,
     height: Dp = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,
     indicatorHeight: Dp = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,
@@ -67,6 +68,7 @@ fun <T> AppThemeAdaptiveTabRow(
         enabled = enabled,
         scrollable = scrollable,
         minTabWidth = minTabWidth,
+        liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
         compactMiuixWhenTwoOptions = compactMiuixWhenTwoOptions,
         height = height,
         indicatorHeight = indicatorHeight,
@@ -96,6 +98,7 @@ fun <T> AppLiquidAwareTabRow(
     enabled: Boolean = true,
     scrollable: Boolean = false,
     minTabWidth: Dp = Dp.Unspecified,
+    liquidGlassLabelHorizontalPadding: Dp? = null,
     compactMiuixWhenTwoOptions: Boolean = true,
     height: Dp = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,
     indicatorHeight: Dp = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,
@@ -110,6 +113,9 @@ fun <T> AppLiquidAwareTabRow(
     isScrollInProgressProvider: () -> Boolean = { false },
 ) {
     if (options.isEmpty()) return
+    // Material boundary: glass-only spacing, wrapping and typography must never change
+    // the disabled MD3/Miuix paths. Keep their original defaults when adding glass tuning.
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     // Opaque Miuix rails own their measurement and scrolling; glass capture
     // margins must not consume the space reserved for neighbouring actions.
     if (com.android.purebilibili.core.ui.isMiuixNonGlassEnabled()) {
@@ -131,11 +137,7 @@ fun <T> AppLiquidAwareTabRow(
     }
     val labels = remember(options) { options.map { it.label } }
     val resolvedMinTabWidth = resolveAppAdaptiveTabMinWidth(minTabWidth)
-    val resolvedLabelFontSize = if (labelFontSize.isSpecified) {
-        labelFontSize
-    } else {
-        com.android.purebilibili.core.ui.appTabLabelFontSize()
-    }
+    val resolvedLabelFontSize = com.android.purebilibili.core.ui.appTabLabelFontSize(labelFontSize)
     // Measure once before choosing the material. Glass and native renderers own
     // the same slots, including font scaling and long labels.
     val readableTabWidth = rememberMeasuredTabMinWidth(
@@ -145,6 +147,9 @@ fun <T> AppLiquidAwareTabRow(
             fontSize = resolvedLabelFontSize,
             fontWeight = FontWeight.SemiBold,
         ),
+        horizontalPadding = if (liquidGlassEnabled) {
+            liquidGlassLabelHorizontalPadding ?: resolveLiquidGlassTabSlotHorizontalPadding(options.size)
+        } else 12.dp,
     )
     val selectedIndex = options.indexOfFirst { it.value == selectedValue }.coerceAtLeast(0)
     val resolvedDragSelectionEnabled = dragSelectionEnabled ?: (enabled && options.size > 1)
@@ -154,11 +159,14 @@ fun <T> AppLiquidAwareTabRow(
     }
     val isCompact = (compactMiuixWhenTwoOptions && options.size <= 2) ||
         (minTabWidth.isSpecified && !scrollable)
+    // Secondary categories and filters wrap their labels; primary navigation may fill its track.
+    val contentSizedRail = isCompact || scrollable ||
+        (liquidGlassEnabled && role != AppTabRowRole.PRIMARY)
     BoxWithConstraints(modifier = modifier, contentAlignment = if (centerContent) Alignment.Center else Alignment.CenterStart) {
         val contentWidth = readableTabWidth * options.size + AppSpacingTokens.ExtraSmall * 2
         // A wide label is not itself overflow. Fitting rails must stay outside
         // the rounded scroll viewport so a pressed glass lens can bloom freely.
-        val needsHorizontalScroll = scrollable &&
+        val needsHorizontalScroll = (if (liquidGlassEnabled) contentSizedRail else scrollable) &&
             constraints.hasBoundedWidth && contentWidth > maxWidth
         if (needsHorizontalScroll) {
             val indicatorCaptureInsets = resolveFloatingDockCaptureInsets(
@@ -197,6 +205,7 @@ fun <T> AppLiquidAwareTabRow(
                 )
                 BottomBarLiquidSegmentedControl(
                     items = labels,
+                    liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
                     selectedIndex = selectedIndex,
                     onSelected = { index ->
                         options.getOrNull(index)?.let { onSelectionChange(it.value) }
@@ -224,7 +233,9 @@ fun <T> AppLiquidAwareTabRow(
                         // During pager motion the shared scroll helper lock-steps the rail
                         // with the continuous indicator position. Keep edge-follow for idle
                         // indicator nudges so two scroll owners never compete.
-                        if (pagerPositionProvider == null || !pagerMotionActiveProvider()) {
+                        if (!scrollState.isScrollInProgress &&
+                            (pagerPositionProvider == null || !pagerMotionActiveProvider())
+                        ) {
                             scrollState.dispatchRawDelta(
                                 resolveScrollableTabIndicatorFollowDeltaPx(
                                     indicatorPosition = position,
@@ -244,7 +255,7 @@ fun <T> AppLiquidAwareTabRow(
                 )
             }
         } else {
-            val rowModifier = if (isCompact || scrollable) {
+            val rowModifier = if (contentSizedRail) {
                 // A scrollable rail keeps its leading edge even when its contents fit.
                 // Centering it in a weighted slot shifts detail tabs away from the page edge.
                 // Standalone rails center; callers with adjacent actions retain the start anchor.
@@ -256,13 +267,14 @@ fun <T> AppLiquidAwareTabRow(
             }
             // A short scrollable rail still owns fixed glass slots, even when it
             // fits without scrolling. Do not redistribute them across the viewport.
-            val rowItemWidth = if (isCompact || scrollable) {
+            val rowItemWidth = if (contentSizedRail) {
                 readableTabWidth
             } else {
                 null
             }
             BottomBarLiquidSegmentedControl(
                 items = labels,
+                liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
                 selectedIndex = selectedIndex,
                 onSelected = { index ->
                     options.getOrNull(index)?.let { onSelectionChange(it.value) }

@@ -1303,7 +1303,12 @@ private fun LightweightHomeTopTabs(
             effectiveMaxDockWidth
         }
         if (useFloatingBottomBarDock) {
-            val floatingDockHeight = resolveHomeTopDockShellHeight(isFloatingStyle)
+            // Compact text geometry belongs only to liquid glass; native and icon layouts retain their sizes.
+            val floatingDockHeight = if (isLiquidGlassEnabled && showText && !showIcon) {
+                AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp
+            } else {
+                resolveHomeTopDockShellHeight(isFloatingStyle)
+            }
             val floatingDockWidth = resolveHomeTopTabFloatingDockWidth(
                 containerWidth = effectiveMaxDockWidth.dp,
                 itemCount = categories.size,
@@ -1315,15 +1320,24 @@ private fun LightweightHomeTopTabs(
                 showText = showText,
                 fontScale = density.fontScale,
             )
+            // Native pure-text top tabs were visually undersized; enlarge this mode only.
+            val resolvedFloatingLabelFontSize = if (!isLiquidGlassEnabled && showText && !showIcon) {
+                (floatingLabelFontSize.value + 2f).sp
+            } else {
+                floatingLabelFontSize
+            }
             val minimumSlotWidth = com.android.purebilibili.core.ui.components.rememberMeasuredTabMinWidth(
                 requestedMinWidth = maxOf(
                     (floatingDockHeight - AppSpacingTokens.ExtraSmall * 2).coerceAtLeast(0.dp),
-                    if (showIcon) resolveTopTabIconSizeDp(if (showText) 0 else 1).dp +
+                    if (showIcon) resolveHomeTopDockIconSizeDp(
+                        if (showText) 0 else 1,
+                        liquidGlassEnabled = isLiquidGlassEnabled,
+                    ).dp +
                         AppSpacingTokens.Small * 2 else AppChromeSizeTokens.MinimumTouchTarget,
                 ),
                 labels = if (showText) categories else emptyList(),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = floatingLabelFontSize,
+                    fontSize = resolvedFloatingLabelFontSize,
                     fontWeight = FontWeight.Bold,
                 ),
             )
@@ -1372,7 +1386,7 @@ private fun LightweightHomeTopTabs(
                     dockHeight = floatingDockHeight,
                     horizontalPadding = dockHorizontalPadding,
                     scrollState = dockScrollState.takeIf { needsDockScroll },
-                    labelFontSize = floatingLabelFontSize,
+                    labelFontSize = resolvedFloatingLabelFontSize,
                     liquidGlassEffectsEnabled = isLiquidGlassEnabled,
                     miuixBackdrop = miuixBackdrop,
                     liquidGlassPreset = liquidGlassPreset,
