@@ -1551,6 +1551,7 @@ open class MainActivity : AppCompatActivity() {
                 md3ColorSource = md3ColorSource,
                 md3CustomColorHex = md3CustomColorHex,
                 themeRoleOverrides = themeRoleOverrides,
+                wallpaperPaletteOverrides = appThemeSettings.wallpaperPaletteOverrides,
                 colorStyle = colorStyle,
                 colorSpec = colorSpec,
                 fontSizePreset = appFontSizePreset,

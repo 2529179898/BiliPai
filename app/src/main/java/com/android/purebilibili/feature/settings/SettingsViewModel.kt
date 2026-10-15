@@ -27,7 +27,6 @@ import com.android.purebilibili.core.theme.AppFontWeightPreset
 import com.android.purebilibili.core.theme.AppFontSizePreset
 import com.android.purebilibili.core.theme.AppUiScalePreset
 import com.android.purebilibili.core.theme.AppUiStyle
-import com.android.purebilibili.core.theme.syncThemeRoleControlAccent
 import com.android.purebilibili.core.ui.AppIconStyle
 import com.android.purebilibili.core.ui.AppListItemStyle
 import com.android.purebilibili.core.ui.blur.BlurIntensity
@@ -843,26 +842,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { SettingsManager.setMd3ColorSource(context, source) }
     }
     fun setMd3CustomColorHex(hex: String) {
-        viewModelScope.launch {
-            val normalizedHex = normalizeMd3CustomColorHex(hex)
-            SettingsManager.setMd3CustomColorHex(context, normalizedHex)
-            val overrides = SettingsManager.getThemeRoleOverrides(context).first()
-            val syncedOverrides = syncThemeRoleControlAccent(overrides, normalizedHex)
-            if (syncedOverrides != overrides) {
-                SettingsManager.setThemeRoleOverrides(context, syncedOverrides)
-            }
-        }
+        viewModelScope.launch { SettingsManager.setMd3CustomColorHex(context, hex) }
     }
     fun applyMd3CustomColor(hex: String) {
-        viewModelScope.launch {
-            val normalizedHex = normalizeMd3CustomColorHex(hex)
-            SettingsManager.applyMd3CustomColor(context, normalizedHex)
-            val overrides = SettingsManager.getThemeRoleOverrides(context).first()
-            val syncedOverrides = syncThemeRoleControlAccent(overrides, normalizedHex)
-            if (syncedOverrides != overrides) {
-                SettingsManager.setThemeRoleOverrides(context, syncedOverrides)
-            }
-        }
+        viewModelScope.launch { SettingsManager.applyMd3CustomColor(context, hex) }
     }
     fun setThemeColorStyle(style: PaletteStyle) {
         viewModelScope.launch { SettingsManager.setThemeColorStyle(context, style) }

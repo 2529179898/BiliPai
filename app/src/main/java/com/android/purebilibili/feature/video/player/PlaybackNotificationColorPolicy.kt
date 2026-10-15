@@ -11,6 +11,7 @@ import com.android.purebilibili.core.store.AppThemeSettings
 import com.android.purebilibili.core.theme.createBiliPaiStyleColorScheme
 import com.android.purebilibili.core.theme.resolveLiquidControlAccentColor
 import com.android.purebilibili.core.theme.resolveMd3ThemeSeedColor
+import com.android.purebilibili.core.theme.readSystemWallpaperSeed
 import com.android.purebilibili.feature.settings.Md3ColorSource
 import com.android.purebilibili.feature.settings.isScheduledDarkTheme
 import com.android.purebilibili.feature.settings.resolveThemePreferenceState
@@ -21,12 +22,33 @@ internal fun resolvePlaybackNotificationAccentColor(
     settings: AppThemeSettings,
     darkTheme: Boolean,
     wallpaperAccent: Color? = null,
+    wallpaperSeed: Color? = null,
 ): Color {
-    val seed = resolveMd3ThemeSeedColor(settings.md3ColorSource, settings.md3CustomColorHex, settings.themeColorIndex)
+    val seed = resolveMd3ThemeSeedColor(
+        settings.md3ColorSource, settings.md3CustomColorHex, settings.themeColorIndex, wallpaperSeed,
+    )
+    val generatedAccent = if (settings.md3ColorSource == Md3ColorSource.WALLPAPER_RETONED) {
+        val scheme = createBiliPaiStyleColorScheme(
+            seedColor = seed,
+            darkTheme = darkTheme,
+            amoledDarkTheme = settings.darkThemeStyle == com.android.purebilibili.feature.settings.DarkThemeStyle.AMOLED,
+            paletteStyle = settings.colorStyle,
+            colorSpec = settings.colorSpec,
+            uiStyle = settings.uiStyle,
+        )
+        com.android.purebilibili.core.theme.resolveAppThemeEndpointPalette(
+            base = scheme,
+            uiStyle = settings.uiStyle,
+            source = settings.md3ColorSource,
+            darkTheme = darkTheme,
+            amoledDarkTheme = settings.darkThemeStyle == com.android.purebilibili.feature.settings.DarkThemeStyle.AMOLED,
+            wallpaperOverrides = settings.wallpaperPaletteOverrides,
+        ).liquidAccent
+    } else wallpaperAccent ?: seed
     return resolveLiquidControlAccentColor(
         source = settings.md3ColorSource,
         customSeed = seed,
-        generatedAccent = wallpaperAccent ?: seed,
+        generatedAccent = generatedAccent,
         roleOverridesEnabled = settings.themeRoleOverrides.enabled && settings.md3ColorSource == Md3ColorSource.CUSTOM,
         roleControlHex = if (darkTheme) settings.themeRoleOverrides.dark.controlAccentHex
             else settings.themeRoleOverrides.light.controlAccentHex,
@@ -59,5 +81,10 @@ internal fun resolvePlaybackNotificationColor(context: Context, settings: AppThe
             ).primary
         }
     } else null
-    return resolvePlaybackNotificationAccentColor(settings, appearance.useDarkTheme, wallpaperAccent).toArgb()
+    return resolvePlaybackNotificationAccentColor(
+        settings, appearance.useDarkTheme, wallpaperAccent,
+        wallpaperSeed = if (settings.md3ColorSource == Md3ColorSource.WALLPAPER_RETONED) {
+            readSystemWallpaperSeed(context)
+        } else null,
+    ).toArgb()
 }

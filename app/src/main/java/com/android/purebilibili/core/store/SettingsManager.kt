@@ -726,6 +726,7 @@ data class AppThemeSettings(
     val md3ColorSource: Md3ColorSource = Md3ColorSource.FOLLOW_WALLPAPER,
     val md3CustomColorHex: String = "#007AFF",
     val themeRoleOverrides: ThemeRoleOverrides = ThemeRoleOverrides(),
+    val wallpaperPaletteOverrides: WallpaperPaletteOverrides = WallpaperPaletteOverrides(),
     val colorStyle: PaletteStyle = PaletteStyle.TonalSpot,
     val colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
     val themeColorIndex: Int = 0,
@@ -2286,6 +2287,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 legacyDynamicColorEnabled = preferences[KEY_DYNAMIC_COLOR]
             ),
             md3CustomColorHex = normalizeMd3CustomColorHex(preferences[KEY_MD3_CUSTOM_COLOR_HEX]),
+            wallpaperPaletteOverrides = readWallpaperPaletteOverrides(preferences),
             themeRoleOverrides = ThemeRoleOverrides(
                 enabled = preferences[KEY_THEME_ROLE_OVERRIDES_ENABLED] ?: false,
                 light = ThemeModeRoleOverrides(
@@ -2556,7 +2558,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             resolveMd3ColorSourcePreference(
                 sourceValue = preferences[KEY_MD3_COLOR_SOURCE],
                 legacyDynamicColorEnabled = preferences[KEY_DYNAMIC_COLOR]
-            ) == Md3ColorSource.FOLLOW_WALLPAPER
+            ) != Md3ColorSource.CUSTOM
         }
 
     suspend fun setDynamicColor(context: Context, value: Boolean) {
@@ -2574,10 +2576,34 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             )
         }
 
-    suspend fun setMd3ColorSource(context: Context, source: Md3ColorSource) = context.settingsDataStore.edit { preferences ->
+    /** All color selection entrances commit source, seed and advanced control accents together. */
+    internal fun updateMd3ColorSelection(
+        preferences: MutablePreferences,
+        source: Md3ColorSource,
+        customHex: String? = null,
+        presetIndex: Int? = null,
+    ) {
+        val normalizedIndex = presetIndex?.let(::normalizeThemeColorIndex)
+        val selectedHex = if (normalizedIndex != null) {
+            com.android.purebilibili.core.theme.formatMd3CustomColorHex(
+                com.android.purebilibili.core.theme.ThemeColors[normalizedIndex]
+            )
+        } else customHex?.let { normalizeMd3CustomColorHex(it) }
         preferences[KEY_MD3_COLOR_SOURCE] = source.name
-        // 保持旧 key 同步，避免旧入口或导入旧配置时出现来源状态不一致。
-        preferences[KEY_DYNAMIC_COLOR] = source == Md3ColorSource.FOLLOW_WALLPAPER
+        preferences[KEY_DYNAMIC_COLOR] = source != Md3ColorSource.CUSTOM
+        if (normalizedIndex != null) preferences[KEY_THEME_COLOR_INDEX] = normalizedIndex
+        if (selectedHex != null) {
+            preferences[KEY_MD3_CUSTOM_COLOR_HEX] = selectedHex
+            if (preferences[KEY_THEME_ROLE_OVERRIDES_ENABLED] == true) {
+                preferences[KEY_THEME_LIGHT_CONTROL_ACCENT] = selectedHex
+                preferences[KEY_THEME_DARK_CONTROL_ACCENT] = selectedHex
+            }
+        }
+        // Wallpaper edits stay saved, but the endpoint resolver ignores them outside re-toning.
+    }
+
+    suspend fun setMd3ColorSource(context: Context, source: Md3ColorSource) = context.settingsDataStore.edit { preferences ->
+        updateMd3ColorSelection(preferences, source)
     }
 
     fun getMd3CustomColorHex(context: Context): Flow<String> = context.settingsDataStore.data.map {
@@ -2585,14 +2611,33 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     }
 
     suspend fun setMd3CustomColorHex(context: Context, hex: String) = context.settingsDataStore.edit { preferences ->
-        preferences[KEY_MD3_CUSTOM_COLOR_HEX] = normalizeMd3CustomColorHex(hex)
+        updateMd3ColorSelection(preferences, Md3ColorSource.CUSTOM, customHex = hex)
     }
 
-    suspend fun applyMd3CustomColor(context: Context, hex: String) = context.settingsDataStore.edit { preferences ->
-        preferences[KEY_MD3_COLOR_SOURCE] = Md3ColorSource.CUSTOM.name
-        preferences[KEY_DYNAMIC_COLOR] = false
-        preferences[KEY_MD3_CUSTOM_COLOR_HEX] = normalizeMd3CustomColorHex(hex)
+    suspend fun applyMd3CustomColor(context: Context, hex: String) = setMd3CustomColorHex(context, hex)
+
+    fun getWallpaperPaletteOverrides(context: Context): Flow<WallpaperPaletteOverrides> =
+        context.settingsDataStore.data.map(::readWallpaperPaletteOverrides)
+
+    suspend fun setWallpaperPaletteColor(
+        context: Context,
+        darkTheme: Boolean,
+        role: WallpaperPaletteRole,
+        hex: String?,
+    ) = context.settingsDataStore.edit { preferences ->
+        val key = wallpaperPalettePreferenceKeys.getValue(darkTheme to role)
+        if (hex == null) preferences.remove(key)
+        else if (com.android.purebilibili.feature.settings.isValidMd3CustomColorHex(hex)) {
+            preferences[key] = normalizeMd3CustomColorHex(hex)
+        }
     }
+
+    suspend fun resetWallpaperPaletteColors(context: Context, darkTheme: Boolean) =
+        context.settingsDataStore.edit { preferences ->
+            WallpaperPaletteRole.entries.forEach { role ->
+                preferences.remove(wallpaperPalettePreferenceKeys.getValue(darkTheme to role))
+            }
+        }
 
     fun getThemeRoleOverrides(context: Context): Flow<ThemeRoleOverrides> =
         context.settingsDataStore.data.map { preferences ->
@@ -3134,7 +3179,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
 
     suspend fun setThemeColorIndex(context: Context, index: Int) {
         context.settingsDataStore.edit { preferences -> 
-            preferences[KEY_THEME_COLOR_INDEX] = normalizeThemeColorIndex(index)
+            updateMd3ColorSelection(preferences, Md3ColorSource.CUSTOM, presetIndex = index)
         }
     }
     
@@ -8214,6 +8259,9 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             BooleanShareablePreferenceDefinition(KEY_DYNAMIC_COLOR, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_MD3_COLOR_SOURCE, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_MD3_CUSTOM_COLOR_HEX, SettingsShareSection.APPEARANCE),
+            *wallpaperPalettePreferenceKeys.values.map {
+                StringShareablePreferenceDefinition(it, SettingsShareSection.APPEARANCE)
+            }.toTypedArray(),
             BooleanShareablePreferenceDefinition(KEY_THEME_ROLE_OVERRIDES_ENABLED, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_LIGHT_BACKGROUND, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_LIGHT_PRIMARY_TEXT, SettingsShareSection.APPEARANCE),

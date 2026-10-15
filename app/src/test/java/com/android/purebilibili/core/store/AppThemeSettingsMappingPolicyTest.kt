@@ -24,6 +24,17 @@ import kotlin.test.assertFalse
 class AppThemeSettingsMappingPolicyTest {
 
     @Test
+    fun retoneSourceSurvivesPreferenceMappingAndPreservesManualColor() {
+        val result = mapAppThemeSettingsFromPreferences(mutablePreferencesOf(
+            stringPreferencesKey("md3_color_source") to Md3ColorSource.WALLPAPER_RETONED.name,
+            booleanPreferencesKey("dynamic_color") to false,
+            stringPreferencesKey("md3_custom_color_hex") to "#FF5722",
+        ))
+        assertEquals(Md3ColorSource.WALLPAPER_RETONED, result.md3ColorSource)
+        assertEquals("#FF5722", result.md3CustomColorHex)
+    }
+
+    @Test
     fun scheduledThemeSettingsPersistWithMinutePrecision() {
         val settings = mapAppThemeSettingsFromPreferences(mutablePreferencesOf(
             booleanPreferencesKey("dark_theme_schedule_enabled") to true,

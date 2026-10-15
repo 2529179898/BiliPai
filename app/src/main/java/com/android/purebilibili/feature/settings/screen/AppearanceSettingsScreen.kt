@@ -765,9 +765,9 @@ fun AppearanceSettingsContent(
                             SettingsSingleChoicePreference(
                                 title = settingItemTitle("appearance.md3_color_source"),
                                 subtitle = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    "跟随时直接使用系统当前壁纸配色；自定义模式可选择色彩风格"
+                                    "跟随模式使用系统原配色；重新调色可自选壁纸色系的风格与标准"
                                 } else {
-                                    "系统不支持壁纸取色，请选择自定义颜色"
+                                    "壁纸取色需要 Android 12 及以上；当前使用预设色作为后备，可选择自定义颜色"
                                 },
                                 options = md3ColorSourceOptions,
                                 selectedValue = state.md3ColorSource,
@@ -776,12 +776,16 @@ fun AppearanceSettingsContent(
                         }
 
                         AnimatedVisibility(
-                            visible = state.md3ColorSource == Md3ColorSource.FOLLOW_WALLPAPER,
+                            visible = state.md3ColorSource != Md3ColorSource.CUSTOM,
                             enter = expandVertically() + fadeIn(),
                             exit = shrinkVertically() + fadeOut()
                         ) {
                             Column(modifier = Modifier.padding(top = 12.dp)) {
-                                DynamicColorPreview()
+                                if (state.md3ColorSource == Md3ColorSource.WALLPAPER_RETONED) {
+                                    WallpaperPaletteEditor(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp))
+                                } else {
+                                    DynamicColorPreview()
+                                }
                             }
                         }
 
@@ -842,7 +846,15 @@ fun AppearanceSettingsContent(
                                         onColorClick = { roleColorTarget = it }
                                     )
                                 }
+                            }
+                        }
 
+                        AnimatedVisibility(
+                            visible = shouldShowMd3PaletteStyleControls(state.md3ColorSource),
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
+                            Column {
                                 AppPreferenceDivider()
                                 ThemePresetChoiceSetting(
                                     icon = rememberSettingsSemanticIcon(SettingsIconRole.COLOR_STYLE),
@@ -961,7 +973,6 @@ fun AppearanceSettingsContent(
                                                             )
                                                             .clickable {
                                                                 viewModel.setThemeColorIndex(index)
-                                                                viewModel.setMd3CustomColorHex(formatMd3CustomColorHex(color))
                                                             },
                                                         contentAlignment = Alignment.Center
                                                     ) {
@@ -2466,7 +2477,7 @@ private fun Md3ThemeColorPreview(
 
 
 @Composable
-fun DynamicColorPreview() {
+fun DynamicColorPreview(title: String = "当前取色预览") {
     val colorScheme = MaterialTheme.colorScheme
 
     Column(
@@ -2475,7 +2486,7 @@ fun DynamicColorPreview() {
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         AppText(
-            text = "当前取色预览",
+            text = title,
             style = MaterialTheme.typography.labelMedium,
             color = AppContentColors.secondaryText(),
             modifier = Modifier.padding(bottom = 8.dp)

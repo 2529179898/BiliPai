@@ -6,7 +6,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Transition
 import androidx.compose.animation.core.rememberTransition
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
@@ -35,16 +34,20 @@ internal fun rememberAnimatedAppThemePalette(
     target: AppThemePalette,
     enabled: Boolean,
 ): AppThemePalette {
+    // Disabling motion must remove the transition and its target-state writes too.
+    // Running a snap transition still feeds fresh palette identities back into the
+    // theme composition, even though the caller only displays the static endpoint.
+    if (!enabled) return target
+
     val transitionState = remember { MutableTransitionState(target) }
     SideEffect { transitionState.targetState = target }
     val transition = rememberTransition(transitionState, label = "appThemePalette")
-    val spec: FiniteAnimationSpec<Color> = if (enabled) {
+    val spec: FiniteAnimationSpec<Color> =
         tween(APP_THEME_COLOR_TRANSITION_DURATION_MS, easing = FastOutSlowInEasing)
-    } else snap()
     val material = transition.animatedMaterialColors(spec)
     val miuix = transition.animatedMiuixColors(spec)
     val liquidAccent = transition.themeColor("liquidAccent", spec) { it.liquidAccent }
-    return if (enabled) AppThemePalette(material, miuix, liquidAccent) else target
+    return AppThemePalette(material, miuix, liquidAccent)
 }
 
 @Composable
