@@ -297,7 +297,9 @@ object ActionRepository {
     suspend fun queryFollowStatus(mid: Long): Result<Boolean> = withContext(Dispatchers.IO) {
         val session = interactionSession()
         val version = interactionCache.queryVersion(session, "follow:$mid")
-            ?: return@withContext Result.failure(IllegalStateException("关注操作尚未完成"))
+            ?: return@withContext interactionCache.confirmedOperationValue(session, "follow:$mid")
+                ?.let { Result.success(it) }
+                ?: Result.failure(IllegalStateException("关注操作尚未完成"))
         try {
             val response = api.getRelation(mid)
             val data = response.data

@@ -801,7 +801,10 @@ private fun PortraitVideoInfo(
                     color = if (LocalPlayerControlGlassEnabled.current) Color.Transparent else buttonColor,
                     modifier = Modifier
                         .fillMaxHeight()
-                        .clickable(enabled = followStatusKnown) { onFollowClick() }
+                        .clickable(
+                            onClickLabel = if (followStatusKnown) null else "重新确认状态并关注",
+                            onClick = onFollowClick,
+                        )
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
