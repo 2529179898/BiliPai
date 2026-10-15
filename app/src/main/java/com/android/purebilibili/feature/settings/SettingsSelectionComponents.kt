@@ -21,13 +21,19 @@ internal fun <T> SettingsSingleChoicePreference(
     enabled: Boolean = true,
     icon: ImageVector? = null,
     iconTint: Color = AppContentColors.accent(),
+    /** 可选的每项前导视觉，例如色彩风格的三色小样；Miuix 滚轮会忽略。 */
+    optionLeading: (@Composable (T) -> Unit)? = null,
     onSelectionChange: (T) -> Unit,
 ) {
     AppSingleChoicePreference(
         title = title.substringBefore("："),
         selectedValue = selectedValue,
         options = options.map { option ->
-            AppChoiceOption(value = option.value, label = option.label)
+            AppChoiceOption(
+                value = option.value,
+                label = option.label,
+                description = option.description,
+            )
         },
         onValueChange = onSelectionChange,
         modifier = modifier,
@@ -35,5 +41,6 @@ internal fun <T> SettingsSingleChoicePreference(
         subtitle = subtitle,
         enabled = enabled,
         iconTint = iconTint,
+        optionLeading = optionLeading,
     )
 }

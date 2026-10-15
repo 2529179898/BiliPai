@@ -34,6 +34,7 @@ import com.android.purebilibili.core.ui.transition.VIDEO_SHARED_TRANSITION_CUSTO
 import com.android.purebilibili.core.ui.transition.VideoSharedTransitionSpeed
 import com.android.purebilibili.core.util.CacheClearTarget
 import com.android.purebilibili.core.util.CacheUtils
+import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import kotlinx.coroutines.flow.Flow
@@ -74,6 +75,7 @@ data class SettingsUiState(
     val md3CustomColorHex: String = "#007AFF",
     val colorStyle: PaletteStyle = PaletteStyle.TonalSpot,
     val colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
+    val colorContrast: Contrast = Contrast.Default,
     val appFontSizePreset: AppFontSizePreset = AppFontSizePreset.DEFAULT,
     val appFontWeightPreset: AppFontWeightPreset = AppFontWeightPreset.FOLLOW_THEME,
     val appFontFileName: String = "",
@@ -153,6 +155,7 @@ private data class CoreSettings(
     val md3CustomColorHex: String,
     val colorStyle: PaletteStyle,
     val colorSpec: ColorSpec.SpecVersion,
+    val colorContrast: Contrast,
     val bgPlay: Boolean
 )
 
@@ -233,6 +236,7 @@ private data class BaseSettings(
     val md3CustomColorHex: String,
     val colorStyle: PaletteStyle,
     val colorSpec: ColorSpec.SpecVersion,
+    val colorContrast: Contrast,
     val appFontSizePreset: AppFontSizePreset,
     val appFontWeightPreset: AppFontWeightPreset,
     val appFontFileName: String,
@@ -343,6 +347,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         SettingsManager.getMd3CustomColorHex(context).asAnyFlow(),
         SettingsManager.getThemeColorStyle(context).asAnyFlow(),
         SettingsManager.getThemeColorSpec(context).asAnyFlow(),
+        SettingsManager.getThemeColorContrast(context).asAnyFlow(),
         SettingsManager.getMiniPlayerMode(context)
             .map { it != SettingsManager.MiniPlayerMode.OFF }
             .asAnyFlow(),
@@ -360,6 +365,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             md3CustomColorHex = values[7] as String,
             colorStyle = values[8] as PaletteStyle,
             colorSpec = values[9] as ColorSpec.SpecVersion,
+            colorContrast = values[12] as Contrast,
             bgPlay = values[10] as Boolean
         )
     }
@@ -600,6 +606,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             md3CustomColorHex = core.md3CustomColorHex,
             colorStyle = core.colorStyle,
             colorSpec = core.colorSpec,
+            colorContrast = core.colorContrast,
             appFontSizePreset = extra.appFontSizePreset,
             appFontWeightPreset = extra.appFontWeightPreset,
             appFontFileName = extra.appFontFileName,
@@ -669,6 +676,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             md3CustomColorHex = settings.md3CustomColorHex,
             colorStyle = settings.colorStyle,
             colorSpec = settings.colorSpec,
+            colorContrast = settings.colorContrast,
             appFontSizePreset = settings.appFontSizePreset,
             appFontWeightPreset = settings.appFontWeightPreset,
             appFontFileName = settings.appFontFileName,
@@ -852,6 +860,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     }
     fun setThemeColorSpec(spec: ColorSpec.SpecVersion) {
         viewModelScope.launch { SettingsManager.setThemeColorSpec(context, spec) }
+    }
+    fun setThemeColorContrast(contrast: Contrast) {
+        viewModelScope.launch { SettingsManager.setThemeColorContrast(context, contrast) }
     }
     fun setAppFontSizePreset(preset: AppFontSizePreset) {
         viewModelScope.launch { SettingsManager.setAppFontSizePreset(context, preset) }

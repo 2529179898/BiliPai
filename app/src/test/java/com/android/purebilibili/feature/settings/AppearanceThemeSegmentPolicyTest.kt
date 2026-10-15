@@ -2,6 +2,7 @@ package com.android.purebilibili.feature.settings
 
 import com.android.purebilibili.core.ui.AppIconStyle
 import com.android.purebilibili.core.ui.AppListItemStyle
+import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import org.junit.Assert.assertEquals
@@ -89,8 +90,41 @@ class AppearanceThemeSegmentPolicyTest {
 
         assertEquals(PaletteStyle.TonalSpot, styleOptions.first().value)
         assertEquals("TonalSpot", styleOptions.first().label)
+        assertEquals(PaletteStyle.entries.toSet(), styleOptions.map { it.value }.toSet())
+        // 名称保留枚举名（MaterialKolor 技术术语），说明改由 description 提供。
+        assertTrue(styleOptions.all { it.label == it.value.name })
+        assertTrue(styleOptions.all { !it.description.isNullOrBlank() })
+
         assertEquals(ColorSpec.SpecVersion.SPEC_2021, specOptions.first().value)
         assertEquals("SPEC_2021", specOptions.first().label)
+        assertTrue(specOptions.all { it.label == it.value.name })
+        assertTrue(specOptions.all { !it.description.isNullOrBlank() })
+    }
+
+    @Test
+    fun `color preset subtitles spell out the enum name together with its meaning`() {
+        val styleSubtitle = resolveColorStyleSubtitle(PaletteStyle.Vibrant)
+
+        assertTrue(styleSubtitle.startsWith("当前 Vibrant："))
+        assertTrue(styleSubtitle.contains(resolveColorStyleDescription(PaletteStyle.Vibrant)))
+
+        val specSubtitle = resolveColorSpecSubtitle(ColorSpec.SpecVersion.SPEC_2025)
+
+        assertTrue(specSubtitle.startsWith("当前 SPEC_2025："))
+        assertTrue(specSubtitle.contains(resolveColorSpecDescription(ColorSpec.SpecVersion.SPEC_2025)))
+    }
+
+    @Test
+    fun `color contrast options cover reduced default medium and high`() {
+        val options = resolveColorContrastOptions()
+
+        assertEquals(
+            listOf(Contrast.Reduced, Contrast.Default, Contrast.Medium, Contrast.High),
+            options.map { it.value },
+        )
+        assertTrue(options.all { it.label == it.value.name })
+        assertTrue(options.all { !it.description.isNullOrBlank() })
+        assertTrue(resolveColorContrastSubtitle(Contrast.High).startsWith("当前 High："))
     }
 
     @Test

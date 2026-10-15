@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.luminance
 import com.android.purebilibili.core.store.ThemeModeRoleOverrides
 import com.android.purebilibili.core.store.ThemeRoleOverrides
 import com.android.purebilibili.feature.settings.Md3ColorSource
+import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
@@ -83,6 +84,7 @@ internal fun applyThemeRoleOverrides(
     darkTheme: Boolean,
     paletteStyle: PaletteStyle = PaletteStyle.TonalSpot,
     colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
+    colorContrast: Contrast = Contrast.Default,
 ): ColorScheme {
     if (!overrides.enabled) return scheme
 
@@ -98,6 +100,7 @@ internal fun applyThemeRoleOverrides(
         isDark = darkTheme,
         style = paletteStyle,
         specVersion = colorSpec,
+        contrastLevel = colorContrast.value,
     )
     val surfaceLow = lerp(background, primaryText, if (darkTheme) 0.08f else 0.035f)
     val surface = lerp(background, primaryText, if (darkTheme) 0.12f else 0.055f)

@@ -45,6 +45,7 @@ import com.android.purebilibili.core.store.ThemeRoleOverrides
 import com.android.purebilibili.feature.settings.AppThemeMode
 import com.android.purebilibili.feature.settings.Md3ColorSource
 import com.android.purebilibili.feature.settings.normalizeMd3CustomColorHex
+import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
@@ -200,6 +201,16 @@ internal fun resolveColorSpecPreference(rawValue: String?): ColorSpec.SpecVersio
     return runCatching {
         rawValue?.let(ColorSpec.SpecVersion::valueOf)
     }.getOrNull() ?: ColorSpec.SpecVersion.SPEC_2025
+}
+
+/**
+ * 对比度档。PiliPlus 用 flex_seed_scheme 的 FlexTones 变体覆盖高对比需求
+ * （highContrast / ultraContrast），MaterialKolor 这边用原生的 Contrast 表达同一意图。
+ */
+internal fun resolveColorContrastPreference(rawValue: String?): Contrast {
+    return runCatching {
+        rawValue?.let(Contrast::valueOf)
+    }.getOrNull() ?: Contrast.Default
 }
 
 internal data class MiuixMaterialBridge(
@@ -761,7 +772,8 @@ private fun rememberBiliPaiStyleColorScheme(
     paletteStyle: PaletteStyle,
     colorSpec: ColorSpec.SpecVersion,
     uiStyle: AppUiStyle = AppUiStyle.MATERIAL3,
-    dynamicBaseScheme: ColorScheme? = null
+    dynamicBaseScheme: ColorScheme? = null,
+    colorContrast: Contrast = Contrast.Default,
 ): ColorScheme = remember(
     seedColor,
     darkTheme,
@@ -770,6 +782,7 @@ private fun rememberBiliPaiStyleColorScheme(
     colorSpec,
     uiStyle,
     dynamicBaseScheme,
+    colorContrast,
 ) {
     createBiliPaiStyleColorScheme(
         seedColor = seedColor,
@@ -779,6 +792,7 @@ private fun rememberBiliPaiStyleColorScheme(
         colorSpec = colorSpec,
         uiStyle = uiStyle,
         dynamicBaseScheme = dynamicBaseScheme,
+        colorContrast = colorContrast,
     )
 }
 
@@ -790,6 +804,7 @@ internal fun createBiliPaiStyleColorScheme(
     colorSpec: ColorSpec.SpecVersion,
     uiStyle: AppUiStyle = AppUiStyle.MATERIAL3,
     dynamicBaseScheme: ColorScheme? = null,
+    colorContrast: Contrast = Contrast.Default,
 ): ColorScheme {
     // AndroidX already returns the user's final wallpaper-derived light/dark scheme.
     // Re-generating it from resolved roles changes the palette selected in system settings.
@@ -808,7 +823,8 @@ internal fun createBiliPaiStyleColorScheme(
         isDark = darkTheme,
         isAmoled = amoledDarkTheme,
         style = paletteStyle,
-        specVersion = colorSpec
+        specVersion = colorSpec,
+        contrastLevel = colorContrast.value,
     )
 
     val readableScheme = enforceDynamicTextContrast(scheme)
@@ -837,6 +853,7 @@ fun PureBiliBiliTheme(
         com.android.purebilibili.core.store.WallpaperPaletteOverrides(),
     colorStyle: PaletteStyle = PaletteStyle.TonalSpot,
     colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
+    colorContrast: Contrast = Contrast.Default,
     fontSizePreset: AppFontSizePreset = AppFontSizePreset.DEFAULT,
     appFontWeightPreset: AppFontWeightPreset = AppFontWeightPreset.FOLLOW_THEME,
     appFontFileName: String = "",
@@ -917,7 +934,8 @@ fun PureBiliBiliTheme(
         paletteStyle = colorStyle,
         colorSpec = colorSpec,
         uiStyle = uiStyle,
-        dynamicBaseScheme = dynamicLightBaseScheme
+        dynamicBaseScheme = dynamicLightBaseScheme,
+        colorContrast = colorContrast,
     )
     val darkMaterialScheme = rememberBiliPaiStyleColorScheme(
         seedColor = customPrimaryColor,
@@ -926,7 +944,8 @@ fun PureBiliBiliTheme(
         paletteStyle = colorStyle,
         colorSpec = colorSpec,
         uiStyle = uiStyle,
-        dynamicBaseScheme = dynamicDarkBaseScheme
+        dynamicBaseScheme = dynamicDarkBaseScheme,
+        colorContrast = colorContrast,
     )
 
     val baseThemeRoleOverrides = remember(lightMaterialScheme, darkMaterialScheme) {
@@ -940,11 +959,11 @@ fun PureBiliBiliTheme(
     }
     val resolvedLightMaterialScheme = remember(
         lightMaterialScheme, effectiveThemeRoleOverrides, colorStyle, colorSpec,
-        liquidGlassEnabled, md3ColorSource, customPrimaryColor,
+        liquidGlassEnabled, md3ColorSource, customPrimaryColor, colorContrast,
     ) {
         val overridden = applyThemeRoleOverrides(
             lightMaterialScheme, effectiveThemeRoleOverrides, darkTheme = false,
-            paletteStyle = colorStyle, colorSpec = colorSpec,
+            paletteStyle = colorStyle, colorSpec = colorSpec, colorContrast = colorContrast,
         )
         alignLiquidAccentColorScheme(
             scheme = overridden,
@@ -961,11 +980,11 @@ fun PureBiliBiliTheme(
     }
     val resolvedDarkMaterialScheme = remember(
         darkMaterialScheme, effectiveThemeRoleOverrides, colorStyle, colorSpec,
-        liquidGlassEnabled, md3ColorSource, customPrimaryColor,
+        liquidGlassEnabled, md3ColorSource, customPrimaryColor, colorContrast,
     ) {
         val overridden = applyThemeRoleOverrides(
             darkMaterialScheme, effectiveThemeRoleOverrides, darkTheme = true,
-            paletteStyle = colorStyle, colorSpec = colorSpec,
+            paletteStyle = colorStyle, colorSpec = colorSpec, colorContrast = colorContrast,
         )
         alignLiquidAccentColorScheme(
             scheme = overridden,

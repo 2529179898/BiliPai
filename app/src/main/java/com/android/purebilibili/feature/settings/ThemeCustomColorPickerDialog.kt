@@ -42,6 +42,7 @@ import com.android.purebilibili.core.ui.components.*
 import com.android.purebilibili.core.util.HapticType
 import com.android.purebilibili.core.util.rememberHapticFeedback
 import kotlin.math.roundToInt
+import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -55,6 +56,7 @@ internal fun ThemeCustomColorPickerDialog(
     roleTarget: ThemeRoleColorTarget? = null,
     paletteStyle: PaletteStyle = PaletteStyle.TonalSpot,
     colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
+    colorContrast: Contrast = Contrast.Default,
     exactRoleTitle: String? = null,
     onReset: (() -> Unit)? = null,
 ) {
@@ -80,9 +82,11 @@ internal fun ThemeCustomColorPickerDialog(
         else -> AppSurfaceTokens.background().luminance() < 0.5f
     }
     val previewUiStyle = LocalAppUiStyle.current
-    val previewScheme = remember(color, previewDark, paletteStyle, colorSpec, previewUiStyle) {
+    val previewScheme = remember(color, previewDark, paletteStyle, colorSpec, colorContrast, previewUiStyle) {
         resolveAppThemeEndpointPalette(
-            base = createBiliPaiStyleColorScheme(color, previewDark, false, paletteStyle, colorSpec),
+            base = createBiliPaiStyleColorScheme(
+                color, previewDark, false, paletteStyle, colorSpec, colorContrast = colorContrast,
+            ),
             uiStyle = previewUiStyle,
             source = Md3ColorSource.CUSTOM,
             darkTheme = previewDark,
