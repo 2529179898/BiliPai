@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -20,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.res.painterResource
@@ -39,6 +41,21 @@ import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.rememberAdaptiveListVisualCapabilities
 import com.android.purebilibili.core.ui.components.rememberAdaptivePreferenceIconContainerColor
 import com.android.purebilibili.core.ui.components.rememberAdaptivePreferenceIconContentColor
+import com.android.purebilibili.core.ui.LocalAppThemeConfig
+import com.android.purebilibili.core.ui.LocalGlobalWallpaperBackdropVisible
+import com.android.purebilibili.core.ui.wallpaper.LocalGlobalWallpaperBackdropSource
+import com.android.purebilibili.feature.home.components.BottomBarMatchedReusableLiquidDock
+import top.yukonga.miuix.kmp.blur.Backdrop
+
+@Composable
+private fun settingsSearchWallpaperBackdrop(): Backdrop? {
+    // Search lives inside the page recording. Only the independent wallpaper source is
+    // safe here; passing the scroll/header source back into its child would sample itself.
+    val source = LocalGlobalWallpaperBackdropSource.current
+    return if (LocalAppThemeConfig.current.liquidGlassEnabled &&
+        LocalGlobalWallpaperBackdropVisible.current
+    ) source?.takeIf { it.isReady }?.backdrop else null
+}
 
 @Composable
 internal fun SettingsSearchBarSection(
@@ -54,6 +71,7 @@ internal fun SettingsSearchBarSection(
         onSearch = onSearch,
         placeholder = placeholder,
         presentation = AppSearchFieldPresentation.TOP_BAR,
+        backdrop = settingsSearchWallpaperBackdrop(),
         autoFocusEnabled = autoFocusEnabled,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
     )
@@ -66,12 +84,31 @@ internal fun SettingsHomeSearchEntry(
 ) {
     val visualSpec = resolveSettingsVisualSpec()
     val placeholder = stringResource(R.string.settings_search_placeholder)
-    AppSearchEntry(
-        onClick = onClick,
-        placeholder = placeholder,
-        modifier = modifier
-            .padding(horizontal = visualSpec.screenHorizontalPadding),
-    )
+    val entryModifier = modifier.padding(horizontal = visualSpec.screenHorizontalPadding)
+    // Material boundary: keep the disabled MD3/Miuix entry and its defaults intact.
+    if (!LocalAppThemeConfig.current.liquidGlassEnabled) {
+        AppSearchEntry(
+            onClick = onClick,
+            placeholder = placeholder,
+            modifier = entryModifier,
+        )
+        return
+    }
+    BottomBarMatchedReusableLiquidDock(
+        shape = CircleShape,
+        modifier = entryModifier,
+        backdrop = settingsSearchWallpaperBackdrop(),
+        reuseEnabled = true,
+        elasticFeedbackEnabled = true,
+        elasticFeedbackStrength = com.android.purebilibili.core.ui.components.APP_SEARCH_ELASTIC_FEEDBACK_STRENGTH,
+        useNeutralLiquidContainer = true,
+    ) { liquidChromeActive ->
+        AppSearchEntry(
+            onClick = onClick,
+            placeholder = placeholder,
+            containerColor = if (liquidChromeActive) Color.Transparent else Color.Unspecified,
+        )
+    }
 }
 
 @Composable

@@ -1877,7 +1877,7 @@ fun AppearanceSettingsContent(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.HOME_INFO_GLASS),
                                 title = settingItemTitle("appearance.home_card_frosted_glass_enabled"),
                                 subtitle = if (homeCardFrostedGlassEnabled) {
-                                    "模糊卡片文字背后的壁纸"
+                                    "模糊卡片文字背后的壁纸，全局壁纸下同步到追番等列表"
                                 } else {
                                     "卡片不使用实时模糊"
                                 },

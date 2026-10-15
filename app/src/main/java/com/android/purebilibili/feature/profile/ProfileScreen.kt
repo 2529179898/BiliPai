@@ -2660,10 +2660,39 @@ private fun ProfileVideoList(
                                 targetModifier = Modifier.width(cardWidth),
                             )) {
                                 if (columns == 1) {
-                                    ProfileSpaceListRow(
-                                        title = video.title,
-                                        subtitle = "${FormatUtils.formatStat(video.play.toLong())} 播放 · ${video.length}",
-                                        imageUrl = video.pic,
+                                    PersonalMediaCardFrame(
+                                        headlineContent = {
+                                            AppText(
+                                                video.title,
+                                                style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().title,
+                                                maxLines = com.android.purebilibili.core.ui.videoCardTitleMaxLines(),
+                                                overflow = com.android.purebilibili.core.ui.videoCardTitleOverflow(),
+                                            )
+                                        },
+                                        supportingContent = {
+                                            com.android.purebilibili.feature.home.components.cards.HorizontalVideoStatRow(
+                                                playText = FormatUtils.formatStat(video.play.toLong()),
+                                                danmakuText = "",
+                                            )
+                                        },
+                                        coverContent = {
+                                            AsyncImage(
+                                                model = video.pic,
+                                                contentDescription = video.title,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize(),
+                                            )
+                                        },
+                                        coverOverlayContent = {
+                                            com.android.purebilibili.core.ui.components.VideoStatusBadges(
+                                                labels = video.statusLabels,
+                                                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                                            )
+                                            com.android.purebilibili.feature.home.components.cards.VideoCardCoverDurationText(
+                                                text = video.length,
+                                                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
+                                            )
+                                        },
                                         onClick = { video.bvid.takeIf { it.isNotBlank() }?.let(onVideoClick) },
                                     )
                                 } else {

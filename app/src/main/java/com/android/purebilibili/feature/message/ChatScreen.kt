@@ -1170,7 +1170,7 @@ private fun MessageHorizontalVideoCard(
     supportingText: String? = null,
 ) {
     val cardShape = AppShapes.container(ContainerLevel.Card)
-    val contentTypography = feedContentTypography(FeedTitleHierarchy.Standard)
+    val contentTypography = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography()
     val glassContentColors = rememberMessageGlassContentColors(
         defaultOnSurface = AppContentColors.primaryText(),
         defaultOnSurfaceVariant = AppContentColors.secondaryText(),
@@ -1221,8 +1221,8 @@ private fun MessageHorizontalVideoCard(
                 AppText(
                     text = title,
                     style = contentTypography.title,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines = com.android.purebilibili.core.ui.videoCardTitleMaxLines(),
+                    overflow = com.android.purebilibili.core.ui.videoCardTitleOverflow(),
                     color = glassContentColors.titleColor,
                     modifier = Modifier.fillMaxWidth(),
                 )

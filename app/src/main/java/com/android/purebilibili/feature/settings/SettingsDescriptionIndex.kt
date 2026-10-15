@@ -35,7 +35,7 @@ internal val settingsStaticDescriptionIndex: Map<String, String> = mapOf(
     "appearance.full_video_card_content_visible" to "标题不截断，卡片高度可能不一致；标题最多两行，其余信息不变",
     "appearance.grid_column_count" to "自适应（默认）；折叠屏外屏与窄屏独立记忆，可用双指缩放调整",
     "appearance.home_card_dynamic_tint_enabled" to "卡片信息区跟随壁纸或封面颜色；卡片不跟随壁纸或封面变色",
-    "appearance.home_card_frosted_glass_enabled" to "模糊卡片文字背后的壁纸；卡片不使用实时模糊",
+    "appearance.home_card_frosted_glass_enabled" to "模糊卡片文字背后的壁纸，全局壁纸下同步到追番等列表；卡片不使用实时模糊",
     "appearance.home_duration_style" to "选择视频时长的显示方式",
     "appearance.home_feed_card_style" to "（首页、搜索、列表、相关推荐等同步）",
     "appearance.home_feed_card_width_preset" to "自动列数时控制首页推荐卡片的最小宽度",
