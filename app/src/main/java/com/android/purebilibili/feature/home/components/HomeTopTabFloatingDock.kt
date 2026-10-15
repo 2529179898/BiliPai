@@ -290,6 +290,13 @@ internal fun HomeTopTabFloatingDock(
         itemContent = { index, label, selected ->
             val contentColor = LocalFloatingBottomBarContentColor.current
             val selectionScale = LocalFloatingBottomBarItemSelectionScale.current
+            // Glass renders this slot twice: an idle rail and a lens-clipped active
+            // copy. The active copy must stay filled even before the pager commits
+            // the hovered tab; its visible selection is owned by the moving mask.
+            // Non-glass rails retain the native selected-index contract.
+            val iconSelected = if (liquidGlassEffectsEnabled) {
+                LocalFloatingBottomBarActiveContent.current
+            } else selected
             val categoryKey = categoryKeys.getOrNull(index) ?: label
             if (showIcon) {
                 Box(
@@ -305,7 +312,7 @@ internal fun HomeTopTabFloatingDock(
                         imageVector = resolveTopTabCategoryIcon(
                             categoryKey = categoryKey,
                             iconFamily = iconFamily,
-                            selected = selected,
+                            selected = iconSelected,
                         ),
                         contentDescription = label,
                         // Standalone glass icons use AppIcon's default dimensions, just
