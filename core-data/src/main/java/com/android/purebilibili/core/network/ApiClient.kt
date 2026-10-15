@@ -1579,7 +1579,7 @@ interface SearchApi {
         "Referer: https://search.bilibili.com/"
     )
     @GET("x/web-interface/wbi/search/all/v2")
-    suspend fun searchAll(@QueryMap params: Map<String, String>): SearchResponse
+    suspend fun searchAll(@QueryMap params: Map<String, String>): com.android.purebilibili.data.model.response.SearchAllResponse
     
     //  [修复] 分类搜索 - 支持排序和时长筛选
     @Headers(
