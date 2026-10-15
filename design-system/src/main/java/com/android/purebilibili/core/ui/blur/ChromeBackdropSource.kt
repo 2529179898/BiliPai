@@ -6,6 +6,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.layer.drawLayer
@@ -44,6 +45,10 @@ fun rememberChromeBackdropSource(
     recordingBackground: Color = Color.Unspecified,
 ): ChromeBackdropSource {
     val contentLayer = rememberGraphicsLayer()
+    // Theme frames update the recording in draw, without replacing the source passed
+    // to consumers or rebuilding its modifier chain. Child-layer invalidations still
+    // record fresh content; this is not a frozen backdrop cache.
+    val recordingBackgroundState = rememberUpdatedState(recordingBackground)
     val recorded = remember(contentLayer) { mutableStateOf(false) }
     val firstRecording = remember(contentLayer) { CompletableDeferred<Unit>() }
     LaunchedEffect(firstRecording) {
@@ -55,7 +60,7 @@ fun rememberChromeBackdropSource(
         // Publish once, after the source has actually recorded; never guess using a delay.
         firstRecording.complete(Unit)
     })
-    return remember(backdrop, contentLayer, drawContentToScreen, recordingBackground) {
+    return remember(backdrop, contentLayer, drawContentToScreen) {
         ChromeBackdropSource(
             backdrop = backdrop,
             recorded = recorded,
@@ -66,7 +71,8 @@ fun rememberChromeBackdropSource(
                         // An explicit animated background invalidates this recording even
                         // when the page updates only its own child graphics layers. Keep
                         // the backdrop/layer identities stable throughout theme changes.
-                        if (recordingBackground != Color.Unspecified) drawRect(recordingBackground)
+                        val background = recordingBackgroundState.value
+                        if (background != Color.Unspecified) drawRect(background)
                         this@drawWithContent.drawContent()
                     }
                     if (drawContentToScreen) drawLayer(contentLayer)

@@ -4244,8 +4244,9 @@ internal fun VideoDetailScreenStateHolder(
                             isFoldableCoverWindow = displayContext.isFoldableCoverWindow,
                         ).dp
                         val playerChromeProfile = rememberAppPlayerChromeProfile()
-                        val videoContentTabSwitchAnimationSpec = remember(playerChromeProfile.tabPresentation) {
-                            resolveVideoContentTabSwitchAnimationSpec(playerChromeProfile.tabPresentation)
+                        val liquidGlassTabMotion = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+                        val videoContentTabSwitchAnimationSpec = remember(playerChromeProfile.tabPresentation, liquidGlassTabMotion) {
+                            resolveVideoContentTabSwitchAnimationSpec(playerChromeProfile.tabPresentation, liquidGlassTabMotion)
                         }
 
                         //  读取竖屏播放器滚动缩小模式
