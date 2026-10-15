@@ -72,6 +72,7 @@ class PlaybackNotificationColorPolicyTest {
                 paletteStyle = settings.colorStyle,
                 colorSpec = settings.colorSpec,
                 uiStyle = settings.uiStyle,
+                colorContrast = settings.colorContrast,
             )
             assertEquals(scheme.primary, resolvePlaybackNotificationAccentColor(
                 settings, dark, wallpaperAccent = Color.Green, wallpaperSeed = seed,

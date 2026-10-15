@@ -556,6 +556,7 @@ fun AppearanceSettingsContent(
     }
     val colorStyleOptions = remember { resolveColorStyleOptions() }
     val colorSpecOptions = remember { resolveColorSpecOptions() }
+    val colorContrastOptions = remember { resolveColorContrastOptions() }
     val fontPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -855,12 +856,36 @@ fun AppearanceSettingsContent(
                             exit = shrinkVertically() + fadeOut()
                         ) {
                             Column {
+                                // 风格小样：用当前生效的种子色与色彩标准，预演每种风格的实际配色。
+                                val stylePreviewSeed = resolveMd3ThemeSeedColor(
+                                    source = state.md3ColorSource,
+                                    customColorHex = state.md3CustomColorHex,
+                                    themeColorIndex = state.themeColorIndex,
+                                )
+                                val stylePreviewSwatches = rememberThemeStylePaletteSwatches(
+                                    seedColor = stylePreviewSeed,
+                                    isDark = resolveColorSchemeIsDark(MaterialTheme.colorScheme),
+                                    paletteStyles = colorStyleOptions.map { it.value },
+                                    colorSpec = state.colorSpec,
+                                    colorContrast = state.colorContrast,
+                                )
+                                val styleSwatchByStyle = remember(stylePreviewSwatches) {
+                                    colorStyleOptions.map { it.value }.zip(stylePreviewSwatches).toMap()
+                                }
+
                                 AppPreferenceDivider()
                                 ThemePresetChoiceSetting(
                                     icon = rememberSettingsSemanticIcon(SettingsIconRole.COLOR_STYLE),
                                     title = "色彩风格",
+                                    subtitle = resolveColorStyleSubtitle(state.colorStyle),
                                     selectedValue = state.colorStyle,
                                     options = colorStyleOptions,
+                                    optionLeading = { style ->
+                                        val swatch = styleSwatchByStyle[style]
+                                        if (swatch != null) {
+                                            ThemeStyleSwatch(swatch)
+                                        }
+                                    },
                                     onSelectionChange = viewModel::setThemeColorStyle,
                                     iconTint = AppContentColors.secondaryText()
                                 )
@@ -869,9 +894,21 @@ fun AppearanceSettingsContent(
                                 ThemePresetChoiceSetting(
                                     icon = rememberSettingsSemanticIcon(SettingsIconRole.COLOR_SPEC),
                                     title = "色彩标准",
+                                    subtitle = resolveColorSpecSubtitle(state.colorSpec),
                                     selectedValue = state.colorSpec,
                                     options = colorSpecOptions,
                                     onSelectionChange = viewModel::setThemeColorSpec,
+                                    iconTint = AppContentColors.secondaryText()
+                                )
+
+                                AppPreferenceDivider()
+                                ThemePresetChoiceSetting(
+                                    icon = rememberMaterialSymbol(R.drawable.ms_brightness_medium_24),
+                                    title = "对比度",
+                                    subtitle = resolveColorContrastSubtitle(state.colorContrast),
+                                    selectedValue = state.colorContrast,
+                                    options = colorContrastOptions,
+                                    onSelectionChange = viewModel::setThemeColorContrast,
                                     iconTint = AppContentColors.secondaryText()
                                 )
                             }
@@ -905,8 +942,17 @@ fun AppearanceSettingsContent(
                                 ) {
                                     Column(modifier = Modifier.padding(top = 12.dp)) {
 
-                                // 直接预览最终 MaterialTheme ColorScheme，不再用原始种子色手工画渐变。
-                                Md3ThemeColorPreview(colorHex = state.md3CustomColorHex)
+                                // 预设色板每格的三色预览：跟随当前色彩风格 / 色彩标准与明暗，
+                                // 展开时整组算一次，网格滚动不重复生成方案。
+                                val palettePreviewIsDark =
+                                    resolveColorSchemeIsDark(MaterialTheme.colorScheme)
+                                val presetSwatches = rememberThemePresetPaletteSwatches(
+                                    seedColors = ThemeColors,
+                                    isDark = palettePreviewIsDark,
+                                    paletteStyle = state.colorStyle,
+                                    colorSpec = state.colorSpec,
+                                    colorContrast = state.colorContrast,
+                                )
 
                                 //  [Redesign] Theme Color Grid - Strict 2 Rows x 5 Columns
                                 val spacing = 12.dp
@@ -935,6 +981,18 @@ fun AppearanceSettingsContent(
                                                         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
                                                     )
 
+                                                    // 版式对齐 PiliPlus `common/widgets/color_palette.dart`：
+                                                    // 圆角方形容器内放一个圆，圆内上半 primary、左下 tertiary、
+                                                    // 右下 primaryContainer；选中时叠容器色圆盘 + primary 对勾。
+                                                    val swatch = presetSwatches.getOrElse(index) {
+                                                        // 预览数据缺失时退回种子色本身，避免色板出现空档。
+                                                        ThemePresetPaletteSwatch(
+                                                            primary = color,
+                                                            tertiary = color,
+                                                            primaryContainer = color
+                                                        )
+                                                    }
+
                                                     Box(
                                                         modifier = Modifier
                                                             .aspectRatio(1f) // Ensure square aspect ratio for perfect circles
@@ -942,51 +1000,69 @@ fun AppearanceSettingsContent(
                                                                 scaleX = scale
                                                                 scaleY = scale
                                                             }
-                                                            // 选中时的外光环 (圆形)
-                                                            .border(
-                                                                width = if (isSelected) 2.dp else 0.dp,
-                                                                color = if (isSelected) color.copy(alpha = 0.5f) else Color.Transparent,
-                                                                shape = CircleShape
-                                                            )
-                                                            .padding(3.dp) // 光环与色块的间距
-                                                            .clip(CircleShape) // 裁剪为圆形
-                                                            .background(
-                                                                brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                                                    colors = listOf(
-                                                                        color.copy(alpha = 0.9f), // 中心稍亮
-                                                                        color // 边缘原色
-                                                                    ),
-                                                                    center = androidx.compose.ui.geometry.Offset.Unspecified,
-                                                                    radius = Float.POSITIVE_INFINITY
-                                                                )
-                                                            )
-                                                            // 添加个内部高光，增加球体质感
-                                                            .background(
-                                                                brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                                                                    colors = listOf(
-                                                                        Color.White.copy(alpha = 0.2f),
-                                                                        Color.Transparent
-                                                                    ),
-                                                                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                                                    end = androidx.compose.ui.geometry.Offset(100f, 100f)
-                                                                )
-                                                            )
+                                                            .clip(AppShapes.container(ContainerLevel.Card))
+                                                            .background(AppSurfaceTokens.cardContainer())
                                                             .clickable {
                                                                 viewModel.setThemeColorIndex(index)
                                                             },
                                                         contentAlignment = Alignment.Center
                                                     ) {
-                                                        androidx.compose.animation.AnimatedVisibility(
-                                                            visible = isSelected,
-                                                            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(),
-                                                            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut()
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .fillMaxSize()
+                                                                .padding(6.dp) // 方形容器与圆饼之间的留白
+                                                                .clip(CircleShape)
                                                         ) {
-                                                            AppIcon(
-                                                                com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_check_24),
-                                                                contentDescription = null,
-                                                                tint = Color.White,
-                                                                modifier = Modifier.size(18.dp)
-                                                            )
+                                                            Column(modifier = Modifier.fillMaxSize()) {
+                                                                Box(
+                                                                    modifier = Modifier
+                                                                        .fillMaxWidth()
+                                                                        .weight(1f)
+                                                                        .background(swatch.primary)
+                                                                )
+                                                                Row(
+                                                                    modifier = Modifier
+                                                                        .fillMaxWidth()
+                                                                        .weight(1f)
+                                                                ) {
+                                                                    Box(
+                                                                        modifier = Modifier
+                                                                            .fillMaxHeight()
+                                                                            .weight(1f)
+                                                                            .background(swatch.tertiary)
+                                                                    )
+                                                                    Box(
+                                                                        modifier = Modifier
+                                                                            .fillMaxHeight()
+                                                                            .weight(1f)
+                                                                            .background(swatch.primaryContainer)
+                                                                    )
+                                                                }
+                                                            }
+
+                                                            androidx.compose.animation.AnimatedVisibility(
+                                                                visible = isSelected,
+                                                                modifier = Modifier.align(Alignment.Center),
+                                                                enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(),
+                                                                exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut()
+                                                            ) {
+                                                                Box(
+                                                                    modifier = Modifier
+                                                                        .size(23.dp)
+                                                                        .background(
+                                                                            AppSurfaceTokens.surfaceContainerHighest(),
+                                                                            CircleShape
+                                                                        ),
+                                                                    contentAlignment = Alignment.Center
+                                                                ) {
+                                                                    AppIcon(
+                                                                        com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_check_24),
+                                                                        contentDescription = null,
+                                                                        tint = swatch.primary,
+                                                                        modifier = Modifier.size(12.dp)
+                                                                    )
+                                                                }
+                                                            }
                                                         }
                                                     }
 
@@ -1016,6 +1092,18 @@ fun AppearanceSettingsContent(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        //  首页配色预览：不依赖颜色来源，始终展示当前主题的实际取色
+        item(key = "appearance_theme_home_preview") {
+            Box(modifier = Modifier.entrance()) {
+                // 交给设置页分组承载：圆角、水平边距与容器色由 AppPreferenceGroup 统一决定。
+                AppPreferenceGroup {
+                    ThemeHomePreview(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
                 }
             }
         }
@@ -2145,6 +2233,7 @@ fun AppearanceSettingsContent(
             initialHex = state.md3CustomColorHex,
             paletteStyle = state.colorStyle,
             colorSpec = state.colorSpec,
+            colorContrast = state.colorContrast,
             onDismiss = { showMd3ColorPickerDialog = false },
             onConfirm = { hex ->
                 viewModel.applyMd3CustomColor(hex)
@@ -2159,6 +2248,7 @@ fun AppearanceSettingsContent(
             roleTarget = target,
             paletteStyle = state.colorStyle,
             colorSpec = state.colorSpec,
+            colorContrast = state.colorContrast,
             onDismiss = { roleColorTarget = null },
             onConfirm = { hex ->
                 scope.launch {
@@ -2404,73 +2494,6 @@ internal fun restartApp(context: android.content.Context) {
 }
 
 /**
- * Material 3 native preview of the generated theme roles.
- *
- * The picker value is only a seed. This preview deliberately consumes the active
- * [MaterialTheme.colorScheme], so its container, control and text colors match the roles that
- * the rest of the app receives after MaterialKolor tone mapping.
- */
-@Composable
-private fun Md3ThemeColorPreview(
-    colorHex: String,
-    modifier: Modifier = Modifier,
-) {
-    val colorScheme = MaterialTheme.colorScheme
-
-    ElevatedCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(bottom = 24.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = colorScheme.surfaceContainerLow,
-            contentColor = colorScheme.onSurface,
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Surface(
-                modifier = Modifier.size(56.dp),
-                shape = MaterialTheme.shapes.large,
-                color = colorScheme.primaryContainer,
-                contentColor = colorScheme.onPrimaryContainer,
-                tonalElevation = 2.dp,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_play_arrow_fill_24),
-                        contentDescription = null,
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = colorHex,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = colorScheme.onSurface,
-                )
-                Text(
-                    text = "Material 3 原生配色预览",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-
-/**
  *  动态取色预览组件
  * 显示从壁纸提取的 Material You 颜色
  */
@@ -2556,14 +2579,18 @@ private fun <T> ThemePresetChoiceSetting(
     selectedValue: T,
     options: List<AppSegmentOption<T>>,
     onSelectionChange: (T) -> Unit,
-    iconTint: Color
+    iconTint: Color,
+    subtitle: String? = null,
+    optionLeading: (@Composable (T) -> Unit)? = null,
 ) {
     SettingsSingleChoicePreference(
         title = title,
+        subtitle = subtitle,
         options = options,
         selectedValue = selectedValue,
         icon = icon,
         iconTint = iconTint,
+        optionLeading = optionLeading,
         onSelectionChange = onSelectionChange,
     )
 }

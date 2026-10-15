@@ -13,6 +13,9 @@ import com.android.purebilibili.data.model.response.SearchTopicItem
 import com.android.purebilibili.data.model.response.VideoItem
 import com.android.purebilibili.data.model.response.SearchUpItem
 import com.android.purebilibili.data.model.response.LiveRoomSearchItem
+import com.android.purebilibili.data.model.response.SearchVideoItem
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,6 +27,13 @@ data class SearchTrendingBundle(
     val allItems: List<HotItem>
         get() = pinnedItems + items
 }
+
+data class SearchAllResults(
+    val videos: List<VideoItem> = emptyList(),
+    val ups: List<SearchUpItem> = emptyList(),
+    val bangumi: List<com.android.purebilibili.data.model.response.BangumiSearchItem> = emptyList(),
+    val pageInfo: SearchRepository.SearchPageInfo
+)
 
 internal fun buildSearchRecommendParams(
     accessToken: String?,
@@ -53,6 +63,7 @@ internal fun buildSearchRecommendParams(
 
 object SearchRepository {
     private val api = NetworkModule.searchApi
+    private val searchJson = Json { ignoreUnknownKeys = true; coerceInputValues = true }
     private val navApi = NetworkModule.api
 
     //  [新增] 搜索分页信息
@@ -93,6 +104,55 @@ object SearchRepository {
             "platform" to "pc",
             "web_location" to "1430654"
         ).apply { putAll(extra) }
+    }
+
+    /** 综合页按站点 search/all/v2 返回的分类结构，优先展示视频、UP 主和番剧。 */
+    suspend fun searchAll(keyword: String, page: Int = 1): Result<SearchAllResults> = withContext(Dispatchers.IO) {
+        try {
+            val params = signWithWbi(
+                mapOf(
+                    "keyword" to keyword,
+                    "search_type" to "all",
+                    "page" to page.toString(),
+                    "page_size" to "20",
+                    "platform" to "pc",
+                    "web_location" to "1430654"
+                )
+            )
+            val response = api.searchAll(params)
+            if (response.code != 0) {
+                return@withContext Result.failure(createSearchError(response.code, response.message))
+            }
+            val categories = response.data?.result.orEmpty()
+            val videos = categories.firstOrNull { it.result_type == "video" }
+                ?.data.orEmpty()
+                .mapNotNull { runCatching { searchJson.decodeFromJsonElement<SearchVideoItem>(it).toVideoItem() }.getOrNull() }
+            val ups = categories.firstOrNull { it.result_type == "bili_user" }
+                ?.data.orEmpty()
+                .mapNotNull { runCatching { searchJson.decodeFromJsonElement<SearchUpItem>(it).cleanupFields() }.getOrNull() }
+            val bangumi = categories.filter { it.result_type == "media_bangumi" || it.result_type == "media_ft" }
+                .flatMap { it.data.orEmpty() }
+                .mapNotNull { runCatching { searchJson.decodeFromJsonElement<com.android.purebilibili.data.model.response.BangumiSearchItem>(it) }.getOrNull() }
+                .map { item ->
+                    item.copy(
+                        title = com.android.purebilibili.data.model.response.cleanSearchText(item.title),
+                        cover = com.android.purebilibili.data.model.response.normalizeSearchImageUrl(item.cover)
+                    )
+                }
+            val pageInfo = createPageInfo(
+                requestedPage = page,
+                responsePage = response.data?.page ?: page,
+                totalPages = response.data?.numPages ?: 0,
+                totalResults = response.data?.numResults ?: videos.size + ups.size + bangumi.size,
+                fallbackResultCount = videos.size + ups.size + bangumi.size,
+                pageSize = response.data?.pagesize ?: 20
+            )
+            Result.success(SearchAllResults(videos, ups, bangumi, pageInfo))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     //  视频搜索 - 支持排序、时长/分区/发布时间过滤和分页
@@ -211,6 +271,31 @@ object SearchRepository {
         } else {
             Result.failure(firstFailure ?: IllegalStateException("搜索失败"))
         }
+    }
+
+    /** PiliPlus 综合页无筛选时用 all/v2；排序或筛选后切到 video/type API。 */
+    suspend fun searchAllPage(
+        keyword: String,
+        page: Int = 1,
+        order: SearchOrder = SearchOrder.TOTALRANK,
+        durations: Set<SearchDuration> = emptySet(),
+        tids: Int = 0,
+        pubBegin: Long? = null,
+        pubEnd: Long? = null,
+    ): Result<SearchAllResults> {
+        val hasVideoFilters = order != SearchOrder.TOTALRANK || durations.isNotEmpty() ||
+            tids != 0 || pubBegin != null || pubEnd != null
+        if (!hasVideoFilters) return searchAll(keyword, page)
+
+        return searchWithDurations(
+            keyword = keyword,
+            order = order,
+            durations = durations,
+            tids = tids,
+            page = page,
+            pubBegin = pubBegin,
+            pubEnd = pubEnd,
+        ).map { (videos, pageInfo) -> SearchAllResults(videos = videos, pageInfo = pageInfo) }
     }
     
     //  UP主 搜索

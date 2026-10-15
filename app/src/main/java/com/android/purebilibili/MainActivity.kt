@@ -1367,6 +1367,7 @@ open class MainActivity : AppCompatActivity() {
             val themeRoleOverrides = appThemeSettings.themeRoleOverrides
             val colorStyle = appThemeSettings.colorStyle
             val colorSpec = appThemeSettings.colorSpec
+            val colorContrast = appThemeSettings.colorContrast
             val themeColorIndex = appThemeSettings.themeColorIndex
             val appFontSizePreset = appThemeSettings.appFontSizePreset
             val appFontWeightPreset = appThemeSettings.appFontWeightPreset
@@ -1554,6 +1555,7 @@ open class MainActivity : AppCompatActivity() {
                 wallpaperPaletteOverrides = appThemeSettings.wallpaperPaletteOverrides,
                 colorStyle = colorStyle,
                 colorSpec = colorSpec,
+                colorContrast = colorContrast,
                 fontSizePreset = appFontSizePreset,
                 appFontWeightPreset = appFontWeightPreset,
                 appFontFileName = appFontFileName,

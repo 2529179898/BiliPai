@@ -546,7 +546,7 @@ internal fun StoryVideoCard(
         AppDropdownMenuItem(
             text = {
                 AppText(
-                    "🚫 不感兴趣",
+                    "不感兴趣",
                     color = AppContentColors.primaryText()
                 )
             },
