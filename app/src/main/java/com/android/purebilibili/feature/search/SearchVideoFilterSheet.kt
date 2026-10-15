@@ -141,6 +141,7 @@ fun SearchVideoFilterActions(
     onCustomPubTimeRange: (Long, Long) -> Unit,
     singleColumn: Boolean,
     onLayoutToggle: () -> Unit,
+    showLayoutToggle: Boolean = true,
     modifier: Modifier = Modifier,
     miuixBackdrop: MiuixBackdrop? = null,
 ) {
@@ -199,21 +200,23 @@ fun SearchVideoFilterActions(
                 )
             }
         }
-        BottomBarMatchedReusableLiquidDock(
-            shape = CircleShape,
-            backdrop = miuixBackdrop,
-            reuseEnabled = true,
-            elasticFeedbackEnabled = true,
-            useNeutralLiquidContainer = true,
-            shellLensIntensity = resolveFloatingDockGeometryScale(chromeSpec.clearActionSizeDp.toFloat()),
-            modifier = Modifier.size(actionSize),
-        ) { _ ->
-            VideoListLayoutToggle(
-                singleColumn = singleColumn,
-                onClick = onLayoutToggle,
+        if (showLayoutToggle) {
+            BottomBarMatchedReusableLiquidDock(
+                shape = CircleShape,
+                backdrop = miuixBackdrop,
+                reuseEnabled = true,
+                elasticFeedbackEnabled = true,
+                useNeutralLiquidContainer = true,
+                shellLensIntensity = resolveFloatingDockGeometryScale(chromeSpec.clearActionSizeDp.toFloat()),
                 modifier = Modifier.size(actionSize),
-                iconModifier = Modifier.size(iconSize),
-            )
+            ) { _ ->
+                VideoListLayoutToggle(
+                    singleColumn = singleColumn,
+                    onClick = onLayoutToggle,
+                    modifier = Modifier.size(actionSize),
+                    iconModifier = Modifier.size(iconSize),
+                )
+            }
         }
     }
 

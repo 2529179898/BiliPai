@@ -43,7 +43,7 @@ data class SearchUiState(
     val showResults: Boolean = false,
     val searchSessionId: Long = 0L,
     //  搜索类型
-    val searchType: SearchType = SearchType.VIDEO,
+    val searchType: SearchType = SearchType.ALL,
     // 视频结果
     val searchResults: List<VideoItem> = emptyList(),
     //  UP主 结果
@@ -135,6 +135,7 @@ internal fun SearchUiState.toCurrentSearchResultPage(): SearchResultPageUiState 
         totalPages = totalPages,
         hasMoreResults = hasMoreResults,
         totalCount = when (searchType) {
+            SearchType.ALL -> searchResults.size + upResults.size + bangumiResults.size
             SearchType.VIDEO -> searchResults.size
             SearchType.UP -> upResults.size
             SearchType.BANGUMI, SearchType.MEDIA_FT -> bangumiResults.size
@@ -270,6 +271,10 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                             liveResults = newLives,
                             liveUserResults = newLiveUsers,
                             emptyStateReason = when (it.searchType) {
+                                SearchType.ALL -> resolveSearchEmptyStateReason(
+                                    rawResultCount = it.searchResults.size + it.upResults.size + it.bangumiResults.size,
+                                    visibleResultCount = newVideos.size + newUps.size + it.bangumiResults.size
+                                )
                                 SearchType.VIDEO -> resolveSearchEmptyStateReason(
                                     rawResultCount = it.searchResults.size,
                                     visibleResultCount = newVideos.size
@@ -600,6 +605,52 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
         activeSearchJob = viewModelScope.launch {
             when (searchType) {
+                SearchType.ALL -> {
+                    val filters = _uiState.value
+                    SearchRepository.searchAllPage(
+                        keyword = normalizedKeyword,
+                        page = 1,
+                        order = filters.searchOrder,
+                        durations = filters.searchDurations,
+                        tids = filters.videoTid,
+                        pubBegin = filters.pubBegin,
+                        pubEnd = filters.pubEnd,
+                    )
+                        .onSuccess { aggregate ->
+                            if (!shouldApplySearchResult(searchSessionId, activeSearchSessionId, normalizedKeyword, _uiState.value.query, searchType, _uiState.value.searchType)) return@onSuccess
+                            val nativeFiltered = aggregate.videos.filter { it.owner.mid !in blockedMids }
+                            val builtinFiltered = com.android.purebilibili.core.plugin.PluginManager.filterFeedItems(nativeFiltered, feedKind = FeedKind.SEARCH)
+                            val filteredVideos = com.android.purebilibili.core.plugin.json.JsonPluginManager.filterVideos(builtinFiltered)
+                            val filteredUps = aggregate.ups
+                                .filter { it.mid !in blockedMids }
+                                .map { up -> up.copy(res = up.res?.filterNot { video -> video.mid in blockedMids }) }
+                            val total = aggregate.pageInfo.totalResults
+                            _uiState.update {
+                                it.copy(
+                                    isSearching = false,
+                                    error = null,
+                                    searchResults = filteredVideos,
+                                    upResults = filteredUps,
+                                    bangumiResults = aggregate.bangumi,
+                                    liveResults = emptyList(), liveUserResults = emptyList(),
+                                    articleResults = emptyList(), topicResults = emptyList(), photoResults = emptyList(),
+                                    currentPage = aggregate.pageInfo.currentPage,
+                                    totalResults = total,
+                                    searchTypeCounts = it.searchTypeCounts + (SearchType.ALL to total),
+                                    totalPages = aggregate.pageInfo.totalPages,
+                                    hasMoreResults = aggregate.pageInfo.hasMore,
+                                    emptyStateReason = resolveSearchEmptyStateReason(
+                                        rawResultCount = aggregate.videos.size + aggregate.ups.size + aggregate.bangumi.size,
+                                        visibleResultCount = filteredVideos.size + filteredUps.size + aggregate.bangumi.size
+                                    )
+                                )
+                            }
+                        }
+                        .onFailure { error ->
+                            if (!shouldApplySearchResult(searchSessionId, activeSearchSessionId, normalizedKeyword, _uiState.value.query, searchType, _uiState.value.searchType)) return@onFailure
+                            _uiState.update { it.copy(isSearching = false, error = error.message ?: "搜索失败") }
+                        }
+                }
                 SearchType.VIDEO -> {
                     val order = _uiState.value.searchOrder
                     val durations = _uiState.value.searchDurations
@@ -1013,6 +1064,44 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         activeLoadMoreJob?.cancel()
         activeLoadMoreJob = viewModelScope.launch {
             when (state.searchType) {
+                SearchType.ALL -> {
+                    SearchRepository.searchAllPage(
+                        keyword = state.query,
+                        page = nextPage,
+                        order = state.searchOrder,
+                        durations = state.searchDurations,
+                        tids = state.videoTid,
+                        pubBegin = state.pubBegin,
+                        pubEnd = state.pubEnd,
+                    )
+                        .onSuccess { aggregate ->
+                            if (!shouldApplySearchResult(searchSessionId, activeSearchSessionId, state.query, _uiState.value.query, state.searchType, _uiState.value.searchType)) return@onSuccess
+                            val nativeFiltered = aggregate.videos.filter { it.owner.mid !in blockedMids }
+                            val builtinFiltered = com.android.purebilibili.core.plugin.PluginManager.filterFeedItems(nativeFiltered, feedKind = FeedKind.SEARCH)
+                            val filteredVideos = com.android.purebilibili.core.plugin.json.JsonPluginManager.filterVideos(builtinFiltered)
+                            val filteredUps = aggregate.ups
+                                .filter { it.mid !in blockedMids }
+                                .map { up -> up.copy(res = up.res?.filterNot { video -> video.mid in blockedMids }) }
+                            _uiState.update {
+                                it.copy(
+                                    isLoadingMore = false,
+                                    loadMoreError = null,
+                                    searchResults = mergeSearchPageResults(it.searchResults, filteredVideos) { video -> video.bvid },
+                                    upResults = mergeSearchPageResults(it.upResults, filteredUps) { up -> up.mid },
+                                    bangumiResults = mergeSearchPageResults(it.bangumiResults, aggregate.bangumi) { item -> item.seasonId },
+                                    currentPage = aggregate.pageInfo.currentPage,
+                                    totalResults = aggregate.pageInfo.totalResults,
+                                    searchTypeCounts = it.searchTypeCounts + (SearchType.ALL to aggregate.pageInfo.totalResults),
+                                    totalPages = aggregate.pageInfo.totalPages,
+                                    hasMoreResults = aggregate.pageInfo.hasMore
+                                )
+                            }
+                        }
+                        .onFailure { error ->
+                            if (!shouldApplySearchResult(searchSessionId, activeSearchSessionId, state.query, _uiState.value.query, state.searchType, _uiState.value.searchType)) return@onFailure
+                            _uiState.update { it.copy(isLoadingMore = false, loadMoreError = error.message ?: "加载失败") }
+                        }
+                }
                 SearchType.VIDEO -> {
                     val result = SearchRepository.searchWithDurations(
                         keyword = state.query,

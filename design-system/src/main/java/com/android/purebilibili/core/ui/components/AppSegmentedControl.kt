@@ -24,6 +24,8 @@ import com.android.purebilibili.core.ui.renderer.miuix.AppMiuixTabRow
 data class AppSegmentOption<T>(
     val value: T,
     val label: String,
+    /** 下拉 / 弹窗里的补充说明；分段控件忽略该字段。 */
+    val description: String? = null,
 )
 
 /**

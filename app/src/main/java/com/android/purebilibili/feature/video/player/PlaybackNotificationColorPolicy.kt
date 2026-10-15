@@ -35,6 +35,7 @@ internal fun resolvePlaybackNotificationAccentColor(
             paletteStyle = settings.colorStyle,
             colorSpec = settings.colorSpec,
             uiStyle = settings.uiStyle,
+            colorContrast = settings.colorContrast,
         )
         com.android.purebilibili.core.theme.resolveAppThemeEndpointPalette(
             base = scheme,
@@ -78,6 +79,7 @@ internal fun resolvePlaybackNotificationColor(context: Context, settings: AppThe
                 paletteStyle = settings.colorStyle,
                 colorSpec = settings.colorSpec,
                 uiStyle = settings.uiStyle,
+                colorContrast = settings.colorContrast,
             ).primary
         }
     } else null

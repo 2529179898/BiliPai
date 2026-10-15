@@ -121,7 +121,7 @@ private val VIDEO_DESCRIPTION_URL_PATTERN =
 private val VIDEO_DESCRIPTION_INLINE_BVID_PATTERN =
     Regex("""(?<![A-Za-z0-9])BV[a-zA-Z0-9]{10}(?![A-Za-z0-9])""", RegexOption.IGNORE_CASE)
 private val VIDEO_DESCRIPTION_TOPIC_PATTERN =
-    Regex("""#([^#\n\r\t]+)#""")
+    Regex("""#[^#\s，。,.!?！？；;:：、]+#?""")
 private val VIDEO_DESCRIPTION_MENTION_PATTERN =
     Regex("""@[^\s@,，。:：;；!！?？/\\]{1,32}""")
 
@@ -179,7 +179,8 @@ private fun buildRawDescriptionAnnotatedString(
         val range: IntRange,
         val annotation: String,
         val displayText: String,
-        val priority: Int
+        val priority: Int,
+        val underline: Boolean = true
     )
 
     val matches = mutableListOf<LinkMatch>()
@@ -209,14 +210,15 @@ private fun buildRawDescriptionAnnotatedString(
             match.range.first <= existing.range.last && match.range.last >= existing.range.first
         }
         if (!overlapsUrl) {
-            val topic = match.groupValues[1].trim()
+            val topic = match.value.removePrefix("#").removeSuffix("#").trim()
             if (topic.isNotEmpty()) {
                 val encoded = java.net.URLEncoder.encode(topic, java.nio.charset.StandardCharsets.UTF_8.name())
                 matches += LinkMatch(
                     range = match.range,
                     annotation = "bilibili://search?keyword=$encoded",
                     displayText = match.value,
-                    priority = 2
+                    priority = 2,
+                    underline = false
                 )
             }
         }
@@ -254,7 +256,12 @@ private fun buildRawDescriptionAnnotatedString(
                     linkInteractionListener = linkListener,
                 )
             ) {
-                withStyle(SpanStyle(color = urlColor, textDecoration = TextDecoration.Underline)) {
+                withStyle(
+                    SpanStyle(
+                        color = urlColor,
+                        textDecoration = if (match.underline) TextDecoration.Underline else TextDecoration.None
+                    )
+                ) {
                     append(match.displayText)
                 }
             }
