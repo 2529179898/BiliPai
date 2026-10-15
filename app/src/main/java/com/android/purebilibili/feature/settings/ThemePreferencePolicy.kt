@@ -38,9 +38,10 @@ internal fun resolveDarkThemeStylePreference(
 internal fun resolveThemePreferenceState(
     themeMode: AppThemeMode,
     darkThemeStyle: DarkThemeStyle,
-    systemInDark: Boolean
+    systemInDark: Boolean,
+    scheduledDarkTheme: Boolean? = null,
 ): ThemePreferenceState {
-    val useDarkTheme = when (themeMode) {
+    val useDarkTheme = scheduledDarkTheme ?: when (themeMode) {
         AppThemeMode.FOLLOW_SYSTEM -> systemInDark
         AppThemeMode.LIGHT -> false
         AppThemeMode.DARK -> true

@@ -67,6 +67,7 @@ data class SettingsUiState(
     val themeSelection: AppUiStyle = AppUiStyle.MATERIAL3,
     val hwDecode: Boolean = true,
     val themeMode: AppThemeMode = AppThemeMode.FOLLOW_SYSTEM,
+    val darkThemeSchedule: DarkThemeSchedule = DarkThemeSchedule(),
     val darkThemeStyle: DarkThemeStyle = DarkThemeStyle.DEFAULT,
     val appLanguage: AppLanguage = AppLanguage.FOLLOW_SYSTEM,
     val dynamicColor: Boolean = true,
@@ -145,6 +146,7 @@ private data class CoreSettings(
     val themeSelection: AppUiStyle,
     val hwDecode: Boolean,
     val themeMode: AppThemeMode,
+    val darkThemeSchedule: DarkThemeSchedule,
     val darkThemeStyle: DarkThemeStyle,
     val appLanguage: AppLanguage,
     val dynamicColor: Boolean,
@@ -224,6 +226,7 @@ private data class BaseSettings(
     val themeSelection: AppUiStyle,
     val hwDecode: Boolean,
     val themeMode: AppThemeMode,
+    val darkThemeSchedule: DarkThemeSchedule,
     val darkThemeStyle: DarkThemeStyle,
     val appLanguage: AppLanguage,
     val dynamicColor: Boolean,
@@ -343,12 +346,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         SettingsManager.getThemeColorSpec(context).asAnyFlow(),
         SettingsManager.getMiniPlayerMode(context)
             .map { it != SettingsManager.MiniPlayerMode.OFF }
-            .asAnyFlow()
+            .asAnyFlow(),
+        SettingsManager.getDarkThemeSchedule(context).asAnyFlow()
     ) { values ->
         CoreSettings(
             themeSelection = values[0] as AppUiStyle,
             hwDecode = values[1] as Boolean,
             themeMode = values[2] as AppThemeMode,
+            darkThemeSchedule = values[11] as DarkThemeSchedule,
             darkThemeStyle = values[3] as DarkThemeStyle,
             appLanguage = values[4] as AppLanguage,
             dynamicColor = values[5] as Boolean,
@@ -588,6 +593,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             themeSelection = core.themeSelection,
             hwDecode = core.hwDecode,
             themeMode = core.themeMode,
+            darkThemeSchedule = core.darkThemeSchedule,
             darkThemeStyle = core.darkThemeStyle,
             appLanguage = core.appLanguage,
             dynamicColor = core.dynamicColor,
@@ -656,6 +662,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             themeSelection = settings.themeSelection,
             hwDecode = settings.hwDecode,
             themeMode = settings.themeMode,
+            darkThemeSchedule = settings.darkThemeSchedule,
             darkThemeStyle = settings.darkThemeStyle,
             appLanguage = settings.appLanguage,
             dynamicColor = settings.dynamicColor,
@@ -802,6 +809,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             SettingsManager.setUiStyle(context, selection)
         }
     }
+    fun setDarkThemeSchedule(schedule: DarkThemeSchedule) {
+        viewModelScope.launch { SettingsManager.setDarkThemeSchedule(context, schedule) }
+    }
+
     fun setThemeMode(mode: AppThemeMode) { 
         viewModelScope.launch { 
             SettingsManager.setThemeMode(context, mode)

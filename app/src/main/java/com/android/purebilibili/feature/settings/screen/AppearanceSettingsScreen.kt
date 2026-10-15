@@ -2,6 +2,8 @@
 
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.feature.settings.screen.DarkThemeSchedulePreference
+
 import com.android.purebilibili.core.ui.AppContentColors
 
 import com.android.purebilibili.core.ui.components.AppColorPicker
@@ -293,6 +295,7 @@ fun AppearanceSettingsContent(
         sectionKeys = if (contentMode == AppearanceSettingsContentMode.APPEARANCE) sectionKeys else sectionKeys + "home_options",
         legacyKeys = mapOf(
             SettingsSearchFocusIds.APPEARANCE_THEME to "appearance_display_mode_title",
+            "appearance.dark_theme_schedule" to "appearance_theme_color",
             SettingsSearchFocusIds.APPEARANCE_DISPLAY to "appearance_text_size_title",
             SettingsSearchFocusIds.APPEARANCE_SPLASH to "appearance_splash_icon_title",
             SettingsSearchFocusIds.APPEARANCE_PERSONALIZATION to "appearance_splash_icon_title",
@@ -729,8 +732,16 @@ fun AppearanceSettingsContent(
                             }
                         )
 
+                        AppPreferenceDivider()
+                        SettingsItemAnchor("appearance.dark_theme_schedule") {
+                            DarkThemeSchedulePreference(
+                                schedule = state.darkThemeSchedule,
+                                onChange = viewModel::setDarkThemeSchedule,
+                            )
+                        }
+
                         androidx.compose.animation.AnimatedVisibility(
-                            visible = state.themeMode != AppThemeMode.LIGHT,
+                            visible = state.themeMode != AppThemeMode.LIGHT || state.darkThemeSchedule.enabled,
                             enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
                             exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut()
                         ) {

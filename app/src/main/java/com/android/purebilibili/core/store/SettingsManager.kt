@@ -51,6 +51,8 @@ import com.android.purebilibili.feature.settings.share.SettingsShareEntryDefinit
 import com.android.purebilibili.feature.settings.share.SettingsShareSection
 import com.android.purebilibili.feature.settings.AppLanguage
 import com.android.purebilibili.feature.settings.AppThemeMode
+import com.android.purebilibili.feature.settings.DarkThemeSchedule
+import com.android.purebilibili.feature.settings.normalizeDarkThemeSchedule
 import com.android.purebilibili.feature.settings.DarkThemeStyle
 import com.android.purebilibili.feature.settings.Md3ColorSource
 import com.android.purebilibili.feature.settings.normalizeMd3CustomColorHex
@@ -718,6 +720,7 @@ internal fun resolveHomeCardFrostedGlassEnabled(
 data class AppThemeSettings(
     val uiStyle: AppUiStyle = AppUiStyle.MATERIAL3,
     val themeMode: AppThemeMode = AppThemeMode.FOLLOW_SYSTEM,
+    val darkThemeSchedule: DarkThemeSchedule = DarkThemeSchedule(),
     val darkThemeStyle: DarkThemeStyle = DarkThemeStyle.DEFAULT,
     val appLanguage: AppLanguage = AppLanguage.FOLLOW_SYSTEM,
     val md3ColorSource: Md3ColorSource = Md3ColorSource.FOLLOW_WALLPAPER,
@@ -1361,6 +1364,9 @@ object SettingsManager {
     private val KEY_PLAYBACK_COMPLETION_BEHAVIOR = intPreferencesKey("playback_completion_behavior")
     private val KEY_HW_DECODE = booleanPreferencesKey("hw_decode")
     private val KEY_THEME_MODE = intPreferencesKey("theme_mode_v2")
+    private val KEY_DARK_SCHEDULE_ENABLED = booleanPreferencesKey("dark_theme_schedule_enabled")
+    private val KEY_DARK_SCHEDULE_START = intPreferencesKey("dark_theme_schedule_start_minute")
+    private val KEY_DARK_SCHEDULE_END = intPreferencesKey("dark_theme_schedule_end_minute")
     private val KEY_DARK_THEME_STYLE = intPreferencesKey("dark_theme_style_v1")
     private val KEY_APP_LANGUAGE = intPreferencesKey("app_language_v1")
     private val KEY_UI_PRESET = intPreferencesKey("ui_preset")
@@ -2263,6 +2269,13 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             themeMode = resolveThemeModePreference(
                 preferences[KEY_THEME_MODE] ?: AppThemeMode.FOLLOW_SYSTEM.value
             ),
+            darkThemeSchedule = normalizeDarkThemeSchedule(
+                DarkThemeSchedule(
+                    enabled = preferences[KEY_DARK_SCHEDULE_ENABLED] ?: false,
+                    startMinute = preferences[KEY_DARK_SCHEDULE_START] ?: 22 * 60,
+                    endMinute = preferences[KEY_DARK_SCHEDULE_END] ?: 7 * 60,
+                ),
+            ),
             darkThemeStyle = resolveDarkThemeStylePreference(
                 darkThemeStyleValue = preferences[KEY_DARK_THEME_STYLE],
                 legacyThemeModeValue = preferences[KEY_THEME_MODE]
@@ -2356,9 +2369,42 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         )
     }
 
+    fun getCachedDarkThemeSchedule(context: Context): DarkThemeSchedule {
+        val prefs = context.getSharedPreferences("theme_cache", Context.MODE_PRIVATE)
+        return normalizeDarkThemeSchedule(
+            DarkThemeSchedule(
+                enabled = prefs.getBoolean("dark_theme_schedule_enabled", false),
+                startMinute = prefs.getInt("dark_theme_schedule_start_minute", 22 * 60),
+                endMinute = prefs.getInt("dark_theme_schedule_end_minute", 7 * 60),
+            ),
+        )
+    }
+
     fun getInitialAppThemeSettings(context: Context): AppThemeSettings {
         return AppThemeSettings(
-            appLanguage = getAppLanguageSync(context)
+            appLanguage = getAppLanguageSync(context),
+            darkThemeSchedule = getCachedDarkThemeSchedule(context),
+        )
+    }
+
+    fun getDarkThemeSchedule(context: Context): Flow<DarkThemeSchedule> =
+        getAppThemeSettings(context).map { it.darkThemeSchedule }.distinctUntilChanged()
+
+    suspend fun setDarkThemeSchedule(context: Context, schedule: DarkThemeSchedule) {
+        require(schedule.startMinute in 0..1439 && schedule.endMinute in 0..1439)
+        require(schedule.startMinute != schedule.endMinute)
+        editSettingsAndCommitPrefs(
+            context, "theme_cache",
+            editSettings = {
+                this[KEY_DARK_SCHEDULE_ENABLED] = schedule.enabled
+                this[KEY_DARK_SCHEDULE_START] = schedule.startMinute
+                this[KEY_DARK_SCHEDULE_END] = schedule.endMinute
+            },
+            editPrefs = {
+                putBoolean("dark_theme_schedule_enabled", schedule.enabled)
+                putInt("dark_theme_schedule_start_minute", schedule.startMinute)
+                putInt("dark_theme_schedule_end_minute", schedule.endMinute)
+            },
         )
     }
 
@@ -8160,6 +8206,9 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         listOf(
             StringShareablePreferenceDefinition(KEY_THEME_SELECTION, SettingsShareSection.APPEARANCE),
             IntShareablePreferenceDefinition(KEY_THEME_MODE, SettingsShareSection.APPEARANCE),
+            BooleanShareablePreferenceDefinition(KEY_DARK_SCHEDULE_ENABLED, SettingsShareSection.APPEARANCE),
+            IntShareablePreferenceDefinition(KEY_DARK_SCHEDULE_START, SettingsShareSection.APPEARANCE),
+            IntShareablePreferenceDefinition(KEY_DARK_SCHEDULE_END, SettingsShareSection.APPEARANCE),
             IntShareablePreferenceDefinition(KEY_DARK_THEME_STYLE, SettingsShareSection.APPEARANCE),
             IntShareablePreferenceDefinition(KEY_APP_LANGUAGE, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_DYNAMIC_COLOR, SettingsShareSection.APPEARANCE),

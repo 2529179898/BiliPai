@@ -24,6 +24,16 @@ import kotlin.test.assertFalse
 class AppThemeSettingsMappingPolicyTest {
 
     @Test
+    fun scheduledThemeSettingsPersistWithMinutePrecision() {
+        val settings = mapAppThemeSettingsFromPreferences(mutablePreferencesOf(
+            booleanPreferencesKey("dark_theme_schedule_enabled") to true,
+            intPreferencesKey("dark_theme_schedule_start_minute") to 22 * 60 + 15,
+            intPreferencesKey("dark_theme_schedule_end_minute") to 6 * 60 + 45,
+        ))
+        assertEquals(com.android.purebilibili.feature.settings.DarkThemeSchedule(true, 1335, 405), settings.darkThemeSchedule)
+    }
+
+    @Test
     fun emptyPreferences_useStartupThemeDefaults() {
         val result = mapAppThemeSettingsFromPreferences(mutablePreferencesOf())
 

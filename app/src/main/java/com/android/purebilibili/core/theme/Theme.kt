@@ -22,7 +22,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -837,6 +837,7 @@ fun PureBiliBiliTheme(
     appIconStyle: AppIconStyle = AppIconStyle.AUTO,
     appListItemStyle: AppListItemStyle = AppListItemStyle.AUTO,
     liquidGlassEnabled: Boolean = true,
+    themeTransitionEnabled: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -958,48 +959,56 @@ fun PureBiliBiliTheme(
             resolveMiuixColorsFromMaterialBridge(createMiuixMaterialBridge(resolvedDarkMaterialScheme), true)
         }
     }
-    val controller = remember(
-        themeMode,
-        dynamicColor,
-        darkTheme,
-        customPrimaryColor,
-        themeRoleOverrides,
-        amoledDarkTheme,
-        colorStyle,
-        colorSpec,
-        systemWallpaperRefreshToken,
-        miuixLightColors,
-        miuixDarkColors
-    ) {
-        ThemeController(
-            colorSchemeMode = resolveMiuixColorSchemeMode(
-                themeMode = themeMode,
-                dynamicColorEnabled = dynamicColor
-            ),
-            lightColors = miuixLightColors,
-            darkColors = miuixDarkColors,
-            isDark = darkTheme
-        )
-    }
     val activeMiuixColors = if (darkTheme) miuixDarkColors else miuixLightColors
-    val materialColorScheme = remember(staticMaterialScheme, useNativeMiuix, activeMiuixColors) {
+    val targetMaterialColorScheme = remember(staticMaterialScheme, useNativeMiuix, activeMiuixColors) {
         if (useNativeMiuix) alignMaterialSurfacesWithMiuix(staticMaterialScheme, activeMiuixColors)
         else staticMaterialScheme
     }
 
+    val targetLiquidAccent = resolveLiquidControlAccentColor(
+        source = md3ColorSource,
+        customSeed = customPrimaryColor,
+        generatedAccent = targetMaterialColorScheme.primary,
+        roleOverridesEnabled = effectiveThemeRoleOverrides.enabled,
+        roleControlHex = if (darkTheme) effectiveThemeRoleOverrides.dark.controlAccentHex
+            else effectiveThemeRoleOverrides.light.controlAccentHex,
+    )
+    val targetPalette = remember(targetMaterialColorScheme, activeMiuixColors, targetLiquidAccent) {
+        AppThemePalette(targetMaterialColorScheme, activeMiuixColors, targetLiquidAccent)
+    }
+    val reduceMotion = com.android.purebilibili.core.ui.motion.rememberSystemReduceMotion()
+    val animatedPalette = rememberAnimatedAppThemePalette(
+        target = targetPalette,
+        enabled = themeTransitionEnabled && !reduceMotion,
+    )
+    val materialColorScheme = animatedPalette.material
+    val colorSchemeMode = resolveMiuixColorSchemeMode(themeMode, dynamicColor)
+    val controller = remember(colorSchemeMode, animatedPalette.miuix, darkTheme) {
+        // Both modes expose the already resolved active frame. Letting the controller
+        // choose an unanimated endpoint would desynchronize native Miuix and Material.
+        ThemeController(
+            colorSchemeMode = colorSchemeMode,
+            lightColors = animatedPalette.miuix,
+            darkColors = animatedPalette.miuix,
+            isDark = darkTheme,
+        )
+    }
+
     //  [新增] 动态设置状态栏图标颜色
     val view = LocalView.current
+    val themeDefaultLightBars = materialColorScheme.background.luminance() > 0.5f
     if (!view.isInEditMode) {
-        SideEffect {
-            val window = view.context.findHostActivity()?.window ?: return@SideEffect
+        // Apply only when the brightness boundary changes. Reapplying on every color
+        // frame would overwrite player/immersive pages that own their system-bar style.
+        LaunchedEffect(view, themeDefaultLightBars) {
+            val window = view.context.findHostActivity()?.window ?: return@LaunchedEffect
             val controller = WindowCompat.getInsetsController(window, view)
             // 设置状态栏图标颜色：
             // - 深色模式：使用浅色图标 (isAppearanceLightStatusBars = false)
             // - 浅色模式：使用深色图标 (isAppearanceLightStatusBars = true)
             // 这里是主题默认外观的兜底出口；有场景外观的页面（首页皮肤、视频沉浸等）
-            // 会在自己的 effect 中覆盖。仅在当前值与主题默认不一致时写入，
-            // 避免每次重组都重复设置与页面 effect 形成无谓竞争。
-            val themeDefaultLightBars = !darkTheme
+            // 会在自己的 effect 中覆盖。仅在明暗边界变化时更新主题默认值，
+            // 避免逐帧配色更新与页面 effect 争抢状态栏外观。
             if (controller.isAppearanceLightStatusBars != themeDefaultLightBars) {
                 controller.isAppearanceLightStatusBars = themeDefaultLightBars
             }
@@ -1010,14 +1019,7 @@ fun PureBiliBiliTheme(
         LocalAppUiStyle provides uiStyle,
         LocalDynamicColorActive provides isDynamicColorActive,
         LocalBaseThemeRoleOverrides provides baseThemeRoleOverrides,
-        com.android.purebilibili.core.ui.LocalLiquidControlThemeColor provides resolveLiquidControlAccentColor(
-            source = md3ColorSource,
-            customSeed = customPrimaryColor,
-            generatedAccent = materialColorScheme.primary,
-            roleOverridesEnabled = effectiveThemeRoleOverrides.enabled,
-            roleControlHex = if (darkTheme) effectiveThemeRoleOverrides.dark.controlAccentHex
-                else effectiveThemeRoleOverrides.light.controlAccentHex,
-        ),
+        com.android.purebilibili.core.ui.LocalLiquidControlThemeColor provides animatedPalette.liquidAccent,
         LocalAppIconStyle provides resolveAppIconStyle(
             iconStyle = appIconStyle,
             uiStyle = uiStyle
