@@ -182,8 +182,8 @@ fun DynamicTopBarWithTabs(
                 onSelectionChange = onTabSelected,
                 modifier = Modifier.weight(1f),
                 scrollable = true,
-                // Glass needs enough horizontal room even for the short “UP” label.
-                // Overflow stays scrollable; native MD3/Miuix keep their own slot spacing.
+                // Glass needs extra label room and scrollable overflow; native MD3/Miuix
+                // keep their own slot spacing.
                 liquidGlassLabelHorizontalPadding = if (liquidGlassEnabled) 20.dp else null,
                 compactMiuixWhenTwoOptions = false,
                 height = liquidTabSpec.heightDp.dp,
@@ -304,9 +304,6 @@ fun DynamicTopBarWithTabs(
                                         },
                                     ),
                                 ),
-                                if (onPublishClick != null) listOf(
-                                    AppWindowAction(label = "发布动态", onClick = onPublishClick),
-                                ) else emptyList(),
                             ),
                         ) {
                             AppIcon(

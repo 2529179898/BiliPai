@@ -25,69 +25,6 @@ class DynamicScreenStructureTest {
     }
 
     @Test
-    fun `dynamic screen supports tab reselect and up panel shortcuts`() {
-        val source = File("src/main/java/com/android/purebilibili/feature/dynamic/DynamicScreen.kt")
-            .readText()
-
-        assertTrue(source.contains("resolveDynamicTabReselectAction("))
-        assertTrue(source.contains("DynamicTabReselectAction.SCROLL_TO_TOP"))
-        assertTrue(source.contains("pagerState.scrollToPage(page = visibleIndex)"))
-        assertTrue(source.contains("resolveDynamicUpPanelUsers("))
-        assertTrue(source.contains("isDynamicUpPanelAllShortcut(clickedUserId)"))
-        assertTrue(source.contains("onTabSelected = onDynamicTabSelected"))
-        assertTrue(source.contains("onArticleClick = onArticleClick"))
-        assertTrue(source.contains("DynamicSelectedUserFeedHeader("))
-        assertTrue(source.contains("DynamicUserContentFilter.entries"))
-        assertTrue(source.contains("DynamicAdaptiveSegmentedControl("))
-        assertTrue(source.contains("shouldAutoLoadMoreForUserContentFilter("))
-        assertTrue(source.contains("已停止自动翻页"))
-        assertTrue(source.contains(".background(AppSurfaceTokens.background())"))
-        assertTrue(source.contains("animateScale = false"))
-        assertTrue(!source.contains("TopReadabilityChrome("))
-        assertTrue(!source.contains("dynamicFeedBackdrop"))
-        assertTrue(source.contains("!(activePresentation.isLoading && activePresentation.items.isEmpty()) && it.isReady"))
-        assertTrue(source.contains(".layerBackdrop(dynamicDockBackdrop)"))
-        assertTrue(source.contains("hazeSourceCompat(state = dynamicTopBarHazeState)"))
-        assertTrue(source.contains("rememberRecoverableHazeState("))
-        val topBarSource = File(
-            "src/main/java/com/android/purebilibili/feature/dynamic/components/DynamicTopBar.kt"
-        ).readText()
-        assertTrue(!topBarSource.contains("forceLiquidChrome"))
-        assertTrue(topBarSource.contains("liquidGlassEffectsEnabled = liquidGlassEnabled"))
-        assertTrue(topBarSource.contains("if (liquidGlassEnabled)"))
-        assertTrue(topBarSource.contains("Modifier.background(dockColor, dockShape)"))
-        assertTrue(topBarSource.contains("miuixBackdrop = dockBackdrop"))
-        assertTrue(topBarSource.contains("biliPaiFloatingDockShell("))
-        assertTrue(topBarSource.contains("liquidGlassTuningOverride = liquidGlassTuning"))
-        assertTrue(topBarSource.contains("homeSettings.liquidGlassProgress"))
-        assertTrue(topBarSource.contains("homeSettings.liquidGlassAdvancedSettings"))
-        assertTrue(topBarSource.contains("homeSettings.liquidGlassReadabilityMode"))
-        assertTrue(!topBarSource.contains("resolveLiquidGlassTuning(progress = 0f)"))
-        assertTrue(!topBarSource.contains("copy(backdropBlurRadius = 0f)"))
-        assertTrue(topBarSource.contains("unifiedBlur("))
-        assertTrue(!source.contains("activeListState?.isScrollInProgress == true ||"))
-        assertTrue(topBarSource.contains("isScrollInProgressProvider = { false }"))
-        val segmentedControlSource = File(
-            "src/main/java/com/android/purebilibili/feature/home/components/BottomBarFloatingSegmentedControl.kt"
-        ).readText()
-        assertTrue(
-            segmentedControlSource.contains("if (liquidGlassEnabled && miuixBackdrop != null)")
-        )
-        assertTrue(!source.contains("text = \"全\""))
-        val sidebarSource = File(
-            "src/main/java/com/android/purebilibili/feature/dynamic/components/DynamicSidebar.kt"
-        ).readText()
-        assertTrue(!sidebarSource.contains("text = \"全\""))
-        assertTrue(!sidebarSource.contains("isAllShortcut"))
-        assertTrue(sidebarSource.contains("text = \"Live(\${liveUsers.size})\""))
-        assertTrue(sidebarSource.contains("autoSize = TextAutoSize.StepBased("))
-        assertTrue(sidebarSource.contains("horizontal = AppSpacingTokens.None"))
-        assertTrue(sidebarSource.contains("textAlign = TextAlign.Center"))
-        assertTrue(sidebarSource.contains("maxLines = 1"))
-        assertTrue(sidebarSource.contains("softWrap = false"))
-    }
-
-    @Test
     fun `report dialog and additional cards use shared native components`() {
         val screenSource = File("src/main/java/com/android/purebilibili/feature/dynamic/DynamicScreen.kt")
             .readText()

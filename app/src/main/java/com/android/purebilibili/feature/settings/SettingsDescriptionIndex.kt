@@ -65,7 +65,6 @@ internal val settingsStaticDescriptionIndex: Map<String, String> = mapOf(
     "diagnostics.crash_tracking_enabled" to "记录崩溃和严重故障信息，帮助定位问题；默认开启",
     "diagnostics.enhanced_diagnostic_logging_enabled" to "记录详细运行信息；关闭后清除，基础错误日志保留；记录更多排查信息，隐藏账号凭据与观看内容",
     "help.easter_egg_enabled" to "刷新、点赞、投币、搜索时显示趣味提示",
-    "home.dynamic_all_tab_horizontal_user_list_visible" to "关闭后隐藏顶部横向用户列表，“UP主”页仍可选择关注用户",
     "home.dynamic_comment_preview_visible" to "在动态卡片中显示相关评论摘要",
     "home.dynamic_image_preview_text_visible" to "打开图文动态图片时默认显示下方文字，可用右上角眼睛临时切换",
     "home.dynamic_top_bar_collapse_on_scroll" to "浏览下方动态时收起分类栏；UP 主栏独立收起；分类栏固定在顶部；UP 主栏独立收起",

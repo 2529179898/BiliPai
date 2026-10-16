@@ -175,7 +175,6 @@ internal data class SettingsRootCategoryActions(
     val onDynamicImagePreviewTextVisibleChange: (Boolean) -> Unit,
     val onDynamicCommentPreviewVisibleChange: (Boolean) -> Unit,
     val onDynamicDetailImageLayoutChange: (com.android.purebilibili.core.store.SettingsManager.DynamicDetailImageLayout) -> Unit,
-    val onDynamicAllTabHorizontalUserListVisibleChange: (Boolean) -> Unit,
     val onDynamicTopBarCollapseOnScrollChange: (Boolean) -> Unit,
     val onDynamicFeedLayoutModeChange: (com.android.purebilibili.core.store.SettingsManager.DynamicFeedLayoutMode) -> Unit,
     val onDynamicTabVisibilityChange: (String) -> Unit,
@@ -217,7 +216,6 @@ internal data class SettingsRootCategoryState(
     val dynamicImagePreviewTextVisible: Boolean,
     val dynamicCommentPreviewVisible: Boolean,
     val dynamicDetailImageLayout: com.android.purebilibili.core.store.SettingsManager.DynamicDetailImageLayout,
-    val dynamicAllTabHorizontalUserListVisible: Boolean,
     val dynamicTopBarCollapseOnScroll: Boolean,
     val dynamicFeedLayoutMode: com.android.purebilibili.core.store.SettingsManager.DynamicFeedLayoutMode,
     val dynamicVisibleTabIds: Set<String>,
@@ -494,9 +492,6 @@ internal fun SettingsRootCategoryContent(
                             onDynamicCommentPreviewVisibleChange = actions.onDynamicCommentPreviewVisibleChange,
                             dynamicDetailImageLayout = state.dynamicDetailImageLayout,
                             onDynamicDetailImageLayoutChange = actions.onDynamicDetailImageLayoutChange,
-                            dynamicAllTabHorizontalUserListVisible = state.dynamicAllTabHorizontalUserListVisible,
-                            onDynamicAllTabHorizontalUserListVisibleChange =
-                                actions.onDynamicAllTabHorizontalUserListVisibleChange,
                             dynamicTopBarCollapseOnScroll = state.dynamicTopBarCollapseOnScroll,
                             onDynamicTopBarCollapseOnScrollChange =
                                 actions.onDynamicTopBarCollapseOnScrollChange,
@@ -704,9 +699,6 @@ internal fun SettingsRootCategoryContent(
                             onDynamicCommentPreviewVisibleChange = actions.onDynamicCommentPreviewVisibleChange,
                             dynamicDetailImageLayout = state.dynamicDetailImageLayout,
                             onDynamicDetailImageLayoutChange = actions.onDynamicDetailImageLayoutChange,
-                            dynamicAllTabHorizontalUserListVisible = state.dynamicAllTabHorizontalUserListVisible,
-                            onDynamicAllTabHorizontalUserListVisibleChange =
-                                actions.onDynamicAllTabHorizontalUserListVisibleChange,
                             dynamicTopBarCollapseOnScroll = state.dynamicTopBarCollapseOnScroll,
                             onDynamicTopBarCollapseOnScrollChange =
                                 actions.onDynamicTopBarCollapseOnScrollChange,
@@ -1037,8 +1029,6 @@ fun FeedApiSection(
     onDynamicCommentPreviewVisibleChange: (Boolean) -> Unit,
     dynamicDetailImageLayout: com.android.purebilibili.core.store.SettingsManager.DynamicDetailImageLayout,
     onDynamicDetailImageLayoutChange: (com.android.purebilibili.core.store.SettingsManager.DynamicDetailImageLayout) -> Unit,
-    dynamicAllTabHorizontalUserListVisible: Boolean,
-    onDynamicAllTabHorizontalUserListVisibleChange: (Boolean) -> Unit,
     dynamicTopBarCollapseOnScroll: Boolean,
     onDynamicTopBarCollapseOnScrollChange: (Boolean) -> Unit,
     dynamicFeedLayoutMode: com.android.purebilibili.core.store.SettingsManager.DynamicFeedLayoutMode,
@@ -1116,17 +1106,6 @@ fun FeedApiSection(
             iconTint = siblingTints[3],
             onSelectionChange = onDynamicDetailImageLayoutChange,
         )
-        SettingsAdaptiveDivider()
-        SettingsItemAnchor("home.dynamic_all_tab_horizontal_user_list_visible") {
-            SettingSwitchItem(
-                icon = visibilityIcon,
-                title = settingItemTitle("home.dynamic_all_tab_horizontal_user_list_visible"),
-                subtitle = "关闭后隐藏顶部横向用户列表，“UP主”页仍可选择关注用户",
-                checked = dynamicAllTabHorizontalUserListVisible,
-                onCheckedChange = onDynamicAllTabHorizontalUserListVisibleChange,
-                iconTint = siblingTints[4]
-            )
-        }
         SettingsAdaptiveDivider()
         SettingsItemAnchor("home.dynamic_top_bar_collapse_on_scroll") {
             SettingSwitchItem(
@@ -1229,7 +1208,7 @@ private fun FeedDynamicTabVisibilityItem(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 AppText(
-                    text = "选择动态分类和顺序，至少保留一个。隐藏 UP 分类后，点侧栏用户直接打开主页。",
+                    text = "选择动态分类和顺序，至少保留一个；点关注用户可在“全部”中查看其动态。",
                     style = MaterialTheme.typography.bodySmall,
                     color = AppContentColors.secondaryText()
                 )

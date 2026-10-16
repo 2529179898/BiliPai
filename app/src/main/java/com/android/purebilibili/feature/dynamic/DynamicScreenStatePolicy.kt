@@ -39,14 +39,14 @@ internal fun resolveDynamicPagePresentation(
     selectedUserId: Long?
 ): DynamicPagePresentation {
     val isSelectedUserFeed = shouldUseSelectedUserDynamicFeed(logicalTab, selectedUserId)
-    if (logicalTab == 4) {
-        if (!isSelectedUserFeed) {
-            return DynamicPagePresentation(emptyList(), false, null, false, false, null, 0)
-        }
-        val items = resolveSelectedUserVisibleItems(
-            timelineItems = state.timelinePage("all").items,
-            remoteUserItems = state.userItems,
-            selectedUid = selectedUserId
+    if (isSelectedUserFeed) {
+        val items = filterSelectedUserDynamicItems(
+            items = resolveSelectedUserVisibleItems(
+                timelineItems = state.timelinePage(resolveDynamicFeedRequestType(logicalTab)).items,
+                remoteUserItems = state.userItems,
+                selectedUid = selectedUserId
+            ),
+            logicalTab = logicalTab
         )
             .filter { it.visible }
             .filterNot { it.id_str in state.tempBannedDynamicIds }
@@ -99,13 +99,16 @@ internal fun resolveDynamicListTopPaddingExtraDp(
     }
 }
 
+internal fun shouldShowDynamicUpPanel(selectedTab: Int): Boolean {
+    // 番剧是官方内容流，不提供关注作者筛选；此边界覆盖横条、侧栏和抽屉。
+    return selectedTab != 2
+}
+
 internal fun shouldShowDynamicHorizontalUserList(
     isHorizontalMode: Boolean,
-    selectedTab: Int,
-    allTabHorizontalUserListVisible: Boolean
+    selectedTab: Int
 ): Boolean {
-    if (!isHorizontalMode) return false
-    return selectedTab == 4 || allTabHorizontalUserListVisible
+    return isHorizontalMode && shouldShowDynamicUpPanel(selectedTab)
 }
 
 internal fun shouldCollapseDynamicHorizontalUserList(
@@ -158,8 +161,13 @@ internal const val DYNAMIC_UP_PANEL_ALL_UID = -1L
 internal fun resolveDynamicUpPanelUsers(
     users: List<SidebarUser>,
     selfUid: Long,
-    selfFace: String = ""
+    selfFace: String
 ): List<SidebarUser> {
+    val allItem = SidebarUser(
+        uid = DYNAMIC_UP_PANEL_ALL_UID,
+        name = "全部动态",
+        face = ""
+    )
     val selfItem = selfUid.takeIf { it > 0L }?.let { uid ->
         SidebarUser(
             uid = uid,
@@ -170,7 +178,7 @@ internal fun resolveDynamicUpPanelUsers(
     val rest = users.filterNot { user ->
         user.uid == DYNAMIC_UP_PANEL_ALL_UID || (selfUid > 0L && user.uid == selfUid)
     }
-    return listOfNotNull(selfItem) + rest
+    return listOfNotNull(allItem, selfItem) + rest
 }
 
 internal fun isDynamicUpPanelAllShortcut(uid: Long?): Boolean {
@@ -197,9 +205,8 @@ internal fun resolveDynamicSelectedUserIdAfterClick(
     clickedUserId: Long?
 ): Long? {
     if (clickedUserId == null || isDynamicUpPanelAllShortcut(clickedUserId)) return null
-    // UP selection behaves like a filter/indicator, not a toggle. Re-selecting the
-    // active author must keep the scoped feed intact; the top-level “全部” tab is the
-    // explicit way back to the mixed timeline.
+    // 作者选择是当前分类内的筛选，不作为开关；“全部动态”清除作者筛选，
+    // 但保留当前的全部、投稿或专栏分类。
     return selectedUserId.takeIf { it == clickedUserId } ?: clickedUserId
 }
 
@@ -207,15 +214,9 @@ internal fun shouldUseSelectedUserDynamicFeed(
     selectedTab: Int,
     selectedUserId: Long?
 ): Boolean {
-    return selectedTab == 4 && selectedUserId != null
+    return selectedUserId != null && (selectedTab == 0 || selectedTab == 1 || selectedTab == 3)
 }
 
-internal fun resolveDynamicSelectedUserForTab(
-    selectedTab: Int,
-    selectedUserId: Long?
-): Long? {
-    return selectedUserId.takeIf { selectedTab == 4 }
-}
 
 internal fun shouldResetDynamicFeedScrollOnSourceChange(
     previousTab: Int,
@@ -224,19 +225,6 @@ internal fun shouldResetDynamicFeedScrollOnSourceChange(
     nextSelectedUserId: Long?
 ): Boolean {
     return previousTab != nextTab || previousSelectedUserId != nextSelectedUserId
-}
-
-internal fun resolveDynamicTabAfterUserSelection(
-    selectedUserId: Long?,
-    clickedUserId: Long?,
-    currentTab: Int
-): Int {
-    val nextUserId = resolveDynamicSelectedUserIdAfterClick(selectedUserId, clickedUserId)
-    return when {
-        nextUserId != null -> 4
-        currentTab == 4 -> 0
-        else -> currentTab
-    }
 }
 
 internal fun resolveDynamicSelectedTab(

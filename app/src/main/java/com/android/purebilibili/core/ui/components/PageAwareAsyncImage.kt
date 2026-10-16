@@ -40,6 +40,7 @@ internal fun PageAwareAsyncImage(
     imageLoader: ImageLoader? = null,
     contentScale: ContentScale = ContentScale.Fit,
     alignment: Alignment = Alignment.Center,
+    onError: ((AsyncImagePainter.State.Error) -> Unit)? = null,
     onSuccess: ((AsyncImagePainter.State.Success) -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -64,6 +65,7 @@ internal fun PageAwareAsyncImage(
                 retainedImage = it.result.image
                 onSuccess?.invoke(it)
             },
+            onError = onError,
         )
     } else {
         // AsyncImage's forgotten callback runs during apply. Restore drawable visibility

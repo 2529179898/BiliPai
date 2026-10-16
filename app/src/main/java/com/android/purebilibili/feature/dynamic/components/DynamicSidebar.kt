@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 //  Material Icons
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Person
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppTextButton
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +52,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +66,8 @@ import com.android.purebilibili.core.ui.rememberAppBackIcon
 import com.android.purebilibili.core.ui.rememberAppChevronDownIcon
 import com.android.purebilibili.core.ui.rememberAppChevronUpIcon
 import com.android.purebilibili.core.ui.rememberAppVisibilityOffIcon
+import com.android.purebilibili.core.ui.rememberAppDynamicIcon
+import com.android.purebilibili.feature.dynamic.isDynamicUpPanelAllShortcut
 import com.android.purebilibili.core.ui.rememberAppVisibilityOnIcon
 import com.android.purebilibili.core.ui.LocalGlobalWallpaperBackdropVisible
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
@@ -221,7 +227,7 @@ fun DynamicSidebar(
         users.filter { it.isLive && !isDynamicUpPanelShortcut(it.uid, selfUid) }
     }
     val shortcutUsers = remember(users, selfUid) {
-        users.filter { isDynamicUpPanelShortcut(it.uid, selfUid) }
+        users.filter { isDynamicUpPanelShortcut(it.uid, selfUid) && !isDynamicUpPanelAllShortcut(it.uid) }
     }
     val restUsers = remember(users, selfUid) {
         users.filter { !it.isLive && !isDynamicUpPanelShortcut(it.uid, selfUid) }
@@ -337,6 +343,20 @@ fun DynamicSidebar(
                         else Modifier.hazeSourceCompat(sidebarHazeState)
                     )
             ) {
+                users.firstOrNull { isDynamicUpPanelAllShortcut(it.uid) }?.let { allUser ->
+                    item(key = "all_dynamics") {
+                        SidebarUserItem(
+                            user = allUser,
+                            selfUid = selfUid,
+                            isSelected = selectedUserId == null,
+                            showLabel = isExpanded,
+                            allowManageMenu = false,
+                            onClick = { onUserClick(allUser.uid) },
+                            onTogglePin = { onTogglePin(allUser.uid) },
+                            onToggleHidden = { onToggleHidden(allUser.uid) }
+                        )
+                    }
+                }
                 // 隐藏用户切换按钮 (胶囊样式)
                 if (hiddenCount > 0 || showHiddenUsers) {
                     item(key = "hidden_toggle") {
@@ -419,6 +439,7 @@ fun DynamicSidebar(
                             val isShortcut = isDynamicUpPanelShortcut(user.uid, selfUid)
                             SidebarUserItem(
                                 user = user,
+                                selfUid = selfUid,
                                 isSelected = isDynamicUpPanelItemSelected(selectedUserId, user.uid),
                                 showLabel = isExpanded,
                                 showUnreadBadge = user.uid in uplistUpdateMids,
@@ -589,12 +610,50 @@ fun SidebarItem(
     }
 }
 
+@Composable
+internal fun DynamicSelfAvatar(face: String, isSelected: Boolean) {
+    val context = LocalContext.current
+    val faceUrl = remember(face) { resolveDynamicSidebarUserAvatarUrl(face) }
+    var avatarLoaded by remember(faceUrl) { mutableStateOf(false) }
+    val request = remember(context, faceUrl) {
+        coil3.request.ImageRequest.Builder(context)
+            .data(faceUrl.ifEmpty { null })
+            .crossfade(true)
+            .build()
+    }
+    Box(
+        modifier = Modifier.fillMaxSize().semantics { contentDescription = "我" },
+        contentAlignment = Alignment.Center
+    ) {
+        // 本地图标仅作加载/失败占位，资料刷新后以真实头像替换。
+        if (!avatarLoaded) {
+            AppIcon(
+                imageVector = Icons.Outlined.Person,
+                contentDescription = null,
+                tint = if (isSelected) AppContentColors.accent() else AppContentColors.secondaryText(),
+                modifier = Modifier.size(AppSpacingTokens.ExtraLarge)
+            )
+        }
+        if (faceUrl.isNotEmpty()) {
+            PageAwareAsyncImage(
+                model = request,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                contentScale = ContentScale.Crop,
+                onSuccess = { avatarLoaded = true },
+                onError = { avatarLoaded = false }
+            )
+        }
+    }
+}
+
 /**
  *  侧边栏用户项（头像 + 在线状态）
  */
 @Composable
 fun SidebarUserItem(
     user: SidebarUser,
+    selfUid: Long,
     isSelected: Boolean,
     showLabel: Boolean,
     showUnreadBadge: Boolean = false,
@@ -648,17 +707,28 @@ fun SidebarUserItem(
                         .padding(AppSpacingTokens.Micro),
                     contentAlignment = Alignment.Center
                 ) {
-                    PageAwareAsyncImage(
-                        model = coil3.request.ImageRequest.Builder(LocalContext.current)
-                            .data(faceUrl.ifEmpty { null })
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = user.name,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
+                    if (isDynamicUpPanelAllShortcut(user.uid)) {
+                        AppIcon(
+                            imageVector = rememberAppDynamicIcon(),
+                            contentDescription = user.name,
+                            tint = if (isSelected) AppContentColors.accent() else AppContentColors.secondaryText(),
+                            modifier = Modifier.size(AppSpacingTokens.ExtraLarge)
+                        )
+                    } else if (selfUid > 0L && user.uid == selfUid) {
+                        DynamicSelfAvatar(face = user.face, isSelected = isSelected)
+                    } else {
+                        PageAwareAsyncImage(
+                            model = coil3.request.ImageRequest.Builder(LocalContext.current)
+                                .data(faceUrl.ifEmpty { null })
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = user.name,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 }
                 if (showUnreadBadge) {
                     Box(

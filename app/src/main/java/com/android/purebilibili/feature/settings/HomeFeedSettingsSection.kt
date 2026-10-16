@@ -31,9 +31,6 @@ internal fun HomeFeedSettingsSection() {
         .collectAsStateWithLifecycle(initialValue = false)
     val dynamicDetailImageLayout by SettingsManager.getDynamicDetailImageLayout(context)
         .collectAsStateWithLifecycle(initialValue = SettingsManager.peekDynamicDetailImageLayout(context))
-    val dynamicAllTabHorizontalUserListVisible by SettingsManager
-        .getDynamicAllTabHorizontalUserListVisible(context)
-        .collectAsStateWithLifecycle(initialValue = false)
     val dynamicTopBarCollapseOnScroll by SettingsManager
         .getDynamicTopBarCollapseOnScroll(context)
         .collectAsStateWithLifecycle(initialValue = false)
@@ -47,7 +44,6 @@ internal fun HomeFeedSettingsSection() {
         dynamicImagePreviewTextVisible = dynamicImagePreviewTextVisible,
         dynamicCommentPreviewVisible = dynamicCommentPreviewVisible,
         dynamicDetailImageLayout = dynamicDetailImageLayout,
-        dynamicAllTabHorizontalUserListVisible = dynamicAllTabHorizontalUserListVisible,
         dynamicTopBarCollapseOnScroll = dynamicTopBarCollapseOnScroll,
         dynamicFeedLayoutMode = dynamicFeedLayoutMode,
         dynamicVisibleTabIds = dynamicVisibleTabIds,
@@ -58,7 +54,6 @@ internal fun HomeFeedSettingsSection() {
         onDynamicImagePreviewTextVisibleChange = { value -> scope.launch { SettingsManager.setDynamicImagePreviewTextVisible(context, value) } },
         onDynamicCommentPreviewVisibleChange = { value -> scope.launch { DynamicSettingsStore.setCommentPreviewVisible(context, value) } },
         onDynamicDetailImageLayoutChange = { value -> scope.launch { SettingsManager.setDynamicDetailImageLayout(context, value) } },
-        onDynamicAllTabHorizontalUserListVisibleChange = { value -> scope.launch { SettingsManager.setDynamicAllTabHorizontalUserListVisible(context, value) } },
         onDynamicTopBarCollapseOnScrollChange = { value -> scope.launch { SettingsManager.setDynamicTopBarCollapseOnScroll(context, value) } },
         onDynamicFeedLayoutModeChange = { value -> scope.launch { SettingsManager.setDynamicFeedLayoutMode(context, value) } },
         onDynamicTabOrderChange = { value -> scope.launch { SettingsManager.setDynamicTabOrder(context, value) } },
