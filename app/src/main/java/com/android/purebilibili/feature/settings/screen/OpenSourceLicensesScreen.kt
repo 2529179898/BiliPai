@@ -42,6 +42,12 @@ data class OpenSourceLibrary(
  */
 val openSourceLibraries = listOf(
     OpenSourceLibrary(
+        name = "Flex Seed Scheme",
+        license = "BSD-3-Clause",
+        url = "https://github.com/rydmike/flex_seed_scheme",
+        description = "扩展调色板的色调表与配色规则（原生移植自 5.0.1）"
+    ),
+    OpenSourceLibrary(
         name = "Kotlin",
         license = "Apache 2.0",
         url = "https://github.com/JetBrains/kotlin",

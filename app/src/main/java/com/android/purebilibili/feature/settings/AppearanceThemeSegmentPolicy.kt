@@ -1,6 +1,11 @@
 package com.android.purebilibili.feature.settings
 
 import com.android.purebilibili.core.theme.AppUiStyle
+import com.android.purebilibili.core.theme.SeedPaletteStyle
+import com.android.purebilibili.core.theme.material2025Style
+import com.android.purebilibili.core.theme.resolveMaterialPaletteSpec
+import com.android.purebilibili.core.theme.resolveSeedPaletteSpec
+import com.android.purebilibili.core.theme.supportsMaterialSpec2025
 import com.android.purebilibili.core.ui.AppIconStyle
 import com.android.purebilibili.core.ui.AppListItemStyle
 import com.android.purebilibili.core.ui.components.AppSegmentOption
@@ -20,6 +25,67 @@ internal fun resolveThemeModeSegmentOptions(
     )
 }
 
+internal fun resolveSeedPaletteStyleOptions(): List<AppSegmentOption<SeedPaletteStyle>> {
+    val material = listOf(
+        SeedPaletteStyle.Standard, SeedPaletteStyle.TonalSpot, SeedPaletteStyle.Neutral,
+        SeedPaletteStyle.Vibrant, SeedPaletteStyle.Expressive, SeedPaletteStyle.Rainbow,
+        SeedPaletteStyle.FruitSalad, SeedPaletteStyle.Monochrome, SeedPaletteStyle.Fidelity,
+        SeedPaletteStyle.Content,
+    )
+    return (material + SeedPaletteStyle.entries.filterNot { it in material }).map { style ->
+        AppSegmentOption(style, style.label, resolveSeedPaletteStyleDescription(style))
+    }
+}
+
+internal fun resolveSeedPaletteStyleDescription(style: SeedPaletteStyle): String = when (style) {
+    SeedPaletteStyle.Standard -> "沿用已设置的色彩风格、标准与对比度"
+    SeedPaletteStyle.TonalSpot -> "默认风格，柔和低彩度，最贴近 Material 3 观感"
+    SeedPaletteStyle.Neutral -> "接近灰阶，只保留很少彩度"
+    SeedPaletteStyle.Vibrant -> "提高主色彩度，副色与第三色色相按风格变化"
+    SeedPaletteStyle.Expressive -> "主色色相刻意偏离种子色，配色更有表现力"
+    SeedPaletteStyle.Rainbow -> "保留种子色色相，彩度固定，背景接近灰阶"
+    SeedPaletteStyle.FruitSalad -> "主色与副色色相都偏离种子色，第三色保留原色相"
+    SeedPaletteStyle.Monochrome -> "全灰阶，完全不带彩度"
+    SeedPaletteStyle.Fidelity -> "调色板贴近种子色，第三色使用互补色"
+    SeedPaletteStyle.Content -> "主副色贴近种子色，第三色使用相邻色"
+    SeedPaletteStyle.Material -> "固定低彩度与标准色调，柔和的 Material 3 配色"
+    SeedPaletteStyle.Material3Legacy -> "经典 Material 3，主色彩度较高，中性表面染色较少"
+    SeedPaletteStyle.Soft -> "降低主色、副色与第三色彩度，整体更柔和"
+    SeedPaletteStyle.Vivid -> "加深浅色主色并提高彩度，保留鲜明的种子色特征"
+    SeedPaletteStyle.VividSurfaces -> "鲜明主色搭配更明显的表面染色与文字层次"
+    SeedPaletteStyle.HighContrast -> "提高彩度与部分角色对比，强化文字和容器区分"
+    SeedPaletteStyle.UltraContrast -> "更深的浅色主色与更亮的深色文字，进一步强化对比"
+    SeedPaletteStyle.Jolly -> "主副色更鲜艳，明亮副色搭配活泼的第三色"
+    SeedPaletteStyle.VividBackground -> "生动表面配色搭配更明亮的浅色背景和更深的暗色背景"
+    SeedPaletteStyle.OneHue -> "主色、副色与第三色共用一个色相，以彩度和深浅区分"
+    SeedPaletteStyle.CandyPop -> "明亮鲜艳的糖果配色，文字前景自动补足可读对比"
+    SeedPaletteStyle.Chroma -> "主副色彩度跟随种子色，保留原色个性"
+}
+
+internal fun resolveSelectedColorSpec(
+    requested: ColorSpec.SpecVersion,
+    style: PaletteStyle,
+    seedStyle: SeedPaletteStyle,
+): ColorSpec.SpecVersion = if (seedStyle.enabled) resolveSeedPaletteSpec(seedStyle, requested)
+    else resolveMaterialPaletteSpec(style, requested)
+
+internal fun shouldShowColorSpecControl(seedStyle: SeedPaletteStyle): Boolean =
+    !seedStyle.enabled || seedStyle.material2025Style() != null
+
+internal fun resolveSelectedColorSpecSubtitle(
+    requested: ColorSpec.SpecVersion,
+    style: PaletteStyle,
+    seedStyle: SeedPaletteStyle,
+): String {
+    val effective = resolveSelectedColorSpec(requested, style, seedStyle)
+    val supported = if (seedStyle.enabled) seedStyle.material2025Style() != null else supportsMaterialSpec2025(style)
+    val name = if (seedStyle.enabled) seedStyle.label else style.name
+    return if (!supported) {
+        "当前 ${effective.name}：$name 仅支持此标准" +
+            if (requested != effective) "；已保留 ${requested.name} 偏好，切换至兼容风格后恢复" else ""
+    } else resolveColorSpecSubtitle(effective)
+}
+
 internal fun resolveColorStyleOptions(): List<AppSegmentOption<PaletteStyle>> {
     return (listOf(PaletteStyle.TonalSpot) + PaletteStyle.entries.filterNot { it == PaletteStyle.TonalSpot })
         .map { style ->
@@ -35,9 +101,9 @@ internal fun resolveColorStyleOptions(): List<AppSegmentOption<PaletteStyle>> {
 internal fun resolveColorStyleDescription(style: PaletteStyle): String = when (style) {
     PaletteStyle.TonalSpot -> "默认风格，柔和低彩度，最贴近 Material 3 观感"
     PaletteStyle.Neutral -> "接近灰阶，只保留很少彩度"
-    PaletteStyle.Vibrant -> "彩度最高，主色最抢眼"
+    PaletteStyle.Vibrant -> "提高主色彩度，副色与第三色色相按风格变化"
     PaletteStyle.Expressive -> "主色色相刻意偏离种子色，配色更有玩味"
-    PaletteStyle.Rainbow -> "种子色色相不出现在配色里，色彩更跳脱"
+    PaletteStyle.Rainbow -> "保留种子色色相，彩度固定，背景接近灰阶"
     PaletteStyle.FruitSalad -> "主色与副色色相都偏离种子色"
     PaletteStyle.Monochrome -> "全灰阶，完全不带彩度"
     PaletteStyle.Fidelity -> "调色板贴近种子色，高彩度种子也保留"
@@ -49,11 +115,15 @@ internal fun resolveColorStyleDescription(style: PaletteStyle): String = when (s
 internal fun resolveColorStyleSubtitle(style: PaletteStyle): String =
     "当前 ${style.name}：${resolveColorStyleDescription(style)}"
 
-internal fun resolveColorSpecOptions(): List<AppSegmentOption<ColorSpec.SpecVersion>> {
+internal fun resolveColorSpecOptions(
+    style: PaletteStyle = PaletteStyle.TonalSpot,
+    seedStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
+): List<AppSegmentOption<ColorSpec.SpecVersion>> {
+    val supports2025 = if (seedStyle.enabled) seedStyle.material2025Style() != null else supportsMaterialSpec2025(style)
     return listOf(
         ColorSpec.SpecVersion.SPEC_2021,
         ColorSpec.SpecVersion.SPEC_2025
-    ).map { spec ->
+    ).filter { it != ColorSpec.SpecVersion.SPEC_2025 || supports2025 }.map { spec ->
         AppSegmentOption(
             value = spec,
             label = spec.name,
@@ -63,8 +133,8 @@ internal fun resolveColorSpecOptions(): List<AppSegmentOption<ColorSpec.SpecVers
 }
 
 internal fun resolveColorSpecDescription(spec: ColorSpec.SpecVersion): String = when (spec) {
-    ColorSpec.SpecVersion.SPEC_2021 -> "旧版 Material 3 色调映射，与 Android 12 时期一致"
-    ColorSpec.SpecVersion.SPEC_2025 -> "新版 Material 3 色调映射，容器层次更新"
+    ColorSpec.SpecVersion.SPEC_2021 -> "旧版 Material 3 配色规则，兼容传统色彩风格"
+    ColorSpec.SpecVersion.SPEC_2025 -> "新版 Material 3 配色规则，更新色板、容器与对比度映射"
     else -> "使用 ${spec.name} 色调映射"
 }
 

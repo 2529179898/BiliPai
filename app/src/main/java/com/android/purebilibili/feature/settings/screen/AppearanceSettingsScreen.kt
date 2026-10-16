@@ -2,6 +2,11 @@
 
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.theme.SeedPaletteStyle
+import com.android.purebilibili.core.theme.SeedPresetColors
+import com.android.purebilibili.core.theme.SeedPresetColorNames
+import com.android.purebilibili.core.theme.rememberSeedStyleSwatches
+
 import com.android.purebilibili.feature.settings.screen.DarkThemeSchedulePreference
 
 import com.android.purebilibili.core.ui.AppContentColors
@@ -546,16 +551,21 @@ fun AppearanceSettingsContent(
     val selectedCustomThemeColor = remember(state.md3CustomColorHex) {
         parseMd3CustomColorHex(state.md3CustomColorHex)
     }
-    val selectedThemeColorName = remember(selectedCustomThemeColor) {
-        val selectedIndex = ThemeColors.indexOf(selectedCustomThemeColor)
-        ThemeColorNames.getOrNull(selectedIndex) ?: "自定义"
+    val displayedThemeColors = if (state.seedPaletteStyle.enabled) SeedPresetColors else ThemeColors
+    val displayedThemeColorNames = if (state.seedPaletteStyle.enabled) SeedPresetColorNames else ThemeColorNames
+    val selectedThemeColorName = remember(selectedCustomThemeColor, state.seedPaletteStyle) {
+        val selectedIndex = displayedThemeColors.indexOf(selectedCustomThemeColor)
+        displayedThemeColorNames.getOrNull(selectedIndex) ?: "自定义"
     }
     var themeColorPaletteExpanded by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(showThemeColorPicker) {
         if (!showThemeColorPicker) themeColorPaletteExpanded = false
     }
     val colorStyleOptions = remember { resolveColorStyleOptions() }
-    val colorSpecOptions = remember { resolveColorSpecOptions() }
+    val colorSpecOptions = remember(state.colorStyle, state.seedPaletteStyle) {
+        resolveColorSpecOptions(state.colorStyle, state.seedPaletteStyle)
+    }
+    val effectiveColorSpec = resolveSelectedColorSpec(state.colorSpec, state.colorStyle, state.seedPaletteStyle)
     val colorContrastOptions = remember { resolveColorContrastOptions() }
     val fontPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -805,7 +815,7 @@ fun AppearanceSettingsContent(
                         )
 
                         AnimatedVisibility(
-                            visible = showThemeColorPicker,
+                            visible = showThemeColorPicker && !state.seedPaletteStyle.enabled,
                             enter = expandVertically() + fadeIn(),
                             exit = shrinkVertically() + fadeOut()
                         ) {
@@ -856,61 +866,99 @@ fun AppearanceSettingsContent(
                             exit = shrinkVertically() + fadeOut()
                         ) {
                             Column {
-                                // 风格小样：用当前生效的种子色与色彩标准，预演每种风格的实际配色。
-                                val stylePreviewSeed = resolveMd3ThemeSeedColor(
-                                    source = state.md3ColorSource,
-                                    customColorHex = state.md3CustomColorHex,
-                                    themeColorIndex = state.themeColorIndex,
-                                )
-                                val stylePreviewSwatches = rememberThemeStylePaletteSwatches(
-                                    seedColor = stylePreviewSeed,
-                                    isDark = resolveColorSchemeIsDark(MaterialTheme.colorScheme),
-                                    paletteStyles = colorStyleOptions.map { it.value },
-                                    colorSpec = state.colorSpec,
-                                    colorContrast = state.colorContrast,
-                                )
-                                val styleSwatchByStyle = remember(stylePreviewSwatches) {
-                                    colorStyleOptions.map { it.value }.zip(stylePreviewSwatches).toMap()
+                                val currentPrimary = MaterialTheme.colorScheme.primary
+                                val seedPreviewColor = remember(
+                                    state.md3ColorSource, state.md3CustomColorHex, state.themeColorIndex, currentPrimary,
+                                ) {
+                                    resolveMd3ThemeSeedColor(
+                                        state.md3ColorSource, state.md3CustomColorHex, state.themeColorIndex,
+                                        wallpaperSeed = if (state.md3ColorSource == Md3ColorSource.WALLPAPER_RETONED) {
+                                            com.android.purebilibili.core.theme.readSystemWallpaperSeed(context)
+                                        } else null,
+                                    )
                                 }
-
+                                val seedPreviewSwatches = rememberSeedStyleSwatches(
+                                    seedColor = seedPreviewColor,
+                                    isDark = resolveColorSchemeIsDark(MaterialTheme.colorScheme),
+                                    colorSpec = state.colorSpec,
+                                )
+                                val seedOptions = remember { resolveSeedPaletteStyleOptions() }
                                 AppPreferenceDivider()
                                 ThemePresetChoiceSetting(
                                     icon = rememberSettingsSemanticIcon(SettingsIconRole.COLOR_STYLE),
-                                    title = "色彩风格",
-                                    subtitle = resolveColorStyleSubtitle(state.colorStyle),
-                                    selectedValue = state.colorStyle,
-                                    options = colorStyleOptions,
+                                    title = "调色板",
+                                    subtitle = "当前 ${state.seedPaletteStyle.label}：${resolveSeedPaletteStyleDescription(state.seedPaletteStyle)}",
+                                    selectedValue = state.seedPaletteStyle,
+                                    options = seedOptions,
                                     optionLeading = { style ->
-                                        val swatch = styleSwatchByStyle[style]
-                                        if (swatch != null) {
-                                            ThemeStyleSwatch(swatch)
-                                        }
+                                        seedPreviewSwatches[style]?.let { ThemeStyleSwatch(it) }
                                     },
-                                    onSelectionChange = viewModel::setThemeColorStyle,
-                                    iconTint = AppContentColors.secondaryText()
+                                    onSelectionChange = viewModel::setSeedPaletteStyle,
+                                    iconTint = AppContentColors.secondaryText(),
                                 )
 
-                                AppPreferenceDivider()
-                                ThemePresetChoiceSetting(
-                                    icon = rememberSettingsSemanticIcon(SettingsIconRole.COLOR_SPEC),
-                                    title = "色彩标准",
-                                    subtitle = resolveColorSpecSubtitle(state.colorSpec),
-                                    selectedValue = state.colorSpec,
-                                    options = colorSpecOptions,
-                                    onSelectionChange = viewModel::setThemeColorSpec,
-                                    iconTint = AppContentColors.secondaryText()
-                                )
+                                if (!state.seedPaletteStyle.enabled) {
+                                    // 风格小样：用当前生效的种子色与色彩标准，预演每种风格的实际配色。
+                                    val stylePreviewSeed = resolveMd3ThemeSeedColor(
+                                        source = state.md3ColorSource,
+                                        customColorHex = state.md3CustomColorHex,
+                                        themeColorIndex = state.themeColorIndex,
+                                    )
+                                    val stylePreviewSwatches = rememberThemeStylePaletteSwatches(
+                                        seedColor = stylePreviewSeed,
+                                        isDark = resolveColorSchemeIsDark(MaterialTheme.colorScheme),
+                                        paletteStyles = colorStyleOptions.map { it.value },
+                                        colorSpec = state.colorSpec,
+                                        colorContrast = state.colorContrast,
+                                        seedPaletteStyle = state.seedPaletteStyle,
+                                    )
+                                    val styleSwatchByStyle = remember(stylePreviewSwatches) {
+                                        colorStyleOptions.map { it.value }.zip(stylePreviewSwatches).toMap()
+                                    }
 
-                                AppPreferenceDivider()
-                                ThemePresetChoiceSetting(
-                                    icon = rememberMaterialSymbol(R.drawable.ms_brightness_medium_24),
-                                    title = "对比度",
-                                    subtitle = resolveColorContrastSubtitle(state.colorContrast),
-                                    selectedValue = state.colorContrast,
-                                    options = colorContrastOptions,
-                                    onSelectionChange = viewModel::setThemeColorContrast,
-                                    iconTint = AppContentColors.secondaryText()
-                                )
+                                    AppPreferenceDivider()
+                                    ThemePresetChoiceSetting(
+                                        icon = rememberSettingsSemanticIcon(SettingsIconRole.COLOR_STYLE),
+                                        title = "色彩风格",
+                                        subtitle = resolveColorStyleSubtitle(state.colorStyle),
+                                        selectedValue = state.colorStyle,
+                                        options = colorStyleOptions,
+                                        optionLeading = { style ->
+                                            val swatch = styleSwatchByStyle[style]
+                                            if (swatch != null) {
+                                                ThemeStyleSwatch(swatch)
+                                            }
+                                        },
+                                        onSelectionChange = viewModel::setThemeColorStyle,
+                                        iconTint = AppContentColors.secondaryText()
+                                    )
+
+                                }
+                                if (shouldShowColorSpecControl(state.seedPaletteStyle)) {
+                                    AppPreferenceDivider()
+                                    ThemePresetChoiceSetting(
+                                        icon = rememberSettingsSemanticIcon(SettingsIconRole.COLOR_SPEC),
+                                        title = "色彩标准",
+                                        subtitle = resolveSelectedColorSpecSubtitle(state.colorSpec, state.colorStyle, state.seedPaletteStyle),
+                                        selectedValue = effectiveColorSpec,
+                                        options = colorSpecOptions,
+                                        onSelectionChange = viewModel::setThemeColorSpec,
+                                        iconTint = AppContentColors.secondaryText()
+                                    )
+
+                                }
+                                if (!state.seedPaletteStyle.enabled) {
+                                    AppPreferenceDivider()
+                                    ThemePresetChoiceSetting(
+                                        icon = rememberMaterialSymbol(R.drawable.ms_brightness_medium_24),
+                                        title = "对比度",
+                                        subtitle = resolveColorContrastSubtitle(state.colorContrast),
+                                        selectedValue = state.colorContrast,
+                                        options = colorContrastOptions,
+                                        onSelectionChange = viewModel::setThemeColorContrast,
+                                        iconTint = AppContentColors.secondaryText()
+                                    )
+                                }
                             }
                         }
 
@@ -947,11 +995,12 @@ fun AppearanceSettingsContent(
                                 val palettePreviewIsDark =
                                     resolveColorSchemeIsDark(MaterialTheme.colorScheme)
                                 val presetSwatches = rememberThemePresetPaletteSwatches(
-                                    seedColors = ThemeColors,
+                                    seedColors = displayedThemeColors,
                                     isDark = palettePreviewIsDark,
                                     paletteStyle = state.colorStyle,
                                     colorSpec = state.colorSpec,
                                     colorContrast = state.colorContrast,
+                                    seedPaletteStyle = state.seedPaletteStyle,
                                 )
 
                                 //  [Redesign] Theme Color Grid - Strict 2 Rows x 5 Columns
@@ -961,13 +1010,13 @@ fun AppearanceSettingsContent(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(16.dp) // 增加行间距以容纳文字
                                 ) {
-                                    ThemeColors.chunked(5).forEach { rowColors ->
+                                    displayedThemeColors.chunked(5).forEach { rowColors ->
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(spacing)
                                         ) {
                                             rowColors.forEach { color ->
-                                                val index = ThemeColors.indexOf(color)
+                                                val index = displayedThemeColors.indexOf(color)
                                                 val isSelected = selectedCustomThemeColor == color
 
                                                 Column(
@@ -1001,9 +1050,16 @@ fun AppearanceSettingsContent(
                                                                 scaleY = scale
                                                             }
                                                             .clip(AppShapes.container(ContainerLevel.Card))
-                                                            .background(AppSurfaceTokens.cardContainer())
+                                                            .background(
+                                                                if (state.seedPaletteStyle.enabled) swatch.inverseOnSurface
+                                                                else AppSurfaceTokens.cardContainer()
+                                                            )
                                                             .clickable {
-                                                                viewModel.setThemeColorIndex(index)
+                                                                if (state.seedPaletteStyle.enabled) {
+                                                                    viewModel.applyMd3CustomColor(formatMd3CustomColorHex(color))
+                                                                } else {
+                                                                    viewModel.setThemeColorIndex(index)
+                                                                }
                                                             },
                                                         contentAlignment = Alignment.Center
                                                     ) {
@@ -1050,7 +1106,8 @@ fun AppearanceSettingsContent(
                                                                     modifier = Modifier
                                                                         .size(23.dp)
                                                                         .background(
-                                                                            AppSurfaceTokens.surfaceContainerHighest(),
+                                                                            if (state.seedPaletteStyle.enabled) swatch.surfaceContainer
+                                                                            else AppSurfaceTokens.surfaceContainerHighest(),
                                                                             CircleShape
                                                                         ),
                                                                     contentAlignment = Alignment.Center
@@ -1069,7 +1126,7 @@ fun AppearanceSettingsContent(
                                                     // 颜色名称
                                                     Spacer(modifier = Modifier.height(8.dp))
                                                     AppText(
-                                                        text = ThemeColorNames.getOrElse(index) { "" },
+                                                        text = displayedThemeColorNames.getOrElse(index) { "" },
                                                         style = MaterialTheme.typography.labelSmall,
                                                         color = if (isSelected) AppContentColors.accent() else AppContentColors.secondaryText(),
                                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -2234,6 +2291,7 @@ fun AppearanceSettingsContent(
             paletteStyle = state.colorStyle,
             colorSpec = state.colorSpec,
             colorContrast = state.colorContrast,
+            seedPaletteStyle = state.seedPaletteStyle,
             onDismiss = { showMd3ColorPickerDialog = false },
             onConfirm = { hex ->
                 viewModel.applyMd3CustomColor(hex)
@@ -2249,6 +2307,7 @@ fun AppearanceSettingsContent(
             paletteStyle = state.colorStyle,
             colorSpec = state.colorSpec,
             colorContrast = state.colorContrast,
+            seedPaletteStyle = state.seedPaletteStyle,
             onDismiss = { roleColorTarget = null },
             onConfirm = { hex ->
                 scope.launch {

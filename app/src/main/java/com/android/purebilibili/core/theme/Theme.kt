@@ -774,6 +774,7 @@ private fun rememberBiliPaiStyleColorScheme(
     uiStyle: AppUiStyle = AppUiStyle.MATERIAL3,
     dynamicBaseScheme: ColorScheme? = null,
     colorContrast: Contrast = Contrast.Default,
+    seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
 ): ColorScheme = remember(
     seedColor,
     darkTheme,
@@ -783,6 +784,7 @@ private fun rememberBiliPaiStyleColorScheme(
     uiStyle,
     dynamicBaseScheme,
     colorContrast,
+    seedPaletteStyle,
 ) {
     createBiliPaiStyleColorScheme(
         seedColor = seedColor,
@@ -793,6 +795,7 @@ private fun rememberBiliPaiStyleColorScheme(
         uiStyle = uiStyle,
         dynamicBaseScheme = dynamicBaseScheme,
         colorContrast = colorContrast,
+        seedPaletteStyle = seedPaletteStyle,
     )
 }
 
@@ -805,6 +808,7 @@ internal fun createBiliPaiStyleColorScheme(
     uiStyle: AppUiStyle = AppUiStyle.MATERIAL3,
     dynamicBaseScheme: ColorScheme? = null,
     colorContrast: Contrast = Contrast.Default,
+    seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
 ): ColorScheme {
     // AndroidX already returns the user's final wallpaper-derived light/dark scheme.
     // Re-generating it from resolved roles changes the palette selected in system settings.
@@ -812,10 +816,15 @@ internal fun createBiliPaiStyleColorScheme(
         // Wallpaper dynamic colors supply accents, but their surface roles must not
         // replace the globally selected AMOLED black surfaces.
         return if (darkTheme && amoledDarkTheme) {
-            applyAmoledSurfaceOverrides(dynamicBaseScheme)
+            if (seedPaletteStyle.enabled) enforceSeedTextContrast(darkenSeedColorScheme(dynamicBaseScheme))
+            else applyAmoledSurfaceOverrides(dynamicBaseScheme)
         } else {
-            dynamicBaseScheme
+            if (seedPaletteStyle.enabled) enforceSeedTextContrast(dynamicBaseScheme) else dynamicBaseScheme
         }
+    }
+
+    if (seedPaletteStyle.enabled) {
+        return createSeedColorScheme(seedColor, darkTheme, seedPaletteStyle, amoledDarkTheme, colorSpec)
     }
 
     val scheme = dynamicColorScheme(
@@ -823,7 +832,7 @@ internal fun createBiliPaiStyleColorScheme(
         isDark = darkTheme,
         isAmoled = amoledDarkTheme,
         style = paletteStyle,
-        specVersion = colorSpec,
+        specVersion = resolveMaterialPaletteSpec(paletteStyle, colorSpec),
         contrastLevel = colorContrast.value,
     )
 
@@ -851,6 +860,7 @@ fun PureBiliBiliTheme(
     themeRoleOverrides: ThemeRoleOverrides = ThemeRoleOverrides(),
     wallpaperPaletteOverrides: com.android.purebilibili.core.store.WallpaperPaletteOverrides =
         com.android.purebilibili.core.store.WallpaperPaletteOverrides(),
+    seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
     colorStyle: PaletteStyle = PaletteStyle.TonalSpot,
     colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
     colorContrast: Contrast = Contrast.Default,
@@ -911,8 +921,9 @@ fun PureBiliBiliTheme(
         // key() only groups composition; it does not cache these resource-backed
         // palettes. A new ColorScheme on each theme frame changes the transition
         // endpoint by identity and can keep the entire app recomposing indefinitely.
-        remember(context, systemWallpaperRefreshToken) {
-            dynamicLightColorScheme(context)
+        remember(context, systemWallpaperRefreshToken, seedPaletteStyle) {
+            if (seedPaletteStyle.enabled) readSeedWallpaperColorScheme(context, false)
+            else dynamicLightColorScheme(context)
         }
     } else {
         null
@@ -921,8 +932,9 @@ fun PureBiliBiliTheme(
         md3ColorSource == Md3ColorSource.FOLLOW_WALLPAPER &&
         isDynamicColorActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     ) {
-        remember(context, systemWallpaperRefreshToken) {
-            dynamicDarkColorScheme(context)
+        remember(context, systemWallpaperRefreshToken, seedPaletteStyle) {
+            if (seedPaletteStyle.enabled) readSeedWallpaperColorScheme(context, true)
+            else dynamicDarkColorScheme(context)
         }
     } else {
         null
@@ -936,6 +948,7 @@ fun PureBiliBiliTheme(
         uiStyle = uiStyle,
         dynamicBaseScheme = dynamicLightBaseScheme,
         colorContrast = colorContrast,
+        seedPaletteStyle = seedPaletteStyle,
     )
     val darkMaterialScheme = rememberBiliPaiStyleColorScheme(
         seedColor = customPrimaryColor,
@@ -946,26 +959,30 @@ fun PureBiliBiliTheme(
         uiStyle = uiStyle,
         dynamicBaseScheme = dynamicDarkBaseScheme,
         colorContrast = colorContrast,
+        seedPaletteStyle = seedPaletteStyle,
     )
 
     val baseThemeRoleOverrides = remember(lightMaterialScheme, darkMaterialScheme) {
         themeRoleOverridesFromSchemes(lightMaterialScheme, darkMaterialScheme)
     }
-    val effectiveThemeRoleOverrides = remember(md3ColorSource, themeRoleOverrides, uiStyle, baseThemeRoleOverrides, md3CustomColorHex) {
+    val effectiveThemeRoleOverrides = remember(md3ColorSource, themeRoleOverrides, uiStyle, baseThemeRoleOverrides, md3CustomColorHex, seedPaletteStyle) {
+        // Extended palettes own all generated roles. Saved advanced edits remain
+        // available when returning to Standard; no seed/primary rewrite in this mode.
         val effective = resolveEffectiveThemeRoleOverrides(md3ColorSource, themeRoleOverrides, uiStyle)
+            .let { if (seedPaletteStyle.enabled) it.copy(enabled = false) else it }
         if (effective.enabled) {
             enableThemeRoleOverrides(effective, baseThemeRoleOverrides, md3CustomColorHex)
         } else effective
     }
     val resolvedLightMaterialScheme = remember(
         lightMaterialScheme, effectiveThemeRoleOverrides, colorStyle, colorSpec,
-        liquidGlassEnabled, md3ColorSource, customPrimaryColor, colorContrast,
+        liquidGlassEnabled, md3ColorSource, customPrimaryColor, colorContrast, seedPaletteStyle,
     ) {
         val overridden = applyThemeRoleOverrides(
             lightMaterialScheme, effectiveThemeRoleOverrides, darkTheme = false,
             paletteStyle = colorStyle, colorSpec = colorSpec, colorContrast = colorContrast,
         )
-        alignLiquidAccentColorScheme(
+        if (seedPaletteStyle.enabled) overridden else alignLiquidAccentColorScheme(
             scheme = overridden,
             accent = resolveLiquidControlAccentColor(
                 source = md3ColorSource,
@@ -980,13 +997,13 @@ fun PureBiliBiliTheme(
     }
     val resolvedDarkMaterialScheme = remember(
         darkMaterialScheme, effectiveThemeRoleOverrides, colorStyle, colorSpec,
-        liquidGlassEnabled, md3ColorSource, customPrimaryColor, colorContrast,
+        liquidGlassEnabled, md3ColorSource, customPrimaryColor, colorContrast, seedPaletteStyle,
     ) {
         val overridden = applyThemeRoleOverrides(
             darkMaterialScheme, effectiveThemeRoleOverrides, darkTheme = true,
             paletteStyle = colorStyle, colorSpec = colorSpec, colorContrast = colorContrast,
         )
-        alignLiquidAccentColorScheme(
+        if (seedPaletteStyle.enabled) overridden else alignLiquidAccentColorScheme(
             scheme = overridden,
             accent = resolveLiquidControlAccentColor(
                 source = md3ColorSource,
@@ -1001,7 +1018,7 @@ fun PureBiliBiliTheme(
     }
     val lightEndpointPalette = remember(
         resolvedLightMaterialScheme, uiStyle, md3ColorSource, amoledDarkTheme,
-        wallpaperPaletteOverrides, customPrimaryColor, effectiveThemeRoleOverrides,
+        wallpaperPaletteOverrides, customPrimaryColor, effectiveThemeRoleOverrides, liquidGlassEnabled, seedPaletteStyle,
     ) {
         resolveAppThemeEndpointPalette(
             base = resolvedLightMaterialScheme,
@@ -1012,11 +1029,13 @@ fun PureBiliBiliTheme(
             wallpaperOverrides = wallpaperPaletteOverrides,
             customSeed = customPrimaryColor,
             roleOverrides = effectiveThemeRoleOverrides,
+            liquidGlassEnabled = liquidGlassEnabled,
+            preserveGeneratedPalette = seedPaletteStyle.enabled,
         )
     }
     val darkEndpointPalette = remember(
         resolvedDarkMaterialScheme, uiStyle, md3ColorSource, amoledDarkTheme,
-        wallpaperPaletteOverrides, customPrimaryColor, effectiveThemeRoleOverrides,
+        wallpaperPaletteOverrides, customPrimaryColor, effectiveThemeRoleOverrides, liquidGlassEnabled, seedPaletteStyle,
     ) {
         resolveAppThemeEndpointPalette(
             base = resolvedDarkMaterialScheme,
@@ -1027,6 +1046,8 @@ fun PureBiliBiliTheme(
             wallpaperOverrides = wallpaperPaletteOverrides,
             customSeed = customPrimaryColor,
             roleOverrides = effectiveThemeRoleOverrides,
+            liquidGlassEnabled = liquidGlassEnabled,
+            preserveGeneratedPalette = seedPaletteStyle.enabled,
         )
     }
     // Only immutable settings/resource endpoints enter the transition. Animated frame

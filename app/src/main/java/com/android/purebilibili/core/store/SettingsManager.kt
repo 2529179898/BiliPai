@@ -75,6 +75,7 @@ import com.android.purebilibili.feature.video.ui.gesture.applyVerticalTwoFingerS
 import com.android.purebilibili.core.util.ENHANCED_DIAGNOSTIC_LOG_PREF_KEY
 import com.android.purebilibili.core.util.ENHANCED_DIAGNOSTIC_LOG_PREFS_NAME
 import com.android.purebilibili.core.util.isLargeScreenOrFoldableConfiguration
+import com.android.purebilibili.core.theme.SeedPaletteStyle
 import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
@@ -729,6 +730,7 @@ data class AppThemeSettings(
     val md3CustomColorHex: String = "#007AFF",
     val themeRoleOverrides: ThemeRoleOverrides = ThemeRoleOverrides(),
     val wallpaperPaletteOverrides: WallpaperPaletteOverrides = WallpaperPaletteOverrides(),
+    val seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
     val colorStyle: PaletteStyle = PaletteStyle.TonalSpot,
     val colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
     val colorContrast: Contrast = Contrast.Default,
@@ -1388,6 +1390,7 @@ object SettingsManager {
     private val KEY_THEME_DARK_PRIMARY_TEXT = stringPreferencesKey("theme_dark_primary_text")
     private val KEY_THEME_DARK_SECONDARY_TEXT = stringPreferencesKey("theme_dark_secondary_text")
     private val KEY_THEME_DARK_CONTROL_ACCENT = stringPreferencesKey("theme_dark_control_accent")
+    private val KEY_SEED_PALETTE_STYLE = stringPreferencesKey("seed_palette_style")
     private val KEY_THEME_COLOR_STYLE = stringPreferencesKey("theme_color_style")
     private val KEY_THEME_COLOR_SPEC = stringPreferencesKey("theme_color_spec")
     private val KEY_THEME_COLOR_CONTRAST = stringPreferencesKey("theme_color_contrast")
@@ -2331,6 +2334,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                     )
                 )
             ),
+            seedPaletteStyle = SeedPaletteStyle.fromStored(preferences[KEY_SEED_PALETTE_STYLE]),
             colorStyle = resolvePaletteStylePreference(preferences[KEY_THEME_COLOR_STYLE]),
             colorSpec = resolveColorSpecPreference(preferences[KEY_THEME_COLOR_SPEC]),
             colorContrast = resolveColorContrastPreference(preferences[KEY_THEME_COLOR_CONTRAST]),
@@ -2686,6 +2690,14 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 defaults.dark.controlAccentHex
             )
         }
+    }
+
+    fun getSeedPaletteStyle(context: Context): Flow<SeedPaletteStyle> = context.settingsDataStore.data
+        .map { preferences -> SeedPaletteStyle.fromStored(preferences[KEY_SEED_PALETTE_STYLE]) }
+        .distinctUntilChanged()
+
+    suspend fun setSeedPaletteStyle(context: Context, style: SeedPaletteStyle) {
+        context.settingsDataStore.edit { preferences -> preferences[KEY_SEED_PALETTE_STYLE] = style.name }
     }
 
     fun getThemeColorStyle(context: Context): Flow<PaletteStyle> = context.settingsDataStore.data
@@ -8283,6 +8295,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             StringShareablePreferenceDefinition(KEY_THEME_DARK_PRIMARY_TEXT, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_DARK_SECONDARY_TEXT, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_DARK_CONTROL_ACCENT, SettingsShareSection.APPEARANCE),
+            StringShareablePreferenceDefinition(KEY_SEED_PALETTE_STYLE, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_COLOR_STYLE, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_COLOR_SPEC, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_COLOR_CONTRAST, SettingsShareSection.APPEARANCE),

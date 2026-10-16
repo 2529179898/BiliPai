@@ -15,18 +15,19 @@ import com.materialkolor.dynamiccolor.ColorSpec
  * 设置页预设色板单格预览所用的三个角色。
  *
  * 版式对齐 PiliPlus `common/widgets/color_palette.dart`：圆内上半 primary、左下 tertiary、
- * 右下 primaryContainer。这里只保留这三个角色，避免为每个预设色缓存整份 ColorScheme。
+ * 右下 primaryContainer；额外保留底色与选中圆盘色，避免为每格缓存整份 ColorScheme。
  */
 @Immutable
 internal data class ThemePresetPaletteSwatch(
     val primary: Color,
     val tertiary: Color,
     val primaryContainer: Color,
+    val surfaceContainer: Color = Color.Transparent,
+    val inverseOnSurface: Color = Color.Transparent,
 )
 
 /**
- * 用与 [createBiliPaiStyleColorScheme] 一致的 MaterialKolor 参数生成预览三色，
- * 保证色板格子上的预览与选中后真正生效的配色一致。
+ * 按所选调色板生成预览；标准模式沿用原有 MaterialKolor 参数。
  */
 internal fun resolveThemePresetPaletteSwatch(
     seedColor: Color,
@@ -34,18 +35,22 @@ internal fun resolveThemePresetPaletteSwatch(
     paletteStyle: PaletteStyle = PaletteStyle.TonalSpot,
     colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
     colorContrast: Contrast = Contrast.Default,
+    seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
 ): ThemePresetPaletteSwatch {
-    val scheme = dynamicColorScheme(
+    val scheme = if (seedPaletteStyle.enabled) createSeedColorScheme(seedColor, isDark, seedPaletteStyle, colorSpec = colorSpec)
+    else dynamicColorScheme(
         seedColor = seedColor,
         isDark = isDark,
         style = paletteStyle,
-        specVersion = colorSpec,
+        specVersion = resolveMaterialPaletteSpec(paletteStyle, colorSpec),
         contrastLevel = colorContrast.value,
     )
     return ThemePresetPaletteSwatch(
         primary = scheme.primary,
         tertiary = scheme.tertiary,
         primaryContainer = scheme.primaryContainer,
+        surfaceContainer = scheme.surfaceContainer,
+        inverseOnSurface = scheme.inverseOnSurface,
     )
 }
 
@@ -60,7 +65,8 @@ internal fun rememberThemePresetPaletteSwatches(
     paletteStyle: PaletteStyle,
     colorSpec: ColorSpec.SpecVersion,
     colorContrast: Contrast = Contrast.Default,
-): List<ThemePresetPaletteSwatch> = remember(seedColors, isDark, paletteStyle, colorSpec, colorContrast) {
+    seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
+): List<ThemePresetPaletteSwatch> = remember(seedColors, isDark, paletteStyle, colorSpec, colorContrast, seedPaletteStyle) {
     seedColors.map { seedColor ->
         resolveThemePresetPaletteSwatch(
             seedColor = seedColor,
@@ -68,6 +74,7 @@ internal fun rememberThemePresetPaletteSwatches(
             paletteStyle = paletteStyle,
             colorSpec = colorSpec,
             colorContrast = colorContrast,
+            seedPaletteStyle = seedPaletteStyle,
         )
     }
 }
@@ -91,7 +98,8 @@ internal fun rememberThemeStylePaletteSwatches(
     paletteStyles: List<PaletteStyle>,
     colorSpec: ColorSpec.SpecVersion,
     colorContrast: Contrast = Contrast.Default,
-): List<ThemePresetPaletteSwatch> = remember(seedColor, isDark, paletteStyles, colorSpec, colorContrast) {
+    seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
+): List<ThemePresetPaletteSwatch> = remember(seedColor, isDark, paletteStyles, colorSpec, colorContrast, seedPaletteStyle) {
     paletteStyles.map { paletteStyle ->
         resolveThemePresetPaletteSwatch(
             seedColor = seedColor,
@@ -99,6 +107,18 @@ internal fun rememberThemeStylePaletteSwatches(
             paletteStyle = paletteStyle,
             colorSpec = colorSpec,
             colorContrast = colorContrast,
+            seedPaletteStyle = seedPaletteStyle,
         )
+    }
+}
+
+@Composable
+internal fun rememberSeedStyleSwatches(
+    seedColor: Color,
+    isDark: Boolean,
+    colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2021,
+): Map<SeedPaletteStyle, ThemePresetPaletteSwatch> = remember(seedColor, isDark, colorSpec) {
+    SeedPaletteStyle.entries.filter { it.enabled }.associateWith { style ->
+        resolveThemePresetPaletteSwatch(seedColor, isDark, colorSpec = colorSpec, seedPaletteStyle = style)
     }
 }
