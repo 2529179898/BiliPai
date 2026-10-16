@@ -116,7 +116,7 @@ private fun BangumiHubScreen(
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
-    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var searchQuery by rememberSaveable(state.accountGeneration) { mutableStateOf("") }
     val selectionActive = state.page == BangumiHubPage.FOLLOW &&
         state.followStates[state.channel to state.followStatus]?.selectedIds?.isNotEmpty() == true
     var scrollToTopRequestId by rememberSaveable { mutableIntStateOf(0) }

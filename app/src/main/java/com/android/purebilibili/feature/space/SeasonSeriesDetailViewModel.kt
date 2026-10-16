@@ -1,15 +1,15 @@
 package com.android.purebilibili.feature.space
 
 import android.app.Application
-import androidx.lifecycle.viewModelScope
 import com.android.purebilibili.core.network.NetworkModule
+import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.data.model.response.FavFolder
 import com.android.purebilibili.data.model.response.VideoItem
 import com.android.purebilibili.data.repository.FavoriteRepository
 import com.android.purebilibili.feature.list.BaseListViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(application, "") {
 
@@ -36,6 +36,22 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
     
     private val _hasMoreState = MutableStateFlow(true)
     val hasMoreState = _hasMoreState.asStateFlow()
+    override fun onAccountChanged() {
+        currentPage = 1
+        hasMore = true
+        isLoadingMore = false
+        _isLoadingMoreState.value = false
+        _hasMoreState.value = true
+        _favoriteDetailProgressState.value = FavoriteDetailProgressState()
+        _transferFolders.value = emptyList()
+        _isManagingState.value = false
+        _uiState.value = _uiState.value.copy(
+            title = pageTitle,
+            canRemoveItems = type == "favorite" && mid == TokenManager.midCache,
+        )
+        if (id > 0L) loadData()
+    }
+
 
     data class FavoriteDetailProgressState(
         val loadedCount: Int = 0,
@@ -67,14 +83,10 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
         this.pageTitle = request.title
         _favoriteDetailProgressState.value = FavoriteDetailProgressState()
         
-        // Update Title via UI State update (a bit tricky since BaseListViewModel sets it in init)
-        // We trigger a reload which resets title in loadData() -> fetchItems() ? No.
-        // BaseListViewModel's init { loadData() } runs before we set params.
-        // So loadData() might fail or do nothing first. 
-        // We should manually call loadData() after init.
-        
-        // Update title in state
-        _uiState.value = _uiState.value.copy(title = request.title)
+        _uiState.value = _uiState.value.copy(
+            title = request.title,
+            canRemoveItems = type == "favorite" && mid == TokenManager.midCache,
+        )
         loadData()
     }
 
@@ -108,6 +120,7 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
                 }
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             e.printStackTrace()
         }
         return emptyList()
@@ -128,6 +141,7 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
                 }
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             e.printStackTrace()
         }
         return emptyList()
@@ -157,6 +171,7 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
                     )
                 }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             e.printStackTrace()
             emptyList()
         }
@@ -184,6 +199,7 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
                 )
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             e.printStackTrace()
             emptyList()
         }
@@ -200,8 +216,9 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
     /** 加载复制/移动的目标收藏夹列表（排除当前收藏夹）。 */
     fun loadTransferFolders() {
         if (!isFavoriteDetail || id == 0L) return
-        viewModelScope.launch {
-            val folders = FavoriteRepository.getFavFolders(mid).getOrNull().orEmpty()
+        accountRequests.launch {
+            val accountMid = TokenManager.midCache?.takeIf { it > 0L } ?: return@launch
+            val folders = FavoriteRepository.getFavFolders(accountMid).getOrNull().orEmpty()
             _transferFolders.value = folders.filter { it.id != id }
         }
     }
@@ -209,11 +226,12 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
     /** 批量取消收藏（移除所选内容），成功后刷新列表。 */
     fun removeFavoriteResources(resourceIds: Set<Long>) {
         if (!isFavoriteDetail || id == 0L || resourceIds.isEmpty()) return
-        viewModelScope.launch {
+        accountRequests.launch {
             _isManagingState.value = true
             try {
                 FavoriteRepository.removeResources(id, resourceIds).onSuccess { loadData() }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 e.printStackTrace()
             } finally {
                 _isManagingState.value = false
@@ -224,7 +242,7 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
     /** 批量复制/移动所选内容到目标收藏夹，移动成功后刷新列表。 */
     fun copyOrMoveFavoriteResources(resourceIds: Set<Long>, targetMediaId: Long, copy: Boolean) {
         if (!isFavoriteDetail || id == 0L || resourceIds.isEmpty()) return
-        viewModelScope.launch {
+        accountRequests.launch {
             _isManagingState.value = true
             try {
                 FavoriteRepository.copyOrMoveResources(
@@ -237,6 +255,7 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
                     if (!copy) loadData()
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 e.printStackTrace()
             } finally {
                 _isManagingState.value = false
@@ -247,7 +266,7 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
     // Supports loading more pages
     fun loadMore() {        if (isLoadingMore || !hasMore) return
         
-        viewModelScope.launch {
+        accountRequests.launch {
             isLoadingMore = true
             _isLoadingMoreState.value = true
             currentPage++
@@ -328,6 +347,7 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
                 }
                 
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 e.printStackTrace()
             } finally {
                 isLoadingMore = false

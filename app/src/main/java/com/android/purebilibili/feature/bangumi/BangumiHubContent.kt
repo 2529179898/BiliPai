@@ -231,6 +231,7 @@ internal fun BangumiHubContent(
 
         BangumiHubPage.FOLLOW -> BangumiFollowContent(
             channel = state.channel,
+            accountGeneration = state.accountGeneration,
             status = state.followStatus,
             state = state.followStates[state.channel to state.followStatus] ?: BangumiFollowManagerState(),
             gridState = followGridStates.getOrPut("${state.channel.name}:${state.followStatus.name}") { LazyGridState() },
@@ -721,6 +722,7 @@ private fun IndexFilterRow(
 @Composable
 private fun BangumiFollowContent(
     channel: BangumiChannel,
+    accountGeneration: Long,
     status: BangumiFollowStatus,
     state: BangumiFollowManagerState,
     gridState: LazyGridState,
@@ -740,7 +742,7 @@ private fun BangumiFollowContent(
     showStatusTabs: Boolean,
 ) {
     val selectionMode = state.selectedIds.isNotEmpty()
-    var menuItem by remember { mutableStateOf<FollowBangumiItem?>(null) }
+    var menuItem by remember(accountGeneration) { mutableStateOf<FollowBangumiItem?>(null) }
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize().then(

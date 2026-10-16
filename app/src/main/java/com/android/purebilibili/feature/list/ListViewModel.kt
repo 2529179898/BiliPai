@@ -11,8 +11,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.android.purebilibili.core.coroutines.AppScope
+import com.android.purebilibili.core.coroutines.AccountScopedRequests
 import com.android.purebilibili.core.network.NetworkModule
 import com.android.purebilibili.core.refresh.HistoryRefreshBus
+import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.core.store.FavoriteFolderCoverCache
 import com.android.purebilibili.data.model.response.FavFolder
 import com.android.purebilibili.data.model.response.VideoItem
@@ -46,10 +48,22 @@ data class ListUiState(
 abstract class BaseListViewModel(application: Application, private val pageTitle: String) : AndroidViewModel(application) {
     protected val _uiState = MutableStateFlow(ListUiState(title = pageTitle, isLoading = true))
     val uiState = _uiState.asStateFlow()
+    internal val accountRequests = AccountScopedRequests(viewModelScope)
+
+    init {
+        accountRequests.observe {
+            _uiState.value = ListUiState(title = pageTitle)
+            onAccountChanged()
+        }
+    }
+
+    protected open fun onAccountChanged() {
+        loadData()
+    }
 
     // 应当在子类初始化完成后调用
     fun loadData(showLoading: Boolean = true) {
-        viewModelScope.launch {
+        accountRequests.launch {
             val shouldShowLoading = showLoading || _uiState.value.items.isEmpty()
             if (shouldShowLoading) {
                 _uiState.update { it.copy(isLoading = true, error = null, loadMoreError = null) }
@@ -97,6 +111,16 @@ class LikedVideosViewModel(
 
     private val _hasMoreState = MutableStateFlow(true)
     val hasMoreState = _hasMoreState.asStateFlow()
+    override fun onAccountChanged() {
+        currentPage = 1
+        hasMore = true
+        isLoadingMore = false
+        resolvedMid = targetMid ?: 0L
+        _isLoadingMoreState.value = false
+        _hasMoreState.value = true
+        loadData()
+    }
+
 
     override suspend fun fetchItems(): List<VideoItem> {
         val mid = targetMid?.takeIf { it > 0L } ?: NetworkModule.api.getNavInfo().data?.mid ?: 0L
@@ -114,7 +138,7 @@ class LikedVideosViewModel(
         val mid = if (resolvedMid > 0L) resolvedMid else (targetMid?.takeIf { it > 0L } ?: return)
         isLoadingMore = true
         _isLoadingMoreState.value = true
-        viewModelScope.launch {
+        accountRequests.launch {
             try {
                 val nextPage = currentPage + 1
                 val page = fetchInteractionPage(mid = mid, page = nextPage)
@@ -136,6 +160,7 @@ class LikedVideosViewModel(
                 _hasMoreState.value = hasMore
                 _uiState.value = _uiState.value.copy(items = merged, error = null)
             } catch (error: Exception) {
+                if (error is CancellationException) throw error
                 _uiState.value = _uiState.value.copy(error = error.message ?: "加载更多失败")
             } finally {
                 isLoadingMore = false
@@ -204,6 +229,31 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
             loadHistoryPauseState()
         }
     }
+    override fun onAccountChanged() {
+        startupLoadsActivated = false
+        browsingSessionStarted = false
+        recapSnapshots.clear()
+        historySearchQuery = ""
+        historySearchPage = 1
+        historySearchGeneration += 1
+        cursorMax = 0L
+        cursorViewAt = 0L
+        cursorBusiness = ""
+        hasMore = true
+        isLoadingMore = false
+        _isLoadingMoreState.value = false
+        _hasMoreState.value = true
+        _historyItemsMap.clear()
+        _historyItemsByRenderKey.clear()
+        _deleteSession.value = null
+        _isHistoryPausedState.value = false
+        _isHistoryManagementBusyState.value = false
+        if (isPageActive) {
+            setPageActive(true)
+            loadData()
+        }
+    }
+
 
     internal val recapSnapshots = mutableMapOf<PersonalRecapWindow, HistoryRecapSnapshot>()
     private var historySearchQuery: String = ""
@@ -301,7 +351,7 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
         historySearchQuery = normalized
         val generation = ++historySearchGeneration
         _uiState.value = _uiState.value.copy(isLoading = true, error = null, loadMoreError = null)
-        viewModelScope.launch {
+        accountRequests.launch {
             loadHistorySearchPage(page = 1, generation = generation, reset = true)
         }
     }
@@ -363,7 +413,7 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
             deleteHistoryItems(session.targetKeys)
         } else {
             _deleteSession.value = session
-            viewModelScope.launch {
+            accountRequests.launch {
                 // Also cover navigation/viewport changes before a lazy row ever mounts.
                 // The normal per-card watchdog completes earlier; this bounds the whole session.
                 delay(6_000L)
@@ -481,7 +531,7 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
         _uiState.update { it.copy(loadMoreError = null) }
 
         if (historySearchQuery.isNotBlank()) {
-            viewModelScope.launch {
+            accountRequests.launch {
                 try {
                     loadHistorySearchPage(
                         page = historySearchPage + 1,
@@ -496,7 +546,7 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
             return
         }
         
-        viewModelScope.launch {
+        accountRequests.launch {
             try {
                 com.android.purebilibili.core.util.Logger.d(
                     "HistoryVM",
@@ -565,6 +615,15 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
 
     fun deleteHistoryItems(renderKeys: Set<String>) {
         if (renderKeys.isEmpty()) return
+        if (!accountRequests.isCurrent()) return
+        val requestedIdentity = accountRequests.identity
+        val csrf = TokenManager.csrfCache.orEmpty()
+        val sessData = TokenManager.sessDataCache
+        val isSessionCurrent = {
+            accountRequests.isCurrent(requestedIdentity) &&
+                TokenManager.csrfCache.orEmpty() == csrf &&
+                TokenManager.sessDataCache == sessData
+        }
         val snapshotItems = _uiState.value.items
         val snapshotRenderMap = HashMap(_historyItemsByRenderKey)
         val snapshotBvidMap = HashMap(_historyItemsMap)
@@ -585,9 +644,10 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
 
         AppScope.ioScope.launch {
             try {
-                val csrf = com.android.purebilibili.core.store.TokenManager.csrfCache.orEmpty()
+                if (!isSessionCurrent()) return@launch
                 if (csrf.isBlank()) {
                     withContext(Dispatchers.Main.immediate) {
+                        if (!isSessionCurrent()) return@withContext
                         restoreHistorySnapshot(snapshotItems, snapshotRenderMap, snapshotBvidMap)
                         android.widget.Toast.makeText(getApplication(), "请先登录", android.widget.Toast.LENGTH_SHORT).show()
                     }
@@ -599,10 +659,12 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
                 }
                 val successKeys = deleteHistoryItemsInBackground(
                     targetEntries = targetEntries,
-                    csrf = csrf
+                    csrf = csrf,
+                    isSessionCurrent = isSessionCurrent,
                 )
 
                 withContext(Dispatchers.Main.immediate) {
+                    if (!isSessionCurrent()) return@withContext
                     if (successKeys.size == targetEntries.size) {
                         val count = successKeys.size
                         android.widget.Toast.makeText(
@@ -636,7 +698,9 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
                     }
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 withContext(Dispatchers.Main.immediate) {
+                    if (!isSessionCurrent()) return@withContext
                     restoreHistorySnapshot(snapshotItems, snapshotRenderMap, snapshotBvidMap)
                     android.widget.Toast.makeText(
                         getApplication(),
@@ -653,7 +717,7 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
         val snapshot = captureHistoryClearSnapshot()
         applyHistoryClearOptimisticState()
 
-        viewModelScope.launch {
+        accountRequests.launch {
             val csrf = com.android.purebilibili.core.store.TokenManager.csrfCache.orEmpty()
             if (csrf.isBlank()) {
                 restoreHistoryClearSnapshot(snapshot)
@@ -702,7 +766,7 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
             ).show()
             return
         }
-        viewModelScope.launch {
+        accountRequests.launch {
             val result = com.android.purebilibili.data.repository.ActionRepository.toggleWatchLater(
                 aid = item.videoItem.id,
                 add = true,
@@ -753,7 +817,7 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
     }
 
     fun loadHistoryPauseState() {
-        viewModelScope.launch {
+        accountRequests.launch {
             val result = com.android.purebilibili.data.repository.HistoryRepository.getHistoryPaused()
             result.getOrNull()?.let { paused ->
                 _isHistoryPausedState.value = paused
@@ -773,7 +837,7 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
 
         _isHistoryPausedState.value = nextPaused
         _isHistoryManagementBusyState.value = true
-        viewModelScope.launch {
+        accountRequests.launch {
             val result = com.android.purebilibili.data.repository.HistoryRepository.setHistoryPaused(
                 paused = nextPaused,
                 csrf = csrf
@@ -798,7 +862,8 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
 
     private suspend fun deleteHistoryItemsInBackground(
         targetEntries: List<Pair<String, com.android.purebilibili.data.model.response.HistoryItem>>,
-        csrf: String
+        csrf: String,
+        isSessionCurrent: () -> Boolean,
     ): Set<String> = supervisorScope {
         val semaphore = Semaphore(resolveDeleteBatchParallelism(targetEntries.size))
         targetEntries.map { (key, item) ->
@@ -806,7 +871,7 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
                 val kid = resolveHistoryDeleteKid(item).orEmpty()
                 if (kid.isBlank()) return@async null
                 semaphore.withPermit {
-                    if (deleteHistoryItemWithRetry(kid = kid, csrf = csrf).isSuccess) {
+                    if (deleteHistoryItemWithRetry(kid, csrf, isSessionCurrent).isSuccess) {
                         key
                     } else {
                         null
@@ -852,9 +917,11 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
 
     private suspend fun deleteHistoryItemWithRetry(
         kid: String,
-        csrf: String
+        csrf: String,
+        isSessionCurrent: () -> Boolean,
     ): Result<Unit> {
         repeat(HISTORY_DELETE_MAX_ATTEMPTS) { attempt ->
+            if (!isSessionCurrent()) throw CancellationException("账号已切换")
             val result = com.android.purebilibili.data.repository.HistoryRepository.deleteHistoryItem(
                 kid = kid,
                 csrf = csrf
@@ -892,11 +959,43 @@ class HistoryViewModel(application: Application) : BaseListViewModel(application
 // --- 收藏 ViewModel (支持分页加载所有收藏夹) ---
 class FavoriteViewModel(application: Application) : BaseListViewModel(application, "我的收藏") {
     private var startupLoadsActivated = false
+    private var isPageActive = false
 
-    fun activateStartupLoads() {
-        if (startupLoadsActivated) return
+    fun setPageActive(active: Boolean) {
+        isPageActive = active
+        if (!active || startupLoadsActivated) return
         startupLoadsActivated = true
         loadData()
+    }
+
+    override fun onAccountChanged() {
+        startupLoadsActivated = false
+        currentUserMid = 0L
+        currentPage = 1
+        hasMore = true
+        currentFolderIndex = 0
+        isLoadingMore = false
+        subscribedCurrentPage = 0
+        subscribedHasMore = true
+        isLoadingSubscribedMore = false
+        allFolderIds = emptyList()
+        _folders.value = emptyList()
+        _subscribedFolders.value = emptyList()
+        _folderStates.values.forEach { it.value = ListUiState(isLoading = true) }
+        _folderStates.clear()
+        _fetchingIndices.clear()
+        folderRequestGenerations.clear()
+        folderLoadedOrders.clear()
+        folderPaginationStates.clear()
+        coverResolvedMediaIds.clear()
+        _selectedFolderIndex.value = 0
+        _subscribedFolderProgressState.value = SubscribedFolderProgressState()
+        _isLoadingMoreState.value = false
+        _hasMoreState.value = true
+        _isFavoriteManagingState.value = false
+        searchGeneration += 1
+        _searchUiState.value = ListUiState(title = "收藏搜索")
+        if (isPageActive) setPageActive(true)
     }
 
     private val _searchUiState = MutableStateFlow(ListUiState(title = "收藏搜索"))
@@ -1001,7 +1100,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         }
         val generation = ++searchGeneration
         _searchUiState.value = _searchUiState.value.copy(isLoading = true, error = null)
-        viewModelScope.launch {
+        accountRequests.launch {
             try {
                 fetchFolders()
                 val mediaId = allFolderIds.getOrNull(_selectedFolderIndex.value)
@@ -1055,7 +1154,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         
         _fetchingIndices.add(index)
         val requestGeneration = nextFolderRequestGeneration(index)
-        viewModelScope.launch {
+        accountRequests.launch {
             try {
                 stateFlow.value = stateFlow.value.copy(isLoading = true, error = null)
                 loadFolderContent(index, requestGeneration, stateFlow)
@@ -1181,7 +1280,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
      */
     fun ensureFavoriteFolderCovers(candidates: List<FavFolder>) {
         if (candidates.isEmpty()) return
-        viewModelScope.launch {
+        accountRequests.launch {
             coverPrefetchMutex.withLock {
                 val context = getApplication<Application>()
                 val pending = resolveFavoriteFolderCoverFetchTargets(
@@ -1274,14 +1373,21 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         ) {
             return
         }
-        viewModelScope.launch {
+        accountRequests.launch {
             loadSubscribedFoldersPage(reset = true)
         }
     }
 
     private suspend fun ensureCurrentUserMid(): Long {
+        val requestedIdentity = accountRequests.identity
+        if (!accountRequests.isCurrent(requestedIdentity)) throw CancellationException("账号已切换")
+        requestedIdentity.mid?.let {
+            currentUserMid = it
+            return it
+        }
         if (currentUserMid > 0L) return currentUserMid
         val navResp = NetworkModule.api.getNavInfo()
+        if (!accountRequests.isCurrent(requestedIdentity)) throw CancellationException("账号已切换")
         currentUserMid = navResp.data?.mid ?: 0L
         return currentUserMid
     }
@@ -1344,7 +1450,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
 
     fun loadMoreSubscribedFolders() {
         if (isLoadingSubscribedMore || !subscribedHasMore) return
-        viewModelScope.launch {
+        accountRequests.launch {
             loadSubscribedFoldersPage(reset = false)
         }
     }
@@ -1361,7 +1467,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         val pagination = folderPaginationStates.getOrPut(index) { PaginationState() }
         if (!pagination.hasMore || isLoadingMore || _fetchingIndices.contains(index)) return
         isLoadingMore = true
-        viewModelScope.launch {
+        accountRequests.launch {
             val nextPage = pagination.currentPage + 1
             val mediaId = allFolderIds[index]
             val requestedOrder = _favoriteOrderState.value.apiValue
@@ -1400,7 +1506,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
     fun loadAllForPlayback(index: Int, onLoaded: (List<VideoItem>) -> Unit) {
         if (index < 0 || index >= allFolderIds.size) return
 
-        viewModelScope.launch {
+        accountRequests.launch {
             val mediaId = allFolderIds[index]
             val requestedOrder = _favoriteOrderState.value.apiValue
             val requestGeneration = folderRequestGenerations[index] ?: 0L
@@ -1462,8 +1568,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
 
     // 保持 BaseListViewModel 兼容性 (Redirect to current folder)
     override suspend fun fetchItems(): List<VideoItem> {
-        // This is called by init -> loadData. 
-        // We can use it to initialize everything.
+        // Folder contents have independent observable states; the base list initializes the catalog.
         try {
             fetchFolders()
             if (allFolderIds.isNotEmpty()) {
@@ -1507,7 +1612,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         if (!canCleanInvalidFavoriteResources(folder)) return
         val mediaId = allFolderIds.getOrNull(folderIndex) ?: return
         _isFavoriteManagingState.value = true
-        viewModelScope.launch {
+        accountRequests.launch {
             val result = com.android.purebilibili.data.repository.FavoriteRepository.cleanInvalidResources(mediaId)
             if (result.isSuccess) {
                 android.widget.Toast.makeText(getApplication(), "已清理失效内容", android.widget.Toast.LENGTH_SHORT).show()
@@ -1527,7 +1632,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         if (_isFavoriteManagingState.value) return
         val mediaId = allFolderIds.getOrNull(_selectedFolderIndex.value) ?: return
         _isFavoriteManagingState.value = true
-        viewModelScope.launch {
+        accountRequests.launch {
             val result = com.android.purebilibili.data.repository.FavoriteRepository
                 .shareFolderToDynamic(mediaId = mediaId, content = content)
             android.widget.Toast.makeText(
@@ -1549,7 +1654,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
     ) {
         if (_isFavoriteManagingState.value || title.isBlank()) return
         _isFavoriteManagingState.value = true
-        viewModelScope.launch {
+        accountRequests.launch {
             val result = com.android.purebilibili.data.repository.ActionRepository.createFavFolder(
                 title = title.trim(),
                 intro = intro.trim(),
@@ -1567,7 +1672,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         if (_isFavoriteManagingState.value || title.isBlank()) return
         val folder = _folders.value.getOrNull(_selectedFolderIndex.value) ?: return
         _isFavoriteManagingState.value = true
-        viewModelScope.launch {
+        accountRequests.launch {
             val result = com.android.purebilibili.data.repository.FavoriteRepository.editFolder(
                 mediaId = resolveFavoriteFolderMediaId(folder),
                 title = title.trim(),
@@ -1585,7 +1690,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         if (folderIndex <= 0) return
         val folder = _folders.value.getOrNull(folderIndex) ?: return
         _isFavoriteManagingState.value = true
-        viewModelScope.launch {
+        accountRequests.launch {
             val result = com.android.purebilibili.data.repository.FavoriteRepository.deleteFolder(
                 resolveFavoriteFolderMediaId(folder),
             )
@@ -1653,7 +1758,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         val folderIndex = _selectedFolderIndex.value
         val sourceMediaId = allFolderIds.getOrNull(folderIndex) ?: return
         _isFavoriteManagingState.value = true
-        viewModelScope.launch {
+        accountRequests.launch {
             val result = if (targetMediaId == null) {
                 com.android.purebilibili.data.repository.FavoriteRepository.removeResources(
                     mediaId = sourceMediaId,
@@ -1756,7 +1861,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
             MutableStateFlow(ListUiState(isLoading = false))
         }
         
-        viewModelScope.launch {
+        accountRequests.launch {
             val originalState = stateFlow.value
             try {
                 // Optimistic update: remove from current folder state immediately.
@@ -1774,6 +1879,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
                     _uiState.value = _uiState.value.copy(error = error)
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                  e.printStackTrace()
                  val message = e.message ?: "取消收藏失败"
                  stateFlow.value = originalState.copy(error = message)

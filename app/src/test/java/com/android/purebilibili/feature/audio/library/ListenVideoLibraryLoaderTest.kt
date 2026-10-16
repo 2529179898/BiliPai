@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.audio.library
 
+import androidx.lifecycle.ViewModelStore
 import com.android.purebilibili.data.model.response.FavFolder
 import com.android.purebilibili.data.model.response.FavoriteData
 import com.android.purebilibili.data.model.response.FavoriteResourceData
@@ -28,6 +29,12 @@ import kotlin.test.assertTrue
 class ListenVideoLibraryLoaderTest {
 
     private val dispatcher = StandardTestDispatcher()
+    private val viewModelStore = ViewModelStore()
+
+    private fun createViewModel(source: ListenVideoLibraryDataSource, mid: Long) =
+        ListenVideoViewModel(source, currentMid = { mid }).also {
+            viewModelStore.put("library", it)
+        }
 
     @BeforeEach
     fun setUp() {
@@ -36,6 +43,8 @@ class ListenVideoLibraryLoaderTest {
 
     @AfterEach
     fun tearDown() {
+        viewModelStore.clear()
+        dispatcher.scheduler.runCurrent()
         Dispatchers.resetMain()
     }
 
@@ -189,7 +198,7 @@ class ListenVideoLibraryLoaderTest {
     @Test
     fun `new refresh cancels old generation and only latest result is published`() = runTest {
         val source = RestartingListenVideoDataSource()
-        val viewModel = ListenVideoViewModel(source, currentMid = { 42L })
+        val viewModel = createViewModel(source, mid = 42L)
 
         viewModel.refresh()
         runCurrent()
@@ -205,7 +214,7 @@ class ListenVideoLibraryLoaderTest {
     @Test
     fun `logged out refresh skips remote requests`() = runTest {
         val source = FakeListenVideoDataSource()
-        val viewModel = ListenVideoViewModel(source, currentMid = { 0L })
+        val viewModel = createViewModel(source, mid = 0L)
 
         viewModel.refresh()
         advanceUntilIdle()
@@ -217,7 +226,7 @@ class ListenVideoLibraryLoaderTest {
     @Test
     fun `detail retry repeats the last playlist request`() = runTest {
         val source = RetryDetailListenVideoDataSource()
-        val viewModel = ListenVideoViewModel(source, currentMid = { 42L })
+        val viewModel = createViewModel(source, mid = 42L)
         viewModel.refresh()
         advanceUntilIdle()
         val playlist = viewModel.uiState.value.playlists.single()
@@ -314,7 +323,7 @@ class ListenVideoLibraryLoaderTest {
                 awaitCancellation()
             }
         }
-        val viewModel = ListenVideoViewModel(source, currentMid = { 42L })
+        val viewModel = createViewModel(source, mid = 42L)
         viewModel.refresh()
         advanceUntilIdle()
         viewModel.selectSection(ListenVideoSection.ALBUMS)
