@@ -601,8 +601,9 @@ class VideoPlayerState(
             // 当播放状态改变时，更新通知栏（主要是播放/暂停按钮）
             if (currentTitle.isNotEmpty()) {
                 scope.launch(Dispatchers.Main) {
-                    // 使用统一的管理方法
-                    miniPlayerManager.updateMediaMetadata(currentTitle, currentArtist, currentCoverUrl)
+                    if (miniPlayerManager.player === player) {
+                        miniPlayerManager.updateMediaMetadata(currentTitle, currentArtist, currentCoverUrl)
+                    }
                 }
             }
         }
@@ -939,7 +940,9 @@ class VideoPlayerState(
     fun release() {
         player.removeListener(playerListener)
         player.removeAnalyticsListener(analyticsListener)
-        PlaybackUserActionTracker.clear(player)
+        if (!miniPlayerManager.isPlayerRetainedByPage(player)) {
+            PlaybackUserActionTracker.clear(player)
+        }
     }
 
     fun updateMediaMetadata(title: String, artist: String, coverUrl: String) {
@@ -948,9 +951,10 @@ class VideoPlayerState(
         currentArtist = artist
         currentCoverUrl = coverUrl
         
-        // 🎯 [核心修复] 将元数据同步到全局 MiniPlayerManager，由其统一推送通知
-        // 这样即使当前 Activity 销毁，全局 Service 也能持有正确的元数据和 Session
-        miniPlayerManager.updateMediaMetadata(title, artist, coverUrl)
+        // A covered detail keeps local metadata, but must not rewrite another player's session.
+        if (miniPlayerManager.player === player) {
+            miniPlayerManager.updateMediaMetadata(title, artist, coverUrl)
+        }
     }
 
     private suspend fun loadBitmap(context: Context, url: String): Bitmap? = null
@@ -1142,27 +1146,29 @@ fun rememberVideoPlayerState(
     }
 
     DisposableEffect(player) {
+        miniPlayerManager.retainPlayerForPage(player)
         onDispose {
             viewModel.flushPlaybackHeartbeatSnapshot(reason = "dispose")
             //  [新增] 保存播放进度到 ViewModel 缓存
             viewModel.saveCurrentPosition()
             
-            //  检查是否有小窗在使用这个 player
-            val miniPlayerManager = MiniPlayerManager.getInstance(context)
-            // 仅当当前实例仍被 MiniPlayerManager 持有时才保留
-            val shouldKeepPlayer = miniPlayerManager.isPlayerManaged(player) &&
+            // Pair retain/release on the same manager, even if its singleton is later replaced.
+            miniPlayerManager.releasePlayerFromPage(player)
+            holder.release()
+            val shouldKeepPlayer = miniPlayerManager.isPlayerRetainedByPage(player) ||
                 (
-                    miniPlayerManager.isActive ||
-                        com.android.purebilibili.feature.audio.player.AudioNowPlayingSession.active.value
+                    miniPlayerManager.isPlayerManaged(player) &&
+                        (
+                            miniPlayerManager.isActive ||
+                                com.android.purebilibili.feature.audio.player.AudioNowPlayingSession.active.value
+                        )
                 )
             
             if (shouldKeepPlayer) {
-                // 小窗模式下不释放 player，只释放其他资源
-                com.android.purebilibili.core.util.Logger.d("VideoPlayerState", " MiniPlayerManager 正在使用此 player，不释放")
+                // Another page or the mini/audio session still owns this instance.
+                Logger.d("VideoPlayerState", "Keep player retained by another page or playback session")
             } else {
                 viewModel.cancelPendingVideoLoad()
-                // ⚡ [性能优化] 释放视频尺寸监听器（快速，main thread）
-                holder.release()
                 // 仅当引用匹配时才清理，避免误清理新页面正在使用的 player
                 miniPlayerManager.clearExternalPlayerIfMatches(player)
                 

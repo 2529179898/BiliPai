@@ -3612,7 +3612,12 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                         // Background collection is lifecycle-paused, while playback can still
                         // advance through a UGC season.
                         appContext?.let { context ->
-                            MiniPlayerManager.getInstance(context).syncCurrentVideoInfo(readyState)
+                            exoPlayer?.let { player ->
+                                MiniPlayerManager.getInstance(context).syncCurrentVideoInfo(
+                                    readyState,
+                                    expectedPlayer = player,
+                                )
+                            }
                         }
 
                         // Schedule non-blocking HDR auto-upgrade after SDR fast-start
