@@ -187,10 +187,11 @@ internal fun HomeStyleSingleColumnVideoCard(
                     title = video.title,
                     ownerName = video.owner.name,
                     ownerFaceUrl = video.owner.face,
+                    recommendationReason = video.recommendationReason,
                     viewText = FormatUtils.formatStat(video.stat.view.toLong()),
                     danmakuText = FormatUtils.formatStat(video.stat.danmaku.toLong()),
                     durationText = FormatUtils.formatDuration(video.duration),
-                    followed = isFollowing,
+                    followed = isFollowing || video.isFollowed,
                     // Single-column paints play/danmaku in the info column (not on cover only).
                     infoPresentation = com.android.purebilibili.core.ui.transition
                         .resolveVideoCardSourceInfoPresentation(
@@ -306,13 +307,21 @@ internal fun HomeStyleSingleColumnVideoCard(
                 } else {
                     null
                 },
-                nameLeadingContent = if (isFollowing) {
+                nameLeadingContent = if (isFollowing || video.isFollowed || video.recommendationReason.isNotBlank()) {
                     {
-                        AppText(
-                            text = "已关注",
-                            style = contentTypography.coverBadge,
-                            color = AppContentColors.accent(),
-                        )
+                        Row(
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            VideoRecommendationBadge(video.recommendationReason)
+                            if (isFollowing || video.isFollowed) {
+                                AppText(
+                                    text = "已关注",
+                                    style = contentTypography.coverBadge,
+                                    color = AppContentColors.accent(),
+                                )
+                            }
+                        }
                     }
                 } else {
                     null

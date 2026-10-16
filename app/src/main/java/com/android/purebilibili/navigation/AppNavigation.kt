@@ -1448,6 +1448,9 @@ fun AppNavigation(
                 is HomeNavigationTarget.DynamicDetail -> {
                     pushNavigation3Route(ScreenRoutes.DynamicDetail.createRoute(target.dynamicId))
                 }
+                is HomeNavigationTarget.BangumiDetail -> {
+                    pushNavigation3Key(BiliPaiNavKey.BangumiDetail(seasonId = 0L, epId = target.episodeId))
+                }
                 null -> Unit
             }
         }
@@ -1864,31 +1867,58 @@ fun AppNavigation(
                 submitSearchKeywordInNavigation3(keyword)
             }
         }
+        // Shared across recompositions: one pending short-link resolution per navigation host.
+        val linkOpenGate = remember { com.android.purebilibili.feature.web.LinkOpenGate() }
         fun openBilibiliLinkInNavigation3(rawLink: String) {
-            when (val action = resolveBilibiliLinkNavigationAction(rawLink)) {
-                is BilibiliLinkNavigationAction.NativeTarget -> {
-                    openBilibiliNativeTargetInNavigation3(action.target)
-                }
-                is BilibiliLinkNavigationAction.InAppWeb -> {
-                    if (!canNavigate(false)) return
-                    if (isBilibiliShortWebLink(action.url)) {
-                        coroutineScope.launch {
-                            val resolvedTarget = BilibiliNavigationTargetParser.resolve(action.url)
-                            if (
-                                resolvedTarget == null ||
-                                !openBilibiliNativeTargetInNavigation3(resolvedTarget)
-                            ) {
-                                pushNavigation3Key(BiliPaiNavKey.Web(action.url))
-                            }
-                        }
-                    } else {
-                        pushNavigation3Key(BiliPaiNavKey.Web(action.url))
+            if (!linkOpenGate.tryAcquire(SystemClock.elapsedRealtime())) return
+
+            var resolving = false
+            try {
+                when (val action = resolveBilibiliLinkNavigationAction(rawLink)) {
+                    is BilibiliLinkNavigationAction.NativeTarget -> {
+                        openBilibiliNativeTargetInNavigation3(action.target)
                     }
+                    is BilibiliLinkNavigationAction.InAppWeb -> {
+                        if (!canNavigate(false)) return
+                        if (isBilibiliShortWebLink(action.url)) {
+                            val sourceStack = navigation3BackStack.toList()
+                            val job = coroutineScope.launch {
+                                val resolvedTarget = BilibiliNavigationTargetParser.resolve(action.url)
+                                // Discard a late result if the user has already left the source page.
+                                if (navigation3BackStack.toList() != sourceStack) return@launch
+                                if (
+                                    resolvedTarget == null ||
+                                    !openBilibiliNativeTargetInNavigation3(resolvedTarget)
+                                ) {
+                                    pushNavigation3Key(BiliPaiNavKey.Web(action.url))
+                                }
+                            }
+                            resolving = true
+                            job.invokeOnCompletion { linkOpenGate.release() }
+                        } else {
+                            pushNavigation3Key(BiliPaiNavKey.Web(action.url))
+                        }
+                    }
+                    is BilibiliLinkNavigationAction.External -> {
+                        if (com.android.purebilibili.feature.web.shouldAttemptInstantArticle(action.url)) {
+                            pushNavigation3Key(BiliPaiNavKey.Web(action.url))
+                        } else {
+                            runCatching { uriHandler.openUri(action.url) }
+                        }
+                    }
+                    BilibiliLinkNavigationAction.None -> Unit
                 }
-                is BilibiliLinkNavigationAction.External -> {
-                    runCatching { uriHandler.openUri(action.url) }
-                }
-                BilibiliLinkNavigationAction.None -> Unit
+            } finally {
+                if (!resolving) linkOpenGate.release()
+            }
+        }
+        fun openDynamicContentLinkInNavigation3(rawLink: String) {
+            // Rich text also contains app/search schemes. Preserve their existing
+            // system handler when the native HTTP link resolver cannot handle them.
+            if (resolveBilibiliLinkNavigationAction(rawLink) == BilibiliLinkNavigationAction.None) {
+                runCatching { uriHandler.openUri(rawLink) }
+            } else {
+                openBilibiliLinkInNavigation3(rawLink)
             }
         }
         fun openMessageLinkInNavigation3(rawLink: String) {
@@ -2473,6 +2503,7 @@ fun AppNavigation(
                     ) {
                         com.android.purebilibili.feature.dynamic.DynamicDetailScreen(
                             dynamicId = dynamicKey.dynamicId,
+                            onOpenLink = ::openDynamicContentLinkInNavigation3,
                             contentTransitionReady = contentReady,
                             openCommentRootRpid = dynamicKey.commentRootRpid,
                             openCommentTargetRpid = dynamicKey.commentTargetRpid,
@@ -3115,6 +3146,7 @@ fun AppNavigation(
                                 )
                             }
                         BiliPaiNavEntryContentRole.DYNAMIC -> DynamicScreen(
+                            onOpenLink = ::openDynamicContentLinkInNavigation3,
                             isCurrentPage = isBottomPagerPageActive,
                             onVideoClick = { bvid ->
                                 navigateToVideoInNavigation3(
@@ -4589,7 +4621,20 @@ fun AppNavigation(
                         }
                         BiliPaiNavEntryContentRole.WEB -> {
                                 val webKey = key as BiliPaiNavKey.Web
-                                com.android.purebilibili.feature.web.WebViewScreen(
+                                // This is the content-link destination only. RSS "open original"
+                                // still calls WebViewScreen directly and keeps its external-browser policy.
+                                if (com.android.purebilibili.feature.web.shouldAttemptInstantArticle(webKey.url)) {
+                                    com.android.purebilibili.feature.web.InstantArticleScreen(
+                                        url = webKey.url,
+                                        initialTitle = webKey.title,
+                                        onBack = { performSystemBackAction() },
+                                        onOpenLink = ::openBilibiliLinkInNavigation3,
+                                        onNativeRedirect = { url ->
+                                            replaceNavigation3BackStack(popBiliPaiNavKey(navigation3BackStack))
+                                            openBilibiliLinkInNavigation3(url)
+                                        },
+                                    )
+                                } else com.android.purebilibili.feature.web.WebViewScreen(
                                     url = webKey.url,
                                     title = webKey.title.ifEmpty { null },
                                     onBack = { performSystemBackAction() },

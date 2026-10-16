@@ -435,6 +435,8 @@ fun BottomBarLiquidSegmentedControl(
     liquidGlassTuningOverride: LiquidGlassTuning? = null,
     geometryMode: FloatingBottomBarGeometryMode = FloatingBottomBarGeometryMode.Segmented,
     centerGlassContent: Boolean = false,
+    // Applied below the native renderer returns; native indicator geometry stays unchanged.
+    liquidGlassAdaptIndicatorToLabel: Boolean = true,
     liquidGlassLabelHorizontalPadding: Dp? = null,
     // Geometry-only labels for asynchronous badges. Native renderers and visible text ignore them.
     liquidGlassMeasurementLabels: List<String>? = null,
@@ -603,6 +605,7 @@ fun BottomBarLiquidSegmentedControl(
             ).value
         } else measuredLiquidItemWidth
         BottomBarFloatingSegmentedControl(
+            adaptIndicatorToLabel = liquidGlassAdaptIndicatorToLabel,
             items = items,
             liquidGlassMeasurementLabels = glassMeasurementLabels,
             liquidGlassAnimateLabelWidthChanges = liquidGlassAnimateLabelWidthChanges,

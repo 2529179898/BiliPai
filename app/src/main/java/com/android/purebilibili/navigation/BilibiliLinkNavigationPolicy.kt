@@ -34,7 +34,7 @@ internal fun resolveBilibiliLinkNavigationAction(rawLink: String): BilibiliLinkN
 internal fun isBilibiliShortWebLink(url: String): Boolean {
     val uri = runCatching { URI(url) }.getOrNull() ?: return false
     val host = uri.host?.lowercase().orEmpty()
-    return host == "b23.tv" || host.endsWith(".b23.tv")
+    return com.android.purebilibili.core.util.isBilibiliShortHost(host)
 }
 
 private fun normalizeBilibiliLinkCandidate(rawLink: String): String? {
@@ -61,6 +61,5 @@ private fun normalizeBilibiliLinkCandidate(rawLink: String): String? {
 private fun isBilibiliWebLink(url: String): Boolean {
     val uri = runCatching { URI(url) }.getOrNull() ?: return false
     val host = uri.host?.lowercase().orEmpty()
-    return host == "bilibili.com" || host.endsWith(".bilibili.com") ||
-        host == "b23.tv" || host.endsWith(".b23.tv")
+    return com.android.purebilibili.core.util.isBilibiliWebHost(host)
 }

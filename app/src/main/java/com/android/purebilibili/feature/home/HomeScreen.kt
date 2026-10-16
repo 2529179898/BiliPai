@@ -340,6 +340,7 @@ fun HomeScreen(
     var partitionScrollToTopRequestId by remember { mutableIntStateOf(0) }
     var subscriptionScrollToTopRequestId by remember { mutableIntStateOf(0) }
     var subscriptionArticleOpen by remember { mutableStateOf(false) }
+    var subscriptionArticleScrolling by remember { mutableStateOf(false) }
     val subscriptionListState = rememberHomeStaggeredGridState()
     // [Feature] Video Preview State (Global Scope)
     val targetVideoItemState = remember { mutableStateOf<VideoItem?>(null) }
@@ -1803,7 +1804,12 @@ fun HomeScreen(
         gridStates,
         popularGridStates
     ) {
-        { request ->
+        homeClick@{ request ->
+            if (request.episodeId > 0L ||
+                (request.dynamicId.isNotBlank() && !request.bvid.startsWith("BV", ignoreCase = true))) {
+                onVideoClick(request)
+                return@homeClick
+            }
             val activeGridState = if (currentCategory == HomeCategory.POPULAR) {
                 popularGridStates[popularSubCategory]
             } else {
@@ -2045,6 +2051,7 @@ fun HomeScreen(
                                         pinchPillDismissJob?.cancel()
                                     },
                                     onArticleOpenChanged = { subscriptionArticleOpen = it },
+                                    onArticleScrollInProgressChanged = { subscriptionArticleScrolling = it },
                                     onPinchEnd = { finalColumns ->
                                         coroutineScope.launch {
                                             // 窄屏（外屏/手机）与宽屏（内屏/平板）各写各的记忆
@@ -2559,8 +2566,13 @@ fun HomeScreen(
         //  Header 现在在外层 Box 内、hazeSource 外部，可以正确模糊内层内容
         //  [Restored] Header 始终显示，不再随 Loading/Error 状态隐藏
         //  这保证了 Tab 指示器状态的连续性，防止消失或重置
-        val isFeedScrollInProgress by remember(activeGridState) {
-            derivedStateOf { activeGridState?.isScrollInProgress == true }
+        val isFeedScrollInProgress by remember(activeGridState, pagerState, topTabEntries, subscriptionListState) {
+            derivedStateOf {
+                if (resolveHomeTopTabEntryOrNull(topTabEntries, pagerState.currentPage) == HomeTopTabEntry.Subscriptions) {
+                    if (subscriptionArticleOpen) subscriptionArticleScrolling
+                    else subscriptionListState.isScrollInProgress
+                } else activeGridState?.isScrollInProgress == true
+            }
         }
         if (isTopLevelActive) {
             SideEffect {

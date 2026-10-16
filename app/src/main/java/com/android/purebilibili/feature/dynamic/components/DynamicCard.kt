@@ -129,6 +129,7 @@ data class DynamicCardNavigationActions(
     val onMusicClick: ((Long) -> Unit)? = null,
     val onCollectionClick: ((Long, Long, String, String) -> Unit)? = null,
     val onCourseClick: ((String, String) -> Unit)? = null,
+    val onOpenLink: ((String) -> Unit)? = null,
     val onArticleClick: ((articleId: Long, title: String) -> Unit)? = null,
     val onDynamicDetailClick: ((dynamicId: String) -> Unit)? = null,
     val onUnfoldRelatedClick: ((dynamicId: String) -> Unit)? = null,
@@ -189,6 +190,7 @@ fun DynamicCardV2(
     val onLiveClick = actions.navigation.onLiveClick
     val onMusicClick = actions.navigation.onMusicClick
     val onCollectionClick = actions.navigation.onCollectionClick
+    val onOpenLink = actions.navigation.onOpenLink
     val onCourseClick = actions.navigation.onCourseClick
     val onArticleClick = actions.navigation.onArticleClick
     val onDynamicDetailClick = actions.navigation.onDynamicDetailClick
@@ -293,6 +295,14 @@ fun DynamicCardV2(
         ?.takeUnless { card -> card.linkCardIdentity() in opusLinkCardIdentities }
     //  附加内容卡的跳转分发：信息流与详情页共用同一套解析，
     //  避免同一个链接在列表里走外链、进详情却打开 App 内页面。
+    val openContentUrl: (String) -> Unit = { raw ->
+        val target = if (raw.startsWith("//")) "https:$raw" else raw
+        if (onOpenLink != null && com.android.purebilibili.feature.web.shouldAttemptInstantArticle(target)) {
+            onOpenLink(target)
+        } else {
+            openDynamicUrl(uriHandler, target)
+        }
+    }
     val openLinkCardTarget: (OpusLinkCard) -> Unit = { linkCard ->
         when (val action = resolveDynamicOpusLinkCardAction(linkCard)) {
             is DynamicOpusLinkCardAction.OpenVideo -> onVideoClick(action.videoId)
@@ -305,7 +315,7 @@ fun DynamicCardV2(
             )
             is DynamicOpusLinkCardAction.OpenUser -> onUserClick(action.mid)
             is DynamicOpusLinkCardAction.OpenBangumi -> onBangumiClick(action.seasonId, action.epId)
-            is DynamicOpusLinkCardAction.OpenExternalUrl -> openDynamicUrl(uriHandler, action.url)
+            is DynamicOpusLinkCardAction.OpenExternalUrl -> openContentUrl(action.url)
             DynamicOpusLinkCardAction.None -> Unit
         }
     }
@@ -1005,6 +1015,7 @@ fun DynamicCardV2(
                 ) {
                     Column {
                         RichTextContent(
+                            onLinkClick = onOpenLink,
                             desc = desc,
                             collapseWebLinks = isDetail,
                             onUserClick = onUserClick,
@@ -1076,6 +1087,7 @@ fun DynamicCardV2(
                         )
                         Spacer(modifier = Modifier.width(AppSpacingTokens.ExtraSmall))
                         RichTextContent(
+                            onLinkClick = onOpenLink,
                             desc = desc,
                             collapseWebLinks = isDetail,
                             onUserClick = onUserClick,
@@ -1283,6 +1295,7 @@ fun DynamicCardV2(
                                         .padding(bottom = AppSpacingTokens.Medium),
                                 ) {
                                     RichTextContent(
+                                        onLinkClick = onOpenLink,
                                         desc = richBlockDesc,
                                         collapseWebLinks = isDetail,
                                         onUserClick = onUserClick,
@@ -1493,7 +1506,7 @@ fun DynamicCardV2(
                                 onReserveClick = onReserveClick,
                                 onVoteClick = { voteId -> pendingVoteId = voteId },
                                 onOpenCard = openLinkCardTarget,
-                                onOpenUrl = { url -> openDynamicUrl(uriHandler, url) },
+                                onOpenUrl = { url -> openContentUrl(url) },
                             )
                         }
                     }
@@ -1811,7 +1824,7 @@ fun DynamicCardV2(
                     if (musicId != null && onMusicClick != null) {
                         onMusicClick(musicId)
                     } else if (music.jump_url.isNotBlank()) {
-                        openDynamicUrl(uriHandler, music.jump_url)
+                        openContentUrl(music.jump_url)
                     }
                 },
             )
@@ -1833,7 +1846,7 @@ fun DynamicCardV2(
                         mediaList.title,
                         mediaList.jump_url,
                     )
-                        ?: openDynamicUrl(uriHandler, mediaList.jump_url)
+                        ?: openContentUrl(mediaList.jump_url)
                 },
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
@@ -1852,7 +1865,7 @@ fun DynamicCardV2(
                 enabled = course.jump_url.isNotBlank(),
                 onClick = {
                     onCourseClick?.invoke(course.jump_url, course.title)
-                        ?: openDynamicUrl(uriHandler, course.jump_url)
+                        ?: openContentUrl(course.jump_url)
                 },
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
@@ -1872,7 +1885,7 @@ fun DynamicCardV2(
                 kindLabel = majorCard.kindLabel,
                 actionLabel = majorCard.actionLabel,
                 enabled = majorCard.enabled && majorCard.jumpUrl.isNotBlank(),
-                onClick = { openDynamicUrl(uriHandler, majorCard.jumpUrl) },
+                onClick = { openContentUrl(majorCard.jumpUrl) },
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
         }
@@ -1905,7 +1918,7 @@ fun DynamicCardV2(
                 onReserveClick = onReserveClick,
                 onVoteClick = { voteId -> pendingVoteId = voteId },
                 onOpenCard = openLinkCardTarget,
-                onOpenUrl = { url -> openDynamicUrl(uriHandler, url) },
+                onOpenUrl = { url -> openContentUrl(url) },
             )
             Spacer(modifier = Modifier.height(AppSpacingTokens.Medium))
         }

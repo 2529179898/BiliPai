@@ -2,6 +2,12 @@ package com.android.purebilibili.feature.home.components
 
 import kotlin.math.roundToInt
 
+/** Shared alpha handoff for the overlapping glass navigation and compact button. */
+internal fun resolveLinkedDockGlassHandoffProgress(mergeProgress: Float): Float {
+    val progress = (mergeProgress / 0.34f).coerceIn(0f, 1f)
+    return progress * progress * progress
+}
+
 enum class LinkedDockPhase { Expanded, Playback, Compact, Search }
 
 /** Search owns the first tap on the compact artwork target. */

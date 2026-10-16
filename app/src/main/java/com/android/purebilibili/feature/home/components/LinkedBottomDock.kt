@@ -137,7 +137,7 @@ internal fun LinkedBottomDock(
         val currentPhase by rememberUpdatedState(phase)
         val scrolling by rememberUpdatedState(isFeedScrollInProgress)
         val threshold = with(LocalDensity.current) { 24.dp.toPx() }
-        LaunchedEffect(currentItem, hasAudio, searchEnabled, scroll, threshold, isTopLevelDestination, mergeOnScrollDownEnabled) {
+        LaunchedEffect(currentItem, hasAudio, searchEnabled, scroll, threshold, isTopLevelDestination, mergeOnScrollDownEnabled, glassEnabled) {
             var previous = scroll.floatValue
             var accumulated = 0f
             snapshotFlow { scroll.floatValue to scrolling }.collect { (offset, active) ->
@@ -148,13 +148,17 @@ internal fun LinkedBottomDock(
                 } else if (!mergeOnScrollDownEnabled) {
                     // 用户选择下滑不合体：只保留向上滚动回到展开（分体）的能力。
                     accumulated = accumulateDockScroll(accumulated, delta)
-                    if ((offset <= 0f && delta < 0f) || accumulated <= -threshold) {
+                    // The shared offset is a relative accumulator, not distance from the top.
+                    // Glass requires the full direction threshold even when it becomes negative.
+                    if ((!glassEnabled && offset <= 0f && delta < 0f) || accumulated <= -threshold) {
                         updatePhase(LinkedDockPhase.Expanded)
                         accumulated = 0f
                     }
                 } else {
                     accumulated = accumulateDockScroll(accumulated, delta)
-                    if ((offset <= 0f && delta < 0f) || accumulated <= -threshold) {
+                    // The shared offset is a relative accumulator, not distance from the top.
+                    // Glass requires the full direction threshold even when it becomes negative.
+                    if ((!glassEnabled && offset <= 0f && delta < 0f) || accumulated <= -threshold) {
                         updatePhase(LinkedDockPhase.Expanded)
                         accumulated = 0f
                     } else if (hasAudio && accumulated >= threshold) {
@@ -353,8 +357,9 @@ internal fun LinkedBottomDock(
             // 两行胶囊长度一致、左右边缘对齐。
             val bottomBarClusterWidth = (navWidth + reservedSearchWidth).coerceAtMost(maximumWidth)
 
-            // 折叠落定时不组合导航行（等价旧实现 progress>=0.999 不放置），
-            // 避免透明导航层在静止折叠态拦截底栏区域外的触摸。
+            // Glass keeps the navigation/backdrop mounted across both endpoints. At the compact
+            // endpoint skip placement so the hidden row neither draws nor intercepts touches.
+            // Native toolbars retain their original composition and motion behavior.
             val collapsedAtRest = phase != LinkedDockPhase.Expanded && !transition.isRunning
 
             Box(
@@ -363,7 +368,7 @@ internal fun LinkedBottomDock(
                     with(density) { containerHeight.toDp() },
                 )
             ) {
-                if (!collapsedAtRest) {
+                if (glassEnabled || !collapsedAtRest) {
                     Box(
                         modifier = Modifier
                             .offset { IntOffset(navigationX, navRowY) }
@@ -371,11 +376,23 @@ internal fun LinkedBottomDock(
                                 with(density) { navWidth.toDp() },
                                 with(density) { barHeight.toDp() },
                             )
+                            .then(
+                                if (glassEnabled) Modifier.layout { measurable, constraints ->
+                                    val placeable = measurable.measure(constraints)
+                                    layout(placeable.width, placeable.height) {
+                                        if (merge.value < 1f) {
+                                            placeable.placeRelative(0, 0)
+                                        }
+                                    }
+                                } else Modifier
+                            )
                             .graphicsLayer {
                                 // 退出窗口（前 34%）ease-in 淡出；全程向左侧圆钮方向
                                 // 轻微收拢缩放，读作"并入圆钮"而非原地溶解。
                                 val exitProgress = (merge.value / 0.34f).coerceIn(0f, 1f)
-                                alpha = 1f - EaseInCubic.transform(exitProgress)
+                                alpha = if (glassEnabled) {
+                                    1f - resolveLinkedDockGlassHandoffProgress(merge.value)
+                                } else 1f - EaseInCubic.transform(exitProgress)
                                 val collapse = EaseOutCubic.transform(merge.value)
                                 scaleX = 1f - 0.10f * collapse
                                 scaleY = 1f - 0.10f * collapse
@@ -452,7 +469,11 @@ internal fun LinkedBottomDock(
                                 // 进入窗口（前 50%）ease-out 淡入并从 92% 缩放弹出，落定干净无过冲。
                                 val enterProgress = (merge.value / 0.5f).coerceIn(0f, 1f)
                                 val eased = EaseOutCubic.transform(enterProgress)
-                                alpha = eased
+                                // One complementary handoff prevents both glass shells from
+                                // brightening the same region during merge and reversal.
+                                alpha = if (glassEnabled) {
+                                    resolveLinkedDockGlassHandoffProgress(merge.value)
+                                } else eased
                                 val scale = 0.92f + 0.08f * eased
                                 scaleX = scale
                                 scaleY = scale

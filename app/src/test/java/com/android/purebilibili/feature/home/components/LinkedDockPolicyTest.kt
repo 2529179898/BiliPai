@@ -7,6 +7,20 @@ import kotlin.test.assertTrue
 
 class LinkedDockPolicyTest {
     @Test
+    fun glassHandoffIsContinuousMonotonicAndBoundedInBothDirections() {
+        assertEquals(0f, resolveLinkedDockGlassHandoffProgress(-0.1f))
+        assertEquals(1f, resolveLinkedDockGlassHandoffProgress(1.1f))
+        assertEquals(0.125f, resolveLinkedDockGlassHandoffProgress(0.17f), 0.0001f)
+        val forward = (0..100).map { resolveLinkedDockGlassHandoffProgress(it / 100f) }
+        assertTrue(forward.zipWithNext().all { (a, b) -> b >= a && b - a < 0.09f })
+        assertEquals(forward.reversed(), (100 downTo 0).map { resolveLinkedDockGlassHandoffProgress(it / 100f) })
+        forward.forEach { compactAlpha ->
+            val navigationAlpha = 1f - compactAlpha
+            assertEquals(1f, navigationAlpha + compactAlpha, 0.0001f)
+        }
+    }
+
+    @Test
     fun expandedDockKeepsSearchBesideActualNavigationWidth() {
         assertEquals(
             196,

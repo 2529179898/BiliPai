@@ -14,6 +14,14 @@ import kotlin.test.assertTrue
  * 推荐流过滤规则测试(纯函数, 对齐 BiliPai RecommendFilter)。
  */
 class BiliPaiFeedFilterPluginTest {
+    @Test
+    fun nativeCardsSkipAvStatisticsButStillRespectTitleFilters() {
+        val card = VideoItem(bvid = "dynamic:123", contentType = "picture", title = "普通动态")
+        val config = BiliPaiFeedFilterConfig(minDurationForRcmd = 100, minPlayForRcmd = 10000)
+        assertTrue(shouldShowFeedItem(config, card, FeedKind.HOME_RECOMMEND, null, null))
+        assertFalse(shouldShowFeedItem(config, card, FeedKind.HOME_RECOMMEND, Regex("动态"), null))
+    }
+
 
     private fun video(
         title: String = "普通视频",

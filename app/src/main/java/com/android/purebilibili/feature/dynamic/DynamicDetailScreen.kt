@@ -136,6 +136,7 @@ fun DynamicDetailScreen(
     onMusicClick: ((Long) -> Unit)? = null,
     onCollectionClick: ((Long, Long, String, String) -> Unit)? = null,
     onCourseClick: ((String, String) -> Unit)? = null,
+    onOpenLink: ((String) -> Unit)? = null,
     onDynamicDetailClick: (String) -> Unit = {},
     onShareToMessageClick: ((DynamicItem) -> Unit)? = null,
     contentTransitionReady: Boolean = true,
@@ -369,6 +370,7 @@ fun DynamicDetailScreen(
                                     onMusicClick = onMusicClick,
                                     onCollectionClick = onCollectionClick,
                                     onCourseClick = onCourseClick,
+                                    onOpenLink = onOpenLink,
                                     onDynamicDetailClick = onDynamicDetailClick,
                                 ),
                                 interaction = DynamicCardInteractionActions(

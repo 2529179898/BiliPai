@@ -67,12 +67,14 @@ object BilibiliNavigationTargetParser {
 
         val uri = runCatching { URI(normalizedInput) }.getOrNull() ?: return null
         val scheme = uri.scheme?.lowercase().orEmpty()
-        val host = uri.host?.lowercase().orEmpty()
+        val host = uri.host?.lowercase()?.trimEnd('.').orEmpty()
         val pathSegments = uri.path
             ?.split("/")
             ?.filter { it.isNotEmpty() }
             ?: emptyList()
         val queryMap = extractQueryParameters(uri.rawQuery)
+
+        if (scheme in listOf("http", "https") && !isBilibiliWebHost(host)) return null
 
         resolveWrappedUrl(queryMap)?.let { wrappedUrl ->
             parse(wrappedUrl)?.let { return it }
@@ -85,7 +87,7 @@ object BilibiliNavigationTargetParser {
 
         if (scheme !in listOf("http", "https")) return null
 
-        if (host.contains("bilibili.com") || host.contains("b23.tv")) {
+        if (isBilibiliWebHost(host)) {
             mapParseResult(BilibiliUrlParser.parseDeepLink(normalizedInput))?.let { return it }
         }
         resolveHttpTarget(host, pathSegments, queryMap)?.let { return it }
@@ -202,7 +204,7 @@ object BilibiliNavigationTargetParser {
             }
 
             host == "search.bilibili.com" ||
-                (host.contains("bilibili.com") && pathSegments.firstOrNull()?.equals("search", ignoreCase = true) == true) -> {
+                (isBilibiliHost(host) && pathSegments.firstOrNull()?.equals("search", ignoreCase = true) == true) -> {
                 resolveSearchKeyword(queryMap)?.let {
                     return BilibiliNavigationTarget.Search(keyword = it)
                 }
@@ -215,7 +217,7 @@ object BilibiliNavigationTargetParser {
                 }
             }
 
-            host.contains("bilibili.com") -> {
+            isBilibiliHost(host) -> {
                 resolveArticleTarget(pathSegments, queryMap, allowBareReadPath = false)?.let { return it }
                 resolveBangumiTarget(pathSegments)?.let { return it }
             }
@@ -364,7 +366,7 @@ object BilibiliNavigationTargetParser {
 
     private fun isShortLinkHost(url: String): Boolean {
         val uri = runCatching { URI(url) }.getOrNull() ?: return false
-        return uri.host?.contains("b23.tv", ignoreCase = true) == true
+        return isBilibiliShortHost(uri.host)
     }
 
     private fun normalizeInput(input: String): String? {

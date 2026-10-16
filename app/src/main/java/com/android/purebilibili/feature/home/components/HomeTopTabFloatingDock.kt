@@ -277,6 +277,11 @@ internal fun HomeTopTabFloatingDock(
         longPressDragSelectionEnabled = scrollState != null,
         miuixBackdrop = miuixBackdrop,
         containerColorOverride = shellColor,
+        // Native Miuix shares the bottom navigation's themed selection fill.
+        // Glass retains its neutral lens and MD3 retains its own renderer defaults.
+        indicatorIdleSurfaceColorOverride = if (
+            LocalAppUiStyle.current == AppUiStyle.MIUIX && !liquidGlassEffectsEnabled
+        ) MaterialTheme.colorScheme.secondaryContainer else null,
         selectedTextColorOverride = selectedContentColor,
         unselectedTextColorOverride = unselectedContentColor,
         indicatorPositionProvider = indicatorPositionProvider,

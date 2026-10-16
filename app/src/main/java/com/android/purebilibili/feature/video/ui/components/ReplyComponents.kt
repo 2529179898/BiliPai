@@ -683,6 +683,12 @@ internal fun resolveReplyContentUrlNavigationUrl(
     // 动态/图文链接的 app_url_schema 偶尔会被服务端下发成 bilibili://video/{动态ID}。
     // 先保留可解析为动态的 Web URL，避免把动态 ID 当视频 aid 打开。
     listOf(url.url, rawToken).firstOrNull(::isReplyDynamicNavigationUrl)?.let { return it }
+    // 服务端给商业链接附带的视频 schema 可能指向来源视频；有明确网页目标时优先保留。
+    val webUrl = url.url.trim()
+    val webUri = runCatching { java.net.URI(webUrl) }.getOrNull()
+    if (webUri?.scheme?.lowercase() in listOf("http", "https") &&
+        !com.android.purebilibili.core.util.isBilibiliShortHost(webUri?.host)
+    ) return webUrl
     // 商业富链接可能提供宿主不支持的 app schema；不能让它覆盖可用的网页地址。
     val appSchema = url.appUrlSchema.trim()
     if (appSchema.isNotEmpty() &&

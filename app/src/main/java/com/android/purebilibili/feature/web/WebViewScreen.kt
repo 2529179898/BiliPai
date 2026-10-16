@@ -81,12 +81,17 @@ fun WebViewScreen(
 
     var rendererFailed by remember(url) { mutableStateOf(false) }
     var externalUrl by remember(url) { mutableStateOf<String?>(null) }
+    val externalOpenGate = remember(url) { LinkOpenGate() }
     val openExternal by rememberUpdatedState<(String) -> Unit>({ targetUrl ->
-        runCatching { uriHandler.openUri(targetUrl) }
-            .onSuccess { externalUrl = targetUrl }
-            .onFailure {
-                Toast.makeText(context, "没有可打开此链接的应用", Toast.LENGTH_SHORT).show()
-            }
+        // Redirect callbacks can arrive repeatedly before Compose removes AndroidView.
+        if (externalOpenGate.tryAcquire(android.os.SystemClock.elapsedRealtime())) {
+            runCatching { uriHandler.openUri(targetUrl) }
+                .onSuccess { externalUrl = targetUrl }
+                .onFailure {
+                    externalOpenGate.release()
+                    Toast.makeText(context, "没有可打开此链接的应用", Toast.LENGTH_SHORT).show()
+                }
+        }
     })
 
     AppScaffold(

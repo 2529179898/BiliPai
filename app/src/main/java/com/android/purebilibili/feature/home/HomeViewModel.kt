@@ -825,7 +825,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun filterTodayWatchExpandedCandidates(videos: List<VideoItem>): List<VideoItem> {
-        val validVideos = videos.filter { it.bvid.isNotBlank() && it.title.isNotBlank() }
+        val validVideos = videos.filter {
+            it.bvid.isNotBlank() && it.title.isNotBlank() && it.contentType !in setOf("bangumi", "picture")
+        }
         val blockedFiltered = validVideos.filter { it.owner.mid !in blockedMids }
         val feedbackFiltered = filterHomeFeedbackVideos(blockedFiltered)
         val builtinFiltered = PluginManager.filterFeedItems(
@@ -897,13 +899,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun getRecommendCandidates(): List<VideoItem> {
         val state = _uiState.value
         val recommendVideos = state.categoryStates[HomeCategory.RECOMMEND]?.videos.orEmpty()
-        return if (recommendVideos.isNotEmpty()) {
+        return (if (recommendVideos.isNotEmpty()) {
             recommendVideos
         } else if (state.currentCategory == HomeCategory.RECOMMEND) {
             state.videos
         } else {
             emptyList()
-        }
+        }).filter { it.contentType !in setOf("bangumi", "picture") }
     }
 
     //  [新增] 切换分类
@@ -2248,6 +2250,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun getPreviewVideoUrl(bvid: String, cid: Long): String? {
         return try {
             com.android.purebilibili.data.repository.VideoRepository.getPreviewVideoUrl(bvid, cid)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             e.printStackTrace()
             null

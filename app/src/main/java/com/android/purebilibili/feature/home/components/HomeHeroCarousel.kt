@@ -8,7 +8,6 @@ import com.android.purebilibili.core.ui.AppSpacingTokens
 
 import com.android.purebilibili.core.ui.MediaContrastPalette
 
-import android.net.Uri
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -45,7 +44,6 @@ import com.android.purebilibili.core.ui.components.AppIcon
 import androidx.compose.material3.MaterialTheme
 import com.android.purebilibili.core.ui.components.AppText
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -77,14 +75,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.android.purebilibili.core.ui.adaptive.adaptiveCardHoverEffect
@@ -336,8 +328,10 @@ private fun HomeHeroCarouselCard(
     val context = LocalContext.current
     var previewUrl by remember(video.bvid, video.cid) { mutableStateOf<String?>(null) }
     LaunchedEffect(activeForPlayback, video.bvid, video.cid) {
-        if (activeForPlayback && previewUrl == null && video.bvid.isNotBlank() && video.cid > 0L) {
-            previewUrl = onGetPreviewUrl(video.bvid, video.cid)
+        if (activeForPlayback && previewUrl == null && video.bvid.isNotBlank()) {
+            previewUrl = kotlinx.coroutines.withTimeoutOrNull(12_000L) {
+                onGetPreviewUrl(video.bvid, video.cid)
+            }
         }
     }
 
@@ -710,45 +704,13 @@ private fun HomeHeroCarouselCard(
 
 @Composable
 private fun MutedHeroVideoPlayer(url: String) {
-    val context = LocalContext.current
     var hasRenderedFirstFrame by remember(url) { mutableStateOf(false) }
-    val player = remember {
-        ExoPlayer.Builder(context).build().apply {
-            playWhenReady = true
-            repeatMode = Player.REPEAT_MODE_ONE
-            volume = 0f
-        }
-    }
-    LaunchedEffect(url) {
-        hasRenderedFirstFrame = false
-        player.setMediaItem(MediaItem.fromUri(Uri.parse(url)))
-        player.prepare()
-    }
-    DisposableEffect(player) {
-        val listener = object : Player.Listener {
-            override fun onRenderedFirstFrame() {
-                hasRenderedFirstFrame = true
-            }
-        }
-        player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-            player.release()
-        }
-    }
-    AndroidView(
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                this.player = player
-                useController = false
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-            }
+    DisposableVideoPlayer(
+        url = url,
+        onFirstFrame = { hasRenderedFirstFrame = true },
+        onPlaybackError = { hasRenderedFirstFrame = false },
+        modifier = Modifier.graphicsLayer {
+            alpha = resolveHomeHeroCarouselPreviewAlpha(hasRenderedFirstFrame)
         },
-        modifier = Modifier
-            .fillMaxSize()
-            .graphicsLayer {
-                alpha = resolveHomeHeroCarouselPreviewAlpha(hasRenderedFirstFrame)
-            }
     )
 }

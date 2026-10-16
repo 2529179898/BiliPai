@@ -462,12 +462,13 @@ internal fun shouldShowFeedItem(
     }
 
     // 时长过滤: duration > 0 && < minDuration
-    if (item.duration > 0 && item.duration < config.minDurationForRcmd) return false
+    val hasVideoStatistics = item.contentType !in setOf("bangumi", "picture")
+    if (hasVideoStatistics && item.duration > 0 && item.duration < config.minDurationForRcmd) return false
 
     // 播放量 / 点赞率(整数乘法, 避免浮点)
     val view = item.stat.view.toLong()
     val like = item.stat.like.toLong()
-    if (view >= 0 && (view < config.minPlayForRcmd ||
+    if (hasVideoStatistics && view >= 0 && (view < config.minPlayForRcmd ||
             (like > -1 && like * 100L < config.minLikeRatioForRecommend * view))) {
         return false
     }

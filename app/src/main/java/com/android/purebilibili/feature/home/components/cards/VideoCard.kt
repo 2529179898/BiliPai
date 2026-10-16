@@ -291,34 +291,42 @@ private fun VideoCardOwnerMetadata(
             followerCount = upFollowerCount,
             videoCount = upVideoCount
         ),
-        nameLeadingContent = if (isFollowing) {
+        nameLeadingContent = if (isFollowing || video.isFollowed || video.recommendationReason.isNotBlank()) {
             {
-                if (infoBadgeStyle == HomeVideoBadgeStyle.GLASS) {
-                    AppSurface(
-                        modifier = Modifier.wrapContentSize(),
-                        shape = AppShapes.container(ContainerLevel.Pill),
-                        color = inlinePillColors.containerColor,
-                        border = BorderStroke(
-                            AppSpacingTokens.Micro * 0.4f,
-                            inlinePillColors.borderColor
-                        )
-                    ) {
-                        AppText(
-                            text = "已关注",
-                            style = contentTypography.coverBadge,
-                            color = AppContentColors.accent(),
-                            modifier = Modifier.padding(
-                                horizontal = AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro,
-                                vertical = AppSpacingTokens.Micro
+                Row(
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    VideoRecommendationBadge(video.recommendationReason)
+                    if (isFollowing || video.isFollowed) {
+                        if (infoBadgeStyle == HomeVideoBadgeStyle.GLASS) {
+                            AppSurface(
+                                modifier = Modifier.wrapContentSize(),
+                                shape = AppShapes.container(ContainerLevel.Pill),
+                                color = inlinePillColors.containerColor,
+                                border = BorderStroke(
+                                    AppSpacingTokens.Micro * 0.4f,
+                                    inlinePillColors.borderColor,
+                                ),
+                            ) {
+                                AppText(
+                                    text = "已关注",
+                                    style = contentTypography.coverBadge,
+                                    color = AppContentColors.accent(),
+                                    modifier = Modifier.padding(
+                                        horizontal = AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro,
+                                        vertical = AppSpacingTokens.Micro,
+                                    ),
+                                )
+                            }
+                        } else {
+                            AppText(
+                                text = "已关注",
+                                style = contentTypography.coverBadge,
+                                color = AppContentColors.accent(),
                             )
-                        )
+                        }
                     }
-                } else {
-                    AppText(
-                        text = "已关注",
-                        style = contentTypography.coverBadge,
-                        color = AppContentColors.accent()
-                    )
                 }
             }
         } else {
@@ -961,6 +969,7 @@ internal fun ElegantVideoCard(
                     title = video.title,
                     ownerName = video.owner.name,
                     ownerFaceUrl = video.owner.face,
+                    recommendationReason = video.recommendationReason,
                     viewText = if (video.stat.view > 0) {
                         FormatUtils.formatStat(video.stat.view.toLong())
                     } else {
@@ -969,7 +978,7 @@ internal fun ElegantVideoCard(
                     danmakuText = secondaryStatText
                         ?: FormatUtils.formatStat(video.stat.danmaku.toLong()),
                     durationText = durationText,
-                    followed = video.isFollowed,
+                    followed = isFollowing || video.isFollowed,
                     // Remember what the list info column actually paints (not cover badges).
                     infoPresentation = com.android.purebilibili.core.ui.transition
                         .resolveVideoCardSourceInfoPresentation(

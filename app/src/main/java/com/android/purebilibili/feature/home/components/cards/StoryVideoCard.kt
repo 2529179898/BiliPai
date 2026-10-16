@@ -213,6 +213,8 @@ internal fun StoryVideoCard(
                     title = video.title,
                     ownerName = video.owner.name,
                     ownerFaceUrl = video.owner.face,
+                    recommendationReason = video.recommendationReason,
+                    followed = video.isFollowed,
                     viewText = FormatUtils.formatStat(video.stat.view.toLong()),
                     danmakuText = FormatUtils.formatStat(video.stat.danmaku.toLong()),
                     durationText = FormatUtils.formatDuration(video.duration),
@@ -391,25 +393,10 @@ internal fun StoryVideoCard(
                     .fillMaxSize()
                     .then(nativeCardSnapshot.coverOverlayModifier),
             ) {
-            if (premiumBadgeLabel != null) {
-                HomeVideoBadgePill(
-                    style = badgeStylePolicy.coverStyle,
-                    shape = AppShapes.container(ContainerLevel.Chip),
-                    containerColor = BiliPink.copy(alpha = 0.82f),
-                    borderColor = MediaContrastPalette.Foreground.copy(alpha = 0.24f),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(AppSpacingTokens.Small)
-                ) {
-                    AppText(
-                        text = premiumBadgeLabel,
-                        color = MediaContrastPalette.Foreground,
-                        style = contentTypography.coverBadge.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 1
-                    )
-                }
-            }
-
+            com.android.purebilibili.core.ui.components.VideoStatusBadges(
+                labels = video.statusLabels.ifEmpty { listOfNotNull(premiumBadgeLabel) },
+                modifier = Modifier.align(Alignment.TopEnd).padding(AppSpacingTokens.Small),
+            )
             //  时长标签 (保留在封面上)
             if (showDurationOnCover) {
                 AppText(
@@ -509,6 +496,14 @@ internal fun StoryVideoCard(
                                 .clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
+                    }
+                } else null,
+                nameLeadingContent = if (video.recommendationReason.isNotBlank() || video.isFollowed) {
+                    {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            VideoRecommendationBadge(video.recommendationReason)
+                            if (video.isFollowed) VideoRecommendationBadge("已关注")
+                        }
                     }
                 } else null,
                 nameStyle = contentTypography.author.copy(fontWeight = FontWeight.Medium),

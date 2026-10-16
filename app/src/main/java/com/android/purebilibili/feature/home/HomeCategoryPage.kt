@@ -343,7 +343,7 @@ internal fun HomeCategoryPageContent(
 
     val carouselVideos = remember(category, categoryState.videos) {
         if (category == HomeCategory.RECOMMEND) {
-            selectHomeHeroCarouselItems(categoryState.videos)
+            selectHomeHeroCarouselItems(categoryState.videos.filter { it.contentType !in setOf("bangumi", "picture") })
         } else {
             emptyList()
         }
@@ -418,8 +418,8 @@ internal fun HomeCategoryPageContent(
             derivedStateOf { lazyItemKey in visibleLazyItemKeys.value }
         }
         val cardImageWorkAllowed = LocalPageImageLoadingAllowed.current && isActive && cardVisible
-        val isDynamicDetailCard = video.dynamicId.isNotBlank() &&
-            !video.bvid.startsWith("BV", ignoreCase = true)
+        val isNativeNonVideoCard = video.contentType in setOf("bangumi", "picture") ||
+            (video.dynamicId.isNotBlank() && !video.bvid.startsWith("BV", ignoreCase = true))
         val isDissolving = video.bvid in dissolvingVideos
         val squishAmount = when (cardMotionTier) {
             MotionTier.Reduced -> 0.004f
@@ -487,7 +487,7 @@ internal fun HomeCategoryPageContent(
                         index = index,
                         animationEnabled = cardAnimationEnabled,
                         motionTier = cardMotionTier,
-                        transitionEnabled = cardTransitionEnabled,
+                        transitionEnabled = cardTransitionEnabled && !isNativeNonVideoCard,
                         isReturningFromVideoDetail = isReturningFromVideoDetail,
                         isQuickReturningFromVideoDetail = isQuickReturningFromVideoDetail,
                         scrollLiteModeEnabled = false,
@@ -498,7 +498,9 @@ internal fun HomeCategoryPageContent(
                         showInfoGlassBadges = showInfoGlassBadges,
                         showUpBadge = showUpBadges,
                         showUpAvatar = showUpAvatars,
-                        homeDurationStyle = homeDurationStyle,
+                        homeDurationStyle = if (isNativeNonVideoCard && video.duration <= 0) {
+                            HomeDurationStyle.HIDDEN
+                        } else homeDurationStyle,
                         coverAspectRatio = cardLayout.coverAspectRatio,
                         cardHorizontalPadding = cardLayout.storyCardHorizontalPaddingDp.dp,
                         compactMetadata = cardLayout.compactMetadata,
@@ -508,12 +510,13 @@ internal fun HomeCategoryPageContent(
                         onUpClick = onUpClick,
                         showPublishTime = showPublishTime,
                         onDismiss = { onDismissVideo(video) },
-                        onLongClick = if (isDynamicDetailCard) null else longPressCallback?.let { cb -> { cb(video) } },
+                        onLongClick = if (isNativeNonVideoCard) null else longPressCallback?.let { cb -> { cb(video) } },
                         onClick = { bvid, cid ->
                             onVideoClick(
                                 HomeVideoClickRequest(
                                     bvid = bvid,
                                     dynamicId = video.dynamicId,
+                                    episodeId = video.episodeId,
                                     cid = cid,
                                     coverUrl = video.pic,
                                     isVerticalVideo = video.isVertical,
@@ -531,7 +534,7 @@ internal fun HomeCategoryPageContent(
                         isFollowing = video.owner.mid in followingMids && category != HomeCategory.FOLLOW,
                         animationEnabled = cardAnimationEnabled,
                         motionTier = cardMotionTier,
-                        transitionEnabled = cardTransitionEnabled,
+                        transitionEnabled = cardTransitionEnabled && !isNativeNonVideoCard,
                         isReturningFromVideoDetail = isReturningFromVideoDetail,
                         isQuickReturningFromVideoDetail = isQuickReturningFromVideoDetail,
                         scrollLiteModeEnabled = false,
@@ -549,7 +552,9 @@ internal fun HomeCategoryPageContent(
                         wallpaperEffectMode = wallpaperEffectMode,
                         showUpBadge = showUpBadges,
                         showUpAvatar = showUpAvatars,
-                        homeDurationStyle = homeDurationStyle,
+                        homeDurationStyle = if (isNativeNonVideoCard && video.duration <= 0) {
+                            HomeDurationStyle.HIDDEN
+                        } else homeDurationStyle,
                         coverAspectRatio = cardLayout.coverAspectRatio,
                         compactMetadata = cardLayout.compactMetadata,
                         titleMinLines = cardLayout.titleMinLines,
@@ -557,15 +562,16 @@ internal fun HomeCategoryPageContent(
                         showOnlineCount = showOnlineCount,
                         onUpClick = onUpClick,
                         onDismiss = { onDismissVideo(video) },
-                        onWatchLater = if (isDynamicDetailCard) null else ({
+                        onWatchLater = if (isNativeNonVideoCard) null else ({
                             onWatchLater(video.bvid, resolveWatchLaterAid(video))
                         }),
-                        onLongClick = if (isDynamicDetailCard) null else longPressCallback?.let { cb -> { cb(video) } },
+                        onLongClick = if (isNativeNonVideoCard) null else longPressCallback?.let { cb -> { cb(video) } },
                         onClick = { bvid, cid ->
                             onVideoClick(
                                 HomeVideoClickRequest(
                                     bvid = bvid,
                                     dynamicId = video.dynamicId,
+                                    episodeId = video.episodeId,
                                     cid = cid,
                                     coverUrl = video.pic,
                                     isVerticalVideo = video.isVertical,
@@ -671,6 +677,7 @@ internal fun HomeCategoryPageContent(
                                         HomeVideoClickRequest(
                                             bvid = video.bvid,
                                             dynamicId = video.dynamicId,
+                                            episodeId = video.episodeId,
                                             cid = video.cid,
                                             coverUrl = video.pic,
                                             isVerticalVideo = video.isVertical,
@@ -693,6 +700,7 @@ internal fun HomeCategoryPageContent(
                                         HomeVideoClickRequest(
                                             bvid = video.bvid,
                                             dynamicId = video.dynamicId,
+                                            episodeId = video.episodeId,
                                             cid = video.cid,
                                             coverUrl = video.pic,
                                             isVerticalVideo = video.isVertical,

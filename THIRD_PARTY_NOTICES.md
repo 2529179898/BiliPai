@@ -1,5 +1,20 @@
 # Third-party notices
 
+## Local RSS article extraction
+
+The RSS reader uses [Readability4J](https://github.com/dankito/Readability4J)
+1.0.8, copyright 2017 dankito, licensed under Apache-2.0, and
+[jsoup](https://jsoup.org/) 1.23.2, copyright Jonathan Hedley and contributors,
+licensed under MIT. License texts are bundled in
+`app/src/main/assets/licenses/readability4j.LICENSE` and `jsoup.LICENSE`.
+Readability4J ports Mozilla Readability; its SLF4J logging dependency is MIT-licensed
+with its license bundled in `app/src/main/assets/licenses/slf4j.LICENSE`.
+
+The extract-then-render workflow was studied in Nagram's
+[WebInstantView.java](https://github.com/NextAlone/Nagram/blob/main/TMessagesProj/src/main/java/org/telegram/ui/web/WebInstantView.java).
+This integration uses the Kotlin library and BiliPai's existing RSS renderer;
+it does not copy Telegram's Instant View page model, JavaScript bundle, or viewer.
+
 ## Telegram / NagramX ThanosEffect
 
 The particle-dissolve shaders are imported unchanged from Telegram / NagramX.

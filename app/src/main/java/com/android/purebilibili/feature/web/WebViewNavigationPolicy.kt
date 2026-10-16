@@ -61,8 +61,7 @@ internal fun shouldOpenWebUrlExternally(urlString: String): Boolean {
         !uri.scheme.equals("https", ignoreCase = true)
     ) return false
     val host = uri.host?.lowercase() ?: return false
-    return host != "bilibili.com" && !host.endsWith(".bilibili.com") &&
-        host != "b23.tv" && !host.endsWith(".b23.tv")
+    return !com.android.purebilibili.core.util.isBilibiliWebHost(host)
 }
 
 internal fun isOfficialMusicDetailUrl(urlString: String): Boolean {

@@ -733,7 +733,7 @@ object VideoRepository {
                     " 视频[$index]: ${item.title?.take(15)}... dimension=${item.dimension} isVertical=${item.dimension?.isVertical}")
             }
             
-            val list = feedResp.data?.item?.map { it.toVideoItem() }?.filter { it.bvid.isNotEmpty() } ?: emptyList()
+            val list = feedResp.data?.item?.filter { it.adInfo == null }?.map { it.toVideoItem() }?.filter { it.bvid.isNotEmpty() } ?: emptyList()
             
             //  [调试] 检查转换后的 VideoItem
             val verticalCount = list.count { it.isVertical }
@@ -783,7 +783,7 @@ object VideoRepository {
             }
             
             val list = feedResp.data?.items
-                ?.filter { it.goto == "av" }  // 只保留视频类型
+                ?.filter { it.isSupportedRecommendation }
                 ?.map { it.toVideoItem() }
                 ?.filter { it.bvid.isNotEmpty() }
                 ?: emptyList()
@@ -824,7 +824,7 @@ object VideoRepository {
             val signedParams = WbiUtils.sign(params, imgKey, subKey)
             val feedResp = SharedContentRepository.recommendationResponse(signedParams)
 
-            val list = feedResp.data?.item?.map { it.toVideoItem() }?.filter { it.bvid.isNotEmpty() } ?: emptyList()
+            val list = feedResp.data?.item?.filter { it.adInfo == null }?.map { it.toVideoItem() }?.filter { it.bvid.isNotEmpty() } ?: emptyList()
 
             com.android.purebilibili.core.util.Logger.d("VideoRepo", " Merged Web推荐: total=${list.size}")
 
@@ -897,7 +897,7 @@ object VideoRepository {
             }
 
             val list = feedResp.data?.items
-                ?.filter { it.goto == "av" }  // 只保留视频类型
+                ?.filter { it.isSupportedRecommendation }
                 ?.map { it.toVideoItem() }
                 ?.filter { it.bvid.isNotEmpty() }
                 ?: emptyList()
@@ -1594,22 +1594,31 @@ object VideoRepository {
      * 用于首页长按预览播放，优先尝试获取低画质 MP4
      */
     suspend fun getPreviewVideoUrl(bvid: String, cid: Long): String? {
-        // 复用 fetchAsGuestFallback 逻辑获取简单 MP4
-        val data = fetchAsGuestFallback(bvid, cid)
-        // 返回第一个 durl 的 url
-        return data?.durl?.firstOrNull()?.url
+        if (bvid.isBlank()) return null
+        // Recommendation cards may omit cid. Resolve it without entering the
+        // full player or creating a playback/history session.
+        val resolvedCid = if (cid > 0L) cid else getVideoInfoOnly(bvid).getOrThrow().cid
+        if (resolvedCid <= 0L) return null
+        val data = fetchAsGuestFallback(bvid, resolvedCid, qualities = listOf(16, 32))
+        return data?.durl?.firstOrNull()?.let { segment ->
+            (listOf(segment.url) + segment.backupUrl.orEmpty()).firstOrNull { it.isNotBlank() }
+        }
     }
     
     //  [新增] 以游客身份获取视频（忽略登录凭证）
     //  [修复] 使用 guestApi 确保不携带 SESSDATA/bili_jct
-    private suspend fun fetchAsGuestFallback(bvid: String, cid: Long): PlayUrlData? {
+    private suspend fun fetchAsGuestFallback(
+        bvid: String,
+        cid: Long,
+        qualities: List<Int> = buildGuestFallbackQualities(),
+    ): PlayUrlData? {
         try {
             com.android.purebilibili.core.util.Logger.d("VideoRepo", " fetchAsGuestFallback: bvid=$bvid, cid=$cid (using guestApi)")
             
             // ✅ 使用 guestApi - 不携带登录凭证
             val guestApi = NetworkModule.guestApi
 
-            for (guestQn in buildGuestFallbackQualities()) {
+            for (guestQn in qualities) {
                 val legacyResult = guestApi.getPlayUrlLegacy(
                     bvid = bvid,
                     cid = cid,
@@ -1637,6 +1646,8 @@ object VideoRepository {
                 }
             }
             
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             android.util.Log.w("VideoRepo", "Guest fallback failed: ${e.message}")
         }
