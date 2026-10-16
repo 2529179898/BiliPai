@@ -6,6 +6,7 @@ import android.os.Build
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import com.android.purebilibili.core.ui.transition.resolvePredictiveBackBlurFrame
@@ -387,6 +388,12 @@ fun VideoCommentSheetHost(
         }
     }
     val hostVisible = hostContent != VideoCommentSheetHostContent.HIDDEN
+    // A host can be mounted already visible when opened from the inline list.
+    // Start the sheet transition hidden so that first mount also slides upward.
+    val sheetVisibility = remember { MutableTransitionState(false) }
+    LaunchedEffect(hostVisible) {
+        sheetVisibility.targetState = hostVisible
+    }
     val scrimAlpha = maxScrimAlphaOverride
         ?: resolveVideoCommentSheetHostScrimAlpha(mainSheetVisible = mainSheetVisible)
     val dismissOnBackdropTap = shouldDismissVideoCommentSheetHostOnBackdropTap(
@@ -682,7 +689,7 @@ fun VideoCommentSheetHost(
             }
             val sheetHeight = with(density) { sheetHeightPx.toDp() }
             AnimatedVisibility(
-                visible = hostVisible,
+                visibleState = sheetVisibility,
                 enter = motionSpec.contentEnter,
                 exit = motionSpec.contentExit,
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -849,6 +856,7 @@ fun VideoCommentSheetHost(
                                         onConversationClick = commentViewModel::openSubReplyConversation,
                                         onConversationBack = commentViewModel::closeSubReplyConversation,
                                         isConversationMode = subReplyState.conversationAnchor != null,
+                                        conversationAnchorId = subReplyState.conversationAnchor?.rpid ?: 0L,
                                         dissolvingIds = subReplyState.dissolvingIds,
                                         currentMid = commentState.currentMid,
                                         onDissolveStart = { rpid -> commentViewModel.startSubDissolve(rpid) },

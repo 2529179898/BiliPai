@@ -112,16 +112,28 @@ fun DanmakuSendDialog(
     topReservedSpace: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
-    if (!visible) return
+    var closeRequested by remember { mutableStateOf(false) }
+    var nativeClosing by remember { mutableStateOf(false) }
+    val latestVisible by rememberUpdatedState(visible)
+    val latestDismiss by rememberUpdatedState(onDismiss)
+    LaunchedEffect(visible) {
+        closeRequested = false
+        nativeClosing = false
+    }
+    val inputActive = visible && !closeRequested
     com.android.purebilibili.core.ui.AppModalBottomSheet(
-        onDismissRequest = onDismiss,
+        visible = inputActive,
+        onDismissStarted = { nativeClosing = true },
+        onDismissRequest = { if (latestVisible) latestDismiss() },
         modifier = modifier,
         sheetSurfaceModifier = Modifier.imePadding(),
     ) {
         DanmakuSendDialogContent(
-            visible = true,
-            onDismiss = onDismiss,
-            onSend = onSend,
+            visible = inputActive && !nativeClosing,
+            onDismiss = { closeRequested = true },
+            onSend = { message, color, mode, size, attention ->
+                if (inputActive && !nativeClosing) onSend(message, color, mode, size, attention)
+            },
             isSending = isSending,
             initialColor = initialColor,
             initialMode = initialMode,
@@ -184,6 +196,8 @@ private fun DanmakuSendDialogContent(
     LaunchedEffect(visible, showSettings, showCustomColorPicker) {
         if (!visible) {
             inputWasVisible = false
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
             return@LaunchedEffect
         }
         if (!inputWasVisible) {
@@ -202,6 +216,11 @@ private fun DanmakuSendDialogContent(
             selectedFontSize = selection.fontSize
             attentionCommandChecked = initialAttentionCommand
             showSettings = false
+        }
+        if (showCustomColorPicker) {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            return@LaunchedEffect
         }
         delay(100)
         focusRequester.requestFocus()
@@ -259,12 +278,12 @@ private fun DanmakuSendDialogContent(
             },
             modifier = Modifier.fillMaxWidth().testTag("danmaku_compact_input"),
             focusRequester = focusRequester,
-            enabled = !isSending,
+            enabled = visible && !isSending,
             placeholderText = "发个友善的弹幕见证当下",
             singleLine = true,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send),
             keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = {
-                if (text.isNotBlank() && !isSending) {
+                if (visible && text.isNotBlank() && !isSending) {
                     onSend(text.trim(), selectedColor, selectedMode, selectedFontSize, attentionCommandChecked)
                 }
             }),
@@ -406,7 +425,7 @@ private fun DanmakuSendDialogContent(
         // 发送按钮
         AppButton(
             onClick = {
-                if (text.isNotBlank() && !isSending) {
+                if (visible && text.isNotBlank() && !isSending) {
                     onSend(
                         text.trim(),
                         selectedColor,
@@ -419,7 +438,7 @@ private fun DanmakuSendDialogContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            enabled = text.isNotBlank() && !isSending,
+            enabled = visible && text.isNotBlank() && !isSending,
             shape = AppShapes.container(ContainerLevel.Card)
         ) {
             if (isSending) {
@@ -437,7 +456,7 @@ private fun DanmakuSendDialogContent(
         }
     }
 
-    if (showCustomColorPicker) {
+    if (visible && showCustomColorPicker) {
         DanmakuCustomColorPickerDialog(
             initialColor = lastCustomColor,
             onConfirm = { picked ->

@@ -42,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,17 +74,29 @@ fun LandscapeDanmakuComposer(
     onSelectionChange: (color: Int, mode: Int, fontSize: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (!visible) return
+    var closeRequested by remember { mutableStateOf(false) }
+    var nativeClosing by remember { mutableStateOf(false) }
+    val latestVisible by rememberUpdatedState(visible)
+    val latestDismiss by rememberUpdatedState(onDismiss)
+    LaunchedEffect(visible) {
+        closeRequested = false
+        nativeClosing = false
+    }
+    val inputActive = visible && !closeRequested
     com.android.purebilibili.core.ui.AppModalBottomSheet(
-        onDismissRequest = onDismiss,
+        visible = inputActive,
+        onDismissStarted = { nativeClosing = true },
+        onDismissRequest = { if (latestVisible) latestDismiss() },
         modifier = modifier,
         presentationOverride = com.android.purebilibili.core.ui.AppModalPresentation.BottomSheet,
         sheetSurfaceModifier = Modifier.imePadding(),
     ) {
         LandscapeDanmakuComposerContent(
-            visible = visible,
-            onDismiss = onDismiss,
-            onSend = onSend,
+            visible = inputActive && !nativeClosing,
+            onDismiss = { closeRequested = true },
+            onSend = { message, color, mode, size, attention ->
+                if (inputActive && !nativeClosing) onSend(message, color, mode, size, attention)
+            },
             isSending = isSending,
             initialColor = initialColor,
             initialMode = initialMode,
@@ -217,13 +230,13 @@ private fun LandscapeDanmakuComposerContent(
                 },
                 modifier = Modifier.weight(1f).testTag("danmaku_landscape_composer_input"),
                 focusRequester = focusRequester,
-                enabled = !isSending,
+                enabled = visible && !isSending,
                 placeholderText = "发个友善的弹幕见证当下",
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(
                     onSend = {
-                        if (text.isNotBlank() && !isSending) {
+                        if (visible && text.isNotBlank() && !isSending) {
                             onSend(
                                 text.trim(),
                                 selectedColor,
@@ -252,7 +265,7 @@ private fun LandscapeDanmakuComposerContent(
 
             AppButton(
                 onClick = {
-                    if (text.isNotBlank() && !isSending) {
+                    if (visible && text.isNotBlank() && !isSending) {
                         onSend(
                             text.trim(),
                             selectedColor,
@@ -262,7 +275,7 @@ private fun LandscapeDanmakuComposerContent(
                         )
                     }
                 },
-                enabled = text.isNotBlank() && !isSending,
+                enabled = visible && text.isNotBlank() && !isSending,
                 modifier = Modifier
                     .height(48.dp)
                     .width(72.dp),
@@ -382,7 +395,7 @@ private fun LandscapeDanmakuComposerContent(
         }
     }
 
-    if (showCustomColorPicker) {
+    if (visible && showCustomColorPicker) {
         DanmakuCustomColorPickerDialog(
             initialColor = lastCustomColor,
             onConfirm = { picked ->

@@ -38,9 +38,11 @@ class DanmakuComposerPolicyTest {
     }
 
     @Test
-    fun compactDanmakuSend_shownOnTabletInlinePlayer() {
+    fun compactDanmakuSend_requiresRoomyTabletInlinePlayer() {
         assertTrue(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 800))
-        assertTrue(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 600))
+        assertFalse(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 600))
+        assertFalse(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 719))
+        assertTrue(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 720))
         assertFalse(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 411))
     }
 

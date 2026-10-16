@@ -186,6 +186,7 @@ fun CommentDetailScreen(
                         onConversationClick = viewModel::openConversation,
                         onConversationBack = viewModel::closeConversation,
                         isConversationMode = subReplyState.conversationAnchor != null,
+                        conversationAnchorId = subReplyState.conversationAnchor?.rpid ?: 0L,
                         dissolvingIds = subReplyState.dissolvingIds,
                         currentMid = currentMid,
                         onDissolveStart = viewModel::startDissolve,

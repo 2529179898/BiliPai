@@ -3,8 +3,47 @@ package com.android.purebilibili.feature.video.ui.components
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
 class CommentAvatarPushPolicyTest {
+    private fun contactingAvatarTop(nextTop: Int): Int {
+        val itemTop = nextTop - 250
+        return itemTop + 10 + resolveCommentAvatarPushOffset(
+            itemOffsetPx = itemTop,
+            itemHeightPx = 240,
+            topInsetPx = 10,
+            bottomInsetPx = 1,
+            viewportTopPx = 0,
+            nextAvatarTopPx = nextTop,
+        )
+    }
+
+    @Test
+    fun avatarsDoNotPushWhileThereIsStillAVisibleGap() {
+        assertEquals(0, contactingAvatarTop(nextTop = 60))
+        assertEquals(0, contactingAvatarTop(nextTop = 43))
+        assertEquals(0, contactingAvatarTop(nextTop = 42))
+    }
+
+    @Test
+    fun outgoingAvatarTouchesItsNeighbourThroughoutThePush() {
+        for (nextTop in 0..42) {
+            assertEquals(nextTop, contactingAvatarTop(nextTop) + 42)
+        }
+    }
+
+    @Test
+    fun footersAndSectionTitlesCannotBecomeCollisionPartners() {
+        assertTrue(isCommentAvatarItemKey(123L))
+        assertTrue(isCommentAvatarItemKey("reply_123"))
+        assertTrue(isCommentAvatarItemKey("curtain_reply_123"))
+        assertTrue(isCommentAvatarItemKey("123_false"))
+        assertTrue(isCommentAvatarItemKey("123_true"))
+        assertFalse(isCommentAvatarItemKey("root_reply"))
+        assertFalse(isCommentAvatarItemKey("footer"))
+        assertFalse(isCommentAvatarItemKey("video_comment_vote"))
+    }
+
     private fun avatarTop(
         itemTop: Int,
         height: Int = 240,

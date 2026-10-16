@@ -11,11 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
+import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.theme.LocalAppUiStyle
 import com.android.purebilibili.core.ui.motion.AppMotionTokens
 import com.android.purebilibili.core.ui.rememberAppBottomSheetMotion
 
-/** Bottom-up inline expansion, with one owner for both height and content lifetime. */
+/** Inline expansion, with one owner for both height and content lifetime. */
 @Composable
 internal fun CommentContentReveal(
     visible: Boolean,
@@ -33,6 +34,13 @@ internal fun CommentContentReveal(
         modifier = modifier,
         enter = if (reducedMotion) {
             fadeIn(AppMotionTokens.resolveBottomSheetFadeEnterSpec(uiStyle))
+        } else if (uiStyle == AppUiStyle.MIUIX) {
+            // Shared with the cascading conversation transition in both material modes.
+            // Keep the MD3 branch's existing motion and all native layout parameters.
+            expandVertically(
+                animationSpec = commentCascadeSpring(true),
+                expandFrom = Alignment.Top,
+            ) + fadeIn(commentCascadeSpring(true))
         } else {
             fadeIn(AppMotionTokens.resolveBottomSheetFadeEnterSpec(uiStyle)) +
                 expandVertically(
@@ -45,6 +53,11 @@ internal fun CommentContentReveal(
         },
         exit = if (reducedMotion) {
             fadeOut(AppMotionTokens.resolveBottomSheetFadeExitSpec(uiStyle))
+        } else if (uiStyle == AppUiStyle.MIUIX) {
+            shrinkVertically(
+                animationSpec = commentCascadeSpring(false),
+                shrinkTowards = Alignment.Top,
+            ) + fadeOut(commentCascadeSpring(false))
         } else {
             fadeOut(AppMotionTokens.resolveBottomSheetFadeExitSpec(uiStyle)) +
                 shrinkVertically(

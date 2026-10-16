@@ -464,6 +464,21 @@ class ReplyComponentsPolicyTest {
     }
 
     @Test
+    fun `shopping web destination wins over source video schema`() {
+        val destination = "https://mall.bilibili.com/detail.html?itemsId=123&from=BV1xx411c7mD"
+        assertEquals(
+            destination,
+            resolveReplyContentUrlNavigationUrl(
+                rawToken = "https://b23.tv/shop",
+                url = ReplyContentUrl(
+                    url = destination,
+                    appUrlSchema = "bilibili://video/BV1xx411c7mD"
+                )
+            )
+        )
+    }
+
+    @Test
     fun `unsupported shopping schema falls back to web url`() {
         assertEquals(
             "https://item.taobao.com/item.htm?id=123",

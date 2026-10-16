@@ -3,13 +3,15 @@ package com.android.purebilibili.feature.video
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.android.purebilibili.feature.video.ui.components.DanmakuSendDialog
 import com.android.purebilibili.feature.video.ui.components.CommentInputDialog
+import com.android.purebilibili.feature.video.ui.components.DanmakuSendDialog
+import com.android.purebilibili.feature.video.ui.components.PlainLandscapeDanmakuComposer
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -101,5 +103,64 @@ class DanmakuComposerUiRegressionTest {
 
         composeTestRule.onNodeWithText("颜色、位置与大小").performClick()
         composeTestRule.onNodeWithText("颜色").assertIsDisplayed()
+    }
+
+    @Test
+    fun plainLandscapeComposer_styleSwitchesPreserveDraftAndSendSelectedOptions() {
+        val draft = mutableStateOf("")
+        val selection = mutableStateOf(Triple(16777215, 1, 25))
+        var sentText: String? = null
+        var sentSelection: Triple<Int, Int, Int>? = null
+        var sentAttention: Boolean? = null
+        composeTestRule.setContent {
+            MaterialTheme {
+                PlainLandscapeDanmakuComposer(
+                    visible = true,
+                    onDismiss = {},
+                    onSend = { text, color, mode, size, attention ->
+                        sentText = text
+                        sentSelection = Triple(color, mode, size)
+                        sentAttention = attention
+                    },
+                    isSending = false,
+                    initialColor = selection.value.first,
+                    initialMode = selection.value.second,
+                    initialFontSize = selection.value.third,
+                    initialText = draft.value,
+                    initialAttentionCommand = false,
+                    onDraftChange = { text, _ -> draft.value = text },
+                    onSelectionChange = { color, mode, size ->
+                        selection.value = Triple(color, mode, size)
+                    },
+                )
+            }
+        }
+        val input = composeTestRule.onNodeWithTag("danmaku_landscape_composer_input")
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            input.fetchSemanticsNode().config.getOrElse(SemanticsProperties.Focused) { false }
+        }
+        input.assertIsFocused().performTextReplacement("保留这条弹幕草稿")
+        composeTestRule.onNodeWithTag("danmaku_landscape_style_toggle").performClick()
+        composeTestRule.onNodeWithText("字体大小").assertIsDisplayed()
+        composeTestRule.onNodeWithText("置顶").performScrollTo().performClick().assertIsSelected()
+        composeTestRule.onNodeWithContentDescription("红色")
+            .performScrollTo().performClick().assertIsSelected()
+        input.assertTextEquals("保留这条弹幕草稿").performClick()
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            input.fetchSemanticsNode().config.getOrElse(SemanticsProperties.Focused) { false }
+        }
+        input.assertIsFocused().assertTextEquals("保留这条弹幕草稿")
+        composeTestRule.onNodeWithText("字体大小").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("danmaku_landscape_style_toggle").performClick()
+        composeTestRule.onNodeWithText("置顶").performScrollTo().assertIsSelected()
+        composeTestRule.onNodeWithContentDescription("红色").performScrollTo().assertIsSelected()
+        input.assertTextEquals("保留这条弹幕草稿")
+        composeTestRule.onNodeWithContentDescription("发送弹幕").performClick()
+        composeTestRule.runOnIdle {
+            assertEquals("保留这条弹幕草稿", draft.value)
+            assertEquals("保留这条弹幕草稿", sentText)
+            assertEquals(Triple(16646914, 5, 25), sentSelection)
+            assertEquals(false, sentAttention)
+        }
     }
 }

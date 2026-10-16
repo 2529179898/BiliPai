@@ -8,18 +8,13 @@ import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.automirrored.outlined.Sort
@@ -65,6 +60,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -75,8 +71,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -466,6 +462,22 @@ internal fun VideoInlineSubReplyDetailContent(
     val rootReply = state.rootReply
     if (!state.visible || rootReply == null) return
 
+    // Inline hosts replace the main list directly, unlike window sheets and the
+    // portrait overlay host. Give this panel its own full-height bottom-up entry.
+    val motion = com.android.purebilibili.core.ui.rememberAppBottomSheetMotion()
+    val motionEnabled = !motion.reducedMotion &&
+        com.android.purebilibili.core.ui.LocalAppThemeConfig.current.uiEntranceAnimationEnabled
+    val entranceProgress = remember(rootReply.rpid) {
+        Animatable(if (motionEnabled) 1f else 0f)
+    }
+    LaunchedEffect(rootReply.rpid, motionEnabled) {
+        if (motionEnabled) {
+            entranceProgress.animateTo(0f, animationSpec = motion.dragSettleSpec)
+        } else {
+            entranceProgress.snapTo(0f)
+        }
+    }
+
     com.android.purebilibili.core.ui.LocalNavigationBackHandler(enabled = true) {
         onDismiss()
     }
@@ -494,6 +506,7 @@ internal fun VideoInlineSubReplyDetailContent(
         onConversationClick = onConversationClick,
         onConversationBack = onConversationBack,
         isConversationMode = state.conversationAnchor != null,
+        conversationAnchorId = state.conversationAnchor?.rpid ?: 0L,
         dissolvingIds = state.dissolvingIds,
         currentMid = commentState.currentMid,
         onDissolveStart = onDissolveStart,
@@ -509,9 +522,25 @@ internal fun VideoInlineSubReplyDetailContent(
         onAvatarClick = onAvatarClick,
         maxTimestampMs = maxTimestampMs,
         targetReplyId = state.targetReplyId,
-        modifier = modifier,
+        modifier = modifier.graphicsLayer {
+            translationY = size.height * entranceProgress.value.coerceIn(0f, 1f)
+        },
     )
 }
+
+private data class SubReplyDetailPage(
+    val key: Triple<Long, Boolean, Long>,
+    val rootReply: ReplyItem,
+    val replies: List<ReplyItem>,
+    val conversationMode: Boolean,
+    val listState: LazyListState,
+    val isRefreshing: Boolean,
+    val isLoading: Boolean,
+    val error: String?,
+    val showManualLoadMore: Boolean,
+    val replyDisplayCount: Int,
+    val sortMode: SubReplySortMode,
+)
 
 @Composable
 internal fun SubReplyDetailContent(
@@ -537,6 +566,7 @@ internal fun SubReplyDetailContent(
     onConversationClick: ((ReplyItem) -> Unit)? = null,
     onConversationBack: (() -> Unit)? = null,
     isConversationMode: Boolean = false,
+    conversationAnchorId: Long = 0L,
     dissolvingIds: Set<Long> = emptySet(),
     currentMid: Long = 0,
     onDissolveStart: ((Long) -> Unit)? = null,
@@ -569,7 +599,6 @@ internal fun SubReplyDetailContent(
         .getSubReplyLoadedCountEnabled(context)
         .collectAsStateWithLifecycle(initialValue = false)
     val unusedShowUpFlag = showUpFlag
-    val listState = rememberLazyListState()
     val avatarPushEnabled = rememberCommentAvatarPushEnabled()
     var wasRefreshing by remember(rootReply.rpid) { mutableStateOf(false) }
     LaunchedEffect(isRefreshing, error) {
@@ -603,6 +632,11 @@ internal fun SubReplyDetailContent(
     }
     val localConversationMode = conversationAnchor != null
     val effectiveConversationMode = isConversationMode || localConversationMode
+    val activeConversationId = conversationAnchor?.rpid ?: conversationAnchorId
+    val allRepliesListState = key(rootReply.rpid) { rememberLazyListState() }
+    val conversationListState = key(rootReply.rpid, activeConversationId) { rememberLazyListState() }
+    // Keep separate states: the outgoing list must not jump when the next level resets.
+    val listState = if (effectiveConversationMode) conversationListState else allRepliesListState
     val detailReplyDisplayCount = remember(rootReply, subReplies.size, remoteReplyCount) {
         resolveSubReplyDetailDisplayCount(
             rootReply = rootReply,
@@ -623,8 +657,8 @@ internal fun SubReplyDetailContent(
     }
     val captureListScrollForConversation: () -> Unit = {
         savedListScroll = SubReplyDetailSavedScrollPosition(
-            index = listState.firstVisibleItemIndex,
-            scrollOffset = listState.firstVisibleItemScrollOffset,
+            index = allRepliesListState.firstVisibleItemIndex,
+            scrollOffset = allRepliesListState.firstVisibleItemScrollOffset,
         )
     }
     val canScrollForwardState = remember(listState) {
@@ -768,11 +802,17 @@ internal fun SubReplyDetailContent(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AppText(
-                    text = if (effectiveConversationMode) "对话详情" else "评论详情",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = appearance.primaryTextColor
-                )
+                CommentCascadingContent(
+                    targetState = effectiveConversationMode,
+                    contentKey = { it },
+                    isDeeper = { it },
+                ) { conversationMode ->
+                    AppText(
+                        text = if (conversationMode) "对话详情" else "评论详情",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = appearance.primaryTextColor,
+                    )
+                }
                 Spacer(modifier = Modifier.weight(1f))
                 AppIconButton(
                     onClick = onDismiss,
@@ -788,251 +828,272 @@ internal fun SubReplyDetailContent(
         }
         AppHorizontalDivider(thickness = 0.5.dp, color = appearance.dividerColor)
 
-        AdaptivePullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = onRefresh,
+        CommentCascadingContent(
+            targetState = SubReplyDetailPage(
+                key = Triple(rootReply.rpid, effectiveConversationMode, activeConversationId),
+                rootReply = rootReply,
+                replies = visibleReplies,
+                conversationMode = effectiveConversationMode,
+                listState = listState,
+                isRefreshing = isRefreshing,
+                isLoading = isLoading,
+                error = error,
+                showManualLoadMore = showManualLoadMore,
+                replyDisplayCount = detailReplyDisplayCount,
+                sortMode = sortMode,
+            ),
+            contentKey = { it.key },
+            isDeeper = { it.conversationMode },
             modifier = Modifier.fillMaxWidth().weight(1f),
-        ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .testTag(SUB_REPLY_DETAIL_LIST_TAG),
-            contentPadding = PaddingValues(bottom = layoutPolicy.listBottomPaddingDp.dp)
-        ) {
-            item(key = "root_reply") {
-                SubReplyDetailStaggeredReveal(
-                    revealKey = "root_${listScrollResetKey}",
-                    levelIndex = 0
+        ) { page ->
+            val pageActive = page.key == Triple(rootReply.rpid, effectiveConversationMode, activeConversationId)
+            val rootReply = page.rootReply
+            val visibleReplies = page.replies
+            val effectiveConversationMode = page.conversationMode
+            val listState = page.listState
+            val isRefreshing = page.isRefreshing
+            val isLoading = page.isLoading
+            val error = page.error
+            val showManualLoadMore = page.showManualLoadMore
+            val detailReplyDisplayCount = page.replyDisplayCount
+            val sortMode = page.sortMode
+            AdaptivePullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .testTag(SUB_REPLY_DETAIL_LIST_TAG),
+                    contentPadding = PaddingValues(bottom = layoutPolicy.listBottomPaddingDp.dp)
                 ) {
-                    Box(modifier = Modifier.testTag(SUB_REPLY_DETAIL_ROOT_TAG)) {
-                        SubReplyDetailItem(
-                            avatarListState = listState.takeIf { avatarPushEnabled },
-                            avatarItemKey = "root_reply",
-                            layoutPolicy = layoutPolicy,
-                            item = rootReply,
-                            appearance = appearance,
-                            isRootItem = true,
-                            upMid = upMid,
-                            emoteMap = emoteMap,
-                            showUpFlag = unusedShowUpFlag,
-                            onTimestampClick = onTimestampClick,
-                            onImagePreview = onImagePreview,
-                            onReplyClick = { onReplyClick?.invoke(rootReply) },
-                            onDeleteClick = if (currentMid > 0 && rootReply.mid == currentMid) {
-                                { onDeleteComment?.invoke(rootReply.rpid) }
-                            } else null,
-                            onCheckFraudClick = if (onCheckCommentFraud != null && currentMid > 0 && rootReply.mid == currentMid) {
-                                { onCheckCommentFraud.invoke(rootReply) }
-                            } else null,
-                            onLikeClick = { onCommentLike?.invoke(rootReply.rpid) },
-                            onHateClick = { onCommentHate?.invoke(rootReply.rpid) },
-                            isLiked = rootReply.action == 1 || rootReply.rpid in likedComments,
-                            isHated = rootReply.action == 2 || rootReply.rpid in hatedComments,
-                            onUrlClick = onUrlClick,
-                            maxTimestampMs = maxTimestampMs,
-                            onReportClick = onReportComment?.let { report -> { reason -> report(rootReply.rpid, reason) } },
-                            onAvatarClick = { onAvatarClick?.invoke(it) ?: Unit },
-                            showConversationAction = false,
-                            onConversationClick = null,
-                            auxiliaryDecoration = if (showIdentityDecorations) {
-                                resolveSubReplyAuxiliaryDecoration(rootReply)
-                            } else {
-                                null
-                            },
-                            showTrailingDivider = false
-                        )
-                    }
-                }
-                SubReplyDetailStaggeredReveal(
-                    revealKey = "section_${listScrollResetKey}",
-                    levelIndex = 1
-                ) {
-                    Column {
-                        AppHorizontalDivider(
-                            thickness = layoutPolicy.sectionDividerThicknessDp.dp,
-                            color = appearance.sectionDividerColor
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = layoutPolicy.sectionVerticalPaddingDp.dp)
-                                .testTag(SUB_REPLY_DETAIL_SECTION_TAG),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            AppText(
-                                text = if (effectiveConversationMode) {
-                                    resolveSubReplyConversationSectionTitle(replyCount = visibleReplies.size)
+                    item(key = "root_reply") {
+                        // The page transition owns reveal; avoid resizing the lazy-list anchor again.
+                        Box(modifier = Modifier.testTag(SUB_REPLY_DETAIL_ROOT_TAG)) {
+                            SubReplyDetailItem(
+                                avatarListState = listState.takeIf { avatarPushEnabled },
+                                avatarItemKey = "root_reply",
+                                layoutPolicy = layoutPolicy,
+                                item = rootReply,
+                                appearance = appearance,
+                                isRootItem = true,
+                                upMid = upMid,
+                                emoteMap = emoteMap,
+                                showUpFlag = unusedShowUpFlag,
+                                onTimestampClick = onTimestampClick,
+                                onImagePreview = onImagePreview,
+                                onReplyClick = { onReplyClick?.invoke(rootReply) },
+                                onDeleteClick = if (currentMid > 0 && rootReply.mid == currentMid) {
+                                    { onDeleteComment?.invoke(rootReply.rpid) }
+                                } else null,
+                                onCheckFraudClick = if (onCheckCommentFraud != null && currentMid > 0 && rootReply.mid == currentMid) {
+                                    { onCheckCommentFraud.invoke(rootReply) }
+                                } else null,
+                                onLikeClick = { onCommentLike?.invoke(rootReply.rpid) },
+                                onHateClick = { onCommentHate?.invoke(rootReply.rpid) },
+                                isLiked = rootReply.action == 1 || rootReply.rpid in likedComments,
+                                isHated = rootReply.action == 2 || rootReply.rpid in hatedComments,
+                                onUrlClick = onUrlClick,
+                                maxTimestampMs = maxTimestampMs,
+                                onReportClick = onReportComment?.let { report -> { reason -> report(rootReply.rpid, reason) } },
+                                onAvatarClick = { onAvatarClick?.invoke(it) ?: Unit },
+                                showConversationAction = false,
+                                onConversationClick = null,
+                                auxiliaryDecoration = if (showIdentityDecorations) {
+                                    resolveSubReplyAuxiliaryDecoration(rootReply)
                                 } else {
-                                    resolveSubReplyDetailSectionTitle(
-                                        replyCount = detailReplyDisplayCount,
-                                        loadedReplyCount = visibleReplies.size,
-                                        showLoadedReplyCount = showLoadedReplyCount,
-                                    )
+                                    null
                                 },
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                color = appearance.primaryTextColor
+                                showTrailingDivider = false
                             )
-                            Spacer(modifier = Modifier.weight(1f))
-                            if (effectiveConversationMode) {
+                        }
+                        Column {
+                            AppHorizontalDivider(
+                                thickness = layoutPolicy.sectionDividerThicknessDp.dp,
+                                color = appearance.sectionDividerColor
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = layoutPolicy.sectionVerticalPaddingDp.dp)
+                                    .testTag(SUB_REPLY_DETAIL_SECTION_TAG),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
                                 AppText(
-                                    text = "返回全部回复",
+                                    text = if (effectiveConversationMode) {
+                                        resolveSubReplyConversationSectionTitle(replyCount = visibleReplies.size)
+                                    } else {
+                                        resolveSubReplyDetailSectionTitle(
+                                            replyCount = detailReplyDisplayCount,
+                                            loadedReplyCount = visibleReplies.size,
+                                            showLoadedReplyCount = showLoadedReplyCount,
+                                        )
+                                    },
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                    color = appearance.sortTint,
-                                    modifier = Modifier
-                                        .clickable {
-                                            if (isConversationMode) {
-                                                onConversationBack?.invoke()
-                                            } else {
-                                                conversationAnchor = null
-                                            }
-                                        }
-                                        .sizeIn(minHeight = 48.dp)
-                                        .wrapContentHeight()
-                                        .padding(horizontal = 4.dp, vertical = 6.dp)
+                                    color = appearance.primaryTextColor
                                 )
-                            } else {
-                                Row(
-                                    modifier = Modifier
-                                        .testTag(SUB_REPLY_DETAIL_SORT_TAG)
-                                        .clickable(enabled = !isLoading) { onSortModeChange(sortMode.toggled()) }
-                                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                                        .padding(horizontal = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    AppIcon(
-                                        imageVector = Icons.AutoMirrored.Outlined.Sort,
-                                        contentDescription = "切换楼中楼排序",
-                                        tint = appearance.sortTint,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                                Spacer(modifier = Modifier.weight(1f))
+                                if (effectiveConversationMode) {
                                     AppText(
-                                        text = sortMode.label,
+                                        text = "返回全部回复",
                                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                        color = appearance.sortTint
+                                        color = appearance.sortTint,
+                                        modifier = Modifier
+                                            .clickable {
+                                                if (isConversationMode) {
+                                                    onConversationBack?.invoke()
+                                                } else {
+                                                    conversationAnchor = null
+                                                }
+                                            }
+                                            .sizeIn(minHeight = 48.dp)
+                                            .wrapContentHeight()
+                                            .padding(horizontal = 4.dp, vertical = 6.dp)
                                     )
+                                } else {
+                                    Row(
+                                        modifier = Modifier
+                                            .testTag(SUB_REPLY_DETAIL_SORT_TAG)
+                                            .clickable(enabled = !isLoading) { onSortModeChange(sortMode.toggled()) }
+                                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                            .padding(horizontal = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        AppIcon(
+                                            imageVector = Icons.AutoMirrored.Outlined.Sort,
+                                            contentDescription = "切换楼中楼排序",
+                                            tint = appearance.sortTint,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        AppText(
+                                            text = sortMode.label,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                            color = appearance.sortTint
+                                        )
+                                    }
                                 }
                             }
+                            AppHorizontalDivider(
+                                thickness = 0.5.dp,
+                                color = appearance.dividerColor
+                            )
                         }
-                        AppHorizontalDivider(
-                            thickness = 0.5.dp,
-                            color = appearance.dividerColor
-                        )
                     }
-                }
-            }
 
-            itemsIndexed(
-                items = visibleReplies,
-                key = { _, item -> item.rpid }
-            ) { _, item ->
-                MaybeDissolvableVideoCard(
-                    isDissolving = item.rpid in dissolvingIds,
-                    onDissolveComplete = { onDeleteComment?.invoke(item.rpid) },
-                    cardId = "subreply_detail_${item.rpid}",
-                    // 小间距防止裁剪；animateItem 放在最前，作用于整个槽位。
-                    modifier = videoCommentItemModifier().padding(bottom = 1.dp)
-                ) {
-                    SubReplyDetailItem(
-                            avatarListState = listState.takeIf { avatarPushEnabled },
-                            layoutPolicy = layoutPolicy,
-                            item = item,
-                            appearance = appearance,
-                            highlighted = item.rpid == highlightedTargetId,
-                            isRootItem = false,
-                            upMid = upMid,
-                            emoteMap = emoteMap,
-                            showUpFlag = unusedShowUpFlag,
-                            onTimestampClick = onTimestampClick,
-                            onImagePreview = onImagePreview,
-                            onReplyClick = { onReplyClick?.invoke(item) },
-                            onDeleteClick = if (currentMid > 0 && item.mid == currentMid) {
-                                { onDissolveStart?.invoke(item.rpid) }
-                            } else {
-                                null
-                            },
-                            onCheckFraudClick = if (onCheckCommentFraud != null && currentMid > 0 && item.mid == currentMid) {
-                                { onCheckCommentFraud.invoke(item) }
-                            } else null,
-                            onLikeClick = { onCommentLike?.invoke(item.rpid) },
-                            onHateClick = { onCommentHate?.invoke(item.rpid) },
-                            isLiked = item.action == 1 || item.rpid in likedComments,
-                            isHated = item.action == 2 || item.rpid in hatedComments,
-                            onUrlClick = onUrlClick,
-                            maxTimestampMs = maxTimestampMs,
-                            onReportClick = onReportComment?.let { report -> { reason -> report(item.rpid, reason) } },
-                            onAvatarClick = { onAvatarClick?.invoke(it) ?: Unit },
-                            showConversationAction = shouldRenderSubReplyConversationAction(
-                                item = item,
-                                hasConversationHandler = true
-                            ),
-                            onConversationClick = {
-                                captureListScrollForConversation()
-                                if (onConversationClick != null) {
-                                    onConversationClick(item)
-                                } else {
-                                    conversationAnchor = item
-                                }
-                            },
-                            auxiliaryDecoration = if (showIdentityDecorations) {
-                                resolveSubReplyAuxiliaryDecoration(item)
-                            } else {
-                                null
-                            },
-                            showTrailingDivider = true
-                    )
-                }
-            }
-
-            if (isLoading && visibleReplies.isEmpty()) {
-                // 骨架拆成多个独立 lazy item（而不是 1 个 item 里塞 4 行）：数据到达时是
-                // 一个槽位换一个槽位，列表锚点不失效，不会整体跳一下。
-                videoCommentSkeletonItems(
-                    slotCount = commentSkeletonSlotCount,
-                    keyPrefix = "subreply_skeleton_",
-                )
-            }
-
-            item(key = "footer") {
-                when {
-                    error != null && !isLoading -> {
-                        AppText(
-                            text = "$error，点击重试",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(onClick = onRefresh)
-                                .sizeIn(minHeight = 48.dp)
-                                .padding(16.dp),
-                            textAlign = TextAlign.Center,
-                            color = appearance.sortTint,
-                        )
-                    }
-                    isLoading && !isRefreshing && visibleReplies.isNotEmpty() -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
+                    itemsIndexed(
+                        items = visibleReplies,
+                        key = { _, item -> item.rpid }
+                    ) { _, item ->
+                        MaybeDissolvableVideoCard(
+                            isDissolving = pageActive && item.rpid in dissolvingIds,
+                            onDissolveComplete = { if (pageActive) onDeleteComment?.invoke(item.rpid) },
+                            cardId = "subreply_detail_${item.rpid}",
+                            // 小间距防止裁剪；animateItem 放在最前，作用于整个槽位。
+                            modifier = videoCommentItemModifier().padding(bottom = 1.dp)
                         ) {
-                            AdaptiveLoadingIndicator()
+                            SubReplyDetailItem(
+                                avatarListState = listState.takeIf { avatarPushEnabled },
+                                layoutPolicy = layoutPolicy,
+                                item = item,
+                                appearance = appearance,
+                                highlighted = item.rpid == highlightedTargetId,
+                                isRootItem = false,
+                                upMid = upMid,
+                                emoteMap = emoteMap,
+                                showUpFlag = unusedShowUpFlag,
+                                onTimestampClick = onTimestampClick,
+                                onImagePreview = onImagePreview,
+                                onReplyClick = { onReplyClick?.invoke(item) },
+                                onDeleteClick = if (currentMid > 0 && item.mid == currentMid) {
+                                    { onDissolveStart?.invoke(item.rpid) }
+                                } else {
+                                    null
+                                },
+                                onCheckFraudClick = if (onCheckCommentFraud != null && currentMid > 0 && item.mid == currentMid) {
+                                    { onCheckCommentFraud.invoke(item) }
+                                } else null,
+                                onLikeClick = { onCommentLike?.invoke(item.rpid) },
+                                onHateClick = { onCommentHate?.invoke(item.rpid) },
+                                isLiked = item.action == 1 || item.rpid in likedComments,
+                                isHated = item.action == 2 || item.rpid in hatedComments,
+                                onUrlClick = onUrlClick,
+                                maxTimestampMs = maxTimestampMs,
+                                onReportClick = onReportComment?.let { report -> { reason -> report(item.rpid, reason) } },
+                                onAvatarClick = { onAvatarClick?.invoke(it) ?: Unit },
+                                showConversationAction = shouldRenderSubReplyConversationAction(
+                                    item = item,
+                                    hasConversationHandler = true
+                                ),
+                                onConversationClick = {
+                                    captureListScrollForConversation()
+                                    if (onConversationClick != null) {
+                                        onConversationClick(item)
+                                    } else {
+                                        conversationAnchor = item
+                                    }
+                                },
+                                auxiliaryDecoration = if (showIdentityDecorations) {
+                                    resolveSubReplyAuxiliaryDecoration(item)
+                                } else {
+                                    null
+                                },
+                                showTrailingDivider = true
+                            )
                         }
                     }
-                    showManualLoadMore -> {
-                        AppText(
-                            text = "加载更多回复",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(onClick = onLoadMore)
-                                .padding(horizontal = 16.dp, vertical = 18.dp),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            color = appearance.sortTint
+
+                    if (isLoading && visibleReplies.isEmpty()) {
+                        // 骨架拆成多个独立 lazy item（而不是 1 个 item 里塞 4 行）：数据到达时是
+                        // 一个槽位换一个槽位，列表锚点不失效，不会整体跳一下。
+                        videoCommentSkeletonItems(
+                            slotCount = commentSkeletonSlotCount,
+                            keyPrefix = "subreply_skeleton_",
                         )
+                    }
+
+                    item(key = "footer") {
+                        when {
+                            error != null && !isLoading -> {
+                                AppText(
+                                    text = "$error，点击重试",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(onClick = onRefresh)
+                                        .sizeIn(minHeight = 48.dp)
+                                        .padding(16.dp),
+                                    textAlign = TextAlign.Center,
+                                    color = appearance.sortTint,
+                                )
+                            }
+                            isLoading && !isRefreshing && visibleReplies.isNotEmpty() -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AdaptiveLoadingIndicator()
+                                }
+                            }
+                            showManualLoadMore -> {
+                                AppText(
+                                    text = "加载更多回复",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(onClick = onLoadMore)
+                                        .padding(horizontal = 16.dp, vertical = 18.dp),
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = appearance.sortTint
+                                )
+                            }
+                        }
                     }
                 }
             }
-        }
         }
     }
 }
@@ -1284,7 +1345,11 @@ private fun SubReplyDetailItem(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .drawBehind { drawRect(backgroundColor) }
+            .commentAvatarRowBackground(
+                color = backgroundColor,
+                pushEnabled = avatarListState != null,
+                gutterWidth = 16.dp + NAGRAM_CHAT_AVATAR_SIZE_DP.dp,
+            )
             .then(
                 if (avatarListState != null) {
                     Modifier.onSizeChanged { avatarContentHeightPx.intValue = it.height }
@@ -1318,6 +1383,8 @@ private fun SubReplyDetailItem(
                                 topInset = layoutPolicy.commentTopPaddingDp.dp,
                                 bottomInset = 0.dp,
                                 contentHeightPxProvider = { avatarContentHeightPx.intValue },
+                                // Root and reply-section header share a lazy item.
+                                allowNeighborContact = !isRootItem,
                             )
                         } else Modifier
                     ),
@@ -1630,45 +1697,6 @@ private fun SubReplyDetailItem(
                 thickness = 0.5.dp,
                 color = appearance.dividerColor
             )
-        }
-    }
-}
-
-@Composable
-private fun SubReplyDetailStaggeredReveal(
-    revealKey: Any,
-    levelIndex: Int,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    val spec = remember(levelIndex) { resolveSubReplyDetailRevealSpec(levelIndex) }
-    var visible by remember(revealKey) { mutableStateOf(false) }
-
-    LaunchedEffect(revealKey, levelIndex) {
-        visible = false
-        delay(spec.delayMillis.toLong())
-        visible = true
-    }
-
-    AnimatedVisibility(
-        visible = visible,
-        modifier = modifier,
-        enter = fadeIn(animationSpec = tween(durationMillis = spec.durationMillis)) +
-            expandVertically(
-                animationSpec = tween(durationMillis = spec.durationMillis),
-                expandFrom = Alignment.Top
-            ) +
-            slideInVertically(animationSpec = tween(durationMillis = spec.durationMillis)) { height ->
-                height / 6
-            },
-        exit = fadeOut(animationSpec = tween(durationMillis = 120)) +
-            shrinkVertically(animationSpec = tween(durationMillis = 120), shrinkTowards = Alignment.Top)
-    ) {
-        Box(
-            modifier = Modifier
-                .animateContentSize(animationSpec = tween(durationMillis = spec.durationMillis))
-        ) {
-            content()
         }
     }
 }

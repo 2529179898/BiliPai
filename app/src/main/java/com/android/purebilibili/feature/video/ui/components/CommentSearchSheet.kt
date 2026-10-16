@@ -655,6 +655,9 @@ private fun CommentSearchResultRow(
                             itemKey = "${item.rpid}_${entry.isSubReply}",
                             topInset = 12.dp,
                             bottomInset = 12.dp,
+                            // Search results are individually clipped cards. Their avatars
+                            // must stay inside their own card rather than meet across cards.
+                            allowNeighborContact = false,
                         ),
                 )
             }

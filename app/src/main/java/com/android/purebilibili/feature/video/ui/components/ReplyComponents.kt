@@ -1576,7 +1576,11 @@ fun ReplyItemView(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(appearance.panelColor)
+            .commentAvatarRowBackground(
+                color = appearance.panelColor,
+                pushEnabled = avatarListState != null,
+                gutterWidth = layoutPolicy.horizontalPaddingDp.dp + NAGRAM_CHAT_AVATAR_SIZE_DP.dp,
+            )
             .combinedClickable(
                 onClick = {
                     if (openThreadFromRootClick) {
@@ -1601,14 +1605,12 @@ fun ReplyItemView(
                     end = layoutPolicy.horizontalPaddingDp.dp
                 )
         ) {
-            val headerEndPadding = if (avatarListState != null) {
-                layoutPolicy.actionButtonSizeDp.dp
-            } else {
-                resolveReplyItemHeaderEndPaddingDp(
-                    hasBiliPaiDecoration = biliPaiDecoration != null,
-                    policy = layoutPolicy
-                ).dp
-            }
+            // Avatar push owns avatar placement only. Keep author metadata, badges and
+            // the trailing decoration in the same header slots as the native comment row.
+            val headerEndPadding = resolveReplyItemHeaderEndPaddingDp(
+                hasBiliPaiDecoration = biliPaiDecoration != null,
+                policy = layoutPolicy,
+            ).dp
             // The Nagram geometry is explicitly opt-in in every material style.
             // Disabled retains native avatar dimensions and narrow-window defaults.
             val pushAvatar = avatarListState != null
@@ -1657,7 +1659,7 @@ fun ReplyItemView(
                                     onSurface = appearance.primaryTextColor.copy(alpha = 0.9f),
                                     secondary = com.android.purebilibili.core.ui.components.userVipPink(),
                                 ),
-                                maxLines = if (pushAvatar) 2 else 1,
+                                maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false)
                             )
@@ -1669,25 +1671,23 @@ fun ReplyItemView(
                                 )
                             }
 
-                            if (!pushAvatar) {
-                                if (item.member.levelInfo.currentLevel > 0) {
-                                    LevelTag(
-                                        level = item.member.levelInfo.currentLevel,
-                                        isSeniorMember = item.member.isSeniorMember == 1
-                                    )
-                                }
+                            if (item.member.levelInfo.currentLevel > 0) {
+                                LevelTag(
+                                    level = item.member.levelInfo.currentLevel,
+                                    isSeniorMember = item.member.isSeniorMember == 1
+                                )
+                            }
 
-                                if (isUpComment) {
-                                    UpTag()
-                                }
+                            if (isUpComment) {
+                                UpTag()
+                            }
 
-                                if (fansDetail != null) {
-                                    FansMedalTag(detail = fansDetail)
-                                }
+                            if (fansDetail != null) {
+                                FansMedalTag(detail = fansDetail)
+                            }
 
-                                if (!nameplateImage.isNullOrBlank()) {
-                                    NameplateTag(imageUrl = nameplateImage)
-                                }
+                            if (!nameplateImage.isNullOrBlank()) {
+                                NameplateTag(imageUrl = nameplateImage)
                             }
                         }
 
@@ -1697,40 +1697,6 @@ fun ReplyItemView(
                             lineHeight = VideoCommentTypographyTokens.metadataLineHeight,
                             color = appearance.secondaryTextColor
                         )
-                        if (pushAvatar) {
-                            // Decoration never competes with the author name for width.
-                            // The disabled material paths retain their original name row.
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                if (item.member.levelInfo.currentLevel > 0) {
-                                    LevelTag(
-                                        level = item.member.levelInfo.currentLevel,
-                                        isSeniorMember = item.member.isSeniorMember == 1
-                                    )
-                                }
-
-                                if (isUpComment) {
-                                    UpTag()
-                                }
-
-                                if (fansDetail != null) {
-                                    FansMedalTag(detail = fansDetail)
-                                }
-
-                                if (!nameplateImage.isNullOrBlank()) {
-                                    NameplateTag(imageUrl = nameplateImage)
-                                }
-                            }
-                            if (biliPaiDecoration != null) {
-                                FanGroupDecorationBadge(
-                                    visual = biliPaiDecoration,
-                                    modifier = Modifier.align(Alignment.End),
-                                )
-                            }
-                        }
                     }
                 }
 
@@ -1955,7 +1921,7 @@ fun ReplyItemView(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = if (pushAvatar) startPadding else 0.dp)
+                            // This preview is already inside the indented body column.
                             .clip(AppShapes.container(ContainerLevel.Chip))
                             .background(appearance.composerHintBackgroundColor)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
@@ -2129,7 +2095,7 @@ fun ReplyItemView(
             }
         }
 
-        if (biliPaiDecoration != null && avatarListState == null) {
+        if (biliPaiDecoration != null) {
             FanGroupDecorationBadge(
                 visual = biliPaiDecoration,
                 modifier = Modifier
