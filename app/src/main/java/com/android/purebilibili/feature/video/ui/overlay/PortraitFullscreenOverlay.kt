@@ -240,30 +240,32 @@ fun PortraitFullscreenOverlay(
                 )
 
                 // 2. 右侧互动栏 (不再包含头像)
-                PortraitInteractionBar(
-                    isLiked = isLiked,
-                    likeStatusKnown = likeStatusKnown,
-                    likeCount = statLike,
-                    isCoined = isCoined,
-                    coinCount = statCoin,
-                    isFavorited = isFavorited,
-                    favoriteCount = statFavorite,
-                    commentCount = statReply.takeIf { it > 0 } ?: statDanmaku, // 优先用评论数，没有则用弹幕数代替展示
-                    shareCount = statShare,
-                    onLikeClick = onLikeClick,
-                    onLikeLongClick = onLikeLongClick,
-                    onCoinClick = onCoinClick,
-                    onFavoriteClick = onFavoriteClick,
-                    onFavoriteLongClick = onFavoriteLongClick,
-                    onCommentClick = onCommentClick,
-                    onShareClick = onShareClick,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .graphicsLayer {
-                            alpha = commentOverlayAlpha
-                            translationX = commentOverlayOffsetPx
-                        }
-                )
+                key(currentBvid) {
+                    PortraitInteractionBar(
+                        isLiked = isLiked,
+                        likeStatusKnown = likeStatusKnown,
+                        likeCount = statLike,
+                        isCoined = isCoined,
+                        coinCount = statCoin,
+                        isFavorited = isFavorited,
+                        favoriteCount = statFavorite,
+                        commentCount = statReply.takeIf { it > 0 } ?: statDanmaku, // 优先用评论数，没有则用弹幕数代替展示
+                        shareCount = statShare,
+                        onLikeClick = onLikeClick,
+                        onLikeLongClick = onLikeLongClick,
+                        onCoinClick = onCoinClick,
+                        onFavoriteClick = onFavoriteClick,
+                        onFavoriteLongClick = onFavoriteLongClick,
+                        onCommentClick = onCommentClick,
+                        onShareClick = onShareClick,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .graphicsLayer {
+                                alpha = commentOverlayAlpha
+                                translationX = commentOverlayOffsetPx
+                            }
+                    )
+                }
 
                 // 3. 底部区域 (信息 + 进度条 + 输入栏占位)
                 Column(

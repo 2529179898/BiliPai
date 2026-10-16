@@ -63,7 +63,7 @@ class VideoTriplePressPolicyTest {
         val text = source.readText()
 
         assertTrue(text.contains("onLikeLongClick"))
-        assertTrue(text.contains("portraitTripleProgress"))
+        assertTrue(text.contains("rememberVideoTriplePressState("))
         assertTrue(text.contains("shouldCancelPortraitTriplePressOnRelease"))
         assertFalse(text.contains("onLongClick = onLikeLongClick"))
     }
