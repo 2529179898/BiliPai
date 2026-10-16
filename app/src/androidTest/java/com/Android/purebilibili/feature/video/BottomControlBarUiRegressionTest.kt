@@ -13,13 +13,21 @@ import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.android.purebilibili.feature.video.subtitle.SubtitleDisplayMode
+import com.android.purebilibili.feature.video.subtitle.SubtitleTrackOption
 import com.android.purebilibili.feature.video.ui.overlay.BottomControlBar
 import com.android.purebilibili.feature.video.ui.overlay.PlayerProgress
+import com.android.purebilibili.feature.video.ui.overlay.SubtitleControlCallbacks
+import com.android.purebilibili.feature.video.ui.overlay.SubtitleControlUiState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -39,6 +47,64 @@ class BottomControlBarUiRegressionTest {
     @Test
     fun hiResWithLargerFont_keepsFullscreenInsidePlayer() {
         verifyFullscreenOnCompactPhone(fontScale = 1.5f)
+    }
+
+    @Test
+    fun longSubtitleList_canScrollToAiChineseAndSelectIt() {
+        val chineseTrack = SubtitleTrackOption(
+            trackKey = "ai-zh",
+            languageCode = "ai-zh",
+            label = "中文（自动生成）",
+            selected = false,
+            likelyAi = true,
+        )
+        val tracks = List(40) { index ->
+            SubtitleTrackOption(
+                trackKey = "track-$index",
+                languageCode = "lang-$index",
+                label = "语言 $index",
+                selected = index == 0,
+                likelyAi = false,
+            )
+        } + chineseTrack
+        var selectedTrackKey: String? = null
+        var selectedMode = SubtitleDisplayMode.OFF
+        composeTestRule.setContent {
+            MaterialTheme {
+                BottomControlBar(
+                    isPlaying = false,
+                    isFullscreen = true,
+                    onPlayPauseClick = {},
+                    onSeek = {},
+                    onToggleFullscreen = {},
+                    subtitleControlState = SubtitleControlUiState(
+                        trackAvailable = true,
+                        primaryAvailable = true,
+                        primaryLabel = "语言 0",
+                        trackOptions = tracks,
+                    ),
+                    subtitleControlCallbacks = SubtitleControlCallbacks(
+                        onTrackSelected = { selectedTrackKey = it },
+                        onDisplayModeChange = { selectedMode = it },
+                    ),
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("字幕").performClick()
+        composeTestRule.onNodeWithText("锁定位置", useUnmergedTree = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText(chineseTrack.label)
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performTouchInput { click(center) }
+
+        composeTestRule.runOnIdle {
+            assertEquals(chineseTrack.trackKey, selectedTrackKey)
+            assertEquals(SubtitleDisplayMode.PRIMARY_ONLY, selectedMode)
+        }
+        composeTestRule.onNodeWithText("字幕显示").assertDoesNotExist()
     }
 
     private fun verifyFullscreenOnCompactPhone(fontScale: Float) {
