@@ -1955,7 +1955,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
             val stopPlaybackOnExit = SettingsManager.getStopPlaybackOnExitSync(context)
             val audioFocusEnabled = SettingsManager.getAudioFocusEnabledSync(context)
 
-            // 响度均衡开启时注入 AGC 音频处理器（需重建播放会话才生效）
+            // 声音律动在 HiResCompatibleRenderersFactory 的公共音频入口动态读取开关。
             val renderersFactory = if (SettingsManager.getLoudnessNormalizationEnabledSync(context)) {
                 com.android.purebilibili.core.player.LoudnessAwareRenderersFactory(context)
             } else {
@@ -2789,6 +2789,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
         _player?.removeListener(playerListener)
         _player?.release()
         _player = null
+        // 音频输出入口释放时按会话所有权清理律动，不清空其他仍在播放的会话。
         scope.cancel()
         INSTANCE = null
     }

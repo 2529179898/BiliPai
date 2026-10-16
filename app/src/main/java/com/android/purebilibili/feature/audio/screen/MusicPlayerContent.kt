@@ -126,6 +126,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
@@ -243,6 +244,9 @@ internal val LocalMusicPlayerMaterial = staticCompositionLocalOf {
         likeColor = Color.Unspecified,
     )
 }
+
+/** 声音律动开关：听视频页在 Provider 中提供，关闭时所有接入点都不进入 composition。 */
+internal val LocalMusicSpectrumEnabled = staticCompositionLocalOf { false }
 
 /** 当前听视频页前景色（随封面色板明暗切换，保证可读）。 */
 internal val MusicContentColor: Color
@@ -546,6 +550,10 @@ internal fun MusicPlayerContent(
         reduceMotion = effectiveReduceMotion
     )
     var coverStyle by remember { mutableStateOf(MusicCoverStyle.APPLE_MUSIC_CARD) }
+    // 声音律动开关仅控制短柱；封面、歌词和各材质原生参数沿用原有调用链。
+    val audioSpectrumEnabled by SettingsManager
+        .getAudioSpectrumEnabled(context)
+        .collectAsStateWithLifecycle(initialValue = false)
     val chromeSpec = resolveMusicPlayerChromeSpec(
         uiStyle = LocalAppUiStyle.current,
         glassEnabled = glassEnabled,
@@ -576,6 +584,7 @@ internal fun MusicPlayerContent(
 
     CompositionLocalProvider(
         LocalMusicPlayerMaterial provides musicMaterial,
+        LocalMusicSpectrumEnabled provides audioSpectrumEnabled,
         com.android.purebilibili.core.ui.LocalAppButtonSlotColorCorrectionEnabled provides false,
     ) {
     BoxWithConstraints(
@@ -687,6 +696,15 @@ internal fun MusicPlayerContent(
                                 onClick = { coverStyle = resolveNextCoverStyle(coverStyle) },
                             )
                             if (landscapeLyrics) {
+                                if (LocalMusicSpectrumEnabled.current) {
+                                    Spacer(Modifier.height(12.dp))
+                                    MusicWaveformBars(
+                                        isPlaying = state.isPlaying,
+                                        reduceMotion = effectiveReduceMotion,
+                                        color = MusicContentColor.copy(alpha = 0.82f),
+                                        modifier = Modifier.size(MUSIC_WAVEFORM_WIDTH_DP.dp, MUSIC_WAVEFORM_HEIGHT_DP.dp),
+                                    )
+                                }
                                 Spacer(Modifier.height(8.dp))
                                 MusicProgress(
                                     state = state,
@@ -931,7 +949,12 @@ internal fun MusicPlayerContent(
                                         liquidGlassTuning = liquidGlassTuning,
                                         skipButtonSizeDp = 48,
                                         isDarkEnvironment = isDarkEnvironment,
-                                        modifier = Modifier.graphicsLayer { alpha = 0.72f },
+                                        // 仅玻璃悬浮三键：逐绘制指令应用透明度，避免离屏层按行高
+                                        // 截断按钮全局拖拽的外扩；原生控制条仍走下方独立分支。
+                                        modifier = Modifier.graphicsLayer {
+                                            alpha = 0.72f
+                                            compositingStrategy = CompositingStrategy.ModulateAlpha
+                                        },
                                     )
                                     Spacer(Modifier.height(12.dp))
                                     LyricsImmersiveProgress(state = state)
@@ -951,9 +974,12 @@ internal fun MusicPlayerContent(
                                             Spacer(Modifier.height(10.dp))
                                             Row(
                                                 modifier = Modifier
-                                                    .graphicsLayer { alpha = musicChromeAlpha }
-                                                    .clip(CircleShape)
-                                                    .background(Color.Black.copy(alpha = 0.42f))
+                                                    .graphicsLayer {
+                                                        alpha = musicChromeAlpha
+                                                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                                                    }
+                                                    // 只约束外壳形状，不裁剪子按钮的弹性位移与缩放。
+                                                    .background(Color.Black.copy(alpha = 0.42f), CircleShape)
                                                     .border(
                                                         width = 0.8.dp,
                                                         color = Color.White.copy(alpha = 0.16f),
@@ -1358,6 +1384,21 @@ internal fun MusicPlayerContent(
                                 ) {
                                     showActions = false
                                     coverStyle = resolveNextCoverStyle(coverStyle)
+                                }
+                                MusicActionSheetItem(
+                                    if (audioSpectrumEnabled) "声音律动：开启" else "声音律动：关闭",
+                                    contentColor = sheetContentColor
+                                ) {
+                                    showActions = false
+                                    val nextEnabled = !audioSpectrumEnabled
+                                    settingsScope.launch {
+                                        SettingsManager.setAudioSpectrumEnabled(context, nextEnabled)
+                                    }
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        if (nextEnabled) "已开启声音律动" else "已关闭声音律动",
+                                        android.widget.Toast.LENGTH_SHORT,
+                                    ).show()
                                 }
                                 MusicActionSheetItem(
                                     "歌词界面：${lyricsUiStyle.next().label}",
@@ -2255,6 +2296,16 @@ private fun PlayerPage(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
+                        // 声音指示器由独立开关控制；各材质沿用原有文字、间距与封面参数。
+                        if (LocalMusicSpectrumEnabled.current) {
+                            Spacer(Modifier.width(10.dp))
+                            MusicWaveformBars(
+                                isPlaying = state.isPlaying,
+                                reduceMotion = reduceMotion,
+                                color = MusicContentColor.copy(alpha = 0.82f),
+                                modifier = Modifier.size(MUSIC_WAVEFORM_WIDTH_DP.dp, MUSIC_WAVEFORM_HEIGHT_DP.dp),
+                            )
+                        }
                     }
                     state.error?.let {
                         AppText(it, color = AppContentColors.error(), style = MaterialTheme.typography.bodySmall)
@@ -3562,6 +3613,8 @@ private fun MusicPlayPauseButton(
             ) else Modifier.shadow(
                 elevation = 10.dp,
                 shape = CircleShape,
+                // 阴影只画圆形轮廓，不额外裁剪按钮内容与拖拽反馈。
+                clip = false,
                 ambientColor = Color.Black.copy(alpha = 0.35f),
                 spotColor = Color.Black.copy(alpha = 0.35f),
             )

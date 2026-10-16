@@ -191,6 +191,8 @@ fun PlaybackSettingsContent(
         .collectAsStateWithLifecycle(initialValue = SettingsManager.MusicLyricsUiStyle.CLASSIC)
     val loudnessNormalizationEnabled by com.android.purebilibili.core.store.SettingsManager
         .getLoudnessNormalizationEnabled(context).collectAsStateWithLifecycle(initialValue = false)
+    val audioSpectrumEnabled by com.android.purebilibili.core.store.SettingsManager
+        .getAudioSpectrumEnabled(context).collectAsStateWithLifecycle(initialValue = false)
     val startupAutoPlayEnabled by com.android.purebilibili.core.store.SettingsManager
         .getStartupAutoPlayEnabled(context).collectAsStateWithLifecycle(initialValue = false)
     val playerDiagnosticLoggingEnabled by com.android.purebilibili.core.store.SettingsManager
@@ -791,6 +793,26 @@ SettingsItemAnchor("playback.mini_player_mode") {
                                     scope.launch {
                                         com.android.purebilibili.core.store.SettingsManager
                                             .setLoudnessNormalizationEnabled(context, it)
+                                    }
+                                },
+                                iconTint = AppContentColors.secondaryText()
+                            )
+                        }
+                        AppPreferenceDivider()
+                        SettingsItemAnchor("playback.audio_spectrum_enabled") {
+                            AppSwitchPreference(
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.ANIMATION),
+                                title = playbackSettingTitle("playback.audio_spectrum_enabled"),
+                                subtitle = if (audioSpectrumEnabled) {
+                                    "听视频歌曲信息旁的短柱随声音起伏"
+                                } else {
+                                    "用灵动岛式短柱呈现声音变化，不需要录音权限"
+                                },
+                                checked = audioSpectrumEnabled,
+                                onCheckedChange = {
+                                    scope.launch {
+                                        com.android.purebilibili.core.store.SettingsManager
+                                            .setAudioSpectrumEnabled(context, it)
                                     }
                                 },
                                 iconTint = AppContentColors.secondaryText()

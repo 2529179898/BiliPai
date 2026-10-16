@@ -93,6 +93,7 @@ internal val settingsStaticDescriptionIndex: Map<String, String> = mapOf(
     "playback.audio_now_playing_bar_enabled" to "离开视频页后，底部保留当前视频入口；关闭后返回首页等页面时不显示底部视频入口",
     "playback.audio_now_playing_bar_immersive_enabled" to "播放中 5 秒不操作时隐藏；点底部横条恢复；关闭后标题横条始终显示",
     "playback.audio_now_playing_bar_opens_audio_mode" to "点击底部视频入口时跳转到听视频；关闭后点击底部视频入口时跳转到视频详情页（默认）",
+    "playback.audio_spectrum_enabled" to "听视频歌曲信息旁显示灵动岛式声音短柱；不需要录音权限",
     "playback.auto_enter_fullscreen" to "视频开始播放后自动切到全屏",
     "playback.auto_highest_quality_enabled" to "自动选择账号和设备支持的最高画质；关闭后按下方的无线网络和移动网络默认画质播放",
     "playback.auto_play_enabled" to "分 P 或合集接着播下一集，单个视频播完暂停",

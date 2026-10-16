@@ -1477,6 +1477,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private val KEY_DYNAMIC_TAB_VISIBLE_TABS = stringPreferencesKey("dynamic_tab_visible_tabs")
     private val KEY_DYNAMIC_TAB_ORDER = stringPreferencesKey("dynamic_tab_order")
     private val KEY_LOUDNESS_NORMALIZATION_ENABLED = booleanPreferencesKey("loudness_normalization_enabled")
+    private val KEY_AUDIO_SPECTRUM_ENABLED = booleanPreferencesKey("audio_spectrum_enabled")
     private val KEY_STARTUP_AUTO_PLAY_ENABLED = booleanPreferencesKey("startup_auto_play_enabled")
     private val KEY_DYNAMIC_IMAGE_PREVIEW_TEXT_VISIBLE =
         booleanPreferencesKey("dynamic_image_preview_text_visible")
@@ -6795,11 +6796,38 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         context.settingsDataStore.edit { preferences ->
             preferences[KEY_LOUDNESS_NORMALIZATION_ENABLED] = value
         }
+        // 同步到 SharedPreferences，供 MiniPlayerManager 同步读取（此前缺少这一步，
+        // 导致 Sync 读取恒为 false、响度均衡从未真正注入音频链路）
+        context.getSharedPreferences("mini_player", Context.MODE_PRIVATE)
+            .edit().putBoolean("loudness_normalization_enabled", value).apply()
     }
 
     fun getLoudnessNormalizationEnabledSync(context: Context): Boolean {
         return context.getSharedPreferences("mini_player", Context.MODE_PRIVATE)
             .getBoolean("loudness_normalization_enabled", false)
+    }
+
+    /**
+     * 「听视频」声音短柱律动。数据取自音频输出链路的 PCM（无录音权限），
+     * 默认关闭；公共 AudioSink 按缓冲读取开关，已有 PCM 播放会话内即可生效。
+     */
+    fun getAudioSpectrumEnabled(context: Context): Flow<Boolean> =
+        context.settingsDataStore.data.map { preferences ->
+            preferences[KEY_AUDIO_SPECTRUM_ENABLED] ?: false
+        }
+
+    suspend fun setAudioSpectrumEnabled(context: Context, value: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[KEY_AUDIO_SPECTRUM_ENABLED] = value
+        }
+        // 同步到 SharedPreferences，供 MiniPlayerManager 同步读取
+        context.getSharedPreferences("mini_player", Context.MODE_PRIVATE)
+            .edit().putBoolean("audio_spectrum_enabled", value).apply()
+    }
+
+    fun getAudioSpectrumEnabledSync(context: Context): Boolean {
+        return context.getSharedPreferences("mini_player", Context.MODE_PRIVATE)
+            .getBoolean("audio_spectrum_enabled", false)
     }
 
     /** 冷启动后进入播放场景时自动续播上一次会话。 */
