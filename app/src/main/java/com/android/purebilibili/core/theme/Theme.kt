@@ -394,12 +394,13 @@ internal fun resolveNativeMiuixColors(
         onTertiaryContainer = scheme.onTertiaryContainer,
         sliderKeyPoint = scheme.primary.copy(alpha = base.sliderKeyPoint.alpha),
         sliderKeyPointForeground = scheme.primary,
-        // Native neutral containers also carry readable text, including search and quality rows.
-        onSecondary = base.onSurface,
         error = scheme.error,
         onError = scheme.onError,
         errorContainer = scheme.errorContainer,
         onErrorContainer = scheme.onErrorContainer,
+        // Search and quality rows need readable container text. Keep onSecondary
+        // at its native value: Miuix uses it for the unchecked switch thumb.
+        // Glass controls use their separate renderer; do not compensate here.
         onSecondaryContainer = base.onSurface,
         onSecondaryContainerVariant = base.onSurface,
         onSurfaceContainerHigh = base.onSurface,

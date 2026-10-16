@@ -26,6 +26,13 @@ class AppThemeEndpointPolicyTest {
                 )
                 assertEquals(accent, endpoint.material.primary)
                 assertEquals(accent, endpoint.miuix.primary)
+                // A bright custom accent legitimately needs dark text. Fixing
+                // Miuix handles must not force the shared foreground to white;
+                // MD3's native SwitchDefaults also consumes this semantic role.
+                assertEquals(resolveReadableForeground(accent), endpoint.material.onPrimary)
+                assertTrue(calculateContrastRatio(
+                    endpoint.material.onPrimary, endpoint.material.primary,
+                ) >= ACCESSIBLE_TEXT_MIN_CONTRAST)
                 val expectedContainer = opaqueCompositeOver(accent.copy(alpha = 0.14f), endpoint.material.surface)
                 assertEquals(expectedContainer, endpoint.material.secondaryContainer)
                 assertEquals(expectedContainer, endpoint.miuix.secondaryContainer)
