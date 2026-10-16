@@ -1,6 +1,9 @@
 package com.android.purebilibili.feature.home.components
 
 import com.android.purebilibili.core.ui.AppContentColors
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -86,6 +89,8 @@ internal fun BottomBarFloatingSegmentedControl(
     geometryMode: FloatingBottomBarGeometryMode = FloatingBottomBarGeometryMode.Segmented,
     adaptIndicatorToLabel: Boolean = true,
     liquidGlassLabelHorizontalPadding: Dp? = null,
+    liquidGlassMeasurementLabels: List<String>? = null,
+    liquidGlassAnimateLabelWidthChanges: Boolean = false,
     itemContent: (@Composable ColumnScope.(index: Int, label: String, selected: Boolean) -> Unit)? = null,
 ) {
     if (items.isEmpty()) return
@@ -194,8 +199,10 @@ internal fun BottomBarFloatingSegmentedControl(
     )
     val labelHorizontalPadding = liquidGlassLabelHorizontalPadding
         ?: com.android.purebilibili.core.ui.components.resolveLiquidGlassTabSlotHorizontalPadding(itemCount)
-    val indicatorContentWidths = remember(items, labelStyle, density, textMeasurer, contentAdaptiveIndicatorEnabled, effectiveIndicatorHeight, labelHorizontalPadding) {
-        if (!contentAdaptiveIndicatorEnabled) null else items.map { label ->
+    // Badge reservations apply only to glass geometry; actual labels and native sizing stay intact.
+    val measurementLabels = liquidGlassMeasurementLabels?.takeIf { it.size == items.size } ?: items
+    val measuredIndicatorContentWidths = remember(measurementLabels, labelStyle, density, textMeasurer, contentAdaptiveIndicatorEnabled, effectiveIndicatorHeight, labelHorizontalPadding) {
+        if (!contentAdaptiveIndicatorEnabled) null else measurementLabels.map { label ->
             with(density) {
                 (textMeasurer.measure(AnnotatedString(label), labelStyle, maxLines = 1,
                     softWrap = false).size.width.toDp() +
@@ -204,6 +211,18 @@ internal fun BottomBarFloatingSegmentedControl(
             }
         }
     }
+    val animateLabelWidths = contentAdaptiveIndicatorEnabled && liquidGlassAnimateLabelWidthChanges &&
+        com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current &&
+        !com.android.purebilibili.core.ui.LocalSystemReduceMotion.current
+    val indicatorContentWidths = if (animateLabelWidths) {
+        measuredIndicatorContentWidths?.map { width ->
+            animateDpAsState(
+                targetValue = width,
+                animationSpec = tween(180, easing = FastOutSlowInEasing),
+                label = "glassAsyncBadgeIndicatorWidth",
+            ).value
+        }
+    } else measuredIndicatorContentWidths
     val horizontalPadding = containerHorizontalPadding.coerceAtLeast(0.dp)
     val verticalPadding = containerVerticalPadding.coerceIn(0.dp, effectiveHeight / 2)
     val contentWidth = effectiveItemWidth?.let { it * itemCount + horizontalPadding * 2 }

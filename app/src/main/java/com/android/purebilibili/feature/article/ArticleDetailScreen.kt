@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
@@ -86,13 +87,15 @@ fun ArticleDetailScreen(
     initialTitle: String,
     transitionEnabled: Boolean = false,
     onBack: (Boolean) -> Unit,
-    onUserClick: (Long) -> Unit
+    onUserClick: (Long) -> Unit,
+    contentTransitionReady: Boolean = true,
+    backHandlerEnabled: Boolean = true,
 ) {
     var retryToken by rememberSaveable { mutableIntStateOf(0) }
     val backLabel = stringResource(R.string.common_back)
     val retryLabel = stringResource(R.string.common_retry)
     val loadFailedMessage = stringResource(R.string.dynamic_detail_load_failed)
-    val uiState by produceState<ArticleDetailUiState>(
+    val loadedUiState by produceState<ArticleDetailUiState>(
         initialValue = ArticleDetailUiState.Loading,
         key1 = articleId,
         key2 = retryToken
@@ -106,13 +109,20 @@ fun ArticleDetailScreen(
         )
     }
 
+    val uiState = if (contentTransitionReady) loadedUiState else ArticleDetailUiState.Loading
+    val contentRevealAlpha = com.android.purebilibili.core.ui.transition.rememberSharedCardDetailRevealAlpha(
+        entryKey = articleId,
+        contentTransitionReady = contentTransitionReady,
+        contentLoaded = uiState !is ArticleDetailUiState.Loading,
+    )
     val screenTitle = when (val state = uiState) {
         is ArticleDetailUiState.Success -> state.article.title
         else -> initialTitle.ifBlank { "专栏详情" }
     }
     var sharedReturnReady by remember { mutableStateOf(false) }
 
-    BackHandler {
+    // Container entries let the host seek the whole card during predictive back.
+    BackHandler(enabled = backHandlerEnabled) {
         onBack(sharedReturnReady)
     }
 
@@ -131,7 +141,9 @@ fun ArticleDetailScreen(
     ) { paddingValues ->
         // 遮挡铰链时整页内容落入最大安全区，软折痕允许跨越；长文保持居中单栏。
         com.android.purebilibili.core.ui.adaptive.AppHingeSafeContent(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().graphicsLayer {
+                alpha = if (uiState is ArticleDetailUiState.Loading) 1f else contentRevealAlpha.value
+            },
         ) {
         when (val state = uiState) {
             ArticleDetailUiState.Loading -> {

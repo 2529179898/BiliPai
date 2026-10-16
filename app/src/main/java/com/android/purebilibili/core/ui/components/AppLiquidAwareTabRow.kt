@@ -1,6 +1,9 @@
 package com.android.purebilibili.core.ui.components
 
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +62,7 @@ fun <T> AppThemeAdaptiveTabRow(
     role: AppTabRowRole,
     indicatorPositionProvider: (() -> Float)? = null,
     isScrollInProgressProvider: () -> Boolean = { false },
+    liquidGlassAnimateLabelWidthChanges: Boolean = false,
 ) {
     AppLiquidAwareTabRow(
         options = options,
@@ -81,6 +85,7 @@ fun <T> AppThemeAdaptiveTabRow(
         role = role,
         indicatorPositionProvider = indicatorPositionProvider,
         isScrollInProgressProvider = isScrollInProgressProvider,
+        liquidGlassAnimateLabelWidthChanges = liquidGlassAnimateLabelWidthChanges,
     )
 }
 
@@ -111,6 +116,7 @@ fun <T> AppLiquidAwareTabRow(
     role: AppTabRowRole,
     indicatorPositionProvider: (() -> Float)? = null,
     isScrollInProgressProvider: () -> Boolean = { false },
+    liquidGlassAnimateLabelWidthChanges: Boolean = false,
 ) {
     if (options.isEmpty()) return
     // Material boundary: glass-only spacing, wrapping and typography must never change
@@ -140,7 +146,7 @@ fun <T> AppLiquidAwareTabRow(
     val resolvedLabelFontSize = com.android.purebilibili.core.ui.appTabLabelFontSize(labelFontSize)
     // Measure once before choosing the material. Glass and native renderers own
     // the same slots, including font scaling and long labels.
-    val readableTabWidth = rememberMeasuredTabMinWidth(
+    val measuredTabWidth = rememberMeasuredTabMinWidth(
         requestedMinWidth = resolvedMinTabWidth,
         labels = labels,
         textStyle = MaterialTheme.typography.labelLarge.copy(
@@ -153,6 +159,18 @@ fun <T> AppLiquidAwareTabRow(
     )
     val selectedIndex = options.indexOfFirst { it.value == selectedValue }.coerceAtLeast(0)
     val resolvedDragSelectionEnabled = dragSelectionEnabled ?: (enabled && options.size > 1)
+    // Data-driven width changes are opt-in and glass-only. Native MD3/Miuix keep
+    // their measured slots and defaults, even when a caller enables this hint.
+    val animateLabelWidths = liquidGlassEnabled && liquidGlassAnimateLabelWidthChanges &&
+        com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current &&
+        !com.android.purebilibili.core.ui.LocalSystemReduceMotion.current
+    val readableTabWidth = if (animateLabelWidths) {
+        animateDpAsState(
+            targetValue = measuredTabWidth,
+            animationSpec = tween(180, easing = FastOutSlowInEasing),
+            label = "glassAsyncAdaptiveTabWidth",
+        ).value
+    } else measuredTabWidth
     val nativePresentation = when (role) {
         AppTabRowRole.PRIMARY, AppTabRowRole.FILTER -> AppTabRowIndicatorPresentation.TONAL_PILL
         AppTabRowRole.SECONDARY -> AppTabRowIndicatorPresentation.UNDERLINE
@@ -205,6 +223,7 @@ fun <T> AppLiquidAwareTabRow(
                 )
                 BottomBarLiquidSegmentedControl(
                     items = labels,
+                    liquidGlassAnimateLabelWidthChanges = liquidGlassAnimateLabelWidthChanges,
                     liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
                     selectedIndex = selectedIndex,
                     onSelected = { index ->
@@ -274,6 +293,7 @@ fun <T> AppLiquidAwareTabRow(
             }
             BottomBarLiquidSegmentedControl(
                 items = labels,
+                liquidGlassAnimateLabelWidthChanges = liquidGlassAnimateLabelWidthChanges,
                 liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
                 selectedIndex = selectedIndex,
                 onSelected = { index ->

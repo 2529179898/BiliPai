@@ -138,6 +138,7 @@ fun DynamicDetailScreen(
     onCourseClick: ((String, String) -> Unit)? = null,
     onDynamicDetailClick: (String) -> Unit = {},
     onShareToMessageClick: ((DynamicItem) -> Unit)? = null,
+    contentTransitionReady: Boolean = true,
 ) {
     val interactionViewModel: DynamicViewModel = viewModel()
     var retryToken by rememberSaveable { mutableIntStateOf(0) }
@@ -146,7 +147,7 @@ fun DynamicDetailScreen(
     val retryLabel = stringResource(R.string.common_retry)
     val loadFailedMessage = stringResource(R.string.dynamic_detail_load_failed)
     val seedItem = remember(dynamicId) { DynamicRepository.peekDynamicDetailSeed(dynamicId) }
-    val uiState by produceState<DynamicDetailUiState>(
+    val loadedUiState by produceState<DynamicDetailUiState>(
         initialValue = seedItem?.let { DynamicDetailUiState.Success(it) } ?: DynamicDetailUiState.Loading,
         key1 = dynamicId,
         key2 = retryToken
@@ -162,6 +163,12 @@ fun DynamicDetailScreen(
         )
     }
 
+    val uiState = if (contentTransitionReady) loadedUiState else DynamicDetailUiState.Loading
+    val contentRevealAlpha = com.android.purebilibili.core.ui.transition.rememberSharedCardDetailRevealAlpha(
+        entryKey = dynamicId,
+        contentTransitionReady = contentTransitionReady,
+        contentLoaded = uiState !is DynamicDetailUiState.Loading,
+    )
     val context = LocalContext.current
     val homeSettings by SettingsManager.getHomeSettings(context)
         .collectAsStateWithLifecycle(initialValue = HomeSettings())
@@ -230,6 +237,9 @@ fun DynamicDetailScreen(
         }
     }
     AppScaffold(
+        modifier = Modifier.graphicsLayer {
+            alpha = if (uiState is DynamicDetailUiState.Loading) 1f else contentRevealAlpha.value
+        },
         blurContentReady = uiState !is DynamicDetailUiState.Loading,
         topBar = {
             val canToggleImageLayout = (uiState as? DynamicDetailUiState.Success)

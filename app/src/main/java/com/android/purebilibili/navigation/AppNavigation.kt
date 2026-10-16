@@ -2463,10 +2463,93 @@ fun AppNavigation(
                 }
 
                 @Composable
-                fun RenderSpaceDestination(spaceKey: BiliPaiNavKey.Space, onBack: () -> Unit) {
+                fun RenderDynamicDestination(
+                    dynamicKey: BiliPaiNavKey.DynamicDetail,
+                    contentReady: Boolean = true,
+                    onBack: () -> Unit,
+                ) {
+                    CompositionLocalProvider(
+                        LocalVideoCardSharedElementSourceRoute provides dynamicKey.toLegacyRoute()
+                    ) {
+                        com.android.purebilibili.feature.dynamic.DynamicDetailScreen(
+                            dynamicId = dynamicKey.dynamicId,
+                            contentTransitionReady = contentReady,
+                            openCommentRootRpid = dynamicKey.commentRootRpid,
+                            openCommentTargetRpid = dynamicKey.commentTargetRpid,
+                            onBack = onBack,
+                            onVideoClick = { bvid -> navigateToVideoInNavigation3(bvid, 0L, "") },
+                            onBangumiClick = { seasonId, epId ->
+                                pushNavigation3Key(
+                                    BiliPaiNavKey.BangumiDetail(seasonId = seasonId, epId = epId)
+                                )
+                            },
+                            onUserClick = { mid -> pushNavigation3Key(BiliPaiNavKey.Space(mid)) },
+                            onTopicClick = { topicId ->
+                                if (topicId > 0L) {
+                                    pushNavigation3Key(BiliPaiNavKey.TopicDetail(topicId))
+                                }
+                            },
+                            onTopicKeywordClick = { keyword ->
+                                pushSearchRouteInNavigation3(keyword)
+                            },
+                            onArticleClick = { articleId, title ->
+                                pushNavigation3Key(
+                                    BiliPaiNavKey.ArticleDetail(articleId = articleId, title = title)
+                                )
+                            },
+                            onLiveClick = { roomId, title, uname ->
+                                pushNavigation3Key(
+                                    BiliPaiNavKey.Live(roomId = roomId.toString(), title = title, uname = uname)
+                                )
+                            },
+                            onMusicClick = { musicId ->
+                                if (musicId > 0L) pushNavigation3Key(BiliPaiNavKey.MusicDetail(musicId))
+                            },
+                            onCollectionClick = { mediaId, ownerMid, title, url ->
+                                if (mediaId > 0L && url.contains("medialist/detail/ml", ignoreCase = true)) {
+                                    pushNavigation3Key(
+                                        BiliPaiNavKey.SeasonSeriesDetail(
+                                            type = "favorite",
+                                            id = mediaId,
+                                            mid = ownerMid,
+                                            title = title,
+                                        )
+                                    )
+                                } else if (url.isNotBlank()) {
+                                    pushNavigation3Key(BiliPaiNavKey.Web(url = url, title = title))
+                                }
+                            },
+                            onCourseClick = { url, title ->
+                                val courseNav = com.android.purebilibili.feature.bangumi.policy.parseCourseNavigation(url)
+                                if (courseNav != null) {
+                                    pushNavigation3Key(
+                                        BiliPaiNavKey.BangumiPlayer(
+                                            seasonId = courseNav.seasonId,
+                                            epId = courseNav.epId,
+                                            isCourse = true
+                                        )
+                                    )
+                                } else if (url.isNotBlank()) {
+                                    pushNavigation3Key(BiliPaiNavKey.Web(url = url, title = title))
+                                }
+                            },
+                            onDynamicDetailClick = { targetDynamicId ->
+                                pushNavigation3Key(BiliPaiNavKey.DynamicDetail(targetDynamicId))
+                            },
+                        )
+                    }
+                }
+
+                @Composable
+                fun RenderSpaceDestination(
+                    spaceKey: BiliPaiNavKey.Space,
+                    contentReady: Boolean = true,
+                    onBack: () -> Unit,
+                ) {
                     com.android.purebilibili.feature.space.SpaceScreen(
                         mid = spaceKey.mid,
                         targetBvid = spaceKey.targetBvid,
+                        contentTransitionReady = contentReady,
                         onBack = onBack,
                         onVideoClick = { bvid, cid, resumePositionMs ->
                             navigateToVideoInNavigation3(
@@ -3133,7 +3216,7 @@ fun AppNavigation(
                             val initialSearchKeyword = searchKey?.keyword?.takeIf { it.isNotBlank() }
                                 ?: effectiveInitialSearchKeyword.orEmpty()
                             com.android.purebilibili.feature.search.SearchResultContainerHost(
-                                content = { openUpResult, openBangumiResult, sourceVisible ->
+                                content = { openUpResult, openBangumiResult, openArticleResult, sourceVisible ->
                                     SearchScreen(
                                         userFace = homeState.user.face,
                                         initialKeyword = initialSearchKeyword,
@@ -3175,6 +3258,7 @@ fun AppNavigation(
                                         },
                                         onUpResultClick = openUpResult,
                                         onBangumiResultClick = openBangumiResult,
+                                        onArticleResultClick = openArticleResult,
                                         backEnabled = sourceVisible,
                                         onCheeseClick = { seasonId, epId ->
                                             pushNavigation3Key(
@@ -3219,15 +3303,33 @@ fun AppNavigation(
                                 },
                                 destination = { target, close, replace, ready, modifier ->
                                     Box(modifier) {
-                                        if (target.isUp) {
-                                            RenderSpaceDestination(BiliPaiNavKey.Space(target.id), close)
-                                        } else {
-                                            RenderBangumiDestination(
-                                                BiliPaiNavKey.BangumiDetail(target.id),
-                                                onBack = close,
-                                                onSeasonChange = { replace(target.copy(id = it)) },
-                                                contentReady = ready,
-                                            )
+                                        when (target.kind) {
+                                            com.android.purebilibili.feature.search.SearchCardKind.UP ->
+                                                RenderSpaceDestination(BiliPaiNavKey.Space(target.id), contentReady = ready, onBack = close)
+                                            com.android.purebilibili.feature.search.SearchCardKind.BANGUMI ->
+                                                RenderBangumiDestination(
+                                                    BiliPaiNavKey.BangumiDetail(target.id),
+                                                    onBack = close,
+                                                    onSeasonChange = { replace(target.copy(id = it)) },
+                                                    contentReady = ready,
+                                                )
+                                            com.android.purebilibili.feature.search.SearchCardKind.ARTICLE ->
+                                                ArticleDetailScreen(
+                                                    articleId = target.id,
+                                                    initialTitle = target.title,
+                                                    contentTransitionReady = ready,
+                                                    backHandlerEnabled = false,
+                                                    onBack = { close() },
+                                                    onUserClick = { mid ->
+                                                        if (mid > 0L) pushNavigation3Key(BiliPaiNavKey.Space(mid))
+                                                    },
+                                                )
+                                            com.android.purebilibili.feature.search.SearchCardKind.DYNAMIC ->
+                                                RenderDynamicDestination(
+                                                    BiliPaiNavKey.DynamicDetail(target.dynamicId),
+                                                    contentReady = ready,
+                                                    onBack = close,
+                                                )
                                         }
                                     }
                                 },
@@ -4541,77 +4643,8 @@ fun AppNavigation(
                             )
                         }
                         BiliPaiNavEntryContentRole.DYNAMIC_DETAIL -> {
-                                val dynamicKey = key as BiliPaiNavKey.DynamicDetail
-                                CompositionLocalProvider(
-                                    LocalVideoCardSharedElementSourceRoute provides dynamicKey.toLegacyRoute()
-                                ) {
-                                    com.android.purebilibili.feature.dynamic.DynamicDetailScreen(
-                                        dynamicId = dynamicKey.dynamicId,
-                                        openCommentRootRpid = dynamicKey.commentRootRpid,
-                                        openCommentTargetRpid = dynamicKey.commentTargetRpid,
-                                        onBack = { performSystemBackAction() },
-                                        onVideoClick = { bvid -> navigateToVideoInNavigation3(bvid, 0L, "") },
-                                        onBangumiClick = { seasonId, epId ->
-                                            pushNavigation3Key(
-                                                BiliPaiNavKey.BangumiDetail(seasonId = seasonId, epId = epId)
-                                            )
-                                        },
-                                        onUserClick = { mid -> pushNavigation3Key(BiliPaiNavKey.Space(mid)) },
-                                        onTopicClick = { topicId ->
-                                            if (topicId > 0L) {
-                                                pushNavigation3Key(BiliPaiNavKey.TopicDetail(topicId))
-                                            }
-                                        },
-                                        onTopicKeywordClick = { keyword ->
-                                            pushSearchRouteInNavigation3(keyword)
-                                        },
-                                        onArticleClick = { articleId, title ->
-                                            pushNavigation3Key(
-                                                BiliPaiNavKey.ArticleDetail(articleId = articleId, title = title)
-                                            )
-                                        },
-                                        onLiveClick = { roomId, title, uname ->
-                                            pushNavigation3Key(
-                                                BiliPaiNavKey.Live(roomId = roomId.toString(), title = title, uname = uname)
-                                            )
-                                        },
-                                        onMusicClick = { musicId ->
-                                            if (musicId > 0L) pushNavigation3Key(BiliPaiNavKey.MusicDetail(musicId))
-                                        },
-                                        onCollectionClick = { mediaId, ownerMid, title, url ->
-                                            if (mediaId > 0L && url.contains("medialist/detail/ml", ignoreCase = true)) {
-                                                pushNavigation3Key(
-                                                    BiliPaiNavKey.SeasonSeriesDetail(
-                                                        type = "favorite",
-                                                        id = mediaId,
-                                                        mid = ownerMid,
-                                                        title = title,
-                                                    )
-                                                )
-                                            } else if (url.isNotBlank()) {
-                                                pushNavigation3Key(BiliPaiNavKey.Web(url = url, title = title))
-                                            }
-                                        },
-                                        onCourseClick = { url, title ->
-                                            val courseNav = com.android.purebilibili.feature.bangumi.policy.parseCourseNavigation(url)
-                                            if (courseNav != null) {
-                                                pushNavigation3Key(
-                                                    BiliPaiNavKey.BangumiPlayer(
-                                                        seasonId = courseNav.seasonId,
-                                                        epId = courseNav.epId,
-                                                        isCourse = true
-                                                    )
-                                                )
-                                            } else if (url.isNotBlank()) {
-                                                pushNavigation3Key(BiliPaiNavKey.Web(url = url, title = title))
-                                            }
-                                        },
-                                        onDynamicDetailClick = { targetDynamicId ->
-                                            pushNavigation3Key(BiliPaiNavKey.DynamicDetail(targetDynamicId))
-                                        },
-                                    )
-                                }
-                            }
+                            RenderDynamicDestination(key as BiliPaiNavKey.DynamicDetail) { performSystemBackAction() }
+                        }
                         BiliPaiNavEntryContentRole.ARTICLE_DETAIL -> {
                                 val articleKey = key as BiliPaiNavKey.ArticleDetail
                                 ArticleDetailScreen(

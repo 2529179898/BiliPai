@@ -291,7 +291,8 @@ fun SpaceScreen(
     onMemberGuardClick: ((Long, String, Long) -> Unit)? = null,
     viewModel: SpaceViewModel = viewModel(),
     sharedTransitionScope: SharedTransitionScope? = null,
-    animatedVisibilityScope: AnimatedVisibilityScope? = null
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    contentTransitionReady: Boolean = true,
 ) {
     val context = LocalContext.current
     val queryAicu = com.android.purebilibili.feature.aicu.LocalAicuNavigation.current
@@ -303,7 +304,15 @@ fun SpaceScreen(
         { bvid -> playbackProgressManager.getCachedPosition(bvid) }
     }
     val dynamicInteractionViewModel: DynamicViewModel = viewModel()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val loadedUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // Defer only a container's initial expansion. The host keeps ready=true on return,
+    // so an already opened profile never falls back to a skeleton during a back gesture.
+    val uiState = if (contentTransitionReady) loadedUiState else SpaceUiState.Loading
+    val contentRevealAlpha = com.android.purebilibili.core.ui.transition.rememberSharedCardDetailRevealAlpha(
+        entryKey = mid,
+        contentTransitionReady = contentTransitionReady,
+        contentLoaded = uiState !is SpaceUiState.Loading,
+    )
     val likedDynamics by dynamicInteractionViewModel.likedDynamics.collectAsStateWithLifecycle()
     val dynamicLikeOverrides by dynamicInteractionViewModel.likeOverrides.collectAsStateWithLifecycle()
     val forwardCountDeltas = remember { mutableStateMapOf<String, Int>() }
@@ -666,7 +675,9 @@ fun SpaceScreen(
             }
         }
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize().graphicsLayer {
+            alpha = if (uiState is SpaceUiState.Loading) 1f else contentRevealAlpha.value
+        }) {
                 // Loading 不再单独渲染一棵骨架网格：它和 Success 共用同一个 SpaceContent
                 // 调用点（同一棵 LazyVerticalGrid）。Loading 时喂一个占位 Success 并把
                 // isInitialLoading 传下去，由内容网格在原地铺骨架 item；数据到达后是

@@ -11,6 +11,9 @@ import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.sca
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope.OverlayClip
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.tween
@@ -18,7 +21,11 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +38,8 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.ContainerLevel
@@ -43,7 +52,27 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 
-internal const val SHARED_CARD_CONTAINER_DURATION_MS = 360
+internal const val SHARED_CARD_CONTAINER_DURATION_MS = 300
+private const val SHARED_CARD_CONTENT_FADE_MS = 140
+
+/** Only container entries defer/reveal content; ordinary page entries retain their behavior. */
+@Composable
+internal fun rememberSharedCardDetailRevealAlpha(
+    entryKey: Any,
+    contentTransitionReady: Boolean,
+    contentLoaded: Boolean,
+): State<Float> {
+    val deferredEntry = remember(entryKey) { !contentTransitionReady }
+    if (!deferredEntry) return rememberUpdatedState(1f)
+    val reduceMotion = rememberSystemReduceMotion()
+    return animateFloatAsState(
+        targetValue = if (contentTransitionReady && contentLoaded) 1f else 0f,
+        animationSpec = if (reduceMotion) snap() else tween(
+            SHARED_CARD_CONTENT_FADE_MS, easing = FastOutSlowInEasing,
+        ),
+        label = "sharedCardDetailReveal",
+    )
+}
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -58,13 +87,16 @@ internal fun sharedCardContainerBounds(
         modifier.sharedBounds(
             sharedContentState = rememberSharedContentState(key),
             animatedVisibilityScope = visibilityScope,
-            enter = fadeIn(tween(SHARED_CARD_CONTAINER_DURATION_MS, easing = LinearEasing)),
-            exit = fadeOut(tween(SHARED_CARD_CONTAINER_DURATION_MS, easing = LinearEasing)),
-            boundsTransform = { _, _ -> tween(SHARED_CARD_CONTAINER_DURATION_MS, easing = LinearEasing) },
+            // Clear outgoing glyphs early, then reveal the incoming surface. Do not keep
+            // both full pages translucent throughout the entire bounds animation.
+            enter = fadeIn(tween(170, delayMillis = 70, easing = FastOutSlowInEasing)),
+            exit = fadeOut(tween(100, easing = FastOutSlowInEasing)),
+            boundsTransform = { _, _ -> tween(SHARED_CARD_CONTAINER_DURATION_MS, easing = FastOutSlowInEasing) },
             // Cards and detail pages have very different aspect ratios. Stretching the whole
             // subtree to the animated bounds distorts avatars, posters and glyphs on both sides.
-            // Keep each endpoint's layout and scale it uniformly while the container morphs.
-            resizeMode = scaleToBounds(ContentScale.Fit),
+            // Fill the moving container without stretching glyphs or shrinking a complete
+            // detail page into a letterboxed thumbnail. Reveal it from the header down.
+            resizeMode = scaleToBounds(ContentScale.Crop, Alignment.TopStart),
             clipInOverlayDuringTransition = OverlayClip(AppShapes.container(ContainerLevel.Card)),
         )
     }
@@ -150,14 +182,29 @@ internal fun <T : Any> SharedCardContainerHost(
             throw cancelled
         }
     }
-    SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+    SharedTransitionLayout(
+        // The backing surface belongs to an open detail/transition. Keep the source's
+        // original wallpaper and material presentation when the container is closed.
+        modifier = Modifier
+            .fillMaxSize()
+            .background(if (detailVisible) MaterialTheme.colorScheme.surface else Color.Transparent),
+    ) {
         val sharedScope = this
         val transition = rememberTransition(transitionState, label = "shared-card-container")
         transition.AnimatedContent(
             modifier = Modifier.fillMaxSize(),
             contentKey = { if (it == null) "source" else "destination" },
-            // Shared bounds own geometry; AnimatedContent must not add its default size spring.
-            transitionSpec = { (EnterTransition.None togetherWith ExitTransition.None).using(null) },
+            // Shared bounds own geometry and overlay content. Fade the surrounding source
+            // page separately so its list/text cannot show through the opening detail.
+            // Keep the seek timeline linear; boundsTransform supplies spatial easing once.
+            transitionSpec = {
+                val transform = when {
+                    reduceMotion -> EnterTransition.None togetherWith ExitTransition.None
+                    targetState == null -> fadeIn(tween(120, delayMillis = 100)) togetherWith ExitTransition.None
+                    else -> EnterTransition.None togetherWith fadeOut(tween(100))
+                }
+                transform.using(null)
+            },
         ) { target ->
             CompositionLocalProvider(
                 LocalSharedTransitionScope provides if (reduceMotion) null else sharedScope,
@@ -167,7 +214,8 @@ internal fun <T : Any> SharedCardContainerHost(
                     savedHub.SaveableStateProvider("source") { content(openDetail, !detailVisible) }
                 } else {
                     destination(target, closeDetail, replaceDetail, detailContentReady,
-                        sharedCardContainerBounds(Modifier.fillMaxSize(), keyOf(target)))
+                        sharedCardContainerBounds(Modifier.fillMaxSize(), keyOf(target))
+                            .background(MaterialTheme.colorScheme.surface))
                 }
             }
         }
