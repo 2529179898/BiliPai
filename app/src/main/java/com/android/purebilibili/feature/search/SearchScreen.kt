@@ -1418,8 +1418,6 @@ fun SearchScreen(
                                                 if (state.searchType == SearchType.VIDEO || state.searchType == SearchType.ALL) {
                                                     val videoFilters: @Composable RowScope.() -> Unit = {
                                                         SearchVideoFilterActions(
-                                                            singleColumn = listLayout.singleColumn,
-                                                            onLayoutToggle = listLayout.toggle,
                                                             currentDurations = state.searchDurations,
                                                             currentVideoTid = state.videoTid,
                                                             currentPubTimeType = state.pubTimeType,

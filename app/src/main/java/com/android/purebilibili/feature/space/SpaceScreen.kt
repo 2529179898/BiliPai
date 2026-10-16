@@ -10,6 +10,10 @@ import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
 import androidx.compose.animation.AnimatedVisibility
+import com.android.purebilibili.core.ui.common.contentTabPagerGestures
+import com.android.purebilibili.core.ui.common.rememberContentTabPager
+import com.android.purebilibili.core.ui.common.stationaryPagerHeader
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -339,11 +343,15 @@ fun SpaceScreen(
             shouldAllowRenderEffectBackedHazeEffect(Build.VERSION.SDK_INT) &&
             !isLowBlurBudgetForced()
     ) rememberRecoverableHazeState() else null
-    val gridState = rememberLazyGridState()
-    val isSpaceScrolling by remember {
+    val pageGridStates = SpaceMainTab.entries.associateWith { rememberLazyGridState() }
+    val activePrimaryTab = resolveSpacePrimaryTab(
+        (uiState as? SpaceUiState.Success)?.tabShellState?.selectedTab ?: SpaceMainTab.HOME
+    )
+    val gridState = pageGridStates.getValue(activePrimaryTab)
+    val isSpaceScrolling by remember(gridState) {
         derivedStateOf { gridState.isScrollInProgress }
     }
-    val pinnedTopChromeScrim by remember {
+    val pinnedTopChromeScrim by remember(gridState) {
         derivedStateOf {
             resolveSpacePinnedTopChromeScrim(
                 firstVisibleItemIndex = gridState.firstVisibleItemIndex,
@@ -726,6 +734,7 @@ fun SpaceScreen(
                         SpaceContent(
                             state = state,
                             gridState = gridState,
+                            pageGridStates = pageGridStates,
                             onVideoClick = onVideoClick,
                             videoProgressLookup = videoProgressLookup,
                             onAudioClick = onAudioClick,
@@ -1138,6 +1147,7 @@ private fun SpacePlayedVideoLocatePrompt(
 private fun SpaceContent(
     state: SpaceUiState.Success,
     gridState: LazyGridState,
+    pageGridStates: Map<SpaceMainTab, LazyGridState>,
     onVideoClick: (String, Long, Long) -> Unit,
     videoProgressLookup: (String) -> Long,
     onAudioClick: (Long) -> Unit,
@@ -1224,6 +1234,38 @@ private fun SpaceContent(
         .getHomeSettings(context)
         .collectAsStateWithLifecycle(initialValue = com.android.purebilibili.core.store.HomeSettings())
     val selectedMainTab = state.tabShellState.selectedTab
+    val displayedMainTabs = resolveSpaceDisplayedMainTabs(
+        tabs = state.mainTabs,
+        selectedTab = selectedMainTab,
+        hasCheese = state.hasCheeseTab || state.cheeseItems.isNotEmpty(),
+    )
+    val selectedPage = displayedMainTabs.indexOfFirst {
+        it.tab == resolveSpacePrimaryTab(selectedMainTab)
+    }.coerceAtLeast(0)
+    val pagerState = rememberContentTabPager(
+        pageCount = displayedMainTabs.size,
+        selectedPage = selectedPage,
+        onPageSelected = { page ->
+            displayedMainTabs.getOrNull(page)?.tab?.let { tab ->
+                if (tab != resolveSpacePrimaryTab(selectedMainTab)) onMainTabSelected(tab)
+            }
+        },
+        prepareNeighbors = { sourcePage ->
+            val source = pageGridStates.getValue(displayedMainTabs[sourcePage].tab)
+            // All pages share the hero and primary rail. Match their vertical anchor before
+            // exposing a neighbor; content history is kept when the hero is already collapsed.
+            displayedMainTabs.forEachIndexed { index, tab ->
+                if (index != sourcePage) {
+                    val target = pageGridStates.getValue(tab.tab)
+                    if (source.firstVisibleItemIndex == 0) {
+                        target.requestScrollToItem(0, source.firstVisibleItemScrollOffset)
+                    } else if (target.firstVisibleItemIndex == 0) {
+                        target.requestScrollToItem(1)
+                    }
+                }
+            }
+        },
+    )
     val selectedContributionTab = remember(
         state.contributionTabs,
         state.selectedContributionTabId,
@@ -1416,6 +1458,30 @@ private fun SpaceContent(
             .then(modifier)
             .onGloballyPositioned { gridContainerRootTopPx = it.boundsInRoot().top }
     ) {
+        HorizontalPager(
+            state = pagerState,
+            userScrollEnabled = false,
+            key = { displayedMainTabs[it].tab },
+            modifier = Modifier.fillMaxSize().contentTabPagerGestures(
+                pager = pagerState,
+                enabled = !isInitialLoading,
+                contentTopPx = {
+                    if (pinnedTabsRootBottomPx > 0f) pinnedTabsRootBottomPx - gridContainerRootTopPx
+                    else Float.POSITIVE_INFINITY
+                },
+            ),
+        ) { page ->
+        val primaryTab = displayedMainTabs[page].tab
+        val isPageActive = page == selectedPage
+        val pageTab = if (isPageActive) selectedMainTab else primaryTab
+        val state = state.copy(
+            tabShellState = state.tabShellState.withSelectedTab(pageTab),
+            isSearchMode = state.isSearchMode && isPageActive,
+        )
+        val selectedMainTab = pageTab
+        val gridState = pageGridStates.getValue(primaryTab)
+        val lazyGridSharedTransitionScope = lazyGridSharedTransitionScope.takeIf { isPageActive }
+        val lazyGridAnimatedVisibilityScope = lazyGridAnimatedVisibilityScope.takeIf { isPageActive }
         val density = LocalDensity.current
         // [重构] 折叠进度：header 是 index 0，滚动偏移驱动 header 内容上移淡出（视差折叠）。
         // 折叠范围用 dp 换算，避免固定像素在不同 density 下曲线不一致
@@ -1556,6 +1622,7 @@ private fun SpaceContent(
                 return@LazyVerticalGrid
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
+                Box(Modifier.stationaryPagerHeader(pagerState, page)) {
                 SpaceHeader(
                     userInfo = state.headerState.userInfo ?: state.userInfo,
                     relationStat = state.headerState.relationStat ?: state.relationStat,
@@ -1581,6 +1648,7 @@ private fun SpaceContent(
                     outerPadding = outerPaddingDp,
                     useExpandedLayout = adaptiveLayoutSpec.useExpandedHeader,
                 )
+                }
             }
 
             // Tab 栏吸顶（对齐 PiliPlus 的 pinned TabBar）：头部滚走后固定在顶栏下方，
@@ -1597,11 +1665,15 @@ private fun SpaceContent(
                                 MaterialTheme.colorScheme.surface
                             ).let { if (it.alpha < 0.97f) it.copy(alpha = 0.97f) else it }
                         )
-                        .onGloballyPositioned { pinnedTabsRootBottomPx = it.boundsInRoot().bottom }
+                        .onGloballyPositioned {
+                            if (isPageActive) pinnedTabsRootBottomPx = it.boundsInRoot().bottom
+                        }
                 ) {
                     SpaceContentTabs(
                         state = state,
                         onMainTabSelected = onMainTabSelected,
+                        pagerState = pagerState,
+                        page = page,
                         onContributionTabSelected = onContributionTabSelected,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -2035,8 +2107,8 @@ private fun SpaceContent(
 
                     if (state.hasMoreDynamics && dynamicCardItems.isNotEmpty()) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            LaunchedEffect(dynamicCardItems.size) {
-                                onLoadMoreDynamic()
+                            LaunchedEffect(dynamicCardItems.size, isPageActive) {
+                                if (isPageActive) onLoadMoreDynamic()
                             }
                             Spacer(modifier = Modifier.height(1.dp))
                         }
@@ -2167,7 +2239,7 @@ private fun SpaceContent(
                             }
                         } else if (state.hasMoreAudios && state.audios.isNotEmpty()) {
                             item(span = { GridItemSpan(maxLineSpan) }) {
-                                LaunchedEffect(state.audios.size) { onLoadMoreAudios() }
+                                LaunchedEffect(state.audios.size, isPageActive) { if (isPageActive) onLoadMoreAudios() }
                                 Spacer(modifier = Modifier.height(1.dp))
                             }
                         }
@@ -2207,7 +2279,7 @@ private fun SpaceContent(
                             }
                         } else if (state.hasMoreArticles && state.articles.isNotEmpty()) {
                             item(span = { GridItemSpan(maxLineSpan) }) {
-                                LaunchedEffect(state.articles.size) { onLoadMoreArticles() }
+                                LaunchedEffect(state.articles.size, isPageActive) { if (isPageActive) onLoadMoreArticles() }
                                 Spacer(modifier = Modifier.height(1.dp))
                             }
                         }
@@ -2422,7 +2494,7 @@ private fun SpaceContent(
                     }
                 } else if (state.hasMoreBangumi && state.bangumiItems.isNotEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        LaunchedEffect(state.bangumiItems.size) { onLoadMoreBangumi() }
+                        LaunchedEffect(state.bangumiItems.size, isPageActive) { if (isPageActive) onLoadMoreBangumi() }
                         Spacer(modifier = Modifier.height(1.dp))
                     }
                 }
@@ -2621,7 +2693,7 @@ private fun SpaceContent(
                         }
                     } else if (state.hasMoreCheese) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            LaunchedEffect(state.cheeseItems.size) { onLoadMoreCheese() }
+                            LaunchedEffect(state.cheeseItems.size, isPageActive) { if (isPageActive) onLoadMoreCheese() }
                             Spacer(modifier = Modifier.height(1.dp))
                         }
                     }
@@ -2718,6 +2790,8 @@ private fun SpaceContent(
                 .align(Alignment.TopCenter)
                 .padding(top = chromeTopInset + 16.dp)
         )
+        } // HorizontalPager
+
     }
     }
 }
@@ -2800,7 +2874,7 @@ private fun SpaceHeader(
     val followButtonColors = resolveSpaceFollowButtonColors(
         isFollowed = userInfo.isFollowed,
         colorScheme = colorScheme,
-        isOwner = isOwner
+        isOwner = isOwner,
     )
 
     // PiliPlus 风格头部结构：
@@ -3302,6 +3376,8 @@ private fun SpaceContentTabs(
     onMainTabSelected: (SpaceMainTab) -> Unit,
     onContributionTabSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
+    pagerState: PagerState,
+    page: Int,
 ) {
     val selectedMainTab = state.tabShellState.selectedTab
     val hasCheese = state.hasCheeseTab || state.cheeseItems.isNotEmpty()
@@ -3350,6 +3426,9 @@ private fun SpaceContentTabs(
             tabs = displayedMainTabs,
             selectedTab = resolveSpacePrimaryTab(selectedMainTab),
             onSelect = onMainTabSelected,
+            modifier = Modifier.stationaryPagerHeader(pagerState, page),
+            indicatorPositionProvider = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
+            isScrollInProgressProvider = { pagerState.isScrollInProgress },
         )
         if (shouldShowSpaceSecondarySwitch(selectedMainTab) && secondarySwitchItems.isNotEmpty()) {
             SpaceSecondarySwitchRow(
@@ -3414,6 +3493,9 @@ private fun SpaceMainTabRow(
     tabs: List<SpaceMainTabItem>,
     selectedTab: SpaceMainTab,
     onSelect: (SpaceMainTab) -> Unit,
+    modifier: Modifier = Modifier,
+    indicatorPositionProvider: () -> Float,
+    isScrollInProgressProvider: () -> Boolean,
 ) {
     val liquidGlassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
     val spec = remember(tabs, selectedTab) {
@@ -3421,7 +3503,7 @@ private fun SpaceMainTabRow(
     }
     val selectedIndex = tabs.indexOfFirst { it.tab == selectedTab }.coerceAtLeast(0)
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(top = 6.dp, bottom = 2.dp)
     ) {
@@ -3430,6 +3512,8 @@ private fun SpaceMainTabRow(
             options = tabs.map { AppSegmentOption(it.tab, it.title) },
             selectedValue = tabs[selectedIndex].tab,
             onSelectionChange = onSelect,
+            indicatorPositionProvider = indicatorPositionProvider,
+            isScrollInProgressProvider = isScrollInProgressProvider,
             // Give the glass rail modest breathing room without returning to full-page slots.
             // Native alignment, minimum width and typography keep their original defaults.
             centerContent = liquidGlassEnabled,

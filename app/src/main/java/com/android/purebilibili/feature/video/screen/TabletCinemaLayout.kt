@@ -1639,9 +1639,18 @@ private fun CinemaRelatedPane(
     val backToTopButtonEnabled = rememberBackToTopButtonEnabled()
     val scope = rememberCoroutineScope()
 
+    val relatedChromeSource = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+        com.android.purebilibili.core.ui.blur.rememberChromeBackdropSource()
+    } else {
+        null
+    }
+    val relatedChromeBackdrop = relatedChromeSource?.takeIf { it.isReady }?.backdrop
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .then(relatedChromeSource?.modifier ?: Modifier),
             state = listState,
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
@@ -1699,6 +1708,7 @@ private fun CinemaRelatedPane(
         }
 
         AppLiquidGlassBackToTopButton(
+            backdrop = relatedChromeBackdrop,
             visible = backToTopButtonEnabled && showBackToTop,
             onClick = {
                 scope.launch {

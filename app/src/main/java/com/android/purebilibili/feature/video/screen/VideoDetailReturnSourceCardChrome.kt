@@ -101,6 +101,7 @@ internal data class VideoDetailReturnSourceCardChromeModel(
     val danmakuText: String = "",
     val durationText: String = "",
     val followed: Boolean = false,
+    val recommendationReason: String = "",
     val infoPresentation: VideoCardSourceInfoPresentation = VideoCardSourceInfoPresentation(),
     val coverPresentation: VideoCardSourceCoverPresentation =
         VideoCardSourceCoverPresentation(),
@@ -118,6 +119,7 @@ internal fun resolveVideoDetailReturnSourceCardChromeModel(
             danmakuText = snapshot.danmakuText,
             durationText = snapshot.durationText,
             followed = snapshot.followed,
+            recommendationReason = snapshot.recommendationReason,
             infoPresentation = snapshot.infoPresentation,
             coverPresentation = snapshot.coverPresentation,
         ).takeIf { it.title.isNotBlank() || it.ownerName.isNotBlank() }
@@ -1022,7 +1024,7 @@ private fun LandingInfoTexts(
 @Composable
 private fun LandingSideBySideMetadata(model: VideoDetailReturnSourceCardChromeModel) {
     val publishTime = model.infoPresentation.publishTimeText
-    val hasOwner = model.ownerName.isNotBlank() || model.followed
+    val hasOwner = model.ownerName.isNotBlank() || model.followed || model.recommendationReason.isNotBlank()
     if (publishTime.isBlank() && !hasOwner) return
 
     if (model.infoPresentation.ownerBeforePublish) {
@@ -1069,13 +1071,14 @@ private fun LandingOwnerMetadata(
     model: VideoDetailReturnSourceCardChromeModel,
     modifier: Modifier = Modifier,
 ) {
-    if (model.ownerName.isBlank() && !model.followed) return
+    if (model.ownerName.isBlank() && !model.followed && model.recommendationReason.isBlank()) return
     val contentTypography = feedContentTypography()
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.ExtraSmall),
     ) {
+        com.android.purebilibili.feature.home.components.cards.VideoRecommendationBadge(model.recommendationReason)
         if (model.followed) {
             AppText(
                 text = "已关注",

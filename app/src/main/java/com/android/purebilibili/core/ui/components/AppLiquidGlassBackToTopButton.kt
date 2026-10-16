@@ -24,7 +24,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
@@ -45,12 +44,11 @@ import com.android.purebilibili.core.ui.motion.AppMotionTokens
 import com.android.purebilibili.core.ui.performance.isLowBlurBudgetForced
 import com.android.purebilibili.core.ui.rememberAppChevronUpIcon
 import com.android.purebilibili.feature.home.components.biliPaiFloatingDockShell
+import com.android.purebilibili.feature.home.components.LocalLiquidGlassRenderConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.Backdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import kotlin.math.roundToInt
 
 /**
@@ -73,8 +71,10 @@ fun AppLiquidGlassBackToTopButton(
     val haptic = LocalHapticFeedback.current
 
     val glassActive = LocalAppThemeConfig.current.liquidGlassEnabled && !isLowBlurBudgetForced()
-    val localBackdrop = if (glassActive && backdrop == null) rememberLayerBackdrop() else null
-    val effectiveBackdrop = backdrop ?: localBackdrop
+    // Only the glass branch consumes the shared capture/tuning; native fallback keeps
+    // its existing size, placement and color. Never fake a backdrop with a solid layer.
+    val effectiveBackdrop = backdrop ?: LocalFloatingChromeBackdrop.current
+    val glassTuning = LocalLiquidGlassRenderConfig.current.tuning
     val elasticState = rememberAppElasticPressState(visualSize = 48.dp)
     val glassMotion = glassActive && effectiveBackdrop != null
     val elasticEnabled = com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current
@@ -146,15 +146,6 @@ fun AppLiquidGlassBackToTopButton(
                 .size(48.dp),
             contentAlignment = Alignment.Center,
         ) {
-            if (glassActive && backdrop == null && localBackdrop != null) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .alpha(0f)
-                        .layerBackdrop(localBackdrop)
-                        .background(AppSurfaceTokens.background())
-                )
-            }
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -174,6 +165,7 @@ fun AppLiquidGlassBackToTopButton(
                                 containerColor = dockColor,
                                 pressProgress = if (isDragging) 0.15f else 0f,
                                 shape = CircleShape,
+                                liquidGlassTuning = glassTuning,
                             )
                         } else {
                             Modifier.background(dockColor, CircleShape)

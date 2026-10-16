@@ -33,6 +33,10 @@ fun resolveButtonContentColor(
     contentColor: Color,
     colorScheme: ColorScheme,
 ): Color {
+    // Transparent controls do not own their backdrop (it may be artwork, glass or a card).
+    // Both native renderers and glass preserve the supplied foreground here; filled
+    // controls still receive contrast correction. Do not change native palette defaults.
+    if (containerColor == Color.Unspecified || containerColor.alpha == 0f) return contentColor
     val background = opaqueCompositeOver(containerColor, colorScheme.surface)
     val candidates = listOf(contentColor, colorScheme.onSurface, Color.Black, Color.White)
     return candidates.firstOrNull {

@@ -50,6 +50,8 @@ fun <T> AppThemeAdaptiveTabRow(
     scrollable: Boolean = false,
     minTabWidth: Dp = Dp.Unspecified,
     liquidGlassLabelHorizontalPadding: Dp? = null,
+    // Glass-only: fill each measured slot when short labels need uniform edge insets.
+    liquidGlassAdaptIndicatorToLabel: Boolean = true,
     compactMiuixWhenTwoOptions: Boolean = true,
     height: Dp = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,
     indicatorHeight: Dp = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,
@@ -73,6 +75,7 @@ fun <T> AppThemeAdaptiveTabRow(
         scrollable = scrollable,
         minTabWidth = minTabWidth,
         liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
+        liquidGlassAdaptIndicatorToLabel = liquidGlassAdaptIndicatorToLabel,
         compactMiuixWhenTwoOptions = compactMiuixWhenTwoOptions,
         height = height,
         indicatorHeight = indicatorHeight,
@@ -104,6 +107,8 @@ fun <T> AppLiquidAwareTabRow(
     scrollable: Boolean = false,
     minTabWidth: Dp = Dp.Unspecified,
     liquidGlassLabelHorizontalPadding: Dp? = null,
+    // Glass-only: fill each measured slot when short labels need uniform edge insets.
+    liquidGlassAdaptIndicatorToLabel: Boolean = true,
     compactMiuixWhenTwoOptions: Boolean = true,
     height: Dp = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,
     indicatorHeight: Dp = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,
@@ -225,6 +230,7 @@ fun <T> AppLiquidAwareTabRow(
                     items = labels,
                     liquidGlassAnimateLabelWidthChanges = liquidGlassAnimateLabelWidthChanges,
                     liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
+                    liquidGlassAdaptIndicatorToLabel = liquidGlassAdaptIndicatorToLabel,
                     selectedIndex = selectedIndex,
                     onSelected = { index ->
                         options.getOrNull(index)?.let { onSelectionChange(it.value) }
@@ -295,6 +301,7 @@ fun <T> AppLiquidAwareTabRow(
                 items = labels,
                 liquidGlassAnimateLabelWidthChanges = liquidGlassAnimateLabelWidthChanges,
                 liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
+                liquidGlassAdaptIndicatorToLabel = liquidGlassAdaptIndicatorToLabel,
                 selectedIndex = selectedIndex,
                 onSelected = { index ->
                     options.getOrNull(index)?.let { onSelectionChange(it.value) }

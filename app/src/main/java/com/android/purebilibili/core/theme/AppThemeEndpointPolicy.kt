@@ -2,6 +2,7 @@ package com.android.purebilibili.core.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import com.android.purebilibili.core.store.ThemeRoleOverrides
 import com.android.purebilibili.core.store.WallpaperPaletteOverrides
 import com.android.purebilibili.core.store.WallpaperPaletteRole
@@ -53,14 +54,17 @@ internal fun resolveAppThemeEndpointPalette(
     val material = if (useNativeCustomSelection) {
         val selectionSurface = nativeMiuixColors?.surface ?: exactPrimary.surface
         val selectionContainer = opaqueCompositeOver(selectedAccent.copy(alpha = 0.14f), selectionSurface)
+        val onSelectionContainer = resolveCustomSelectionContentColor(
+            accent = selectedAccent,
+            container = selectionContainer,
+        )
+        // Standard custom colors share one accent family across tonal actions and tabs.
+        // Glass and generated/wallpaper palettes retain their independent role contracts.
         exactPrimary.copy(
+            primaryContainer = selectionContainer,
+            onPrimaryContainer = onSelectionContainer,
             secondaryContainer = selectionContainer,
-            onSecondaryContainer = resolveReadableTextColor(
-                candidate = selectedAccent,
-                background = selectionContainer,
-                fallback = resolveReadableForeground(selectionContainer),
-                minimumContrast = ACCESSIBLE_TEXT_MIN_CONTRAST,
-            ),
+            onSecondaryContainer = onSelectionContainer,
         )
     } else exactPrimary
     val bridgedMiuix = nativeMiuixColors
@@ -68,6 +72,8 @@ internal fun resolveAppThemeEndpointPalette(
     // Both hosts can contain Miuix components. Apply explicit secondary edits after
     // either bridge, while unedited secondary controls retain their native neutral role.
     val selectionMiuix = if (useNativeCustomSelection) bridgedMiuix.copy(
+        primaryContainer = material.primaryContainer,
+        onPrimaryContainer = material.onPrimaryContainer,
         secondaryContainer = material.secondaryContainer,
         onSecondaryContainer = material.onSecondaryContainer,
     ) else bridgedMiuix
@@ -81,4 +87,16 @@ internal fun resolveAppThemeEndpointPalette(
         )
     } else material
     return AppThemePalette(aligned, miuix, aligned.primary)
+}
+
+/** Preserve the picked accent family instead of jumping straight to black/white at the threshold. */
+internal fun resolveCustomSelectionContentColor(accent: Color, container: Color): Color {
+    val target = resolveReadableForeground(container)
+    for (step in 0..256) {
+        val candidate = lerp(accent, target, step / 256f)
+        if (calculateContrastRatio(candidate, container) >= ACCESSIBLE_TEXT_MIN_CONTRAST) {
+            return candidate
+        }
+    }
+    return target
 }

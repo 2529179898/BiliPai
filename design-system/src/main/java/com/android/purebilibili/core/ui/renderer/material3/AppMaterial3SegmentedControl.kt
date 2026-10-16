@@ -146,6 +146,21 @@ internal fun <T> AppMaterial3TabRow(
         )
         return
     }
+    // Only native MD3 underlines need label geometry. Glass pills and Miuix keep
+    // their own sizing; equal-width hit targets and Tab layout stay unchanged.
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val labelContentWidths = options.map { option ->
+        with(density) {
+            textMeasurer.measure(
+                text = option.label,
+                style = labelStyle.copy(
+                    fontWeight = if (option.value == selectedValue) FontWeight.SemiBold else FontWeight.Medium,
+                ),
+                maxLines = 1,
+            ).size.width.toDp()
+        }
+    }
     val tabs: @Composable (Dp?) -> Unit = { slotWidth ->
         options.forEach { option ->
             val selected = option.value == selectedValue
@@ -206,6 +221,7 @@ internal fun <T> AppMaterial3TabRow(
                     edgePadding = geometry.horizontalPadding,
                     minTabWidth = geometry.itemWidth,
                     indicatorPositionProvider = indicatorPositionProvider,
+                    labelContentWidths = labelContentWidths,
                     tabs = { tabs(geometry.itemWidth) },
                 )
             } else {
@@ -214,13 +230,12 @@ internal fun <T> AppMaterial3TabRow(
                     modifier = Modifier.width(geometry.containerWidth).padding(horizontal = geometry.horizontalPadding),
                     containerColor = Color.Transparent,
                     indicatorPositionProvider = indicatorPositionProvider,
+                    labelContentWidths = labelContentWidths,
                     tabs = { tabs(geometry.itemWidth) },
                 )
             }
         }
     } else if (scrollable) {
-        val density = LocalDensity.current
-        val textMeasurer = rememberTextMeasurer()
         val style = labelStyle.copy(fontWeight = FontWeight.SemiBold)
         val contentWidth = options.fold(containerHorizontalPadding * 2) { width, option ->
             width + maxOf(minTabWidth, with(density) {
@@ -235,6 +250,7 @@ internal fun <T> AppMaterial3TabRow(
                 edgePadding = containerHorizontalPadding,
                 minTabWidth = minTabWidth,
                 indicatorPositionProvider = indicatorPositionProvider,
+                labelContentWidths = labelContentWidths,
                 tabs = { tabs(null) },
             )
         }
@@ -244,6 +260,7 @@ internal fun <T> AppMaterial3TabRow(
             modifier = modifier.fillMaxWidth().padding(horizontal = containerHorizontalPadding),
             containerColor = Color.Transparent,
             indicatorPositionProvider = indicatorPositionProvider,
+            labelContentWidths = labelContentWidths,
             tabs = { tabs(null) },
         )
     }

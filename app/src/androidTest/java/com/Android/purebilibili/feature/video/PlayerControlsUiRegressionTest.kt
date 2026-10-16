@@ -2,22 +2,29 @@ package com.android.purebilibili.feature.video
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.android.purebilibili.core.store.PlayerProgressPlacement
 import com.android.purebilibili.core.ui.AppThemeConfig
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
-import com.android.purebilibili.core.store.PlayerProgressPlacement
 import com.android.purebilibili.feature.video.ui.overlay.BottomControlBar
 import com.android.purebilibili.feature.video.ui.overlay.PlayerProgress
 import com.android.purebilibili.feature.video.ui.overlay.TopControlBar
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -213,6 +220,74 @@ class PlayerControlsUiRegressionTest {
 
         composeTestRule.runOnIdle { seekOverride.value = null }
         composeTestRule.onNodeWithText("00:46 / 03:00").assertIsDisplayed()
+    }
+
+    @Test
+    fun nativeFullscreen_resizeAndLargeFontsKeepPrimaryActionsUsableAndToolsReachable() {
+        val widthFraction = mutableStateOf(1f)
+        val fontScale = mutableStateOf(1f)
+        val calls = IntArray(6)
+        composeTestRule.setContent {
+            // Keep a 960dp test viewport on any host display; shrink its content to
+            // 624dp and 384dp without depending on the device's orientation or size.
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val density = LocalDensity.current.density * maxWidth.value / 960f
+                CompositionLocalProvider(
+                    LocalDensity provides Density(density, fontScale.value),
+                    LocalAppThemeConfig provides AppThemeConfig(liquidGlassEnabled = false),
+                ) {
+                    MaterialTheme {
+                        BottomControlBar(
+                            isPlaying = false,
+                            progress = PlayerProgress(current = 30_000, duration = 120_000),
+                            isFullscreen = true,
+                            viewportWidthDpOverride = 960,
+                            currentQualityLabel = "1080P",
+                            hasEpisodeEntry = true,
+                            onPlayPauseClick = { calls[0]++ },
+                            onDanmakuToggle = { calls[1]++ },
+                            onDanmakuSettingsClick = { calls[2]++ },
+                            onDanmakuInputClick = { calls[3]++ },
+                            onToggleFullscreen = { calls[4]++ },
+                            onQualityClick = { calls[5]++ },
+                            onSeek = {},
+                            modifier = Modifier.fillMaxWidth(widthFraction.value).height(180.dp),
+                        )
+                    }
+                }
+            }
+        }
+        // The native action row adapts spacing, then scrolls when necessary.
+        // Assert access and callback routing rather than the superseded fixed gap.
+        listOf(1f to 1f, 0.65f to 1f, 0.65f to 1.5f, 0.4f to 1.5f).forEachIndexed { index, (width, scale) ->
+            composeTestRule.runOnIdle {
+                widthFraction.value = width
+                fontScale.value = scale
+            }
+            listOf(
+                "player_play_pause", "player_danmaku_toggle", "player_danmaku_settings",
+                "player_danmaku_send", "player_fullscreen_toggle",
+            ).forEach { tag ->
+                val action = composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
+                if (tag == "player_fullscreen_toggle") {
+                    // This control consumes pointer gestures rather than exposing OnClick semantics.
+                    action.performTouchInput { click() }
+                } else {
+                    action.performClick()
+                }
+            }
+            composeTestRule.onNodeWithText("1080P").performScrollTo().assertIsDisplayed().performClick()
+            composeTestRule.onNodeWithText("分集").performScrollTo().assertIsDisplayed()
+            composeTestRule.onNodeWithText("更多").performScrollTo().assertIsDisplayed()
+            // Scrolling tools must not displace the primary actions.
+            listOf(
+                "player_play_pause", "player_danmaku_toggle", "player_danmaku_settings",
+                "player_danmaku_send", "player_fullscreen_toggle",
+            ).forEach { tag -> composeTestRule.onNodeWithTag(tag).assertIsDisplayed() }
+            composeTestRule.runOnIdle {
+                calls.forEach { count -> assertEquals(index + 1, count) }
+            }
+        }
     }
 
     private fun assertProgressIsAboveControls() {
