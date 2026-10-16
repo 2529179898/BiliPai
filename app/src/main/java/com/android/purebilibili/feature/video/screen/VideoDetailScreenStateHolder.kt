@@ -64,7 +64,6 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.gestures.stopScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import com.android.purebilibili.core.ui.components.AppLazyColumn as LazyColumn
@@ -3341,11 +3340,11 @@ internal fun VideoDetailScreenStateHolder(
                 "pagerScrolling=${videoContentPagerState.isScrollInProgress} phase=$continuousPlayerPhase"
         }
         if (returningToInline) {
-            kotlinx.coroutines.coroutineScope {
-                launch { introListState.stopScroll() }
-                launch { commentListState.stopScroll() }
-                launch { videoContentPagerState.stopScroll() }
-            }
+            stopVideoDetailInlineScrolls(
+                introListState = introListState,
+                commentListState = commentListState,
+                pagerState = videoContentPagerState,
+            )
             com.android.purebilibili.core.util.Logger.d(
                 "VideoDetailScreen",
                 "Inline input restored after fullscreen: introScrolling=${introListState.isScrollInProgress} " +
