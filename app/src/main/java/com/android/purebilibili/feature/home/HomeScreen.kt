@@ -508,6 +508,16 @@ fun HomeScreen(
         displayedTabIndex = displayedTabIndexFromState
     )
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(initialPage = initialPage) { topTabEntries.size }
+    // Only native MD3 opts into detail's pager timing; glass and Miuix keep their defaults.
+    val nativeMd3TabMotion = com.android.purebilibili.core.theme.LocalAppUiStyle.current ==
+        com.android.purebilibili.core.theme.AppUiStyle.MATERIAL3 &&
+        !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+    val homeTabSelectionAnimationSpec = remember(nativeMd3TabMotion) {
+        if (nativeMd3TabMotion) tween<Float>(
+            durationMillis = 240,
+            easing = androidx.compose.animation.core.FastOutSlowInEasing,
+        ) else null
+    }
     val heroCarouselPointerActive = remember { mutableStateOf(false) }
     val onHeroCarouselGestureActiveChange = remember(heroCarouselPointerActive) {
         { active: Boolean -> heroCarouselPointerActive.value = active }
@@ -749,7 +759,7 @@ fun HomeScreen(
     }
 
     // [修复] 状态变化时驱动 Pager：首次使用无动画对齐，后续用动画跟随
-    LaunchedEffect(currentCategory, topTabEntries, isTopLevelActive) {
+    LaunchedEffect(currentCategory, topTabEntries, isTopLevelActive, homeTabSelectionAnimationSpec) {
         if (!isTopLevelActive) return@LaunchedEffect
         val targetPage = resolveHomePagerTargetPage(
             topTabEntries = topTabEntries,
@@ -791,7 +801,7 @@ fun HomeScreen(
         ) {
             programmaticPageSwitchInProgress = true
             try {
-                animatePagerSelection(pagerState, targetPage)
+                animatePagerSelection(pagerState, targetPage, homeTabSelectionAnimationSpec)
             } finally {
                 programmaticPageSwitchInProgress = false
             }
@@ -2698,11 +2708,13 @@ fun HomeScreen(
                 val selectedEntry = topTabEntries.getOrNull(index) ?: return@onCategorySelected
                 viewModel.updateDisplayedTabIndex(index)
                 retainedTopTabEntry = selectedEntry
-                if (pagerState.currentPage != index) {
+                if (pagerState.currentPage != index ||
+                    (nativeMd3TabMotion && pagerState.isScrollInProgress)
+                ) {
                     programmaticPageSwitchInProgress = true
                     coroutineScope.launch {
                         try {
-                            animatePagerSelection(pagerState, index)
+                            animatePagerSelection(pagerState, index, homeTabSelectionAnimationSpec)
                         } finally {
                             programmaticPageSwitchInProgress = false
                         }

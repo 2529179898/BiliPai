@@ -2,6 +2,9 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
 import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.theme.AppUiStyle
+import com.android.purebilibili.core.theme.LocalAppUiStyle
+import com.android.purebilibili.core.ui.LocalAppThemeConfig
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
@@ -2033,7 +2036,12 @@ private fun PlayerDockActionRow(
             }
         } else Arrangement.spacedBy(minimumSpacing)
     }
+    // 只修正 Miuix 液态玻璃胶囊：外层的最小高度可能高于文字行，
+    // 让整行在胶囊内居中；关闭玻璃后的原生布局与 MD3 默认行为保持不变。
+    val centerGlassActions = LocalAppUiStyle.current == AppUiStyle.MIUIX &&
+        LocalAppThemeConfig.current.liquidGlassEnabled
     BoxWithConstraints(
+        contentAlignment = if (centerGlassActions) Alignment.CenterStart else Alignment.TopStart,
         modifier = modifier
             .then(if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier)
             .then(if (fillAvailableWidth) Modifier.padding(horizontal = 2.dp) else Modifier),
@@ -2411,7 +2419,8 @@ fun VideoProgressBar(
     val progressColors = progressSkin?.manifest?.colors
     val primaryColor = parseUiSkinColor(
         progressColors?.playerProgressActiveTint,
-        AppContentColors.accent(),
+        // 与详情页选中态共用颜色入口，保留皮肤显式覆盖及原生主色。
+        AppContentColors.selectionAccent(LocalAppThemeConfig.current.liquidGlassEnabled),
     )
     val bufferedTrackColor = if (neutralGlassTrack) Color.White.copy(alpha = 0.34f) else parseUiSkinColor(
         progressColors?.playerProgressBufferedTint,

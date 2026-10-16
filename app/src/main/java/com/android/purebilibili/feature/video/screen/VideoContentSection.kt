@@ -780,19 +780,14 @@ internal fun VideoContentSection(
 
     val onTabSelected: (Int) -> Unit = { index ->
         scope.launch {
-            if (!liquidGlassEnabled && pagerState.isScrollInProgress) {
-                // 横向拖拽已经由 Pager 驱动时，不要再次启动一段从 currentPage
-                // 出发的动画；否则 offset 会先归零回弹到左侧，再动画到目标页。
-                pagerState.scrollToPage(index)
-            } else {
-                animatePagerSelection(
-                    pagerState = pagerState,
-                    targetPage = index,
-                    // A second glass tap retargets from the current offset rather than
-                    // snapping to the destination while the capsule is still moving.
-                    animationSpec = tabSelectionAnimationSpec,
-                )
-            }
+            // Continue from the live page offset when a tap interrupts a swipe or another
+            // tap. The helper takes over the scroll mutation without resetting the offset.
+            // Native and glass retain their own timing and fling behavior above.
+            animatePagerSelection(
+                pagerState = pagerState,
+                targetPage = index,
+                animationSpec = tabSelectionAnimationSpec,
+            )
         }
     }
     LaunchedEffect(pagerState, tabs.size) {
@@ -967,9 +962,21 @@ internal fun VideoContentSection(
                             currentPage = pagerState.currentPage,
                             commentPageIndex = 1,
                             isPagerScrollInProgress = pagerState.isScrollInProgress,
-                        ),
+                        ) && !liquidGlassEnabled,
+                // Glass uses one child-first direction detector, rather than allowing the
+                // native pager / Miuix cross-axis recognizer to race the comment list.
+                // With glass off the native pager and its defaults are unchanged.
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalPriorityHorizontalPagerSwipe(
+                        state = pagerState,
+                        enabled = liquidGlassEnabled && shouldEnableVideoContentHorizontalPagerSwipe(
+                            currentPage = pagerState.currentPage,
+                            commentPageIndex = 1,
+                            isPagerScrollInProgress = pagerState.isScrollInProgress,
+                        ),
+                        forceVerticalPriority = true,
+                    )
                     .then(
                         if (immersiveVideoContentChromeEnabled) {
                             Modifier
@@ -1163,6 +1170,7 @@ internal fun VideoContentSection(
                         commentPageIndex = 1,
                         isPagerScrollInProgress = pagerState.isScrollInProgress,
                     ),
+                    forceVerticalPriority = liquidGlassEnabled,
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2238,6 +2246,7 @@ private fun VideoContentTabBar(
                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                 centerContent = false,
                 options = tabs.mapIndexed { index, label -> AppSegmentOption(index, label) },
+                liquidGlassAnimateLabelWidthChanges = true,
                 // Count-bearing detail tabs keep compact glass spacing; native layouts ignore this override.
                 liquidGlassLabelHorizontalPadding = 10.dp,
                 selectedValue = selectedTabIndex,
@@ -2277,7 +2286,9 @@ private fun VideoContentTabBar(
                     NativeDanmakuToggleButton(
                         enabled = danmakuEnabled,
                         onToggle = onDanmakuToggle,
-                        activeTint = AppContentColors.accent(),
+                        activeTint = AppContentColors.selectionAccent(
+                            com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
+                        ),
                         inactiveTint = AppContentColors.secondaryText(),
                         modifier = Modifier
                             .padding(end = danmakuActionLayoutPolicy.toggleTrailingPaddingDp.dp)

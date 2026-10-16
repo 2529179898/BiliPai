@@ -2818,7 +2818,9 @@ internal fun VideoDetailScreenStateHolder(
                     }
                     return
                 }
-                if (!sensorAutoRotateEnabled && !isFullscreenMode && !userRequestedFullscreen) return
+                // 关闭自动切换时仅允许手动全屏跟随左右横屏；旧配置中的横屏状态
+                // 不能重新触发横屏请求，与上面的竖屏锁定策略保持一致。
+                if (!sensorAutoRotateEnabled && !userRequestedFullscreen) return
                 val isCurrentlyLandscape =
                     hostActivity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
                 val targetOrientation = resolvePhoneAutoRotateRequestedOrientation(
