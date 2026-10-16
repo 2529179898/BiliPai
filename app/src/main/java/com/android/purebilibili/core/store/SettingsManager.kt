@@ -1704,6 +1704,8 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private val KEY_AUTO_CACHE_CLEAR_INTERVAL = intPreferencesKey("auto_cache_clear_interval_days")
     private val KEY_AUTO_CACHE_CLEAR_THRESHOLD_GB = intPreferencesKey("auto_cache_clear_threshold_gb")
     private val KEY_LAST_AUTO_CACHE_CLEAR_AT = longPreferencesKey("last_auto_cache_clear_at")
+    private val KEY_COMMENT_AVATAR_PUSH_ENABLED =
+        booleanPreferencesKey("comment_avatar_push_enabled")
     private val KEY_COMMENT_MEMBER_DECORATIONS_ENABLED =
         booleanPreferencesKey("comment_member_decorations_enabled")
     private val KEY_DETAILED_COMMENT_TIME_ENABLED =
@@ -6478,6 +6480,16 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         }
     }
 
+    fun getCommentAvatarPushEnabled(context: Context): Flow<Boolean> =
+        context.settingsDataStore.data
+            .map { preferences -> preferences[KEY_COMMENT_AVATAR_PUSH_ENABLED] ?: false }
+
+    suspend fun setCommentAvatarPushEnabled(context: Context, enabled: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[KEY_COMMENT_AVATAR_PUSH_ENABLED] = enabled
+        }
+    }
+
     fun getCommentMemberDecorationsEnabled(context: Context): Flow<Boolean> =
         context.settingsDataStore.data
             .map { preferences -> preferences[KEY_COMMENT_MEMBER_DECORATIONS_ENABLED] ?: false }
@@ -8460,6 +8472,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             BooleanShareablePreferenceDefinition(KEY_REMEMBER_LAST_PLAYBACK_SPEED, SettingsShareSection.PLAYBACK),
             IntShareablePreferenceDefinition(KEY_COMMENT_DEFAULT_SORT_MODE, SettingsShareSection.PLAYBACK),
             BooleanShareablePreferenceDefinition(KEY_COMMENT_FRAUD_DETECTION_ENABLED, SettingsShareSection.PLAYBACK),
+            BooleanShareablePreferenceDefinition(KEY_COMMENT_AVATAR_PUSH_ENABLED, SettingsShareSection.PLAYBACK),
             BooleanShareablePreferenceDefinition(KEY_COMMENT_MEMBER_DECORATIONS_ENABLED, SettingsShareSection.PLAYBACK),
             BooleanShareablePreferenceDefinition(KEY_DETAILED_COMMENT_TIME_ENABLED, SettingsShareSection.PLAYBACK),
             BooleanShareablePreferenceDefinition(KEY_IMAGE_PREVIEW_LONG_PRESS_SAVE_ENABLED, SettingsShareSection.PLAYBACK),

@@ -221,6 +221,7 @@ fun DynamicDetailScreen(
     }
     var forwardCountDelta by remember(dynamicId) { mutableIntStateOf(0) }
     var subReplyCoveredBlurProgress by remember { mutableFloatStateOf(0f) }
+    val avatarPushEnabled = com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled()
     val detailListState = rememberLazyListState()
     //  [新增] 大屏/横屏分栏：右栏评论列表
     val commentListState = rememberLazyListState()
@@ -462,6 +463,8 @@ fun DynamicDetailScreen(
                         )
                     }
                     dynamicInlineCommentItems(
+                        avatarListState = (if (useSplitLayout) commentListState else detailListState)
+                            .takeIf { avatarPushEnabled },
                         comments = comments,
                         isLoading = commentsLoading,
                         isLoadingMore = commentsLoadingMore,

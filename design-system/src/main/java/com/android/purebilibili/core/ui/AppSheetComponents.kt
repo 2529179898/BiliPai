@@ -6,6 +6,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -131,7 +134,9 @@ fun resolveAdaptiveBottomSheetVisualSpec(
 
 internal fun resolveAdaptiveBottomSheetMotionSpec(
     uiStyle: AppUiStyle,
+    reducedMotion: Boolean = false,
 ): AdaptiveBottomSheetMotionSpec {
+    if (reducedMotion) return AdaptiveBottomSheetMotionSpec(120, 90, 120, 90)
     val tokens = resolveAndroidNativeChromeTokens(uiStyle)
     return AdaptiveBottomSheetMotionSpec(
         scrimEnterDurationMillis = tokens.motionEmphasizedMillis,
@@ -378,22 +383,29 @@ data class AppBottomSheetMotion(
     val scrimExitDurationMillis: Int,
     val contentEnterFadeDurationMillis: Int,
     val contentExitFadeDurationMillis: Int,
+    val reducedMotion: Boolean = false,
+    val dragSettleSpec: FiniteAnimationSpec<Float> = spring(dampingRatio = 1f, stiffness = 600f),
 )
 
 @Composable
 fun rememberAppBottomSheetMotion(): AppBottomSheetMotion {
     val uiStyle = LocalAppUiStyle.current
-    return remember(uiStyle) {
-        val motionSpec = resolveAdaptiveBottomSheetMotionSpec(uiStyle)
+    // Only custom overlay consumers use this contract. Native MD3/Miuix window
+    // sheets above keep their own motion, geometry and theme defaults.
+    val reducedMotion = LocalSystemReduceMotion.current || !LocalComponentMotionEnabled.current
+    return remember(uiStyle, reducedMotion) {
+        val motionSpec = resolveAdaptiveBottomSheetMotionSpec(uiStyle, reducedMotion)
         AppBottomSheetMotion(
-            scrimEnter = bottomSheetScrimEnterTransition(uiStyle),
-            scrimExit = bottomSheetScrimExitTransition(uiStyle),
-            contentEnter = bottomSheetContentEnterTransition(uiStyle),
-            contentExit = bottomSheetContentExitTransition(uiStyle),
+            scrimEnter = if (reducedMotion) fadeIn(tween(120)) else bottomSheetScrimEnterTransition(uiStyle),
+            scrimExit = if (reducedMotion) fadeOut(tween(90)) else bottomSheetScrimExitTransition(uiStyle),
+            contentEnter = if (reducedMotion) fadeIn(tween(120)) else bottomSheetContentEnterTransition(uiStyle),
+            contentExit = if (reducedMotion) fadeOut(tween(90)) else bottomSheetContentExitTransition(uiStyle),
             scrimEnterDurationMillis = motionSpec.scrimEnterDurationMillis,
             scrimExitDurationMillis = motionSpec.scrimExitDurationMillis,
             contentEnterFadeDurationMillis = motionSpec.contentEnterFadeDurationMillis,
             contentExitFadeDurationMillis = motionSpec.contentExitFadeDurationMillis,
+            reducedMotion = reducedMotion,
+            dragSettleSpec = if (reducedMotion) tween(0) else spring(dampingRatio = 1f, stiffness = 600f),
         )
     }
 }

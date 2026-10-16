@@ -42,6 +42,12 @@ data class OpenSourceLibrary(
  */
 val openSourceLibraries = listOf(
     OpenSourceLibrary(
+        name = "Telegram / Nagram Chat Avatar Placement",
+        license = "GPL-2.0-or-later（按 GPLv3 分发）",
+        url = "https://github.com/NextAlone/Nagram/blob/fb56ea9801e5de68c60f0152b444bbe2a0fda520/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java",
+        description = "聊天头像底部吸附与消息边界约束代码移植，原作者 Nikolai Kudashov；适配评论、回复和搜索结果"
+    ),
+    OpenSourceLibrary(
         name = "Flex Seed Scheme",
         license = "BSD-3-Clause",
         url = "https://github.com/rydmike/flex_seed_scheme",

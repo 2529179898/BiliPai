@@ -1337,6 +1337,9 @@ private fun PlaybackInteractionSettingsSection(
     val commentFraudDetectionEnabled by com.android.purebilibili.core.store.SettingsManager
         .getCommentFraudDetectionEnabled(context)
         .collectAsStateWithLifecycle(initialValue = true)
+    val commentAvatarPushEnabled by SettingsManager
+        .getCommentAvatarPushEnabled(context)
+        .collectAsStateWithLifecycle(initialValue = false)
     val commentMemberDecorationsEnabled by com.android.purebilibili.core.store.SettingsManager
         .getCommentMemberDecorationsEnabled(context)
         .collectAsStateWithLifecycle(initialValue = false)
@@ -1842,6 +1845,19 @@ SettingsItemAnchor("playback.comment_collapsed_reply_preview_limit") {
                 },
                 iconTint = AppContentColors.secondaryText()
             )
+            }
+        AppPreferenceDivider()
+            SettingsItemAnchor("playback.comment_avatar_push_enabled") {
+                AppSwitchPreference(
+                    icon = rememberSettingsSemanticIcon(SettingsIconRole.COMMENT_DECORATION),
+                    title = playbackSettingTitle("playback.comment_avatar_push_enabled"),
+                    subtitle = "头像以作者行为原位，滑出顶部后吸附并随评论边界顶替，滑回即恢复；支持评论、回复与搜索结果",
+                    checked = commentAvatarPushEnabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch { SettingsManager.setCommentAvatarPushEnabled(context, enabled) }
+                    },
+                    iconTint = AppContentColors.secondaryText()
+                )
             }
         AppPreferenceDivider()
             SettingsItemAnchor("playback.comment_member_decorations_enabled") {

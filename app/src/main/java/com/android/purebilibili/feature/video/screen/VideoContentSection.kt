@@ -1607,6 +1607,7 @@ internal fun VideoCommentTab(
     pullToRefreshEnabled: Boolean = true,
 ) {
     val commentAppearance = rememberVideoCommentAppearance()
+    val avatarPushEnabled = com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled()
     // 首屏骨架按视口高度铺够槽位：少铺会让列表在数据到达时被撑长、整体跳一下。
     val commentSkeletonSlotCount = resolveVideoCommentSkeletonSlotCount(
         LocalConfiguration.current.screenHeightDp
@@ -1740,6 +1741,7 @@ internal fun VideoCommentTab(
                             item = reply,
                             upMid = info.owner.mid,
                             emoteMap = emoteMap,
+                            avatarListState = listState.takeIf { avatarPushEnabled },
                             lightweightMode = lightweightCommentRendering,
                             showIdentityDecorations = showIdentityDecorations,
                             onClick = {},

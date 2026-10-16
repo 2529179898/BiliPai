@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import com.android.purebilibili.core.ui.components.AppLazyColumn as LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,6 +57,9 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
+import com.android.purebilibili.core.ui.animation.EntranceGroup
+import com.android.purebilibili.core.ui.animation.entrance
 import com.android.purebilibili.core.ui.UserAvatarCornerMarkBadge
 import com.android.purebilibili.core.ui.resolveUserAvatarCornerMark
 import com.android.purebilibili.core.ui.AppModalBottomSheet
@@ -172,6 +176,7 @@ fun CommentSearchSheet(
     }
 
     val listState = rememberLazyListState()
+    val avatarPushEnabled = rememberCommentAvatarPushEnabled()
     val glassActive = false
     // The sheet and its controls must sample the same comment layer behind this modal.
     val sheetBackdrop = miuixBackdrop ?: LocalFloatingChromeBackdrop.current
@@ -381,25 +386,31 @@ fun CommentSearchSheet(
                             items = filteredResults,
                             key = { "${it.reply.rpid}_${it.isSubReply}" }
                         ) { entry ->
-                            CommentSearchResultRow(
-                                entry = entry,
-                                searchQuery = searchQuery,
-                                isUp = entry.reply.member.mid == upMid.toString(),
-                                miuixBackdrop = sheetBackdrop,
-                                liquidGlassEnabled = glassActive,
-                                onClick = {
-                                    onDismiss()
-                                    if (entry.isSubReply && entry.rootReply != null) {
-                                        onSubReplyClick(entry.rootReply)
-                                    } else {
-                                        onCommentClick(entry.reply)
+                            // Keep full item geometry during entry so LazyColumn does not
+                            // compose an entire result set as zero-height animation items.
+                            EntranceGroup {
+                                CommentSearchResultRow(
+                                    modifier = if (LocalComponentMotionEnabled.current) Modifier.entrance() else Modifier,
+                                    avatarListState = listState.takeIf { avatarPushEnabled },
+                                    entry = entry,
+                                    searchQuery = searchQuery,
+                                    isUp = entry.reply.member.mid == upMid.toString(),
+                                    miuixBackdrop = sheetBackdrop,
+                                    liquidGlassEnabled = glassActive,
+                                    onClick = {
+                                        onDismiss()
+                                        if (entry.isSubReply && entry.rootReply != null) {
+                                            onSubReplyClick(entry.rootReply)
+                                        } else {
+                                            onCommentClick(entry.reply)
+                                        }
+                                    },
+                                    onCopy = {
+                                        clipboardManager.setText(AnnotatedString(entry.reply.content.message))
+                                        Toast.makeText(context, "评论已复制", Toast.LENGTH_SHORT).show()
                                     }
-                                },
-                                onCopy = {
-                                    clipboardManager.setText(AnnotatedString(entry.reply.content.message))
-                                    Toast.makeText(context, "评论已复制", Toast.LENGTH_SHORT).show()
-                                }
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -437,18 +448,19 @@ private fun CommentSearchResultRow(
     entry: CommentSearchEntry,
     searchQuery: String,
     isUp: Boolean,
+    modifier: Modifier = Modifier,
     miuixBackdrop: Backdrop? = null,
     liquidGlassEnabled: Boolean = false,
+    avatarListState: LazyListState? = null,
     onClick: () -> Unit,
     onCopy: () -> Unit,
 ) {
-    val context = LocalContext.current
     val detailedCommentTimeEnabled = LocalDetailedCommentTimeEnabled.current
     val item = entry.reply
     val primaryColor = AppContentColors.accent()
 
     AppSurface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .then(
                 if (liquidGlassEnabled) {
@@ -468,179 +480,210 @@ private fun CommentSearchResultRow(
         shape = AppShapes.container(ContainerLevel.Card),
         color = if (liquidGlassEnabled) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerLowest,
     ) {
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            // 头部：头像 + 用户名 + UP主标签 + 楼中楼标记 + 时间
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
+            // This opt-in is independent of material style; disabled keeps the
+            // original search-card spacing and avatar size in both native themes.
+            val pushAvatar = avatarListState != null
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // 头部：头像 + 用户名 + UP主标签 + 楼中楼标记 + 时间
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f, fill = false)
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Box(modifier = Modifier.size(24.dp)) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(FormatUtils.fixImageUrl(item.member.avatar))
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = item.member.uname,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape),
-                        )
-                        UserAvatarCornerMarkBadge(
-                            mark = resolveUserAvatarCornerMark(
-                                officialType = item.member.officialVerify.type,
-                                vipStatus = item.member.vip?.vipStatus,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        if (pushAvatar) {
+                            Spacer(modifier = Modifier.size(NAGRAM_CHAT_AVATAR_SIZE_DP.dp))
+                        } else {
+                            CommentSearchAvatar(item, Modifier.size(24.dp))
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        AppText(
+                            text = highlightQuery(item.member.uname, searchQuery, primaryColor),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = com.android.purebilibili.core.ui.components.resolveUpNameColor(
+                                vipStatus = item.member.vip?.vipStatus ?: 0,
+                                vipType = item.member.vip?.vipType ?: 0,
+                                onSurface = AppContentColors.primaryText(),
+                                secondary = com.android.purebilibili.core.ui.components.userVipPink(),
                             ),
-                            modifier = Modifier.align(Alignment.BottomEnd),
-                            badgeSize = 10.dp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
+                        if (isUp) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(AppContentColors.accent().copy(alpha = 0.15f))
+                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                            ) {
+                                AppText(
+                                    text = "UP主",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AppContentColors.accent(),
+                                )
+                            }
+                        }
+                        if (entry.isSubReply) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
+                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                            ) {
+                                AppText(
+                                    text = "楼中楼回复",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                            }
+                        }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    AppText(
-                        text = highlightQuery(item.member.uname, searchQuery, primaryColor),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = com.android.purebilibili.core.ui.components.resolveUpNameColor(
-                            vipStatus = item.member.vip?.vipStatus ?: 0,
-                            vipType = item.member.vip?.vipType ?: 0,
-                            onSurface = AppContentColors.primaryText(),
-                            secondary = com.android.purebilibili.core.ui.components.userVipPink(),
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+
+                    // 发布时间
+                    val timeStr = FormatUtils.formatCommentTime(
+                        timestampSeconds = item.ctime,
+                        detailedTimeEnabled = detailedCommentTimeEnabled
                     )
-                    if (isUp) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(AppContentColors.accent().copy(alpha = 0.15f))
-                                .padding(horizontal = 4.dp, vertical = 1.dp)
-                        ) {
-                            AppText(
-                                text = "UP主",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = AppContentColors.accent(),
-                            )
-                        }
-                    }
-                    if (entry.isSubReply) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
-                                .padding(horizontal = 4.dp, vertical = 1.dp)
-                        ) {
-                            AppText(
-                                text = "楼中楼回复",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                        }
+                    if (timeStr.isNotBlank()) {
+                        AppText(
+                            text = timeStr,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = AppContentColors.secondaryText(),
+                        )
                     }
                 }
 
-                // 发布时间
-                val timeStr = FormatUtils.formatCommentTime(
-                    timestampSeconds = item.ctime,
-                    detailedTimeEnabled = detailedCommentTimeEnabled
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // 评论内容（关键字高亮）
+                AppText(
+                    modifier = Modifier.padding(start = if (pushAvatar) NAGRAM_CHAT_AVATAR_SIZE_DP.dp + 8.dp else 0.dp),
+                    text = highlightQuery(item.content.message, searchQuery, primaryColor),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppContentColors.secondaryText(),
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                if (timeStr.isNotBlank()) {
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // 底部：点赞数 + 回复数 + IP属地
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = if (pushAvatar) NAGRAM_CHAT_AVATAR_SIZE_DP.dp + 8.dp else 0.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (item.like > 0) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                AppIcon(
+                                    imageVector = Icons.Outlined.ThumbUp,
+                                    contentDescription = "点赞",
+                                    modifier = Modifier.size(13.dp),
+                                    tint = AppContentColors.secondaryText().copy(alpha = 0.6f),
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                AppText(
+                                    text = FormatUtils.formatStat(item.like.toLong()),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppContentColors.secondaryText(),
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
+
+                        if (item.rcount > 0) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                AppIcon(
+                                    imageVector = Icons.Outlined.ChatBubbleOutline,
+                                    contentDescription = "回复",
+                                    modifier = Modifier.size(13.dp),
+                                    tint = AppContentColors.secondaryText().copy(alpha = 0.6f),
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                AppText(
+                                    text = "${item.rcount}条回复",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = AppContentColors.secondaryText(),
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                        }
+
+                        val location = item.replyControl?.location
+                        if (!location.isNullOrBlank()) {
+                            AppText(
+                                text = location,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AppContentColors.secondaryText().copy(alpha = 0.45f),
+                            )
+                        }
+                    }
+
+                    // 复制按钮
                     AppText(
-                        text = timeStr,
+                        text = "复制",
                         style = MaterialTheme.typography.labelSmall,
-                        color = AppContentColors.secondaryText(),
+                        color = AppContentColors.accent(),
+                        modifier = Modifier
+                            .clickable(onClick = onCopy)
+                            .padding(horizontal = 4.dp, vertical = 2.dp)
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // 评论内容（关键字高亮）
-            AppText(
-                text = highlightQuery(item.content.message, searchQuery, primaryColor),
-                style = MaterialTheme.typography.bodyMedium,
-                color = AppContentColors.secondaryText(),
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // 底部：点赞数 + 回复数 + IP属地
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (item.like > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            AppIcon(
-                                imageVector = Icons.Outlined.ThumbUp,
-                                contentDescription = "点赞",
-                                modifier = Modifier.size(13.dp),
-                                tint = AppContentColors.secondaryText().copy(alpha = 0.6f),
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            AppText(
-                                text = FormatUtils.formatStat(item.like.toLong()),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppContentColors.secondaryText(),
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                    }
-
-                    if (item.rcount > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            AppIcon(
-                                imageVector = Icons.Outlined.ChatBubbleOutline,
-                                contentDescription = "回复",
-                                modifier = Modifier.size(13.dp),
-                                tint = AppContentColors.secondaryText().copy(alpha = 0.6f),
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            AppText(
-                                text = "${item.rcount}条回复",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppContentColors.secondaryText(),
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                    }
-
-                    val location = item.replyControl?.location
-                    if (!location.isNullOrBlank()) {
-                        AppText(
-                            text = location,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AppContentColors.secondaryText().copy(alpha = 0.45f),
-                        )
-                    }
-                }
-
-                // 复制按钮
-                AppText(
-                    text = "复制",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AppContentColors.accent(),
+            if (pushAvatar && avatarListState != null) {
+                CommentSearchAvatar(
+                    item = item,
                     modifier = Modifier
-                        .clickable(onClick = onCopy)
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                        .size(NAGRAM_CHAT_AVATAR_SIZE_DP.dp)
+                        .commentAvatarPushOffset(
+                            listState = avatarListState,
+                            itemKey = "${item.rpid}_${entry.isSubReply}",
+                            topInset = 12.dp,
+                            bottomInset = 12.dp,
+                        ),
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun CommentSearchAvatar(item: ReplyItem, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    Box(modifier = modifier) {
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(FormatUtils.fixImageUrl(item.member.avatar))
+                .crossfade(true)
+                .build(),
+            contentDescription = item.member.uname,
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(CircleShape),
+        )
+        UserAvatarCornerMarkBadge(
+            mark = resolveUserAvatarCornerMark(
+                officialType = item.member.officialVerify.type,
+                vipStatus = item.member.vip?.vipStatus,
+            ),
+            modifier = Modifier.align(Alignment.BottomEnd),
+            badgeSize = 10.dp,
+        )
     }
 }
 

@@ -25,11 +25,9 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.android.purebilibili.core.util.PickMultipleGalleryVisualMedia
 import com.android.purebilibili.core.plugin.skin.LocalUiSkinState
+import androidx.compose.animation.core.MutableTransitionState
+import com.android.purebilibili.core.ui.rememberAppBottomSheetMotion
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -77,6 +75,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import java.io.File
@@ -295,11 +295,31 @@ fun CommentInputDialog(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val dismissDialog = remember(onDismiss, keyboardController, focusManager) {
-        {
+    val sheetMotion = rememberAppBottomSheetMotion()
+    val inputVisibility = remember { MutableTransitionState(false) }
+    var dismissRequested by remember { mutableStateOf(false) }
+    val latestOnDismiss by rememberUpdatedState(onDismiss)
+    val inputActive = visible && !dismissRequested
+    LaunchedEffect(visible) {
+        dismissRequested = false
+        inputVisibility.targetState = visible
+    }
+    LaunchedEffect(inputActive) {
+        inputVisibility.targetState = inputActive
+    }
+    // Keep the native window mounted until the actual sheet inside it finishes exiting.
+    // External closure (including send success) follows the same path without a second callback.
+    LaunchedEffect(inputVisibility.isIdle, inputVisibility.currentState, dismissRequested) {
+        if (inputVisibility.isIdle && !inputVisibility.currentState && dismissRequested) {
+            latestOnDismiss()
+        }
+    }
+    val dismissDialog: () -> Unit = {
+        if (!dismissRequested) {
             keyboardController?.hide()
             focusManager.clearFocus(force = true)
-            onDismiss()
+            dismissRequested = true
+            inputVisibility.targetState = false
         }
     }
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -366,11 +386,7 @@ fun CommentInputDialog(
     }
 
 
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn() + slideInVertically { it },
-        exit = fadeOut() + slideOutVertically { it }
-    ) {
+    if (inputVisibility.currentState || inputVisibility.targetState) {
         Dialog(
             onDismissRequest = dismissDialog,
             properties = DialogProperties(
@@ -380,7 +396,15 @@ fun CommentInputDialog(
                 decorFitsSystemWindows = false   // 沉浸式：内容延伸到状态栏/导航栏下
             )
         ) {
-            com.android.purebilibili.core.ui.ModalWindowBlurBehindEffect()
+            val dialogView = LocalView.current
+            SideEffect {
+                // The sheet owns its transition; avoid a second platform window animation.
+                ((dialogView.parent as? DialogWindowProvider) ?: (dialogView as? DialogWindowProvider))
+                    ?.window?.setWindowAnimations(0)
+            }
+            // 写评论时需要参照下层评论；输入窗在两种主题及玻璃开关下均不模糊背景。
+            // 只退出本输入窗的模糊，不修改其他弹层的默认材质或模糊行为。
+            com.android.purebilibili.core.ui.ModalWindowBlurBehindEffect(enabled = false)
             val density = LocalDensity.current
             val imeBottomPx = WindowInsets.ime.getBottom(density)
             val navigationBarsBottomPx = WindowInsets.navigationBars.getBottom(density)
@@ -407,8 +431,8 @@ fun CommentInputDialog(
                 keyboardHeightDp = maxOf(lastKeyboardHeightDp, keyboardHeightDp),
                 availableHeightDp = availablePanelHeightDp,
             )
-            LaunchedEffect(showEmojiPanel, visible, canInputComment) {
-                if (!shouldAutoShowCommentKeyboard(visible, canInputComment, showEmojiPanel)) {
+            LaunchedEffect(showEmojiPanel, inputActive, canInputComment) {
+                if (!shouldAutoShowCommentKeyboard(inputActive, canInputComment, showEmojiPanel)) {
                     keyboardController?.hide()
                     focusManager.clearFocus(force = true)
                 } else {
@@ -434,490 +458,497 @@ fun CommentInputDialog(
                     .then(if (showEmojiPanel) Modifier else Modifier.imePadding()),
                 onDismissRequest = dismissDialog,
             ) {
-                // 输入区域
-                AppSurface(
-                    modifier = modifier
-                        .widthIn(max = inputOverlayMaxWidthDp.dp)
-                        .fillMaxWidth()
-                        .wrapContentHeight(),
-                    shape = AppShapes.container(ContainerLevel.Sheet),
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 8.dp
+                AnimatedVisibility(
+                    visibleState = inputVisibility,
+                    enter = sheetMotion.contentEnter,
+                    exit = sheetMotion.contentExit,
+                    label = "commentInputSheet",
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .padding(layoutPolicy.sheetHorizontalPaddingDp.dp)
-                            .navigationBarsPadding() // 避让底部导航栏(手势条)
+                    // 输入区域
+                    AppSurface(
+                        modifier = modifier
+                            .widthIn(max = inputOverlayMaxWidthDp.dp)
+                            .fillMaxWidth()
+                            .wrapContentHeight(),
+                        shape = AppShapes.container(ContainerLevel.Sheet),
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 8.dp
                     ) {
-                        // 1. 顶部：输入框
-                        Box(
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(
-                                    min = layoutPolicy.inputBoxMinHeightDp.dp,
-                                    max = layoutPolicy.inputBoxMaxHeightDp.dp
-                                )
-                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), AppShapes.container(ContainerLevel.Chip))
-                                .padding(12.dp)
+                                .padding(layoutPolicy.sheetHorizontalPaddingDp.dp)
+                                .navigationBarsPadding() // 避让底部导航栏(手势条)
                         ) {
-                            CommentEmoteTextField(
-                                value = textFieldValue,
-                                onValueChange = ::updateTextFieldValue,
-                                emoteUrls = inputEmoteUrls,
-                                enabled = canInputComment && !isSending,
-                                readOnly = showEmojiPanel,
-                                onBeginEditing = { showEmojiPanel = false },
-                                hint = inputHint.ifBlank { "进来唠会嗑呗~" }.let { resolvedHint ->
-                                    if (replyToName != null) "回复 @$replyToName: $resolvedHint" else resolvedHint
-                                },
-                                hintColor = AppContentColors.secondaryText().copy(alpha = 0.7f),
-                                cursorColor = AppContentColors.accent(),
+                            // 1. 顶部：输入框
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .fillMaxHeight() // 填满 Box
-                                    .focusRequester(focusRequester)
-                                    .testTag("comment_composer_input"),
-                                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                    color = AppContentColors.primaryText()
-                                ),
-                            )
-
-                            // 右上角全屏图标 (装饰)
-                            AppIcon(
-                                imageVector = Icons.Filled.Fullscreen,
-                                contentDescription = "Expand",
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(16.dp)
-                                    .alpha(0.5f),
-                                tint = AppContentColors.secondaryText()
-                            )
-                        }
-
-                        AnimatedVisibility(
-                            visible = showMentionPanel && canInputComment,
-                            enter = verticalContentRevealEnterTransition(resolveCommentVerticalContentRevealMotionSpec()),
-                            exit = verticalContentRevealExitTransition(resolveCommentVerticalContentRevealMotionSpec())
-                        ) {
-                            CommentMentionSearchPanel(
-                                query = mentionSearchText,
-                                onQueryChange = { query ->
-                                    mentionSearchText = query
-                                    onMentionSearchQueryChange(query)
-                                },
-                                users = mentionUsers,
-                                isLoading = isMentionSearching,
-                                errorMessage = mentionSearchError,
-                                onUserClick = { user ->
-                                    val cursor = textFieldValue.selection.end
-                                    val (nextText, nextSelection) = insertCommentMentionText(
-                                        text = textFieldValue.text,
-                                        cursor = cursor,
-                                        mentionName = user.name
+                                    .heightIn(
+                                        min = layoutPolicy.inputBoxMinHeightDp.dp,
+                                        max = layoutPolicy.inputBoxMaxHeightDp.dp
                                     )
-                                    textFieldValue = TextFieldValue(nextText, nextSelection)
-                                    showMentionPanel = false
-                                    mentionSearchText = ""
-                                },
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
-                        }
-
-                        if (selectedImageUris.isNotEmpty()) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), AppShapes.container(ContainerLevel.Chip))
+                                    .padding(12.dp)
                             ) {
-                                AppText(
-                                    text = "已选 ${selectedImageUris.size}/9 张",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = AppContentColors.secondaryText()
-                                )
-                            }
-                            LazyRow(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(selectedImageUris, key = { it.toString() }) { uri ->
-                                    Box(
-                                        modifier = Modifier
-                                            .size(64.dp)
-                                            .clip(AppShapes.container(ContainerLevel.Chip))
-                                            .border(
-                                                width = 1.dp,
-                                                color = MaterialTheme.colorScheme.outlineVariant,
-                                                shape = AppShapes.container(ContainerLevel.Chip)
-                                            )
-                                    ) {
-                                        AsyncImage(
-                                            model = uri,
-                                            contentDescription = "已选图片",
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                        AppSurface(
-                                            shape = AppShapes.container(ContainerLevel.Pill),
-                                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                            modifier = Modifier
-                                                .align(Alignment.TopEnd)
-                                                .padding(3.dp)
-                                                .clickable {
-                                                    selectedImageUris = selectedImageUris.filterNot { it == uri }
-                                                    onDraftChange(
-                                                        textFieldValue.text,
-                                                        selectedImageUris,
-                                                        isForwardToDynamic
-                                                    )
-                                                }
-                                        ) {
-                                            AppIcon(
-                                                imageVector = Icons.Outlined.Close,
-                                                contentDescription = "移除",
-                                                modifier = Modifier
-                                                    .size(14.dp)
-                                                    .padding(1.dp),
-                                                tint = AppContentColors.primaryText()
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // 2. 底部工具栏
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .horizontalScroll(rememberScrollState()),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(layoutPolicy.toolbarToolSpacingDp.dp)
-                            ) {
-                                // 转发到动态
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clip(AppShapes.container(ContainerLevel.Tag))
-                                        .clickable(enabled = canInputComment && !isSending) {
-                                            isForwardToDynamic = !isForwardToDynamic
-                                            onDraftChange(
-                                                textFieldValue.text,
-                                                selectedImageUris,
-                                                isForwardToDynamic
-                                            )
-                                        }
-                                        .padding(horizontal = 4.dp, vertical = 4.dp)
-                                ) {
-                                    // 模拟 RadioButton/Checkbox
-                                    AppIcon(
-                                        imageVector = if (isForwardToDynamic) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                                        contentDescription = null,
-                                        tint = if (isForwardToDynamic) AppContentColors.accent() else AppContentColors.secondaryText(),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    AppText(
-                                        text = "转发到动态",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = AppContentColors.secondaryText(),
-                                        maxLines = 1
-                                    )
-                                }
-
-                                // 图标栏: 表情 @ 图片
-                                AppIconButton(
-                                    onClick = {
-                                        val opening = !showEmojiPanel
-                                        if (opening) {
-                                            focusManager.clearFocus(force = true)
-                                            keyboardController?.hide()
-                                            showMentionPanel = false
-                                        }
-                                        showEmojiPanel = opening
-                                    },
+                                CommentEmoteTextField(
+                                    value = textFieldValue,
+                                    onValueChange = ::updateTextFieldValue,
+                                    emoteUrls = inputEmoteUrls,
                                     enabled = canInputComment && !isSending,
-                                    modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
-                                ) {
-                                    AppIcon(
-                                        imageVector = Icons.Filled.Face,
-                                        contentDescription = "表情",
-                                        tint = if (showEmojiPanel) AppContentColors.accent() else AppContentColors.secondaryText(),
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
-
-                                AppIconButton(
-                                    onClick = {
-                                        insertTextAtCursor("@")
-                                        showEmojiPanel = false
-                                        showMentionPanel = true
-                                        mentionSearchText = ""
-                                        onMentionSearchQueryChange("")
+                                    readOnly = showEmojiPanel,
+                                    onBeginEditing = { showEmojiPanel = false },
+                                    hint = inputHint.ifBlank { "进来唠会嗑呗~" }.let { resolvedHint ->
+                                        if (replyToName != null) "回复 @$replyToName: $resolvedHint" else resolvedHint
                                     },
-                                    enabled = canInputComment && !isSending,
-                                    modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
-                                ) {
-                                    AppIcon(
-                                        imageVector = Icons.Outlined.AlternateEmail,
-                                        contentDescription = "提及用户",
-                                        tint = AppContentColors.secondaryText(),
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
-
-                                AppIconButton(
-                                    onClick = {
-                                        insertTextAtCursor(resolveCommentProgressInsertText(currentVideoPositionMsProvider()))
-                                        showEmojiPanel = false
-                                        showMentionPanel = false
-                                    },
-                                    enabled = canInputComment && !isSending,
-                                    modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
-                                ) {
-                                    AppIcon(
-                                        imageVector = Icons.Outlined.Schedule,
-                                        contentDescription = "插入当前播放进度",
-                                        tint = AppContentColors.secondaryText(),
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
-
-                                AppIconButton(
-                                    onClick = {
-                                        imagePickerLauncher.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                        )
-                                    },
-                                    enabled = canInputComment && !isSending,
-                                    modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
-                                ) {
-                                    AppIcon(
-                                        imageVector = Icons.Outlined.Image,
-                                        contentDescription = "图片",
-                                        tint = AppContentColors.secondaryText(),
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            // 发送按钮
-                            AppButton(
-                                onClick = {
-                                    if (canPublish) {
-                                        keyboardController?.hide()
-                                        focusManager.clearFocus(force = true)
-                                        android.util.Log.d("CommentInputDialog", "📤 Sending comment: $text")
-                                        onSend(text.trim(), selectedImageUris, isForwardToDynamic)
-                                    }
-                                },
-                                enabled = canPublish,
-                                shape = AppShapes.container(ContainerLevel.Floating),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = resolveFilledButtonContainerColor(MaterialTheme.colorScheme),
-
-                                    contentColor = resolveFilledButtonContentColor(MaterialTheme.colorScheme), // 应该是粉色
-                                    disabledContainerColor = AppContentColors.accent().copy(alpha = 0.3f)
-                                ),
-                                contentPadding = PaddingValues(horizontal = layoutPolicy.sendButtonHorizontalPaddingDp.dp, vertical = 0.dp),
-                                modifier = Modifier.height(36.dp)
-                            ) {
-                                if (isSending) {
-                                    AppCircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp,
-                                        color = AppContentColors.onAccent()
-                                    )
-                                } else {
-                                    AppText(
-                                        text = "发布",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-
-                        if (!canInputComment) {
-                            AppText(
-                                text = "当前评论区暂不可评论",
-                                color = AppContentColors.secondaryText(),
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(top = 6.dp)
-                            )
-                        }
-
-                        // 3. 表情面板區域
-                        if (showEmojiPanel) {
-                            val apiKaomojiPackage = remember(emotePackages) {
-                                emotePackages.firstOrNull { it.text == "颜文字" }
-                            }
-                            val selectedEmotePackage = when {
-                                currentTab == -1L -> apiKaomojiPackage
-                                currentTab == -2L && skinEmojiImages.isNotEmpty() -> null
-                                else -> emotePackages.firstOrNull { it.id == currentTab }
-                                    ?: emotePackages.firstOrNull { it.id == 1L }
-                                    ?: emotePackages.firstOrNull()
-                            }
-                            val selectedEmoteTab = selectedEmotePackage?.id
-                                ?: if (currentTab == -2L && skinEmojiImages.isNotEmpty()) -2L else -1L
-                            val showingKaomojis = selectedEmoteTab == -1L ||
-                                selectedEmotePackage?.text == "颜文字"
-                            val emoteTabOptions = remember(emotePackages, skinEmojiImages.isNotEmpty()) {
-                                buildList {
-                                    emotePackages.forEach { pkg ->
-                                        val label = when (pkg.id) {
-                                            2L -> "小电视"
-                                            53L -> "热词系列"
-                                            else -> pkg.text
-                                        }
-                                        add(AppSegmentOption(pkg.id, label))
-                                    }
-                                    if (apiKaomojiPackage == null) {
-                                        add(AppSegmentOption(-1L, "颜文字"))
-                                    }
-                                    if (skinEmojiImages.isNotEmpty()) {
-                                        add(AppSegmentOption(-2L, "皮肤"))
-                                    }
-                                }.sortedBy { commentEmoteTabPriority(it.value) }
-                            }
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(emojiPanelHeightDp.dp)
-                                    .testTag("comment_emote_panel")
-                                    .padding(top = 8.dp)
-                            ) {
-                                AppThemeAdaptiveTabRow(
-                                    role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
-                                    centerContent = false,
-                                    options = emoteTabOptions,
-                                    selectedValue = selectedEmoteTab,
-                                    onSelectionChange = { currentTab = it },
-                                    height = 48.dp,
-                                    scrollable = true,
-                                )
-
-                                // 内容区域
-                                Box(
+                                    hintColor = AppContentColors.secondaryText().copy(alpha = 0.7f),
+                                    cursorColor = AppContentColors.accent(),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .weight(1f)
-                                        .testTag("comment_emote_content")
-                                        .padding(horizontal = 8.dp, vertical = 8.dp)
-                                ) {
-                                    if (showingKaomojis) {
-                                        CommentKaomojiGrid(
-                                            emotes = selectedEmotePackage?.let { it.emote.orEmpty() },
-                                            enabled = canInputComment && !isSending,
-                                            onChoose = ::insertTextAtCursor,
+                                        .fillMaxHeight() // 填满 Box
+                                        .focusRequester(focusRequester)
+                                        .testTag("comment_composer_input"),
+                                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                        color = AppContentColors.primaryText()
+                                    ),
+                                )
+
+                                // 右上角全屏图标 (装饰)
+                                AppIcon(
+                                    imageVector = Icons.Filled.Fullscreen,
+                                    contentDescription = "Expand",
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(16.dp)
+                                        .alpha(0.5f),
+                                    tint = AppContentColors.secondaryText()
+                                )
+                            }
+
+                            AnimatedVisibility(
+                                visible = showMentionPanel && canInputComment,
+                                enter = verticalContentRevealEnterTransition(resolveCommentVerticalContentRevealMotionSpec()),
+                                exit = verticalContentRevealExitTransition(resolveCommentVerticalContentRevealMotionSpec())
+                            ) {
+                                CommentMentionSearchPanel(
+                                    query = mentionSearchText,
+                                    onQueryChange = { query ->
+                                        mentionSearchText = query
+                                        onMentionSearchQueryChange(query)
+                                    },
+                                    users = mentionUsers,
+                                    isLoading = isMentionSearching,
+                                    errorMessage = mentionSearchError,
+                                    onUserClick = { user ->
+                                        val cursor = textFieldValue.selection.end
+                                        val (nextText, nextSelection) = insertCommentMentionText(
+                                            text = textFieldValue.text,
+                                            cursor = cursor,
+                                            mentionName = user.name
                                         )
-                                    } else if (selectedEmoteTab == -2L && skinEmojiImages.isNotEmpty()) {
-                                        val emotes = skinEmojiImages.toList()
-                                        com.android.purebilibili.core.ui.components.AppLazyVerticalGrid(
-                                            columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(60.dp),
-                                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        textFieldValue = TextFieldValue(nextText, nextSelection)
+                                        showMentionPanel = false
+                                        mentionSearchText = ""
+                                    },
+                                    modifier = Modifier.padding(top = 8.dp)
+                                )
+                            }
+
+                            if (selectedImageUris.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AppText(
+                                        text = "已选 ${selectedImageUris.size}/9 张",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = AppContentColors.secondaryText()
+                                    )
+                                }
+                                LazyRow(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(selectedImageUris, key = { it.toString() }) { uri ->
+                                        Box(
+                                            modifier = Modifier
+                                                .size(64.dp)
+                                                .clip(AppShapes.container(ContainerLevel.Chip))
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                                    shape = AppShapes.container(ContainerLevel.Chip)
+                                                )
                                         ) {
-                                            items(emotes.size, key = { emotes[it].first }) { index ->
-                                                val (emoteText, imagePath) = emotes[index]
-                                                Column(
-                                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                                    modifier = Modifier.clickable {
-                                                        insertTextAtCursor(emoteText)
-                                                    },
-                                                ) {
-                                                    AsyncImage(
-                                                        model = File(imagePath),
-                                                        contentDescription = emoteText,
-                                                        modifier = Modifier.size(50.dp),
-                                                    )
-                                                    AppText(
-                                                        text = emoteText.removePrefix("[").removeSuffix("]"),
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = AppContentColors.secondaryText(),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis,
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        val pkg = selectedEmotePackage
-                                        if (pkg == null) {
-                                            Box(
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentAlignment = Alignment.Center,
+                                            AsyncImage(
+                                                model = uri,
+                                                contentDescription = "已选图片",
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                            AppSurface(
+                                                shape = AppShapes.container(ContainerLevel.Pill),
+                                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .padding(3.dp)
+                                                    .clickable {
+                                                        selectedImageUris = selectedImageUris.filterNot { it == uri }
+                                                        onDraftChange(
+                                                            textFieldValue.text,
+                                                            selectedImageUris,
+                                                            isForwardToDynamic
+                                                        )
+                                                    }
                                             ) {
-                                                AppText(
-                                                    text = "暂无表情包",
-                                                    color = AppContentColors.secondaryText(),
+                                                AppIcon(
+                                                    imageVector = Icons.Outlined.Close,
+                                                    contentDescription = "移除",
+                                                    modifier = Modifier
+                                                        .size(14.dp)
+                                                        .padding(1.dp),
+                                                    tint = AppContentColors.primaryText()
                                                 )
                                             }
-                                        } else {
-                                            val emotes = pkg.emote.orEmpty()
-                                            val compactEmotes = when (pkg.text) {
-                                                "小黄脸", "小电视", "tv_小电视" -> true
-                                                else -> false
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. 底部工具栏
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .horizontalScroll(rememberScrollState()),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(layoutPolicy.toolbarToolSpacingDp.dp)
+                                ) {
+                                    // 转发到动态
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(AppShapes.container(ContainerLevel.Tag))
+                                            .clickable(enabled = canInputComment && !isSending) {
+                                                isForwardToDynamic = !isForwardToDynamic
+                                                onDraftChange(
+                                                    textFieldValue.text,
+                                                    selectedImageUris,
+                                                    isForwardToDynamic
+                                                )
                                             }
-                                            val showEmoteLabels = pkg.id != 53L && !pkg.text.startsWith("热词系列")
+                                            .padding(horizontal = 4.dp, vertical = 4.dp)
+                                    ) {
+                                        // 模拟 RadioButton/Checkbox
+                                        AppIcon(
+                                            imageVector = if (isForwardToDynamic) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                                            contentDescription = null,
+                                            tint = if (isForwardToDynamic) AppContentColors.accent() else AppContentColors.secondaryText(),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        AppText(
+                                            text = "转发到动态",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = AppContentColors.secondaryText(),
+                                            maxLines = 1
+                                        )
+                                    }
+
+                                    // 图标栏: 表情 @ 图片
+                                    AppIconButton(
+                                        onClick = {
+                                            val opening = !showEmojiPanel
+                                            if (opening) {
+                                                focusManager.clearFocus(force = true)
+                                                keyboardController?.hide()
+                                                showMentionPanel = false
+                                            }
+                                            showEmojiPanel = opening
+                                        },
+                                        enabled = canInputComment && !isSending,
+                                        modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
+                                    ) {
+                                        AppIcon(
+                                            imageVector = Icons.Filled.Face,
+                                            contentDescription = "表情",
+                                            tint = if (showEmojiPanel) AppContentColors.accent() else AppContentColors.secondaryText(),
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
+
+                                    AppIconButton(
+                                        onClick = {
+                                            insertTextAtCursor("@")
+                                            showEmojiPanel = false
+                                            showMentionPanel = true
+                                            mentionSearchText = ""
+                                            onMentionSearchQueryChange("")
+                                        },
+                                        enabled = canInputComment && !isSending,
+                                        modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
+                                    ) {
+                                        AppIcon(
+                                            imageVector = Icons.Outlined.AlternateEmail,
+                                            contentDescription = "提及用户",
+                                            tint = AppContentColors.secondaryText(),
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
+
+                                    AppIconButton(
+                                        onClick = {
+                                            insertTextAtCursor(resolveCommentProgressInsertText(currentVideoPositionMsProvider()))
+                                            showEmojiPanel = false
+                                            showMentionPanel = false
+                                        },
+                                        enabled = canInputComment && !isSending,
+                                        modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
+                                    ) {
+                                        AppIcon(
+                                            imageVector = Icons.Outlined.Schedule,
+                                            contentDescription = "插入当前播放进度",
+                                            tint = AppContentColors.secondaryText(),
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
+
+                                    AppIconButton(
+                                        onClick = {
+                                            imagePickerLauncher.launch(
+                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                            )
+                                        },
+                                        enabled = canInputComment && !isSending,
+                                        modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
+                                    ) {
+                                        AppIcon(
+                                            imageVector = Icons.Outlined.Image,
+                                            contentDescription = "图片",
+                                            tint = AppContentColors.secondaryText(),
+                                            modifier = Modifier.size(26.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                // 发送按钮
+                                AppButton(
+                                    onClick = {
+                                        if (canPublish) {
+                                            keyboardController?.hide()
+                                            focusManager.clearFocus(force = true)
+                                            android.util.Log.d("CommentInputDialog", "📤 Sending comment: $text")
+                                            if (inputActive) onSend(text.trim(), selectedImageUris, isForwardToDynamic)
+                                        }
+                                    },
+                                    enabled = canPublish && inputActive,
+                                    shape = AppShapes.container(ContainerLevel.Floating),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = resolveFilledButtonContainerColor(MaterialTheme.colorScheme),
+
+                                        contentColor = resolveFilledButtonContentColor(MaterialTheme.colorScheme), // 应该是粉色
+                                        disabledContainerColor = AppContentColors.accent().copy(alpha = 0.3f)
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = layoutPolicy.sendButtonHorizontalPaddingDp.dp, vertical = 0.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    if (isSending) {
+                                        AppCircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = AppContentColors.onAccent()
+                                        )
+                                    } else {
+                                        AppText(
+                                            text = "发布",
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (!canInputComment) {
+                                AppText(
+                                    text = "当前评论区暂不可评论",
+                                    color = AppContentColors.secondaryText(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(top = 6.dp)
+                                )
+                            }
+
+                            // 3. 表情面板區域
+                            if (showEmojiPanel) {
+                                val apiKaomojiPackage = remember(emotePackages) {
+                                    emotePackages.firstOrNull { it.text == "颜文字" }
+                                }
+                                val selectedEmotePackage = when {
+                                    currentTab == -1L -> apiKaomojiPackage
+                                    currentTab == -2L && skinEmojiImages.isNotEmpty() -> null
+                                    else -> emotePackages.firstOrNull { it.id == currentTab }
+                                        ?: emotePackages.firstOrNull { it.id == 1L }
+                                        ?: emotePackages.firstOrNull()
+                                }
+                                val selectedEmoteTab = selectedEmotePackage?.id
+                                    ?: if (currentTab == -2L && skinEmojiImages.isNotEmpty()) -2L else -1L
+                                val showingKaomojis = selectedEmoteTab == -1L ||
+                                    selectedEmotePackage?.text == "颜文字"
+                                val emoteTabOptions = remember(emotePackages, skinEmojiImages.isNotEmpty()) {
+                                    buildList {
+                                        emotePackages.forEach { pkg ->
+                                            val label = when (pkg.id) {
+                                                2L -> "小电视"
+                                                53L -> "热词系列"
+                                                else -> pkg.text
+                                            }
+                                            add(AppSegmentOption(pkg.id, label))
+                                        }
+                                        if (apiKaomojiPackage == null) {
+                                            add(AppSegmentOption(-1L, "颜文字"))
+                                        }
+                                        if (skinEmojiImages.isNotEmpty()) {
+                                            add(AppSegmentOption(-2L, "皮肤"))
+                                        }
+                                    }.sortedBy { commentEmoteTabPriority(it.value) }
+                                }
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(emojiPanelHeightDp.dp)
+                                        .testTag("comment_emote_panel")
+                                        .padding(top = 8.dp)
+                                ) {
+                                    AppThemeAdaptiveTabRow(
+                                        role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
+                                        centerContent = false,
+                                        options = emoteTabOptions,
+                                        selectedValue = selectedEmoteTab,
+                                        onSelectionChange = { currentTab = it },
+                                        height = 48.dp,
+                                        scrollable = true,
+                                    )
+
+                                    // 内容区域
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f)
+                                            .testTag("comment_emote_content")
+                                            .padding(horizontal = 8.dp, vertical = 8.dp)
+                                    ) {
+                                        if (showingKaomojis) {
+                                            CommentKaomojiGrid(
+                                                emotes = selectedEmotePackage?.let { it.emote.orEmpty() },
+                                                enabled = canInputComment && !isSending,
+                                                onChoose = ::insertTextAtCursor,
+                                            )
+                                        } else if (selectedEmoteTab == -2L && skinEmojiImages.isNotEmpty()) {
+                                            val emotes = skinEmojiImages.toList()
                                             com.android.purebilibili.core.ui.components.AppLazyVerticalGrid(
-                                                columns = if (compactEmotes) {
-                                                    androidx.compose.foundation.lazy.grid.GridCells.Fixed(8)
-                                                } else {
-                                                    androidx.compose.foundation.lazy.grid.GridCells.Adaptive(60.dp)
-                                                },
-                                                verticalArrangement = Arrangement.spacedBy(if (compactEmotes) 8.dp else 12.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(if (compactEmotes) 4.dp else 12.dp),
+                                                columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(60.dp),
+                                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                                             ) {
-                                                items(emotes.size, key = { emotes[it].id }) { i ->
-                                                    val emote = emotes[i]
-                                                    if (compactEmotes) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .fillMaxWidth()
-                                                                .aspectRatio(1f)
-                                                                .appDesktopFocusableItemVisuals()
-                                                                .clickable(role = Role.Button) {
+                                                items(emotes.size, key = { emotes[it].first }) { index ->
+                                                    val (emoteText, imagePath) = emotes[index]
+                                                    Column(
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        modifier = Modifier.clickable {
+                                                            insertTextAtCursor(emoteText)
+                                                        },
+                                                    ) {
+                                                        AsyncImage(
+                                                            model = File(imagePath),
+                                                            contentDescription = emoteText,
+                                                            modifier = Modifier.size(50.dp),
+                                                        )
+                                                        AppText(
+                                                            text = emoteText.removePrefix("[").removeSuffix("]"),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = AppContentColors.secondaryText(),
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            val pkg = selectedEmotePackage
+                                            if (pkg == null) {
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentAlignment = Alignment.Center,
+                                                ) {
+                                                    AppText(
+                                                        text = "暂无表情包",
+                                                        color = AppContentColors.secondaryText(),
+                                                    )
+                                                }
+                                            } else {
+                                                val emotes = pkg.emote.orEmpty()
+                                                val compactEmotes = when (pkg.text) {
+                                                    "小黄脸", "小电视", "tv_小电视" -> true
+                                                    else -> false
+                                                }
+                                                val showEmoteLabels = pkg.id != 53L && !pkg.text.startsWith("热词系列")
+                                                com.android.purebilibili.core.ui.components.AppLazyVerticalGrid(
+                                                    columns = if (compactEmotes) {
+                                                        androidx.compose.foundation.lazy.grid.GridCells.Fixed(8)
+                                                    } else {
+                                                        androidx.compose.foundation.lazy.grid.GridCells.Adaptive(60.dp)
+                                                    },
+                                                    verticalArrangement = Arrangement.spacedBy(if (compactEmotes) 8.dp else 12.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(if (compactEmotes) 4.dp else 12.dp),
+                                                ) {
+                                                    items(emotes.size, key = { emotes[it].id }) { i ->
+                                                        val emote = emotes[i]
+                                                        if (compactEmotes) {
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .fillMaxWidth()
+                                                                    .aspectRatio(1f)
+                                                                    .appDesktopFocusableItemVisuals()
+                                                                    .clickable(role = Role.Button) {
+                                                                        insertTextAtCursor(emote.text)
+                                                                    },
+                                                                contentAlignment = Alignment.Center,
+                                                            ) {
+                                                                AsyncImage(
+                                                                    model = emote.url,
+                                                                    contentDescription = emote.text,
+                                                                    modifier = Modifier.size(32.dp),
+                                                                )
+                                                            }
+                                                        } else {
+                                                            Column(
+                                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                                modifier = Modifier.clickable {
                                                                     insertTextAtCursor(emote.text)
                                                                 },
-                                                            contentAlignment = Alignment.Center,
-                                                        ) {
-                                                            AsyncImage(
-                                                                model = emote.url,
-                                                                contentDescription = emote.text,
-                                                                modifier = Modifier.size(32.dp),
-                                                            )
-                                                        }
-                                                    } else {
-                                                        Column(
-                                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                                            modifier = Modifier.clickable {
-                                                                insertTextAtCursor(emote.text)
-                                                            },
-                                                        ) {
-                                                            AsyncImage(
-                                                                model = emote.url,
-                                                                contentDescription = emote.text,
-                                                                modifier = Modifier.size(50.dp),
-                                                            )
-                                                            if (showEmoteLabels) {
-                                                                AppText(
-                                                                    text = emote.text.removePrefix("[").removeSuffix("]"),
-                                                                    style = MaterialTheme.typography.labelSmall,
-                                                                    color = AppContentColors.secondaryText(),
-                                                                    maxLines = 1,
-                                                                    overflow = TextOverflow.Ellipsis,
+                                                            ) {
+                                                                AsyncImage(
+                                                                    model = emote.url,
+                                                                    contentDescription = emote.text,
+                                                                    modifier = Modifier.size(50.dp),
                                                                 )
+                                                                if (showEmoteLabels) {
+                                                                    AppText(
+                                                                        text = emote.text.removePrefix("[").removeSuffix("]"),
+                                                                        style = MaterialTheme.typography.labelSmall,
+                                                                        color = AppContentColors.secondaryText(),
+                                                                        maxLines = 1,
+                                                                        overflow = TextOverflow.Ellipsis,
+                                                                    )
+                                                                }
                                                             }
                                                         }
                                                     }

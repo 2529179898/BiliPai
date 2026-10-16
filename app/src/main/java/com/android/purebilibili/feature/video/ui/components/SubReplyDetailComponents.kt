@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import com.android.purebilibili.core.ui.components.AppLazyColumn as LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,6 +65,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +73,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -567,6 +570,7 @@ internal fun SubReplyDetailContent(
         .collectAsStateWithLifecycle(initialValue = false)
     val unusedShowUpFlag = showUpFlag
     val listState = rememberLazyListState()
+    val avatarPushEnabled = rememberCommentAvatarPushEnabled()
     var wasRefreshing by remember(rootReply.rpid) { mutableStateOf(false) }
     LaunchedEffect(isRefreshing, error) {
         if (wasRefreshing && !isRefreshing && error != null) {
@@ -803,6 +807,8 @@ internal fun SubReplyDetailContent(
                 ) {
                     Box(modifier = Modifier.testTag(SUB_REPLY_DETAIL_ROOT_TAG)) {
                         SubReplyDetailItem(
+                            avatarListState = listState.takeIf { avatarPushEnabled },
+                            avatarItemKey = "root_reply",
                             layoutPolicy = layoutPolicy,
                             item = rootReply,
                             appearance = appearance,
@@ -929,6 +935,7 @@ internal fun SubReplyDetailContent(
                     modifier = videoCommentItemModifier().padding(bottom = 1.dp)
                 ) {
                     SubReplyDetailItem(
+                            avatarListState = listState.takeIf { avatarPushEnabled },
                             layoutPolicy = layoutPolicy,
                             item = item,
                             appearance = appearance,
@@ -1056,8 +1063,13 @@ private fun SubReplyDetailItem(
     showConversationAction: Boolean,
     onConversationClick: (() -> Unit)?,
     auxiliaryDecoration: SubReplyAuxiliaryDecoration?,
-    showTrailingDivider: Boolean
+    showTrailingDivider: Boolean,
+    // Opt-in only; native MD3/Miuix layouts keep their original defaults when disabled.
+    avatarListState: LazyListState? = null,
+    avatarItemKey: Any = item.rpid,
 ) {
+    // Read only from the avatar's placement callback, never from composition.
+    val avatarContentHeightPx = remember(item.rpid) { mutableIntStateOf(0) }
     val detailedCommentTimeEnabled = LocalDetailedCommentTimeEnabled.current
     val backgroundColor by animateColorAsState(
         targetValue = if (highlighted) {
@@ -1121,7 +1133,11 @@ private fun SubReplyDetailItem(
             }
         }
     }
-    val avatarSize = remember { resolveSubReplyDetailAvatarSizeDp().dp }
+    val avatarSize = if (avatarListState != null) {
+        NAGRAM_CHAT_AVATAR_SIZE_DP.dp
+    } else {
+        remember { resolveSubReplyDetailAvatarSizeDp().dp }
+    }
     val nameColor = resolveUpNameColor(
         vipStatus = item.member.vip?.vipStatus ?: 0,
         vipType = item.member.vip?.vipType ?: 0,
@@ -1269,6 +1285,11 @@ private fun SubReplyDetailItem(
         modifier = Modifier
             .fillMaxWidth()
             .drawBehind { drawRect(backgroundColor) }
+            .then(
+                if (avatarListState != null) {
+                    Modifier.onSizeChanged { avatarContentHeightPx.intValue = it.height }
+                } else Modifier
+            )
             .combinedClickable(
                 onClick = {},
                 onLongClick = { showActionSheet = true }
@@ -1287,7 +1308,19 @@ private fun SubReplyDetailItem(
                 member = item.member,
                 placeholderColor = appearance.placeholderColor,
                 lightweightMode = false,
-                modifier = Modifier.size(avatarSize),
+                modifier = Modifier
+                    .size(avatarSize)
+                    .then(
+                        if (avatarListState != null) {
+                            Modifier.commentAvatarPushOffset(
+                                listState = avatarListState,
+                                itemKey = avatarItemKey,
+                                topInset = layoutPolicy.commentTopPaddingDp.dp,
+                                bottomInset = 0.dp,
+                                contentHeightPxProvider = { avatarContentHeightPx.intValue },
+                            )
+                        } else Modifier
+                    ),
                 // Some dynamic/comment endpoints omit member.mid while still providing the
                 // canonical author id on ReplyItem.mid. Use the shared resolver so avatars in
                 //楼中楼 navigate consistently with inline user mentions and root comments.

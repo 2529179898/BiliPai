@@ -1296,6 +1296,7 @@ private fun CinemaCommentsPane(
     onOpenBilibiliLink: ((String) -> Unit)?,
     onShareVideo: () -> Unit = {}
 ) {
+    val avatarPushEnabled = com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled()
     val commentAppearance = rememberVideoCommentAppearance()
     val listState = rememberLazyListState()
     // 首屏骨架按视口高度铺够槽位：少铺会让列表在数据到达时被撑长、整体跳一下。
@@ -1481,6 +1482,8 @@ private fun CinemaCommentsPane(
             ) { reply ->
                 ReplyItemView(
                     modifier = videoCommentItemModifier(),
+                    avatarListState = listState.takeIf { avatarPushEnabled },
+                    avatarItemKey = "curtain_reply_${reply.rpid}",
                     item = reply,
                     upMid = success.info.owner.mid,
                     showUpFlag = commentState.showUpFlag,

@@ -103,6 +103,7 @@ internal val settingsStaticDescriptionIndex: Map<String, String> = mapOf(
     "playback.click_to_play_enabled" to "进入视频详情页时自动开始播放；关闭后进入视频详情页需手动播放",
     "playback.comment_collapsed_reply_preview_limit" to "评论回复收起时，仍显示的条数",
     "playback.comment_fraud_detection_enabled" to "发送成功后自动检查评论是否正常显示",
+    "playback.comment_avatar_push_enabled" to "头像以作者行为原位，滑出顶部后吸附并随评论边界顶替，滑回即恢复；支持评论、回复与搜索结果",
     "playback.comment_member_decorations_enabled" to "显示粉丝牌、铭牌和装扮卡片；关闭后评论区更清爽",
     "playback.dash_segment_requests_enabled" to "用于部分视频的分段加载；若出现无法播放或卡住，请关闭此项；默认关闭，使用兼容性更好的常规加载方式",
     "playback.default_audio_quality" to "新视频跟随播放器上次手动选择；新视频使用所选音质，播放时可临时切换",

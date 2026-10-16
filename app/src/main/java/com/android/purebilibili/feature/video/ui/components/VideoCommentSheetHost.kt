@@ -6,12 +6,8 @@ import android.os.Build
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import com.android.purebilibili.core.ui.transition.resolvePredictiveBackBlurFrame
 import com.android.purebilibili.core.ui.transition.BlurRenderEffectCache
 import androidx.compose.foundation.background
@@ -420,13 +416,7 @@ fun VideoCommentSheetHost(
     )
     val sheetDragOffsetPx by animateFloatAsState(
         targetValue = sheetDragTargetOffsetPx,
-        animationSpec = tween(
-            durationMillis = when {
-                isDraggingSheet -> 0
-                isDismissDragSettling -> motionSpec.contentExitFadeDurationMillis.coerceAtLeast(180)
-                else -> 180
-            }
-        ),
+        animationSpec = if (isDraggingSheet) tween(0) else motionSpec.dragSettleSpec,
         label = "video_comment_main_sheet_offset"
     )
     val latestSheetDragOffsetPx = rememberUpdatedState(sheetDragOffsetPx)
@@ -762,6 +752,8 @@ fun VideoCommentSheetHost(
                                         }
                                         detectVerticalDragGestures(
                                             onDragStart = {
+                                                isDismissDragSettling = false
+                                                isDragDismissExitPending = false
                                                 isDraggingSheet = true
                                                 sheetDragTargetOffsetPx = resolveVideoCommentSheetDragStartOffset(
                                                     renderedOffsetPx = latestSheetDragOffsetPx.value,
@@ -814,10 +806,8 @@ fun VideoCommentSheetHost(
                         AnimatedVisibility(
                             visible = hostContent == VideoCommentSheetHostContent.THREAD_DETAIL &&
                                 subReplyState.rootReply != null,
-                            enter = fadeIn(animationSpec = tween(220)) +
-                                slideInVertically(animationSpec = tween(260)) { height -> height },
-                            exit = if (threadBackCompleted) androidx.compose.animation.ExitTransition.None else fadeOut(animationSpec = tween(200)) +
-                                slideOutVertically(animationSpec = tween(240)) { height -> height },
+                            enter = motionSpec.contentEnter,
+                            exit = if (threadBackCompleted) androidx.compose.animation.ExitTransition.None else motionSpec.contentExit,
                         ) {
                             val rootReply = subReplyState.rootReply
                             if (rootReply != null) {
@@ -903,6 +893,7 @@ internal fun VideoCommentMainList(
     scrollToTopRequest: Int = 0,
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
 ) {
+    val avatarPushEnabled = rememberCommentAvatarPushEnabled()
     val state by viewModel.commentState.collectAsStateWithLifecycle()
     val fullSearchState by viewModel.fullSearchState.collectAsStateWithLifecycle()
     val fullSearchReplies by viewModel.fullSearchReplies.collectAsStateWithLifecycle()
@@ -1031,6 +1022,7 @@ internal fun VideoCommentMainList(
                     ) { reply ->
                         ReplyItemView(
                             modifier = videoCommentItemModifier(),
+                            avatarListState = listState.takeIf { avatarPushEnabled },
                             item = reply,
                             upMid = state.upMid,
                             showUpFlag = state.showUpFlag,

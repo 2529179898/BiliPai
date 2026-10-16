@@ -873,6 +873,7 @@ internal fun TabletSecondaryContent(
     var sourceRect by remember { mutableStateOf<ImagePreviewSourceAnchor?>(null) }
     var previewTextContent by remember { mutableStateOf<ImagePreviewTextContent?>(null) }
 
+    val avatarPushEnabled = com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled()
     val context = androidx.compose.ui.platform.LocalContext.current
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
@@ -1207,6 +1208,8 @@ internal fun TabletSecondaryContent(
                                     modifier = videoCommentItemModifier().padding(bottom = 1.dp)
                                 ) {
                                     ReplyItemView(
+                                        avatarListState = listState.takeIf { avatarPushEnabled },
+                                        avatarItemKey = "reply_${reply.rpid}",
                                         item = reply,
                                         emoteMap = success.emoteMap,
                                         upMid = success.info.owner.mid,
