@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.list
 
+import androidx.compose.foundation.layout.Arrangement
+import com.android.purebilibili.core.ui.components.VideoStatusBadges
 import com.android.purebilibili.core.ui.AppContentColors
 
 import coil3.request.crossfade
@@ -151,17 +153,16 @@ internal fun FavoritePersonalCard(
         headlineContent = {
             AppText(
                 text = item.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().title,
                 maxLines = videoCardTitleMaxLines(),
                 overflow = videoCardTitleOverflow(),
             )
         },
         supportingContent = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(AppSpacingTokens.ExtraSmall)) {
                 UpBadgeName(
                     name = item.owner.name.ifBlank { "未知UP主" },
-                    nameStyle = MaterialTheme.typography.bodySmall,
+                    nameStyle = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().author,
                     nameColor = AppContentColors.secondaryText(),
                     overflow = TextOverflow.Visible,
                 )
@@ -169,7 +170,7 @@ internal fun FavoritePersonalCard(
                 if (dateLabel.isNotBlank()) {
                     AppText(
                         text = dateLabel,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().statistic,
                         color = AppContentColors.secondaryText(),
                         overflow = TextOverflow.Visible,
                     )
@@ -189,6 +190,10 @@ internal fun FavoritePersonalCard(
             )
         },
         coverOverlayContent = {
+            VideoStatusBadges(
+                labels = item.statusLabels,
+                modifier = Modifier.align(Alignment.TopEnd).padding(AppSpacingTokens.ExtraSmall),
+            )
             VideoCardCoverDurationText(
                 text = if (progressState.progressSec > 0 || progressState.progressSec == -1) {
                     resolveHistoryProgressLabel(progressState.progressSec, item.duration)

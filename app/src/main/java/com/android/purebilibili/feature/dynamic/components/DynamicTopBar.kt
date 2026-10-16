@@ -8,17 +8,16 @@ import com.android.purebilibili.core.ui.components.AppSegmentOption
 import com.android.purebilibili.core.ui.AppSpacingTokens
 
 import com.android.purebilibili.core.ui.AppSurfaceTokens
-import com.android.purebilibili.core.ui.AppShapes
-import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.globalWallpaperAwareChromeColor
-import com.android.purebilibili.core.theme.AppUiStyle
-import com.android.purebilibili.core.theme.LocalAppUiStyle
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -26,6 +25,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import com.android.purebilibili.core.ui.components.AppIcon
 import androidx.compose.material3.MaterialTheme
 import com.android.purebilibili.core.ui.components.AppIconButton
@@ -33,41 +35,29 @@ import com.android.purebilibili.core.ui.components.AppWindowAction
 import com.android.purebilibili.core.ui.components.AppWindowActionMenu
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import com.android.purebilibili.core.ui.components.LocalElasticPressEnabled
-import com.android.purebilibili.core.ui.components.appElasticPress
-import com.android.purebilibili.core.ui.components.rememberAppElasticPressState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 //  Material Icons
 import com.android.purebilibili.core.store.HomeSettings
 import com.android.purebilibili.core.store.SettingsManager
-import com.android.purebilibili.core.ui.rememberAppGridLayoutIcon
-import com.android.purebilibili.core.ui.rememberAppListLayoutIcon
-import com.android.purebilibili.core.ui.rememberAppChevronDownIcon
-import com.android.purebilibili.core.ui.rememberAppChevronUpIcon
-import com.android.purebilibili.core.ui.motion.AppMotionTokens
 import com.android.purebilibili.feature.dynamic.resolveDynamicTopBarHorizontalPadding
 import com.android.purebilibili.feature.dynamic.resolveDynamicTopBarLiquidTabSpec
 import com.android.purebilibili.feature.home.components.DynamicPublishSkinDecoration
 import com.android.purebilibili.core.ui.components.PageAwareAsyncImage
 import java.io.File
-import com.android.purebilibili.feature.home.components.biliPaiFloatingDockShell
+import com.android.purebilibili.core.ui.components.LocalAppTopBarIconDecorationEnabled
+import com.android.purebilibili.core.ui.components.LocalAppTopBarIconBackdrop
 import com.android.purebilibili.feature.home.components.BiliPaiImmersiveTopBar
-import com.android.purebilibili.feature.home.components.resolveLiquidGlassTuning
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.Backdrop
 import com.android.purebilibili.core.ui.blur.BlurSurfaceType
 import com.android.purebilibili.core.ui.blur.unifiedBlur
@@ -123,6 +113,7 @@ fun DynamicTopBarWithTabs(
     isScrollInProgressProvider: () -> Boolean = { false },
     /** True when the horizontal UP user list is visible directly below the bar. */
     shouldShowHorizontalUserList: Boolean = false,
+    onAuthorSearchClick: (() -> Unit)? = null,
 ) {
     val density = LocalDensity.current
     val context = LocalContext.current
@@ -132,29 +123,19 @@ fun DynamicTopBarWithTabs(
         .getHomeSettings(context)
         .collectAsStateWithLifecycle(initialValue = HomeSettings())
     val liquidGlassEnabled = homeSettings.androidNativeLiquidGlassEnabled
-    val liquidGlassTuning = remember(
-        homeSettings.liquidGlassProgress,
-        homeSettings.liquidGlassAdvancedSettings,
-        homeSettings.liquidGlassReadabilityMode,
-    ) {
-        resolveLiquidGlassTuning(
-            progress = homeSettings.liquidGlassProgress,
-            advancedSettings = homeSettings.liquidGlassAdvancedSettings,
-            readabilityMode = homeSettings.liquidGlassReadabilityMode,
-        )
-    }
-    val dockShape = if (!liquidGlassEnabled && LocalAppUiStyle.current == AppUiStyle.MIUIX) {
-        AppShapes.container(ContainerLevel.Card)
-    } else {
-        AppShapes.container(ContainerLevel.Pill)
-    }
-    val dockColor = AppSurfaceTokens.surfaceContainerHigh()
-
     val appThemeConfig = com.android.purebilibili.core.ui.LocalAppThemeConfig.current
     val headerBlurEnabled = appThemeConfig.headerBlurEnabled
     val progressiveTopBlurEnabled = appThemeConfig.progressiveTopBlurEnabled
     val isProgressiveBlurActive = progressiveTopBlurEnabled && !headerBlurEnabled
     val isProgressiveFadeActive = appThemeConfig.progressiveTopFadeEnabled && !headerBlurEnabled
+    val collapseArrowRotation = animateFloatAsState(
+        targetValue = if (actionDockCollapsed) 180f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "dynamicActionsChevronRotation",
+    )
 
     BiliPaiImmersiveTopBar(
         backdrop = dockBackdrop,
@@ -201,6 +182,9 @@ fun DynamicTopBarWithTabs(
                 onSelectionChange = onTabSelected,
                 modifier = Modifier.weight(1f),
                 scrollable = true,
+                // Glass needs enough horizontal room even for the short “UP” label.
+                // Overflow stays scrollable; native MD3/Miuix keep their own slot spacing.
+                liquidGlassLabelHorizontalPadding = if (liquidGlassEnabled) 20.dp else null,
                 compactMiuixWhenTwoOptions = false,
                 height = liquidTabSpec.heightDp.dp,
                 indicatorHeight = liquidTabSpec.indicatorHeightDp.dp,
@@ -211,65 +195,107 @@ fun DynamicTopBarWithTabs(
                 tapPressRefractionEnabled = true,
                 miuixBackdrop = dockBackdrop.takeIf { liquidGlassEnabled },
             )
+        }
 
-            val localActionDockBackdrop = if (liquidGlassEnabled && dockBackdrop == null) {
-                rememberLayerBackdrop()
-            } else {
-                null
-            }
-            val actionDockBackdrop = dockBackdrop ?: localActionDockBackdrop
-            val actionElasticState = rememberAppElasticPressState()
-            Box {
-                if (liquidGlassEnabled && dockBackdrop == null && localActionDockBackdrop != null) {
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .alpha(0f)
-                            .layerBackdrop(localActionDockBackdrop)
-                            .background(AppSurfaceTokens.background())
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .appElasticPress(
-                            state = actionElasticState,
-                            transformInBackdrop = liquidGlassEnabled,
-                        )
-                        .then(
-                            if (liquidGlassEnabled) {
-                                Modifier.biliPaiFloatingDockShell(
-                                    backdrop = requireNotNull(actionDockBackdrop),
-                                    interactionLayerBlock = actionElasticState.layerBlock,
-                                    interactionState = actionElasticState,
-                                    containerColor = dockColor,
-                                    pressProgress = 0f,
-                                    shape = dockShape,
-                                    liquidGlassTuning = liquidGlassTuning,
-                                )
-                            } else {
-                                Modifier.background(dockColor, dockShape)
-                            }
-                        )
-                        .clip(dockShape),
-                    verticalAlignment = Alignment.CenterVertically,
+        // Shared two-row structure; glass decoration stays opt-in. Native MD3/Miuix
+        // retain their own tab sizing, icon touch targets and menu presentation.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .padding(horizontal = resolveDynamicTopBarHorizontalPadding()),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CompositionLocalProvider(
+                LocalAppTopBarIconDecorationEnabled provides liquidGlassEnabled,
+                LocalAppTopBarIconBackdrop provides dockBackdrop,
+            ) {
+                AnimatedVisibility(
+                    visible = !actionDockCollapsed,
+                    enter = expandHorizontally(
+                        expandFrom = Alignment.End,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium,
+                        ),
+                    ) + fadeIn(),
+                    exit = shrinkHorizontally(
+                        shrinkTowards = Alignment.End,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium,
+                        ),
+                    ) + fadeOut(),
                 ) {
-                    // The capsule owns deformation; child click/menu targets retain their gestures.
-                    CompositionLocalProvider(LocalElasticPressEnabled provides false) {
-                        AnimatedVisibility(
-                            visible = !actionDockCollapsed,
-                            enter = expandHorizontally(
-                                expandFrom = Alignment.End,
-                                animationSpec = AppMotionTokens.standardSpec(),
-                            ) + fadeIn(animationSpec = AppMotionTokens.standardSpec()),
-                            exit = shrinkHorizontally(
-                                shrinkTowards = Alignment.End,
-                                animationSpec = AppMotionTokens.standardSpec(),
-                            ) + fadeOut(animationSpec = AppMotionTokens.standardSpec()),
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                AppWindowActionMenu(
-                                    groups = listOf(
-                                        DynamicDisplayMode.entries.map { mode ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (onAuthorSearchClick != null) {
+                            AppIconButton(onClick = onAuthorSearchClick) {
+                                AppIcon(
+                                    imageVector = Icons.Outlined.Search,
+                                    contentDescription = "搜索 UP 主动态",
+                                )
+                            }
+                        }
+                        // 操作集中靠右排列，避免搜索与发布/更多之间出现大段空白。
+                        // 发布动态入口（对齐 BiliPai AppBar actions 的发布按钮）。
+                        if (onPublishClick != null) {
+                            val publishInteractionSource = remember { MutableInteractionSource() }
+                            val publishPressed by publishInteractionSource.collectIsPressedAsState()
+                            val publishIconPaths = publishSkinDecoration?.iconPaths
+                            AppIconButton(
+                                onClick = onPublishClick,
+                                interactionSource = publishInteractionSource,
+                            ) {
+                                if (publishIconPaths != null) {
+                                    PageAwareAsyncImage(
+                                        model = File(publishIconPaths.pathFor(publishPressed)),
+                                        contentDescription = "发布动态",
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier.size(AppSpacingTokens.DoubleExtraLarge),
+                                    )
+                                } else {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(AppSpacingTokens.DoubleExtraLarge)
+                                            .then(
+                                                if (publishSkinDecoration?.hasShade == true) {
+                                                    Modifier.background(
+                                                        brush = Brush.verticalGradient(
+                                                            listOf(
+                                                                publishSkinDecoration.shadeTop,
+                                                                publishSkinDecoration.shadeBottom,
+                                                            )
+                                                        ),
+                                                        shape = CircleShape,
+                                                    )
+                                                } else {
+                                                    Modifier
+                                                }
+                                            ),
+                                    ) {
+                                        AppIcon(
+                                            imageVector = Icons.Outlined.Edit,
+                                            contentDescription = "发布动态",
+                                            tint = publishSkinDecoration?.iconTint
+                                                ?.takeUnless { it == Color.Unspecified }
+                                                ?: AppContentColors.primaryText(),
+                                            modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        AppWindowActionMenu(
+                            groups = listOf(
+                                listOf(
+                                    AppWindowAction(
+                                        label = "关注列表位置",
+                                        children = DynamicDisplayMode.entries.map { mode ->
                                             AppWindowAction(
                                                 label = resolveDynamicDisplayModeLabel(mode),
                                                 selected = displayMode == mode,
@@ -277,93 +303,35 @@ fun DynamicTopBarWithTabs(
                                             )
                                         },
                                     ),
-                                ) {
-                                    AppIcon(
-                                        imageVector = if (displayMode.isHorizontalUserList())
-                                            rememberAppGridLayoutIcon() else rememberAppListLayoutIcon(),
-                                        contentDescription = "关注列表位置",
-                                        tint = AppContentColors.primaryText(),
-                                        modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro)
-                                    )
-                                }
-
-                                // 发布动态入口（对齐 BiliPai AppBar actions 的发布按钮）。
-                                if (onPublishClick != null) {
-                                    val publishInteractionSource = remember { MutableInteractionSource() }
-                                    val publishPressed by publishInteractionSource.collectIsPressedAsState()
-                                    val publishIconPaths = publishSkinDecoration?.iconPaths
-                                    AppIconButton(
-                                        onClick = onPublishClick,
-                                        interactionSource = publishInteractionSource,
-                                    ) {
-                                        if (publishIconPaths != null) {
-                                            PageAwareAsyncImage(
-                                                model = File(publishIconPaths.pathFor(publishPressed)),
-                                                contentDescription = "发布动态",
-                                                contentScale = ContentScale.Fit,
-                                                modifier = Modifier.size(AppSpacingTokens.DoubleExtraLarge),
-                                            )
-                                        } else {
-                                            Box(
-                                                contentAlignment = Alignment.Center,
-                                                modifier = Modifier
-                                                    .size(AppSpacingTokens.DoubleExtraLarge)
-                                                    .then(
-                                                        if (publishSkinDecoration?.hasShade == true) {
-                                                            Modifier.background(
-                                                                brush = Brush.verticalGradient(
-                                                                    listOf(
-                                                                        publishSkinDecoration.shadeTop,
-                                                                        publishSkinDecoration.shadeBottom,
-                                                                    )
-                                                                ),
-                                                                shape = CircleShape,
-                                                            )
-                                                        } else {
-                                                            Modifier
-                                                        }
-                                                    ),
-                                            ) {
-                                                AppIcon(
-                                                    imageVector = Icons.Outlined.Edit,
-                                                    contentDescription = "发布动态",
-                                                    tint = publishSkinDecoration?.iconTint
-                                                        ?.takeUnless { it == Color.Unspecified }
-                                                        ?: AppContentColors.primaryText(),
-                                                    modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        AppIconButton(
-                            onClick = { onActionDockCollapsedChange(!actionDockCollapsed) },
+                                ),
+                                if (onPublishClick != null) listOf(
+                                    AppWindowAction(label = "发布动态", onClick = onPublishClick),
+                                ) else emptyList(),
+                            ),
                         ) {
                             AppIcon(
-                                imageVector = if (actionDockCollapsed) {
-                                    rememberAppChevronDownIcon()
-                                } else {
-                                    rememberAppChevronUpIcon()
-                                },
-                                contentDescription = if (actionDockCollapsed) {
-                                    "展开顶部操作"
-                                } else {
-                                    "折叠顶部操作"
-                                },
-                                tint = AppContentColors.primaryText(),
-                                modifier = Modifier.size(AppSpacingTokens.ExtraLarge - AppSpacingTokens.Micro),
+                                imageVector = Icons.Outlined.MoreHoriz,
+                                contentDescription = "更多动态操作",
                             )
                         }
                     }
                 }
+                AppIconButton(
+                    onClick = { onActionDockCollapsedChange(!actionDockCollapsed) },
+                ) {
+                    AppIcon(
+                        imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        modifier = Modifier.graphicsLayer {
+                            rotationZ = collapseArrowRotation.value
+                        },
+                        contentDescription = if (actionDockCollapsed) "展开动态操作" else "收起动态操作",
+                    )
+                }
             }
         }
+        Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
     }
-}
-
+    }
 }
 
 internal fun resolveDynamicTabSelectedColor(primaryColor: Color): Color = primaryColor

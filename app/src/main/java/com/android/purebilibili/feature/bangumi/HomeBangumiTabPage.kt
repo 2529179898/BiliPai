@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.bangumi
 
+import androidx.compose.foundation.background
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -165,6 +166,11 @@ fun HomeBangumiTabPage(
                 modifier = Modifier
                     .fillMaxWidth()
                     .onSizeChanged { channelHeightPx = it.height }
+                    .then(
+                        if (com.android.purebilibili.core.ui.isMiuixNonGlassEnabled()) {
+                            Modifier.background(MaterialTheme.colorScheme.background)
+                        } else Modifier
+                    )
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 miuixBackdrop = channelBackdrop,
             )

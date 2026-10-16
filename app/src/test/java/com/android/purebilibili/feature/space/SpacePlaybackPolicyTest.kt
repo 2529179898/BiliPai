@@ -43,6 +43,20 @@ class SpacePlaybackPolicyTest {
     }
 
     @Test
+    fun `space queue retains video statistics and publish time`() {
+        val video = item(bvid = "BV1", title = "标题", length = "12:34").copy(
+            play = 12345,
+            comment = 67,
+            created = 1792022400L,
+        )
+        val queued = buildExternalPlaylistFromSpaceVideos(listOf(video))!!.playlistItems.single()
+        assertEquals(12345L, queued.playCount)
+        assertEquals(67L, queued.commentCount)
+        assertEquals(1792022400L, queued.publishedAt)
+        assertEquals(754L, queued.duration)
+    }
+
+    @Test
     fun buildExternalPlaylistFromSpaceVideos_fallbackToFirstWhenClickedMissing() {
         val videos = listOf(
             item(bvid = "BV1", title = "first", length = "00:30"),

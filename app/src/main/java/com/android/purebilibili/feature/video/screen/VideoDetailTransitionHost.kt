@@ -75,6 +75,7 @@ internal fun rememberVideoDetailTransitionState(
     val entryOwnsMiuixCardTransition = isVideoDetailEntryActiveMiuixTransitionSource(
         entrySourceRoute = sourceRoute,
         activeSourceRoute = transitionBackgroundState.sourceRouteProvider(),
+        miuixTransitionEnabled = miuixCardTransition.enabled,
     )
     val entryMiuixTransitionEnabled =
         miuixCardTransition.enabled && entryOwnsMiuixCardTransition

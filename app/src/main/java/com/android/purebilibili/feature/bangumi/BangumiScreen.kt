@@ -36,6 +36,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.android.purebilibili.core.store.SettingsManager
@@ -271,10 +272,17 @@ private fun BangumiHubScreen(
                             onSelectionChange = viewModel::selectChannel,
                             dragSelectionEnabled = true,
                             tapPressRefractionEnabled = true,
+                            // Enlarge only the glass channel dock; native chrome retains its defaults.
+                            minTabWidth = if (themeConfig.liquidGlassEnabled) 64.dp else androidx.compose.ui.unit.Dp.Unspecified,
+                            labelFontSize = if (themeConfig.liquidGlassEnabled) 15.sp else androidx.compose.ui.unit.TextUnit.Unspecified,
+                            height = if (themeConfig.liquidGlassEnabled) 44.dp else
+                                com.android.purebilibili.core.ui.AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,
+                            indicatorHeight = if (themeConfig.liquidGlassEnabled) 34.dp else
+                                com.android.purebilibili.core.ui.AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .responsiveContentWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                                .padding(horizontal = 16.dp, vertical = if (themeConfig.liquidGlassEnabled) 6.dp else 8.dp),
                             miuixBackdrop = chromeBackdrop,
                         )
                     }

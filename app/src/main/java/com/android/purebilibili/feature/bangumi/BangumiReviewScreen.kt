@@ -197,7 +197,7 @@ fun BangumiReviewScreen(
                     onSelected = { index ->
                         reviewTypes.getOrNull(index)?.let { reviewType = it }
                     },
-                    itemWidth = 66.dp,
+                    itemWidth = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) null else 66.dp,
                     height = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,
                     indicatorHeight = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,
                     labelFontSize = MaterialTheme.typography.labelMedium.fontSize,
@@ -211,7 +211,7 @@ fun BangumiReviewScreen(
                     items = sortLabels,
                     selectedIndex = sort.coerceIn(0, sortLabels.lastIndex),
                     onSelected = { index -> sort = index },
-                    itemWidth = 66.dp,
+                    itemWidth = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) null else 66.dp,
                     height = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,
                     indicatorHeight = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,
                     labelFontSize = MaterialTheme.typography.labelMedium.fontSize,

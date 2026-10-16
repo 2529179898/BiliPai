@@ -2,6 +2,7 @@ package com.android.purebilibili.core.ui.transition
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import kotlin.math.roundToInt
 
 internal enum class VideoCardSourceLayout {
@@ -99,6 +100,8 @@ internal data class VideoCardSourceChromeSnapshot(
     /** Coil `size(w,h)` from list HomeCoverRequestSpec; 0 = omit size(). */
     val coverDecodeWidthPx: Int = 0,
     val coverDecodeHeightPx: Int = 0,
+    /** Opaque click-time information plate, including the wallpaper behind its tint. */
+    val infoContainerColor: Color? = null,
     /** Compact playback bar uses an early source-chrome handoff on return. */
     val isNowPlayingBar: Boolean = false,
 )

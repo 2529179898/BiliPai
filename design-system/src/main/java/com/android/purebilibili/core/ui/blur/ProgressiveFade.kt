@@ -39,15 +39,21 @@ object ProgressiveFadeDefaults {
     /**
      * 生成非线性缓动颜色停靠点列表，依据 [baseColor] 的固有 Alpha 动态缩放。
      */
-    fun createStops(baseColor: Color): List<Pair<Float, Color>> {
+    fun createStops(baseColor: Color, protectedFraction: Float = 0f): List<Pair<Float, Color>> {
         val baseAlpha = baseColor.alpha
-        return listOf(
+        val stops = listOf(
             STOP_TOP to baseColor.copy(alpha = baseAlpha * ALPHA_FACTORS[0]),
             STOP_QUARTER to baseColor.copy(alpha = baseAlpha * ALPHA_FACTORS[1]),
             STOP_HALF to baseColor.copy(alpha = baseAlpha * ALPHA_FACTORS[2]),
             STOP_THREE_QUARTERS to baseColor.copy(alpha = baseAlpha * ALPHA_FACTORS[3]),
             STOP_BOTTOM to baseColor.copy(alpha = baseAlpha * ALPHA_FACTORS[4]),
         )
+        val plateauEnd = protectedFraction.takeIf(Float::isFinite)?.coerceIn(0f, 0.85f) ?: 0f
+        if (plateauEnd == 0f) return stops
+        // Keep controls on a protected plateau; only the trailing edge fades to the clear image.
+        return listOf(0f to baseColor) + stops.map { (position, color) ->
+            (plateauEnd + (1f - plateauEnd) * position) to color
+        }
     }
 
     /**
@@ -112,11 +118,12 @@ fun TopSolidProgressiveFadeOverlay(
     modifier: Modifier = Modifier,
     fadeHeight: Dp = 80.dp,
     enabled: Boolean = true,
+    protectedFraction: Float = 0f,
 ) {
     if (!enabled || surfaceColor.alpha <= 0.001f || fadeHeight <= 0.dp) return
-    val brush = remember(surfaceColor) {
+    val brush = remember(surfaceColor, protectedFraction) {
         Brush.verticalGradient(
-            colorStops = ProgressiveFadeDefaults.createStops(surfaceColor).toTypedArray()
+            colorStops = ProgressiveFadeDefaults.createStops(surfaceColor, protectedFraction).toTypedArray()
         )
     }
     Box(

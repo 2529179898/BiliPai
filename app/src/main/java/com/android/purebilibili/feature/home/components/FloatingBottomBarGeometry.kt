@@ -145,7 +145,7 @@ internal const val FLOATING_DOCK_INDICATOR_VELOCITY_DIVISOR = LiquidIndicatorMot
 internal const val FLOATING_DOCK_INDICATOR_VELOCITY_SCALE_X_MULTIPLIER = 0.75f
 internal const val FLOATING_DOCK_INDICATOR_VELOCITY_CLAMP = LiquidIndicatorMotion.VelocityClamp
 
-enum class FloatingBottomBarGeometryMode { Dock, Segmented, TopNavigation }
+enum class FloatingBottomBarGeometryMode { Dock, Segmented, TopNavigation, CompactDock }
 
 internal fun resolveFloatingDockSlotWidthPx(
     containerWidthPx: Float,
@@ -258,6 +258,26 @@ internal fun resolveFloatingDockCapturedContentHorizontalScale(
     return itemScale / stretch.coerceAtLeast(0.001f)
 }
 
+/** Extra half-slot around a content-sized endpoint belongs outside the visible shell. */
+internal fun resolveFloatingDockContentShellInsetPx(slotWidthPx: Float, capsuleWidthPx: Float): Float =
+    ((slotWidthPx - capsuleWidthPx.coerceIn(0f, slotWidthPx.coerceAtLeast(0f))) / 2f)
+        .coerceAtLeast(0f)
+
+/** Interpolate label-sized capsules on the same continuous position as their translation. */
+internal fun resolveFloatingDockContentIndicatorWidthPx(
+    position: Float,
+    contentWidthsPx: List<Float>,
+    maximumWidthPx: Float,
+): Float {
+    if (contentWidthsPx.isEmpty() || !position.isFinite()) return maximumWidthPx
+    val safePosition = position.coerceIn(0f, contentWidthsPx.lastIndex.toFloat())
+    val start = safePosition.toInt()
+    val end = (start + 1).coerceAtMost(contentWidthsPx.lastIndex)
+    val fraction = safePosition - start
+    val width = contentWidthsPx[start] + (contentWidthsPx[end] - contentWidthsPx[start]) * fraction
+    return width.coerceIn(0f, maximumWidthPx.coerceAtLeast(0f))
+}
+
 internal fun resolveFloatingDockIndicatorOffsetPx(
     position: Float,
     tabWidthPx: Float,
@@ -269,6 +289,32 @@ internal fun resolveFloatingDockIndicatorOffsetPx(
     val centeredOffset = position * tabWidthPx + (tabWidthPx - indicatorWidthPx) / 2f
     val maxOffset = (tabWidthPx * safeTabsCount - indicatorWidthPx).coerceAtLeast(0f)
     return centeredOffset.coerceIn(0f, maxOffset)
+}
+
+/** Clamp in logical scroll coordinates so RTL and LTR share the same visible dock bounds. */
+internal fun resolveFloatingDockViewportIndicatorPosition(
+    position: Float,
+    tabWidthPx: Float,
+    tabsCount: Int,
+    indicatorWidthPx: Float,
+    scrollOffsetPx: Float,
+    viewportWidthPx: Float,
+    horizontalPaddingPx: Float,
+    clampToViewport: Boolean = true,
+): Float {
+    // A browse-only rail owns selection by identity. Moving its viewport must not relocate
+    // that selection onto a different visible label when the selected tab scrolls offscreen.
+    if (!clampToViewport) return position
+    if (tabWidthPx <= 0f || indicatorWidthPx <= 0f || viewportWidthPx <= 0f) return position
+    val maxOffset = (tabWidthPx * tabsCount.coerceAtLeast(1) - indicatorWidthPx).coerceAtLeast(0f)
+    val viewportStart = scrollOffsetPx.coerceIn(0f, maxOffset)
+    val viewportEnd = (scrollOffsetPx + viewportWidthPx -
+        horizontalPaddingPx.coerceAtLeast(0f) * 2f - indicatorWidthPx)
+        .coerceIn(viewportStart, maxOffset)
+    val offset = resolveFloatingDockIndicatorOffsetPx(
+        position, tabWidthPx, tabsCount, indicatorWidthPx,
+    ).coerceIn(viewportStart, viewportEnd)
+    return (offset - (tabWidthPx - indicatorWidthPx) / 2f) / tabWidthPx
 }
 
 internal fun resolveFloatingDockIndicatorContentAlignmentPx(

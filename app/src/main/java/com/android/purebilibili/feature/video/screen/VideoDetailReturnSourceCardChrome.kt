@@ -484,14 +484,15 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
         shape: Shape,
         drawBorder: Boolean = true,
     ): Modifier {
+        val frozenContainer = sourceChromeSnapshot?.infoContainerColor
         return clip(shape)
-            // 先铺一层**不透明** cardContainer，再叠 tint 色。
-            // tint 路径下 containerColor 只有 ~0.85 alpha：单层铺的话，下层详情正文会在
-            // 信息槽里以 ~15% 透出（实测「半透明白板 + 简介/评论鬼影」），并且
-            // 0.85×254 + 0.15×247 ≈ 254，比页面底色 247 更亮 —— 观感就是一块盖住卡片的
-            // 白色遮罩。不透明底把这条混色链彻底切断。
-            .background(baseContainer, shape)
-            .background(surface.containerColor, shape)
+            // Prepare the source plate before the first flying frame; never rebuild it
+            // from the detail theme while the wallpaper source belongs to the list.
+            .background(frozenContainer ?: baseContainer, shape)
+            .then(
+                if (frozenContainer == null) Modifier.background(surface.containerColor, shape)
+                else Modifier
+            )
             .then(
                 if (surface.useTintedSurface && drawBorder) {
                     Modifier.border(surface.borderWidth, surface.borderColor, shape)

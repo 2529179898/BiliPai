@@ -473,7 +473,7 @@ fun ProfileWallpaperAdjustmentSheet(
 }
 
 @Composable
-private fun WallpaperDeviceTabRow(
+internal fun WallpaperDeviceTabRow(
     selectedTab: Int,
     modifier: Modifier = Modifier,
     onSelectedTabChange: (Int) -> Unit,

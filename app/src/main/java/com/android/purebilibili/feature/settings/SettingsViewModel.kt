@@ -27,7 +27,6 @@ import com.android.purebilibili.core.theme.AppFontWeightPreset
 import com.android.purebilibili.core.theme.AppFontSizePreset
 import com.android.purebilibili.core.theme.AppUiScalePreset
 import com.android.purebilibili.core.theme.AppUiStyle
-import com.android.purebilibili.core.theme.syncThemeRoleControlAccent
 import com.android.purebilibili.core.ui.AppIconStyle
 import com.android.purebilibili.core.ui.AppListItemStyle
 import com.android.purebilibili.core.ui.blur.BlurIntensity
@@ -35,6 +34,7 @@ import com.android.purebilibili.core.ui.transition.VIDEO_SHARED_TRANSITION_CUSTO
 import com.android.purebilibili.core.ui.transition.VideoSharedTransitionSpeed
 import com.android.purebilibili.core.util.CacheClearTarget
 import com.android.purebilibili.core.util.CacheUtils
+import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import kotlinx.coroutines.flow.Flow
@@ -67,6 +67,7 @@ data class SettingsUiState(
     val themeSelection: AppUiStyle = AppUiStyle.MATERIAL3,
     val hwDecode: Boolean = true,
     val themeMode: AppThemeMode = AppThemeMode.FOLLOW_SYSTEM,
+    val darkThemeSchedule: DarkThemeSchedule = DarkThemeSchedule(),
     val darkThemeStyle: DarkThemeStyle = DarkThemeStyle.DEFAULT,
     val appLanguage: AppLanguage = AppLanguage.FOLLOW_SYSTEM,
     val dynamicColor: Boolean = true,
@@ -74,6 +75,7 @@ data class SettingsUiState(
     val md3CustomColorHex: String = "#007AFF",
     val colorStyle: PaletteStyle = PaletteStyle.TonalSpot,
     val colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
+    val colorContrast: Contrast = Contrast.Default,
     val appFontSizePreset: AppFontSizePreset = AppFontSizePreset.DEFAULT,
     val appFontWeightPreset: AppFontWeightPreset = AppFontWeightPreset.FOLLOW_THEME,
     val appFontFileName: String = "",
@@ -145,6 +147,7 @@ private data class CoreSettings(
     val themeSelection: AppUiStyle,
     val hwDecode: Boolean,
     val themeMode: AppThemeMode,
+    val darkThemeSchedule: DarkThemeSchedule,
     val darkThemeStyle: DarkThemeStyle,
     val appLanguage: AppLanguage,
     val dynamicColor: Boolean,
@@ -152,6 +155,7 @@ private data class CoreSettings(
     val md3CustomColorHex: String,
     val colorStyle: PaletteStyle,
     val colorSpec: ColorSpec.SpecVersion,
+    val colorContrast: Contrast,
     val bgPlay: Boolean
 )
 
@@ -224,6 +228,7 @@ private data class BaseSettings(
     val themeSelection: AppUiStyle,
     val hwDecode: Boolean,
     val themeMode: AppThemeMode,
+    val darkThemeSchedule: DarkThemeSchedule,
     val darkThemeStyle: DarkThemeStyle,
     val appLanguage: AppLanguage,
     val dynamicColor: Boolean,
@@ -231,6 +236,7 @@ private data class BaseSettings(
     val md3CustomColorHex: String,
     val colorStyle: PaletteStyle,
     val colorSpec: ColorSpec.SpecVersion,
+    val colorContrast: Contrast,
     val appFontSizePreset: AppFontSizePreset,
     val appFontWeightPreset: AppFontWeightPreset,
     val appFontFileName: String,
@@ -343,12 +349,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         SettingsManager.getThemeColorSpec(context).asAnyFlow(),
         SettingsManager.getMiniPlayerMode(context)
             .map { it != SettingsManager.MiniPlayerMode.OFF }
-            .asAnyFlow()
+            .asAnyFlow(),
+        SettingsManager.getDarkThemeSchedule(context).asAnyFlow(),
+        // 新增偏好一律追加到末尾：这里按下标取值，插在中间会让后面所有项错位。
+        SettingsManager.getThemeColorContrast(context).asAnyFlow()
     ) { values ->
         CoreSettings(
             themeSelection = values[0] as AppUiStyle,
             hwDecode = values[1] as Boolean,
             themeMode = values[2] as AppThemeMode,
+            darkThemeSchedule = values[11] as DarkThemeSchedule,
             darkThemeStyle = values[3] as DarkThemeStyle,
             appLanguage = values[4] as AppLanguage,
             dynamicColor = values[5] as Boolean,
@@ -356,6 +366,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             md3CustomColorHex = values[7] as String,
             colorStyle = values[8] as PaletteStyle,
             colorSpec = values[9] as ColorSpec.SpecVersion,
+            colorContrast = values[12] as Contrast,
             bgPlay = values[10] as Boolean
         )
     }
@@ -588,6 +599,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             themeSelection = core.themeSelection,
             hwDecode = core.hwDecode,
             themeMode = core.themeMode,
+            darkThemeSchedule = core.darkThemeSchedule,
             darkThemeStyle = core.darkThemeStyle,
             appLanguage = core.appLanguage,
             dynamicColor = core.dynamicColor,
@@ -595,6 +607,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             md3CustomColorHex = core.md3CustomColorHex,
             colorStyle = core.colorStyle,
             colorSpec = core.colorSpec,
+            colorContrast = core.colorContrast,
             appFontSizePreset = extra.appFontSizePreset,
             appFontWeightPreset = extra.appFontWeightPreset,
             appFontFileName = extra.appFontFileName,
@@ -656,6 +669,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             themeSelection = settings.themeSelection,
             hwDecode = settings.hwDecode,
             themeMode = settings.themeMode,
+            darkThemeSchedule = settings.darkThemeSchedule,
             darkThemeStyle = settings.darkThemeStyle,
             appLanguage = settings.appLanguage,
             dynamicColor = settings.dynamicColor,
@@ -663,6 +677,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             md3CustomColorHex = settings.md3CustomColorHex,
             colorStyle = settings.colorStyle,
             colorSpec = settings.colorSpec,
+            colorContrast = settings.colorContrast,
             appFontSizePreset = settings.appFontSizePreset,
             appFontWeightPreset = settings.appFontWeightPreset,
             appFontFileName = settings.appFontFileName,
@@ -802,6 +817,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             SettingsManager.setUiStyle(context, selection)
         }
     }
+    fun setDarkThemeSchedule(schedule: DarkThemeSchedule) {
+        viewModelScope.launch { SettingsManager.setDarkThemeSchedule(context, schedule) }
+    }
+
     fun setThemeMode(mode: AppThemeMode) { 
         viewModelScope.launch { 
             SettingsManager.setThemeMode(context, mode)
@@ -832,32 +851,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { SettingsManager.setMd3ColorSource(context, source) }
     }
     fun setMd3CustomColorHex(hex: String) {
-        viewModelScope.launch {
-            val normalizedHex = normalizeMd3CustomColorHex(hex)
-            SettingsManager.setMd3CustomColorHex(context, normalizedHex)
-            val overrides = SettingsManager.getThemeRoleOverrides(context).first()
-            val syncedOverrides = syncThemeRoleControlAccent(overrides, normalizedHex)
-            if (syncedOverrides != overrides) {
-                SettingsManager.setThemeRoleOverrides(context, syncedOverrides)
-            }
-        }
+        viewModelScope.launch { SettingsManager.setMd3CustomColorHex(context, hex) }
     }
     fun applyMd3CustomColor(hex: String) {
-        viewModelScope.launch {
-            val normalizedHex = normalizeMd3CustomColorHex(hex)
-            SettingsManager.applyMd3CustomColor(context, normalizedHex)
-            val overrides = SettingsManager.getThemeRoleOverrides(context).first()
-            val syncedOverrides = syncThemeRoleControlAccent(overrides, normalizedHex)
-            if (syncedOverrides != overrides) {
-                SettingsManager.setThemeRoleOverrides(context, syncedOverrides)
-            }
-        }
+        viewModelScope.launch { SettingsManager.applyMd3CustomColor(context, hex) }
     }
     fun setThemeColorStyle(style: PaletteStyle) {
         viewModelScope.launch { SettingsManager.setThemeColorStyle(context, style) }
     }
     fun setThemeColorSpec(spec: ColorSpec.SpecVersion) {
         viewModelScope.launch { SettingsManager.setThemeColorSpec(context, spec) }
+    }
+    fun setThemeColorContrast(contrast: Contrast) {
+        viewModelScope.launch { SettingsManager.setThemeColorContrast(context, contrast) }
     }
     fun setAppFontSizePreset(preset: AppFontSizePreset) {
         viewModelScope.launch { SettingsManager.setAppFontSizePreset(context, preset) }

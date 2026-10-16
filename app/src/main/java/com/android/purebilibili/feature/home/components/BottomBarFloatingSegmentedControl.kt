@@ -22,10 +22,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
@@ -34,6 +39,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.purebilibili.core.store.HomeSettings
 import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.core.ui.AppSurfaceTokens
+import com.android.purebilibili.core.ui.LocalGlobalWallpaperBackdropVisible
+import com.android.purebilibili.core.ui.wallpaper.LocalGlobalWallpaperBackdropSource
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.feature.home.components.miuix.DampedDragTrackingMode
 import top.yukonga.miuix.kmp.blur.Backdrop
@@ -77,6 +84,8 @@ internal fun BottomBarFloatingSegmentedControl(
     tapPressRefractionEnabled: Boolean = true,
     indicatorIdleSurfaceColorOverride: Color? = null,
     geometryMode: FloatingBottomBarGeometryMode = FloatingBottomBarGeometryMode.Segmented,
+    adaptIndicatorToLabel: Boolean = true,
+    liquidGlassLabelHorizontalPadding: Dp? = null,
     itemContent: (@Composable ColumnScope.(index: Int, label: String, selected: Boolean) -> Unit)? = null,
 ) {
     if (items.isEmpty()) return
@@ -114,7 +123,8 @@ internal fun BottomBarFloatingSegmentedControl(
     val itemCount = items.size
     val maxTabIndex = (itemCount - 1).coerceAtLeast(0)
     val safeSelectedIndex = selectedIndex.coerceIn(0, maxTabIndex)
-    val selectedTextColor = selectedTextColorOverride ?: AppContentColors.accent()
+    val selectedTextColor = selectedTextColorOverride
+        ?: AppContentColors.selectionAccent(liquidGlassEnabled)
     // 液态玻璃模式下与首页底栏保持一致，使用纯净中性玻璃材质，不走主题色
     val themedIndicatorSurface = indicatorIdleSurfaceColorOverride
     val unselectedTextColor = unselectedTextColorOverride
@@ -128,17 +138,27 @@ internal fun BottomBarFloatingSegmentedControl(
         darkTheme = isDarkTheme,
         liquidGlassTuning = liquidGlassTuning,
     )
+    // Material boundary: only glass may reuse the wallpaper recording. Native MD3/Miuix
+    // renderers retain their original colors, geometry and source selection.
+    val wallpaperSource = LocalGlobalWallpaperBackdropSource.current
+    val wallpaperBackdrop = if (liquidGlassEnabled && LocalGlobalWallpaperBackdropVisible.current) {
+        wallpaperSource?.takeIf { it.isReady }?.backdrop
+    } else null
+    // Inline docks must not sample an ancestor page source that also records the dock.
+    // The root wallpaper-only source is independent, contains real pixels at this position,
+    // and remains mounted across navigation. Prefer an explicitly supplied sibling source.
+    val suppliedBackdrop = miuixBackdrop ?: wallpaperBackdrop
     // A supplied page backdrop already contains the pixels behind this dock. Combining it
     // with a local source can make MIUI's native background-blur graph sample itself when
     // nested pages mount another backdrop (for example Bangumi/Film), overflowing RenderThread.
     // Keep the local source strictly as a fallback so visual blur remains real in both paths.
-    val localBackdrop = if (liquidGlassEnabled && miuixBackdrop == null) {
+    val localBackdrop = if (liquidGlassEnabled && suppliedBackdrop == null) {
         rememberLayerBackdrop()
     } else {
         null
     }
     val effectiveBackdrop = if (liquidGlassEnabled) {
-        miuixBackdrop ?: localBackdrop
+        suppliedBackdrop ?: localBackdrop
     } else {
         null
     }
@@ -148,7 +168,42 @@ internal fun BottomBarFloatingSegmentedControl(
         FloatingBottomBarMode.None
     }
     val effectiveHeight = height.coerceAtLeast(0.dp)
+    // Glass reuses the bottom dock's inset and contour; disabled renderers retain caller geometry.
+    val effectiveGeometryMode = if (liquidGlassEnabled && geometryMode == FloatingBottomBarGeometryMode.Segmented) {
+        FloatingBottomBarGeometryMode.CompactDock
+    } else {
+        geometryMode
+    }
+    val effectiveIndicatorHeight = if (liquidGlassEnabled) {
+        resolveBiliPaiBottomBarIndicatorHeight(effectiveHeight)
+    } else {
+        indicatorHeight
+    }
     val effectiveItemWidth = itemWidth?.coerceAtLeast(0.dp)
+    // This wrapper can also render without glass. Content-width capsules and shell trimming
+    // belong exclusively to glass; disabled renderers retain their established slot geometry.
+    val contentAdaptiveIndicatorEnabled = adaptIndicatorToLabel && liquidGlassEnabled
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    val resolvedLabelFontSize = if (itemContent == null) {
+        com.android.purebilibili.core.ui.appTabLabelFontSize(labelFontSize)
+    } else labelFontSize
+    val labelStyle = MaterialTheme.typography.labelLarge.copy(
+        fontSize = resolvedLabelFontSize,
+        fontWeight = if (itemContent == null) FontWeight.SemiBold else FontWeight.Bold,
+    )
+    val labelHorizontalPadding = liquidGlassLabelHorizontalPadding
+        ?: com.android.purebilibili.core.ui.components.resolveLiquidGlassTabSlotHorizontalPadding(itemCount)
+    val indicatorContentWidths = remember(items, labelStyle, density, textMeasurer, contentAdaptiveIndicatorEnabled, effectiveIndicatorHeight, labelHorizontalPadding) {
+        if (!contentAdaptiveIndicatorEnabled) null else items.map { label ->
+            with(density) {
+                (textMeasurer.measure(AnnotatedString(label), labelStyle, maxLines = 1,
+                    softWrap = false).size.width.toDp() +
+                    labelHorizontalPadding * 2)
+                    .coerceAtLeast(effectiveIndicatorHeight)
+            }
+        }
+    }
     val horizontalPadding = containerHorizontalPadding.coerceAtLeast(0.dp)
     val verticalPadding = containerVerticalPadding.coerceIn(0.dp, effectiveHeight / 2)
     val contentWidth = effectiveItemWidth?.let { it * itemCount + horizontalPadding * 2 }
@@ -166,32 +221,43 @@ internal fun BottomBarFloatingSegmentedControl(
     // The shell owns layout and input. Cross-axis scroll clipping already leaves
     // drawing room for the lens; press bloom must never enlarge the hit viewport.
     BoxWithConstraints(
-        modifier = rootModifier.height(effectiveHeight)
+        modifier = rootModifier.height(effectiveHeight).then(
+            if (scrollState != null) Modifier.drawWithContent {
+                // Keep the scrolling lens inside the fixed dock horizontally. Its vertical
+                // press bloom may still overflow without covering adjacent avatar/actions.
+                clipRect(top = -size.height, bottom = size.height * 2f) {
+                    this@drawWithContent.drawContent()
+                }
+            } else Modifier
+        )
     ) {
         val indicatorWidthDp = when {
             effectiveItemWidth != null -> effectiveItemWidth.value
             constraints.hasBoundedWidth ->
                 resolveFloatingDockSlotWidthPx(maxWidth.value, horizontalPadding.value, itemCount)
-            else -> indicatorHeight.value * FLOATING_DOCK_MIN_INDICATOR_ASPECT
+            else -> effectiveIndicatorHeight.value * FLOATING_DOCK_MIN_INDICATOR_ASPECT
         }
-        val fittedSegmentedIndicatorWidth = if (geometryMode == FloatingBottomBarGeometryMode.TopNavigation) {
+        val fittedSegmentedIndicatorWidth = if (contentAdaptiveIndicatorEnabled ||
+            effectiveGeometryMode == FloatingBottomBarGeometryMode.TopNavigation ||
+            effectiveGeometryMode == FloatingBottomBarGeometryMode.CompactDock
+        ) {
             // Even a one-category top dock follows the shell inset, without the
             // compact segmented control's independent width/aspect cap.
             indicatorWidthDp.dp
         } else {
             resolveSegmentedControlIndicatorWidthDp(
                 slotWidthDp = indicatorWidthDp,
-                indicatorHeightDp = indicatorHeight.value,
+                indicatorHeightDp = effectiveIndicatorHeight.value,
                 itemCount = itemCount,
             ).dp
         }
         val captureInsets = resolveFloatingDockCaptureInsets(
             shellHeightDp = effectiveHeight.value,
-            requestedIndicatorHeightDp = indicatorHeight.value,
+            requestedIndicatorHeightDp = effectiveIndicatorHeight.value,
             indicatorWidthDp = fittedSegmentedIndicatorWidth.value,
-            geometryMode = geometryMode,
+            geometryMode = effectiveGeometryMode,
         )
-        if (effectiveBackdrop != null && miuixBackdrop == null && localBackdrop != null) {
+        if (effectiveBackdrop != null && suppliedBackdrop == null && localBackdrop != null) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -271,17 +337,19 @@ internal fun BottomBarFloatingSegmentedControl(
                 activeContentColor = selectedTextColor,
             ),
             shellHeight = effectiveHeight,
-            indicatorHeight = indicatorHeight,
+            indicatorHeight = effectiveIndicatorHeight,
             indicatorWidth = fittedSegmentedIndicatorWidth,
-            geometryMode = geometryMode,
+            indicatorContentWidths = indicatorContentWidths,
+            geometryMode = effectiveGeometryMode,
             indicatorPositionProvider = indicatorPositionProvider,
             contentHorizontalPadding = horizontalPadding,
             contentVerticalPadding = verticalPadding,
             tapPressRefractionEnabled = tapPressRefractionEnabled,
             indicatorIdleSurfaceColorOverride = themedIndicatorSurface,
             isScrollInProgressProvider = isScrollInProgressProvider,
-            // No per-screen exceptions for the shared liquid dock gesture.
-            dragSelectionEnabled = enabled && itemCount > 1,
+            // A scrolling rail may explicitly reserve horizontal drags for browsing its labels.
+            // Forward that choice rather than silently turning indicator selection back on.
+            dragSelectionEnabled = dragSelectionEnabled && enabled && itemCount > 1,
             longPressDragSelectionEnabled =
                 longPressDragSelectionEnabled && enabled && itemCount > 1,
             dragTrackingMode = DampedDragTrackingMode.SPRING,
@@ -322,7 +390,7 @@ internal fun BottomBarFloatingSegmentedControl(
                                 Modifier
                             },
                             color = contentColor,
-                            fontSize = labelFontSize,
+                            fontSize = resolvedLabelFontSize,
                             fontWeight = if (selected) {
                                 FontWeight.SemiBold
                             } else {

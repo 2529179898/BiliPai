@@ -3,6 +3,7 @@ package com.android.purebilibili.core.theme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
+import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.android.purebilibili.feature.settings.AppThemeMode
@@ -267,6 +268,14 @@ class ThemeDynamicColorPolicyTest {
             ColorSpec.SpecVersion.SPEC_2021,
             resolveColorSpecPreference(ColorSpec.SpecVersion.SPEC_2021.name)
         )
+    }
+
+    @Test
+    fun `color contrast preference defaults to material default and rejects invalid values`() {
+        assertEquals(Contrast.Default, resolveColorContrastPreference(null))
+        assertEquals(Contrast.Default, resolveColorContrastPreference("not-a-contrast"))
+        assertEquals(Contrast.High, resolveColorContrastPreference(Contrast.High.name))
+        assertEquals(Contrast.Reduced, resolveColorContrastPreference(Contrast.Reduced.name))
     }
 
     @Test

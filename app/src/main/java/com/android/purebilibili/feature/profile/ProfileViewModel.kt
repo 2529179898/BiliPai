@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.profile
 
+import com.android.purebilibili.core.store.home.HomeWallpaperSelection
+import com.android.purebilibili.core.ui.wallpaper.WallpaperTransform
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,6 +22,7 @@ import com.android.purebilibili.data.repository.BangumiRepository
 import com.android.purebilibili.feature.dynamic.DynamicDeleteAction
 import com.android.purebilibili.feature.bangumi.MY_FOLLOW_TYPE_BANGUMI
 import com.android.purebilibili.feature.home.UserState
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -1042,80 +1045,90 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     fun setAsHomeWallpaper(
         url: String,
         saveToGallery: Boolean = false,
+        mobileTransform: WallpaperTransform = WallpaperTransform(),
+        tabletTransform: WallpaperTransform = WallpaperTransform(),
         onComplete: () -> Unit = {}
     ) {
+        if (_splashSaveState.value is WallpaperSaveState.Loading) return
+        _splashSaveState.value = WallpaperSaveState.Loading
         viewModelScope.launch(Dispatchers.IO) {
-            _splashSaveState.value = WallpaperSaveState.Loading
+            var pendingFile: File? = null
+            var committed = false
             try {
                 val context = getApplication<Application>()
-                var finalUrl = url
-                if (finalUrl.startsWith("//")) {
-                    finalUrl = "https:$finalUrl"
-                } else if (finalUrl.startsWith("http://")) {
-                    finalUrl = finalUrl.replace("http://", "https://")
-                }
-
+                val finalUrl = normalizeSplashWallpaperUrl(url)
                 val request = okhttp3.Request.Builder().url(finalUrl).build()
-                val response = NetworkModule.okHttpClient.newCall(request).execute()
-
-                if (response.isSuccessful) {
-                    val bytes = response.body.bytes()
-                    val homeWallpaperDir = File(context.filesDir, "home_wallpaper")
-                    if (!homeWallpaperDir.exists()) homeWallpaperDir.mkdirs()
-                    val destFile = File(homeWallpaperDir, "home_bg_${System.currentTimeMillis()}.jpg")
-
-                    FileOutputStream(destFile).use { output ->
-                        output.write(bytes)
-                    }
-
-                    SettingsManager.setHomeWallpaperUri(context, Uri.fromFile(destFile).toString())
-
-                    if (saveToGallery) {
-                        saveImageToGallery(context, bytes, "bili_home_${System.currentTimeMillis()}.jpg")
-                    }
-
-                    withContext(Dispatchers.Main.immediate) {
-                        _splashSaveState.value = WallpaperSaveState.Success
-                        onComplete()
-                    }
-                } else {
-                    _splashSaveState.value = WallpaperSaveState.Error("下载失败: ${response.code}")
+                val bytes = NetworkModule.okHttpClient.newCall(request).execute().use { response ->
+                    check(response.isSuccessful) { "下载失败: ${response.code}" }
+                    response.body.bytes()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                _splashSaveState.value = WallpaperSaveState.Error(e.message ?: "保存出错")
-            } finally {
-                if (_splashSaveState.value is WallpaperSaveState.Success) {
-                    _splashSaveState.value = WallpaperSaveState.Idle
+                val directory = File(context.filesDir, "home_wallpaper")
+                check(directory.isDirectory || directory.mkdirs()) { "无法创建壁纸目录" }
+                val file = File.createTempFile("home_bg_", ".jpg", directory)
+                pendingFile = file
+                file.outputStream().use { it.write(bytes) }
+                val options = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                android.graphics.BitmapFactory.decodeFile(file.absolutePath, options)
+                check(options.outWidth > 0 && options.outHeight > 0) { "壁纸图片无效" }
+                if (saveToGallery) saveImageToGallery(context, bytes, "bili_home_${System.currentTimeMillis()}.jpg")
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                withContext(kotlinx.coroutines.NonCancellable) {
+                    SettingsManager.setHomeWallpaperSelection(context, HomeWallpaperSelection(
+                        uri = Uri.fromFile(file).toString(),
+                        mobileTransform = mobileTransform,
+                        tabletTransform = tabletTransform,
+                    ))
+                    committed = true
                 }
-            }
-        }
-    }
-
-    fun setCustomHomeWallpaper(
-        uri: String,
-        onComplete: () -> Unit = {}
-    ) {
-        viewModelScope.launch(Dispatchers.IO) {
-            _splashSaveState.value = WallpaperSaveState.Loading
-            try {
-                val context = getApplication<Application>()
-                val wallpaper = importWallpaperMedia(context, Uri.parse(uri), File(context.filesDir, "home_wallpaper"))
-                SettingsManager.setHomeWallpaperUri(context, Uri.fromFile(wallpaper).toString())
-
                 withContext(Dispatchers.Main.immediate) {
                     _splashSaveState.value = WallpaperSaveState.Success
                     onComplete()
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (e: Exception) {
-                e.printStackTrace()
-                _splashSaveState.value = WallpaperSaveState.Error(e.message ?: "保存出错")
+            } catch (error: Exception) {
+                _splashSaveState.value = WallpaperSaveState.Error(error.message ?: "保存出错")
             } finally {
-                if (_splashSaveState.value is WallpaperSaveState.Success) {
-                    _splashSaveState.value = WallpaperSaveState.Idle
+                if (!committed) pendingFile?.delete()
+                if (_splashSaveState.value is WallpaperSaveState.Success) _splashSaveState.value = WallpaperSaveState.Idle
+            }
+        }
+    }
+
+    fun setCustomHomeWallpaper(
+        uri: String,
+        mobileTransform: WallpaperTransform = WallpaperTransform(),
+        tabletTransform: WallpaperTransform = WallpaperTransform(),
+        onComplete: () -> Unit = {}
+    ) {
+        if (_splashSaveState.value is WallpaperSaveState.Loading) return
+        _splashSaveState.value = WallpaperSaveState.Loading
+        viewModelScope.launch(Dispatchers.IO) {
+            var pendingFile: File? = null
+            var committed = false
+            try {
+                val context = getApplication<Application>()
+                val file = importWallpaperMedia(context, Uri.parse(uri), File(context.filesDir, "home_wallpaper"))
+                pendingFile = file
+                withContext(kotlinx.coroutines.NonCancellable) {
+                    SettingsManager.setHomeWallpaperSelection(context, HomeWallpaperSelection(
+                        uri = Uri.fromFile(file).toString(),
+                        mobileTransform = mobileTransform,
+                        tabletTransform = tabletTransform,
+                    ))
+                    committed = true
                 }
+                withContext(Dispatchers.Main.immediate) {
+                    _splashSaveState.value = WallpaperSaveState.Success
+                    onComplete()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _splashSaveState.value = WallpaperSaveState.Error(error.message ?: "保存出错")
+            } finally {
+                if (!committed) pendingFile?.delete()
+                if (_splashSaveState.value is WallpaperSaveState.Success) _splashSaveState.value = WallpaperSaveState.Idle
             }
         }
     }

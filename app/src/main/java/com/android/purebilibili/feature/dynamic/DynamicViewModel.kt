@@ -153,6 +153,8 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
     private var incrementalTimelineRefreshEnabled: Boolean = false
     private var lastFollowingsLoadMs: Long = 0L
     private var isFollowingsLoading: Boolean = false
+    private val _authorSearchLoading = MutableStateFlow(false)
+    val authorSearchLoading: StateFlow<Boolean> = _authorSearchLoading.asStateFlow()
     private var followingsFullyLoaded: Boolean = false
     private var completeFollowingsLoadRequested: Boolean = false
     private var cacheSaveJob: Job? = null
@@ -241,6 +243,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
                 cachedFollowings = emptyList()
                 lastFollowingsLoadMs = 0L
                 isFollowingsLoading = false
+                _authorSearchLoading.value = false
                 followingsFullyLoaded = false
                 completeFollowingsLoadRequested = false
                 startupFollowingsHydrationScheduled = false
@@ -507,6 +510,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
             return
         }
         isFollowingsLoading = true
+        _authorSearchLoading.value = true
         try {
             // 先获取当前用户 mid
             val navResponse = NetworkModule.api.getNavInfo()
@@ -546,6 +550,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
             e.printStackTrace()
         } finally {
             isFollowingsLoading = false
+            _authorSearchLoading.value = false
             if (completeFollowingsLoadRequested && !followingsFullyLoaded) {
                 completeFollowingsLoadRequested = false
                 launchAccount {
@@ -561,6 +566,10 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
         launchAccount {
             loadAllFollowings(force = true)
         }
+    }
+
+    fun prepareAuthorSearch() {
+        requestCompleteFollowingsLoad()
     }
 
     private fun requestCompleteFollowingsLoad() {
@@ -1688,6 +1697,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
         _subReplyState.value = SubReplyUiState(
             visible = true,
             rootReply = rootReply,
+            upMid = _selectedDynamic.value?.modules?.module_author?.mid ?: 0L,
             targetReplyId = targetReplyId.takeIf { it != rootReply.rpid } ?: 0L,
             totalCount = resolveSubReplyLoadedTotalCount(
                 rootReply = rootReply,
@@ -1799,6 +1809,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
         _subReplyState.value = SubReplyUiState(
             visible = true,
             rootReply = rootReply,
+            upMid = _selectedDynamic.value?.modules?.module_author?.mid ?: 0L,
             items = items.toImmutableList(),
             baseItems = items.toImmutableList(),
             totalCount = totalCount,

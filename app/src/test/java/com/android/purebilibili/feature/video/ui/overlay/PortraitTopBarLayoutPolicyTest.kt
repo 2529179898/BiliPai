@@ -14,14 +14,14 @@ class PortraitTopBarLayoutPolicyTest {
     }
 
     @Test
-    fun compactPhone_usesDenseControlSizing() {
+    fun phone_matchesInlineControlHeight() {
         val policy = resolvePortraitTopBarLayoutPolicy(
             widthDp = 393
         )
 
         assertEquals(8, policy.horizontalPaddingDp)
-        assertEquals(32, policy.buttonSizeDp)
-        assertEquals(18, policy.iconSizeDp)
+        assertEquals(40, policy.buttonSizeDp)
+        assertEquals(22, policy.iconSizeDp)
         assertEquals(11, policy.chipFontSp)
     }
 
@@ -32,8 +32,8 @@ class PortraitTopBarLayoutPolicyTest {
         )
 
         assertEquals(12, policy.horizontalPaddingDp)
-        assertEquals(36, policy.buttonSizeDp)
-        assertEquals(20, policy.iconSizeDp)
+        assertEquals(44, policy.buttonSizeDp)
+        assertEquals(22, policy.iconSizeDp)
         assertEquals(12, policy.chipFontSp)
     }
 
@@ -44,8 +44,8 @@ class PortraitTopBarLayoutPolicyTest {
         )
 
         assertEquals(16, policy.horizontalPaddingDp)
-        assertEquals(40, policy.buttonSizeDp)
-        assertEquals(22, policy.iconSizeDp)
+        assertEquals(48, policy.buttonSizeDp)
+        assertEquals(24, policy.iconSizeDp)
         assertEquals(13, policy.chipFontSp)
     }
 

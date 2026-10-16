@@ -969,6 +969,24 @@ private fun PopularSubCategorySegmentedControl(
         modifier = modifier,
         contentAlignment = Alignment.Center,
     ) {
+        // Glass owns content-sized slots; center the actual rail, not a wider wrapper
+        // whose child dock is start-aligned. Disabled materials retain the equal-slot path.
+        if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+            com.android.purebilibili.core.ui.components.AppLiquidAwareTabRow(
+                options = subCategories.mapIndexed { index, category ->
+                    com.android.purebilibili.core.ui.components.AppSegmentOption(category, labels[index])
+                },
+                selectedValue = selectedSubCategory,
+                onSelectionChange = onSubCategoryChange,
+                role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
+                modifier = Modifier.widthIn(max = 400.dp).fillMaxWidth(),
+                height = AppSpacingTokens.TripleExtraLarge,
+                labelFontSize = MaterialTheme.typography.labelMedium.fontSize,
+                centerContent = true,
+                dragSelectionEnabled = labels.size > 1,
+            )
+            return@Box
+        }
         BottomBarLiquidSegmentedControl(
             items = labels,
             selectedIndex = selectedIndex,
@@ -1018,7 +1036,7 @@ private fun TodayWatchModeSegmentedControl(
             modes.getOrNull(index)?.takeIf { it != selectedMode }?.let(onModeChange)
         },
         modifier = modifier.wrapContentWidth(Alignment.CenterHorizontally),
-        itemWidth = 120.dp,
+        itemWidth = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) null else 120.dp,
         enabled = enabled,
         height = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,
         indicatorHeight = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,

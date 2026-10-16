@@ -612,7 +612,7 @@ private fun FavoritePgcCard(
                 modifier = Modifier.padding(AppSpacingTokens.Medium),
                 verticalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
             ) {
-                AppText(item.title, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                AppText(item.title, style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().title, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 AppText(
                     item.subtitle,
                     style = MaterialTheme.typography.bodySmall,
@@ -651,7 +651,12 @@ private fun FavoriteGenericCategoryCard(
     PersonalMediaCardFrame(
         selected = selected,
         headlineContent = {
-            AppText(item.title, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            AppText(
+                item.title,
+                style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().title,
+                maxLines = com.android.purebilibili.core.ui.videoCardTitleMaxLines(),
+                overflow = com.android.purebilibili.core.ui.videoCardTitleOverflow(),
+            )
         },
         overlineContent = item.badge.takeIf(String::isNotBlank)?.let { badge ->
             { AppText(badge, color = AppContentColors.accent(), style = MaterialTheme.typography.labelSmall) }

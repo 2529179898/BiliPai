@@ -216,82 +216,40 @@ class HomeGlassVisualPolicyTest {
     }
 
     @Test
-    fun globalHomeWallpaperBackdropVisibility_followsScopeAndRoute() {
-        assertFalse(
-            shouldRenderGlobalHomeWallpaperBackdrop(
-                effectScope = HomeWallpaperEffectScope.HOME_ONLY,
-                currentRoute = "dynamic",
-            )
+    fun globalWallpaperCoversSupportedPagesAndRetainsMediaBoundaries() {
+        val supportedRoutes = listOf(
+            "home", "dynamic", "profile", "settings", "settings_category/HOME",
+            "appearance_settings", "history", "favorite", "watch_later", "inbox",
+            "message/reply_me", "chat/123/1?name=UP主", "search?keyword=壁纸", "bangumi",
         )
-        assertFalse(
-            shouldRenderGlobalHomeWallpaperBackdrop(
-                effectScope = HomeWallpaperEffectScope.GLOBAL,
-                currentRoute = "home",
-            )
-        )
-        assertTrue(
-            shouldRenderGlobalHomeWallpaperBackdrop(
-                effectScope = HomeWallpaperEffectScope.GLOBAL,
-                currentRoute = "chat/123/1?name=UP主",
-            )
-        )
-        assertFalse(
-            shouldRenderGlobalHomeWallpaperBackdrop(
-                effectScope = HomeWallpaperEffectScope.GLOBAL,
-                currentRoute = "dynamic",
-            )
-        )
-        assertFalse(
-            shouldRenderGlobalHomeWallpaperBackdrop(
-                effectScope = HomeWallpaperEffectScope.GLOBAL,
-                currentRoute = "message/reply_me",
-            )
-        )
-        assertFalse(
-            shouldRenderGlobalHomeWallpaperBackdrop(
-                effectScope = HomeWallpaperEffectScope.GLOBAL,
-                currentRoute = null,
-            )
-        )
-        assertFalse(
-            shouldExposeGlobalHomeWallpaperChrome(
-                effectScope = HomeWallpaperEffectScope.GLOBAL,
-                hasWallpaperUri = true,
-                currentRoute = "history",
-            )
-        )
-        assertFalse(
-            shouldExposeGlobalHomeWallpaperChrome(
-                effectScope = HomeWallpaperEffectScope.GLOBAL,
-                hasWallpaperUri = false,
-                currentRoute = "history",
-            )
-        )
+        supportedRoutes.forEach { route ->
+            assertTrue(shouldRenderGlobalHomeWallpaperBackdrop(HomeWallpaperEffectScope.GLOBAL, route), route)
+            assertFalse(shouldRenderGlobalHomeWallpaperBackdrop(HomeWallpaperEffectScope.HOME_ONLY, route), route)
+        }
+        listOf(null, "", "main_host", "video/BV1", "story", "live/123", "bangumi/play/1/2",
+            "offline_video/1", "external_media/123", "web", "login", "space/123", "unknown"
+        ).forEach { route ->
+            assertFalse(shouldRenderGlobalHomeWallpaperBackdrop(HomeWallpaperEffectScope.GLOBAL, route), route)
+        }
+        assertTrue(shouldRenderGlobalHomeWallpaperBackdrop(HomeWallpaperEffectScope.GLOBAL, "main_host", "home"))
+        assertTrue(shouldRenderGlobalHomeWallpaperBackdrop(HomeWallpaperEffectScope.GLOBAL, "main_host", "dynamic"))
+        assertFalse(shouldRenderGlobalHomeWallpaperBackdrop(HomeWallpaperEffectScope.GLOBAL, "main_host", "story"))
+        assertTrue(shouldExposeGlobalHomeWallpaperChrome(HomeWallpaperEffectScope.GLOBAL, true, "history"))
+        assertFalse(shouldExposeGlobalHomeWallpaperChrome(HomeWallpaperEffectScope.GLOBAL, false, "history"))
         assertEquals("home", resolveGlobalHomeWallpaperRoute("main_host", "home"))
-        assertEquals("dynamic", resolveGlobalHomeWallpaperRoute("main_host", "dynamic"))
         assertEquals("video/BV1", resolveGlobalHomeWallpaperRoute("video/BV1", "home"))
-        assertFalse(
-            shouldRenderGlobalHomeWallpaperBackdrop(
-                effectScope = HomeWallpaperEffectScope.GLOBAL,
-                currentRoute = "main_host",
-                mainHostTabRoute = "home",
-            )
-        )
-        assertFalse(
-            shouldRenderGlobalHomeWallpaperBackdrop(
-                effectScope = HomeWallpaperEffectScope.GLOBAL,
-                currentRoute = "main_host",
-                mainHostTabRoute = "dynamic",
-            )
-        )
-        assertFalse(
-            shouldExposeGlobalHomeWallpaperChrome(
-                effectScope = HomeWallpaperEffectScope.GLOBAL,
-                hasWallpaperUri = true,
-                currentRoute = "main_host",
-                mainHostTabRoute = "history",
-            )
-        )
+    }
+
+    @Test
+    fun rootMediaDefersToExistingHomeAndChatPlayers() {
+        listOf("home", "chat/123/1").forEach { route ->
+            assertFalse(shouldRenderRootHomeWallpaperMedia(true, false, route))
+            assertTrue(shouldRenderRootHomeWallpaperMedia(true, true, route))
+        }
+        assertFalse(shouldRenderRootHomeWallpaperMedia(true, false, "main_host", "home"))
+        assertTrue(shouldRenderRootHomeWallpaperMedia(true, false, "main_host", "dynamic"))
+        assertTrue(shouldRenderRootHomeWallpaperMedia(true, false, "settings"))
+        assertFalse(shouldRenderRootHomeWallpaperMedia(false, true, "settings"))
     }
 
     @Test
@@ -607,14 +565,6 @@ class HomeGlassVisualPolicyTest {
         )
 
         assertEquals("", resolved)
-    }
-
-    @Test
-    fun homeWallpaperBackdropUsesOneImageLayer() {
-        val source = File("src/main/java/com/android/purebilibili/feature/home/HomeWallpaperBackdrop.kt")
-            .readText()
-
-        assertEquals(1, Regex("""\bAsyncImage\(""").findAll(source).count())
     }
 
     @Test

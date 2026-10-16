@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.list
 
+import com.android.purebilibili.core.ui.components.VideoStatusBadges
+import com.android.purebilibili.core.ui.components.wallpaperAwareMediaCardBackground
 import com.android.purebilibili.core.ui.AppContentColors
 
 import com.android.purebilibili.feature.personal.PersonalMediaCardFrame
@@ -235,11 +237,11 @@ internal fun HistoryPersonalCard(
     val coverOverlayTextStyle = remember {
         TextStyle(shadow = resolveVideoCardCoverOverlayTextShadow())
     }
-    val contentTypography = feedContentTypography(FeedTitleHierarchy.Standard)
+    val contentTypography = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography()
     val owner = video.owner.name.takeIf { it.isNotBlank() }
         ?: if (item.business == HistoryBusiness.PGC) "番剧" else "未知作者"
     val viewedAt = FormatUtils.formatHistoryViewTime(video.view_at)
-    val titleMaxLines = if (item.page > 1) 1 else 2
+    val titleMaxLines = com.android.purebilibili.core.ui.videoCardTitleMaxLines()
 
     val actionContent: @Composable () -> Unit = {
         if (!batchMode) {
@@ -312,6 +314,10 @@ internal fun HistoryPersonalCard(
                     contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             },
             coverOverlayContent = {
+                VideoStatusBadges(
+                    labels = video.statusLabels,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(AppSpacingTokens.ExtraSmall),
+                )
                 AppText(
                     text = resolveHistoryProgressLabel(item.progress, video.duration),
                     color = MediaContrastPalette.Foreground,
@@ -337,7 +343,7 @@ internal fun HistoryPersonalCard(
             .then(transition.shellModifier)
             .clip(coverShape)
             .then(transition.nativeCardSnapshot.modifier)
-            .background(AppSurfaceTokens.cardContainer())
+            .wallpaperAwareMediaCardBackground(AppSurfaceTokens.cardContainer(), coverShape)
             .combinedClickable(
                 onClick = triggerClick,
                 onLongClick = onLongClick,
@@ -357,6 +363,10 @@ internal fun HistoryPersonalCard(
             )
         },
         coverOverlayContent = {
+            VideoStatusBadges(
+                labels = video.statusLabels,
+                modifier = Modifier.align(Alignment.TopEnd).padding(AppSpacingTokens.ExtraSmall),
+            )
             AppText(
                 text = resolveHistoryProgressLabel(progressState.progressSec, video.duration),
                 color = MediaContrastPalette.Foreground,
@@ -384,7 +394,7 @@ internal fun HistoryPersonalCard(
                 text = video.title,
                 style = contentTypography.title,
                 maxLines = titleMaxLines,
-                overflow = TextOverflow.Ellipsis,
+                overflow = com.android.purebilibili.core.ui.videoCardTitleOverflow(),
                 tapToCopyEnabled = false,
             )
             AppText(
@@ -406,7 +416,7 @@ internal fun HistoryPersonalCard(
             }
         },
         trailingContent = {
-            Box(modifier = Modifier.align(Alignment.BottomEnd)) { actionContent() }
+            actionContent()
         },
     )
 }

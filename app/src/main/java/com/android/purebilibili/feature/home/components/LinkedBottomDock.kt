@@ -93,6 +93,7 @@ internal fun LinkedBottomDock(
     isTopLevelDestination: Boolean = true,
     mergeOnScrollDownEnabled: Boolean = true,
     animateNowPlayingPresence: Boolean = true,
+    hasUiSkinDecoration: Boolean = false,
     modifier: Modifier = Modifier,
     blurEnabled: Boolean = false,
     hazeState: HazeState? = null,
@@ -294,7 +295,8 @@ internal fun LinkedBottomDock(
 
         val shape = resolveSharedBottomBarCapsuleShape()
         val contentColor = AppContentColors.primaryText()
-        val accentColor = AppContentColors.accent()
+        // Only glass accents use the exact picked color; native and neutral actions retain their roles.
+        val accentColor = AppContentColors.selectionAccent(glassEnabled)
         BoxWithConstraints(
             modifier = modifier.fillMaxWidth().imePadding().navigationBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -310,7 +312,10 @@ internal fun LinkedBottomDock(
             with(density) {
                 maximumWidth = constraints.maxWidth.coerceAtMost(600.dp.roundToPx())
                 button = resolveBiliPaiBottomBarSearchCircleSize().roundToPx()
-                barHeight = resolveBiliPaiBottomBarDockHeight(searchExpanded = false).roundToPx()
+                barHeight = resolveBiliPaiBottomBarDockHeight(
+                    searchExpanded = false,
+                    hasUiSkinDecoration = hasUiSkinDecoration,
+                ).roundToPx()
                 controlHeight = barHeight
                 gap = 8.dp.roundToPx()
                 verticalGap = 4.dp.roundToPx()

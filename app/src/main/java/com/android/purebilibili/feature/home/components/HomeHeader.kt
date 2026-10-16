@@ -2143,6 +2143,17 @@ fun HomeHeader(
         hasBackdrop = miuixBackdrop != null,
     ) && !forceLowBlurBudget
     val isProgressiveFadeActive = progressiveTopFadeEnabled && !isHeaderBlurEnabled
+    val wallpaperTopReadability = if (!hasIllustratedHeader) {
+        currentWallpaperChromeReadability(MaterialTheme.colorScheme.background)?.top
+    } else null
+    val wallpaperProtectionActive = isProgressiveBlurActive && wallpaperTopReadability != null
+    val topFadeSurfaceColor = wallpaperTopReadability?.let {
+        MaterialTheme.colorScheme.background.copy(alpha =
+            com.android.purebilibili.core.ui.wallpaper.resolveWallpaperProtectionAlpha(
+                it, MaterialTheme.colorScheme.background, MaterialTheme.colorScheme.onSurface,
+                blurred = isProgressiveBlurActive,
+            ))
+    } ?: globalWallpaperAwareChromeColor(MaterialTheme.colorScheme.background)
 
     val pinnedChromeLayout = resolveHomeTopPinnedChromeLayout(
         statusBarHeight = statusBarHeight,
@@ -2434,10 +2445,11 @@ fun HomeHeader(
                         useProgressiveTopFade = isProgressiveFadeActive,
                     )
             ) {
-                if (isProgressiveFadeActive) {
+                if (isProgressiveFadeActive || wallpaperProtectionActive) {
                     TopSolidProgressiveFadeOverlay(
-                        surfaceColor = globalWallpaperAwareChromeColor(MaterialTheme.colorScheme.background),
+                        surfaceColor = topFadeSurfaceColor,
                         fadeHeight = continuousSlabHeight,
+                        protectedFraction = if (wallpaperTopReadability != null) 0.65f else 0f,
                     )
                 }
             }

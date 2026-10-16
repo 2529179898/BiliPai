@@ -72,7 +72,10 @@ fun buildExternalPlaylistFromSpaceVideos(
             title = video.title,
             cover = video.pic,
             owner = video.author,
-            duration = parseSpaceVideoLengthToSeconds(video.length)
+            duration = parseSpaceVideoLengthToSeconds(video.length),
+            playCount = video.play.toLong().takeIf { it >= 0L },
+            commentCount = video.comment.toLong().takeIf { it >= 0L },
+            publishedAt = video.created.takeIf { it > 0L },
         )
     }
 

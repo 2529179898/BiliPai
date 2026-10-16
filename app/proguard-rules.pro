@@ -13,12 +13,16 @@
 # Preserve the SDK_INT >= 34 branch and its isolated API-34 implementation;
 # do not inline/merge/optimize these boundaries into startup callers. Keep names
 # obfuscatable and unused code shrinkable. This does not handle ROMs that report
-# API 34+ while lacking JobScheduler.forNamespace; those need separate evidence.
+# API 34+ while lacking JobScheduler.forNamespace on its own. The namespace guard
+# plugin adds a missing-API fallback inside JobScheduler34; keep that boundary intact too.
 -keep,allowshrinking,allowobfuscation class androidx.work.impl.background.systemjob.JobSchedulerExtKt {
     *;
 }
 -keep,allowshrinking,allowobfuscation class androidx.work.impl.background.systemjob.JobScheduler34 {
     *;
+}
+-keepclassmembers,allowshrinking,allowobfuscation class androidx.work.impl.background.systemjob.SystemJobScheduler {
+    public static void cancelAllInAllNamespaces(android.content.Context);
 }
 
 # Optional classes referenced by third-party libraries on specific code paths.

@@ -110,6 +110,29 @@ data class SearchResultCategory(
     val data: List<SearchVideoItem>? = null
 )
 
+/** Category payloads from search/all/v2 are heterogeneous, so keep their raw objects here. */
+@Serializable
+data class SearchAllResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: SearchAllData? = null
+)
+
+@Serializable
+data class SearchAllData(
+    val page: Int = 1,
+    val pagesize: Int = 20,
+    val numResults: Int = 0,
+    val numPages: Int = 0,
+    val result: List<SearchAllResultCategory>? = null
+)
+
+@Serializable
+data class SearchAllResultCategory(
+    val result_type: String = "",
+    val data: List<kotlinx.serialization.json.JsonObject>? = null
+)
+
 //  [新增] 分类搜索响应 (search/type API)
 @Serializable
 data class SearchTypeResponse(
@@ -153,7 +176,19 @@ data class SearchVideoItem(
     // 视频分区 id，外部歌单匹配时用于过滤不相关分区
     @SerialName("typeid")
     @Serializable(with = FlexibleIntSerializer::class)
-    val typeId: Int = 0
+    val typeId: Int = 0,
+    @SerialName("is_union_video")
+    @Serializable(with = FlexibleIntSerializer::class)
+    val isUnionVideo: Int = 0,
+    @SerialName("is_steins")
+    @Serializable(with = FlexibleBooleanSerializer::class)
+    val isSteins: Boolean = false,
+    @SerialName("is_lesson_video")
+    @Serializable(with = FlexibleBooleanSerializer::class)
+    val isLessonVideo: Boolean = false,
+    @SerialName("charging_pay") val chargingPay: WatchLaterChargingPay? = null,
+    @SerialName("pgc_label") val pgcLabel: String? = null,
+    val badges: List<VideoContentBadge> = emptyList()
 ) {
     fun toVideoItem(): VideoItem {
         return VideoItem(
@@ -170,6 +205,12 @@ data class SearchVideoItem(
             pubdate = pubdate,
             contentType = type,
             navigationUrl = arcurl,
+            isUnionVideo = isUnionVideo,
+            isSteins = isSteins,
+            isLessonVideo = isLessonVideo,
+            chargingPay = chargingPay,
+            pgcLabel = pgcLabel,
+            badges = badges,
             tid = typeId
         )
     }
@@ -392,16 +433,22 @@ data class SearchUpData(
 // --- 3.  UP主 搜索结果模型 ---
 @Serializable
 data class SearchUpItem(
+    @Serializable(with = FlexibleLongSerializer::class)
     val mid: Long = 0,
     val uname: String = "",
     val usign: String = "", // 个性签名
     val upic: String = "", // 头像
+    @Serializable(with = FlexibleIntSerializer::class)
     val fans: Int = 0, // 粉丝数
+    @Serializable(with = FlexibleIntSerializer::class)
     val videos: Int = 0, // 视频数
+    @Serializable(with = FlexibleIntSerializer::class)
     val level: Int = 0, // 等级
     val official_verify: SearchOfficialVerify? = null,
     val vip: SearchUpVip? = null,
-    val is_senior_member: Int = 0 // 是否硬核会员
+    @Serializable(with = FlexibleIntSerializer::class)
+    val is_senior_member: Int = 0, // 是否硬核会员
+    val res: List<SearchVideoItem>? = null
 ) {
     fun cleanupFields(): SearchUpItem {
         return this.copy(
@@ -553,6 +600,7 @@ data class SearchOfficialVerify(
 
 // --- 4.  搜索类型枚举 ---
 enum class SearchType(val value: String, val displayName: String) {
+    ALL("all", "综合"),
     VIDEO("video", "视频"),
     UP("bili_user", "UP主"),
     BANGUMI("media_bangumi", "番剧"),

@@ -1193,6 +1193,8 @@ private fun SubscriptionArticleScreen(
                         HomeWallpaperBackdrop(
                             wallpaperUri = wallpaperUri,
                             appearance = wallpaperAppearance,
+                            // The reader owns its background independently of home/global framing.
+                            transformProvider = { com.android.purebilibili.core.ui.wallpaper.WallpaperTransform() },
                             baseColor = articleBackground,
                             isDataSaverActive = dataSaverActive,
                         )

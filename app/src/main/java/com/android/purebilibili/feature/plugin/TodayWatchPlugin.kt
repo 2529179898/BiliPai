@@ -582,7 +582,7 @@ private fun TodayWatchPluginModeSegmentedControl(
             modes.getOrNull(index)?.takeIf { it != selectedMode }?.let(onModeChange)
         },
         modifier = modifier.wrapContentWidth(Alignment.CenterHorizontally),
-        itemWidth = 120.dp,
+        itemWidth = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) null else 120.dp,
         height = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,
         indicatorHeight = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,
         labelFontSize = com.android.purebilibili.core.ui.appTabLabelFontSize(),

@@ -809,29 +809,19 @@ internal fun MusicPlayerContent(
                     pagerScope.launch { pagerState.animateScrollToPage(0) }
                 }
                 Box(modifier = Modifier.fillMaxSize()) {
+                    MusicLyricsViewportScrims(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .graphicsLayer {
+                                alpha = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                                    .coerceIn(0f, 1f)
+                            },
+                    )
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize()
                     ) { page ->
-                        // 翻页过渡：随偏移淡出 + 轻微缩放，减少硬切感
-                        val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
-                        val pageAlpha = if (effectiveReduceMotion) {
-                            1f
-                        } else {
-                            1f - (kotlin.math.abs(pageOffset) * 0.45f).coerceIn(0f, 0.55f)
-                        }
-                        val pageScale = if (effectiveReduceMotion) {
-                            1f
-                        } else {
-                            1f - (kotlin.math.abs(pageOffset) * 0.06f).coerceIn(0f, 0.12f)
-                        }
-                        Box(
-                            modifier = Modifier.graphicsLayer {
-                                alpha = pageAlpha
-                                scaleX = pageScale
-                                scaleY = pageScale
-                            }
-                        ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
                         if (page == 0) {
                             PlayerPage(
                                 liquidGlassTuning = liquidGlassTuning,
@@ -915,29 +905,6 @@ internal fun MusicPlayerContent(
                                 modifier = Modifier.padding(bottom = MUSIC_PLAYER_COMPACT_DOCK_BOTTOM_PADDING_DP.dp)
                             )
                             // 歌词页不再放右上角迷你封面：与歌词工具行同位冲突，返回封面页由手势与底部 dock 承担
-                            // 顶部/底部渐变遮罩：歌词滚动到边缘时渐隐，避免大字穿过控制区
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopCenter)
-                                    .fillMaxWidth()
-                                    .height(140.dp)
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(Color.Black.copy(alpha = 0.42f), Color.Transparent)
-                                        )
-                                    )
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .fillMaxWidth()
-                                    .height(180.dp)
-                                    .background(
-                                        Brush.verticalGradient(
-                                            listOf(Color.Transparent, Color.Black.copy(alpha = 0.46f))
-                                        )
-                                    )
-                            )
                             Column(
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
@@ -1056,13 +1023,14 @@ internal fun MusicPlayerContent(
                     ) {
                         BottomBarLiquidSegmentedControl(
                             items = resolveMusicPlayerPageTabs(),
+                            centerGlassContent = true,
                             selectedIndex = pagerState.currentPage,
                             onSelected = { page ->
                                 pagerScope.launch {
                                     animatePagerSelection(pagerState, page)
                                 }
                             },
-                            itemWidth = 84.dp,
+                            itemWidth = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) null else 84.dp,
                             height = 48.dp,
                             indicatorHeight = 36.dp,
                             containerVerticalPadding = 6.dp,
@@ -2052,6 +2020,30 @@ private fun ImageBitmap.toAndroidBitmapOrNull(): android.graphics.Bitmap? {
         this.asAndroidBitmap()
     } catch (_: Throwable) {
         null
+    }
+}
+
+@Composable
+private fun MusicLyricsViewportScrims(modifier: Modifier = Modifier) {
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(140.dp)
+                .background(
+                    Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.42f), Color.Transparent))
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(180.dp)
+                .background(
+                    Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.46f)))
+                ),
+        )
     }
 }
 

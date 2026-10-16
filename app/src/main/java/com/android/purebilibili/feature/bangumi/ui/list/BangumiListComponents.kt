@@ -1,6 +1,7 @@
 // 文件路径: feature/bangumi/ui/list/BangumiListComponents.kt
 package com.android.purebilibili.feature.bangumi.ui.list
 
+import com.android.purebilibili.core.ui.components.wallpaperAwareMediaCardBackground
 import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -135,7 +136,7 @@ fun BangumiSearchCard(
             .fillMaxWidth()
             .clip(AppShapes.container(ContainerLevel.Chip))
             .clickable(onClick = onClick)
-            .background(AppSurfaceTokens.cardContainer())
+            .wallpaperAwareMediaCardBackground(AppSurfaceTokens.cardContainer(), AppShapes.container(ContainerLevel.Chip))
             .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {

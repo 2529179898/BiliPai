@@ -18,7 +18,18 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
+import com.android.purebilibili.feature.home.components.cards.WallpaperPaletteRequest
+import com.android.purebilibili.feature.home.components.cards.WallpaperPaletteResult
+import com.android.purebilibili.feature.home.components.cards.WallpaperPaletteStore
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue //  新增
 import androidx.compose.runtime.LaunchedEffect // 新增
@@ -61,6 +72,13 @@ import com.android.purebilibili.feature.home.HomeCategory
 import com.android.purebilibili.feature.home.PopularSubCategory
 import com.android.purebilibili.feature.home.HomeScreen
 import com.android.purebilibili.feature.home.HomeViewModel
+import com.android.purebilibili.core.ui.wallpaper.LocalHomeWallpaperSelection
+import com.android.purebilibili.core.ui.wallpaper.LocalWallpaperPlaybackCoordinator
+import com.android.purebilibili.core.ui.wallpaper.WallpaperPlaybackCoordinator
+import com.android.purebilibili.core.store.home.HomeWallpaperSelection
+import com.android.purebilibili.core.ui.wallpaper.LocalGlobalWallpaperUri
+import com.android.purebilibili.core.ui.wallpaper.LocalGlobalWallpaperBackdropSource
+import com.android.purebilibili.feature.home.shouldRenderRootHomeWallpaperMedia
 import com.android.purebilibili.feature.home.DepthSyncedGlobalHomeWallpaperBackdrop
 import com.android.purebilibili.feature.home.resolveHomeWallpaperBackdropAppearance
 import com.android.purebilibili.feature.home.resolveHomeWallpaperUri
@@ -620,8 +638,10 @@ fun AppNavigation(
         var accountSessionRefreshGeneration by remember { mutableIntStateOf(0) }
         val currentNavigation3Key = navigation3BackStack.lastOrNull()
         val currentRoute = currentNavigation3Key?.toLegacyRoute()
-        val configuredHomeWallpaperUri by SettingsManager.getHomeWallpaperUri(context).collectAsStateWithLifecycle(initialValue = ""
-        )
+        val homeWallpaperSelection by SettingsManager.getHomeWallpaperSelection(context)
+            .collectAsStateWithLifecycle(initialValue = HomeWallpaperSelection())
+        val configuredHomeWallpaperUri = homeWallpaperSelection.uri
+        val wallpaperPlaybackCoordinator = remember { WallpaperPlaybackCoordinator() }
         val splashWallpaperUri by SettingsManager.getSplashWallpaperUri(context).collectAsStateWithLifecycle(initialValue = ""
         )
         val globalHomeWallpaperUri = remember(configuredHomeWallpaperUri, splashWallpaperUri) {
@@ -630,9 +650,18 @@ fun AppNavigation(
                 splashWallpaperUri = splashWallpaperUri
             )
         }
-        val wallpaperPalette by com.android.purebilibili.feature.home.components.cards.WallpaperPaletteStore
-            .currentPalette
-            .collectAsStateWithLifecycle()
+        val backgroundColor = MaterialTheme.colorScheme.background
+        val wallpaperIsStatic = com.android.purebilibili.core.ui.wallpaper.rememberIsStaticWallpaper(globalHomeWallpaperUri)
+        val wallpaperTransform = if (windowSizeClass.isTablet) homeWallpaperSelection.tabletTransform
+            else homeWallpaperSelection.mobileTransform
+        val wallpaperEffectsEnabled = effectiveHomeSettings.homeWallpaperEffectMode !=
+            com.android.purebilibili.core.store.HomeWallpaperEffectMode.OFF
+        val wallpaperViewport = remember { mutableStateOf(IntSize.Zero) }
+        var wallpaperPaletteResult by remember { mutableStateOf<WallpaperPaletteResult?>(null) }
+        val wallpaperPalette = wallpaperPaletteResult?.takeIf {
+            it.request.uri == globalHomeWallpaperUri && it.request.transform == wallpaperTransform &&
+                it.request.baseColor == backgroundColor && wallpaperIsStatic && wallpaperEffectsEnabled
+        }?.palette
         val deferGlobalWallpaperPalette by remember(videoCardTransitionClock) {
             derivedStateOf {
                 // All non-idle phases retain the detail/source transition contract.
@@ -643,18 +672,23 @@ fun AppNavigation(
         val foregroundSettling by com.android.purebilibili.core.lifecycle.ForegroundSettleBudget
             .isSettling
             .collectAsStateWithLifecycle()
-        LaunchedEffect(globalHomeWallpaperUri, deferGlobalWallpaperPalette, foregroundSettling) {
-            if (deferGlobalWallpaperPalette) return@LaunchedEffect
-            // 回前台的安定窗口内先不重建调色板：它要解一张 256×512 位图并做 5 次 Palette
-            // 切片，正好会和用户此刻的首次切页抢主线程。窗口结束后本效应会重新触发。
-            if (foregroundSettling) return@LaunchedEffect
-            com.android.purebilibili.feature.home.components.cards.WallpaperPaletteStore.loadWallpaperPalette(
-                context = context,
-                uri = globalHomeWallpaperUri,
-                scope = this,
-            )
+        LaunchedEffect(globalHomeWallpaperUri, wallpaperTransform, backgroundColor, wallpaperIsStatic,
+            deferGlobalWallpaperPalette, foregroundSettling, wallpaperEffectsEnabled) {
+            if (!wallpaperEffectsEnabled || !wallpaperIsStatic || globalHomeWallpaperUri.isBlank()) {
+                wallpaperPaletteResult = null
+                return@LaunchedEffect
+            }
+            if (deferGlobalWallpaperPalette || foregroundSettling) return@LaunchedEffect
+            snapshotFlow { wallpaperViewport.value }.collectLatest { viewport ->
+                if (viewport.width <= 0 || viewport.height <= 0) return@collectLatest
+                // Resize events cancel the previous request; never sample on every drag frame.
+                delay(140)
+                val request = WallpaperPaletteRequest(globalHomeWallpaperUri, viewport, wallpaperTransform, backgroundColor)
+                val palette = WallpaperPaletteStore.loadWallpaperPalette(context, request)
+                currentCoroutineContext().ensureActive()
+                wallpaperPaletteResult = WallpaperPaletteResult(request, palette)
+            }
         }
-        val backgroundColor = MaterialTheme.colorScheme.background
         val isLightBackground = remember(backgroundColor) { backgroundColor.luminance() > 0.5f }
         val isDataSaverActiveForGlobalWallpaper = remember(context) {
             SettingsManager.isDataSaverActive(context)
@@ -765,21 +799,44 @@ fun AppNavigation(
             currentRoute = currentRoute,
             mainHostTabRoute = currentBottomNavItem.route,
         )
+        val globalWallpaperEnabled = effectiveHomeSettings.homeWallpaperEffectScope ==
+            com.android.purebilibili.core.store.HomeWallpaperEffectScope.GLOBAL &&
+            effectiveHomeSettings.homeWallpaperEffectMode !=
+            com.android.purebilibili.core.store.HomeWallpaperEffectMode.OFF &&
+            globalHomeWallpaperUri.isNotBlank()
+        val sharedStaticWallpaper = globalWallpaperEnabled && wallpaperIsStatic
+        val globalWallpaperSource = if (sharedStaticWallpaper) {
+            key(
+                globalHomeWallpaperUri,
+                effectiveHomeSettings.homeWallpaperEffectMode,
+                backgroundColor,
+                wallpaperViewport.value.width,
+                wallpaperViewport.value.height,
+            ) {
+                // LayerBackdrop retains its recorded source between page switches. Recreate
+                // that source when the app viewport changes (rotation / fold / window resize)
+                // so destinations never replay a layer recorded at the previous orientation.
+                com.android.purebilibili.core.ui.blur.rememberChromeBackdropSource()
+            }
+        } else null
+        val renderRootWallpaper = shouldRenderRootHomeWallpaperMedia(
+            wallpaperVisible = sharedStaticWallpaper || (globalWallpaperEnabled && renderGlobalHomeWallpaperBackdrop),
+            isStaticWallpaper = sharedStaticWallpaper,
+            currentRoute = currentRoute,
+            mainHostTabRoute = currentBottomNavItem.route,
+        )
         val globalHomeWallpaperAppearance = remember(
             globalHomeWallpaperUri,
             effectiveHomeSettings.homeWallpaperEffectMode,
-            renderGlobalHomeWallpaperBackdrop,
+            renderRootWallpaper,
             isLightBackground,
             isDataSaverActiveForGlobalWallpaper
         ) {
             resolveHomeWallpaperBackdropAppearance(
-                hasWallpaper = renderGlobalHomeWallpaperBackdrop &&
-                    globalHomeWallpaperUri.isNotBlank(),
+                hasWallpaper = renderRootWallpaper && globalHomeWallpaperUri.isNotBlank(),
                 effectMode = effectiveHomeSettings.homeWallpaperEffectMode,
                 isDarkTheme = !isLightBackground,
                 isDataSaverActive = isDataSaverActiveForGlobalWallpaper,
-                // Chat uses the same presence, blur and scrim treatment as HomeScreen.
-                globalWallpaper = false
             )
         }
         val bottomBarItemColors = appNavigationSettings.bottomBarItemColors
@@ -1968,7 +2025,9 @@ fun AppNavigation(
         val shouldCaptureBottomBarBackdrop =
             homeSettings.androidNativeLiquidGlassEnabled || isBottomBarBlurEnabled
         val bottomBarBackdropSource = if (shouldCaptureBottomBarBackdrop) {
-            rememberChromeBackdropSource()
+            // Bind the shared recording to every frame of the app theme palette,
+            // rather than waiting for navigation/layout to invalidate a static page.
+            rememberChromeBackdropSource(recordingBackground = backgroundColor)
         } else {
             null
         }
@@ -1995,7 +2054,11 @@ fun AppNavigation(
             LocalSetBottomBarVisible provides setBottomBarVisible,
             LocalBottomBarVisible provides (finalBottomBarVisible && !driveBottomBarByProgress),
             LocalBottomBarContentPadding provides bottomBarContentPadding,
-            LocalGlobalWallpaperBackdropVisible provides exposeGlobalHomeWallpaperChrome,
+            LocalGlobalWallpaperBackdropVisible provides globalWallpaperEnabled,
+            LocalHomeWallpaperSelection provides homeWallpaperSelection,
+            LocalWallpaperPlaybackCoordinator provides wallpaperPlaybackCoordinator,
+            LocalGlobalWallpaperBackdropSource provides globalWallpaperSource,
+            LocalGlobalWallpaperUri provides globalHomeWallpaperUri,
             com.android.purebilibili.feature.home.components.cards.LocalWallpaperPalette provides
                 wallpaperPalette,
             LocalPredictiveBackGestureEnabled provides predictiveBackEnabled,
@@ -2247,6 +2310,10 @@ fun AppNavigation(
                         isDataSaverActive = isDataSaverActiveForGlobalWallpaper,
                         isLightBackground = isLightBackground,
                         realtimeBlurEnabled = videoTransitionRealtimeBlurEnabled,
+                        playbackEnabled = exposeGlobalHomeWallpaperChrome,
+                        modifier = Modifier
+                            .onSizeChanged { wallpaperViewport.value = it }
+                            .then(globalWallpaperSource?.modifier ?: Modifier),
                     )
                 fun bottomPagerNavKeyForItem(item: BottomNavItem): BiliPaiNavKey {
                     return when (item) {
@@ -2531,10 +2598,7 @@ fun AppNavigation(
                         },
                         onFansClick = { fansMid ->
                             pushNavigation3Key(
-                                BiliPaiNavKey.Web(
-                                    url = "https://space.bilibili.com/$fansMid/fans/fans",
-                                    title = "粉丝"
-                                )
+                                BiliPaiNavKey.Following(mid = fansMid, fans = true)
                             )
                         },
                         onUpowerRankClick = { upMid, upName, upCount ->
@@ -2656,6 +2720,12 @@ fun AppNavigation(
                                                 resolveBottomPagerSaveableStateKey(slotItem)
                                             ) {
                                                 CompositionLocalProvider(
+                                                    LocalGlobalWallpaperBackdropVisible provides (
+                                                        globalWallpaperEnabled && shouldRenderGlobalHomeWallpaperBackdrop(
+                                                            effectScope = effectiveHomeSettings.homeWallpaperEffectScope,
+                                                            currentRoute = pageKey.toLegacyRoute(),
+                                                        )
+                                                    ),
                                                     LocalVideoCardSharedElementSourceRoute provides pageKey.toLegacyRoute(),
                                                     com.android.purebilibili.core.ui.components.LocalPageImageLoadingAllowed provides (
                                                         page == bottomPagerState.settledPage &&
@@ -3276,6 +3346,11 @@ fun AppNavigation(
                                     )
                                 },
                                 onFollowingClick = { mid -> navigateFromProfile(ScreenRoutes.Following.createRoute(mid)) },
+                                onFansClick = { mid ->
+                                    pushNavigation3Key(
+                                        BiliPaiNavKey.Following(mid = mid, fans = true)
+                                    )
+                                },
                                 onDownloadClick = { navigateFromProfile(ScreenRoutes.DownloadList.route) },
                                 onWatchLaterClick = { navigateFromProfile(ScreenRoutes.WatchLater.route) },
                                 onInboxClick = { navigateFromProfile(ScreenRoutes.Inbox.route) },
@@ -3805,9 +3880,17 @@ fun AppNavigation(
                             }
                         BiliPaiNavEntryContentRole.FOLLOWING -> {
                                 val followingKey = key as BiliPaiNavKey.Following
-                                com.android.purebilibili.feature.following.FollowingListScreen(
+                                if (followingKey.fans) {
+                                    com.android.purebilibili.feature.following.FansListScreen(
+                                        mid = followingKey.mid,
+                                        onBack = { performSystemBackAction() },
+                                        onUserClick = { userMid -> pushNavigation3Key(BiliPaiNavKey.Space(userMid)) },
+                                        onFansClick = { userMid -> pushNavigation3Key(BiliPaiNavKey.Following(userMid, fans = true)) },
+                                    )
+                                } else com.android.purebilibili.feature.following.FollowingListScreen(
                                     mid = followingKey.mid,
                                     onBack = { performSystemBackAction() },
+                                    onFansClick = { userMid -> pushNavigation3Key(BiliPaiNavKey.Following(userMid, fans = true)) },
                                     onUserClick = { userMid -> pushNavigation3Key(BiliPaiNavKey.Space(userMid)) }
                                 )
                             }

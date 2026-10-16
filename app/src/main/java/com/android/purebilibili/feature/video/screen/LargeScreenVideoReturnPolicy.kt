@@ -2,7 +2,7 @@ package com.android.purebilibili.feature.video.screen
 
 import com.android.purebilibili.core.ui.transition.VideoCardSourceLayout
 import com.android.purebilibili.core.ui.transition.VideoCardTransitionBackgroundPhase
-import com.android.purebilibili.core.ui.transition.resolveVideoDetailReturnMediaLayoutHandoffProgress
+import com.android.purebilibili.core.ui.transition.resolveVideoDetailMediaLayoutHandoffProgress
 import com.android.purebilibili.core.ui.transition.resolveVideoCardDetailChromeAlpha
 import com.android.purebilibili.core.ui.transition.resolveNowPlayingBarMediaLayoutHandoff
 import kotlin.math.roundToInt
@@ -29,23 +29,26 @@ internal fun resolveLargeScreenVideoReturnMediaProgress(
 ): Float {
     if (!hasLandingGeometry) return 0f
     if (isCommittedReturn && phase == VideoCardTransitionBackgroundPhase.IDLE) return 1f
-    // Opening and returning share the same source endpoint. Leaving the player at its
-    // detail size during opening exposes a wide black strip inside the flying row.
-    if (phase == VideoCardTransitionBackgroundPhase.OPENING) {
+    // Opening, predictive seek, and returning use the same ordinary-card geometry policy.
+    if (isNowPlayingBar && phase == VideoCardTransitionBackgroundPhase.OPENING) {
         return sourceChromeAlpha ?: (1f - resolveVideoCardDetailChromeAlpha(
             morphDepthProgress = depth,
             phase = phase,
             isReturnGestureInProgress = false,
         ))
     }
-    if (!isReturning && phase != VideoCardTransitionBackgroundPhase.RETURNING) return 0f
-    if (isNowPlayingBar) return resolveNowPlayingBarMediaLayoutHandoff(depth)
-    return resolveVideoDetailReturnMediaLayoutHandoffProgress(
+    if (isNowPlayingBar) {
+        return if (isReturning || phase == VideoCardTransitionBackgroundPhase.RETURNING) {
+            resolveNowPlayingBarMediaLayoutHandoff(depth)
+        } else 0f
+    }
+    return resolveVideoDetailMediaLayoutHandoffProgress(
         morphDepthProgress = depth,
         phase = phase,
         isReturnGestureInProgress = isReturning,
         sourceLayout = sourceLayout,
         sourceChromeAlpha = sourceChromeAlpha,
+        isCommittedCardReturn = isCommittedReturn,
     )
 }
 

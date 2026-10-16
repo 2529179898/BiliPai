@@ -467,50 +467,53 @@ internal fun BottomBarSkinDecorativeTrim(
     clipShape: androidx.compose.ui.graphics.Shape? = null
 ) {
     if (decoration == null) return
-    Box(
-        modifier = modifier
-            .then(clipShape?.let { Modifier.clip(it) } ?: Modifier)
-            .clearAndSetSemantics {}
-            .drawBehind {
-                // Imported trims commonly keep transparent padding around the artwork.
-                // Paint the complete dock first so those pixels never expose the host surface.
-                drawRect(decoration.bottomTrimTint)
-                val trimHeight = size.height * 0.36f
-                val top = size.height - trimHeight
-                drawRoundRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            decoration.bottomTrimTint.copy(alpha = 0.08f),
-                            decoration.bottomTrimTint.copy(alpha = 0.28f)
+    Box(modifier = modifier.clearAndSetSemantics {}) {
+        // Only the base surface follows the capsule outline. Imported artwork
+        // keeps its complete rectangular bounds, including corner decorations.
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .then(clipShape?.let { Modifier.clip(it) } ?: Modifier)
+                .drawBehind {
+                    // Imported trims commonly keep transparent padding around the artwork.
+                    // Paint the complete dock first so those pixels never expose the host surface.
+                    drawRect(decoration.bottomTrimTint)
+                    val trimHeight = size.height * 0.36f
+                    val top = size.height - trimHeight
+                    drawRoundRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                decoration.bottomTrimTint.copy(alpha = 0.08f),
+                                decoration.bottomTrimTint.copy(alpha = 0.28f)
+                            ),
+                            startY = top,
+                            endY = size.height
                         ),
-                        startY = top,
-                        endY = size.height
-                    ),
-                    topLeft = Offset(0f, top),
-                    size = Size(size.width, trimHeight),
-                    cornerRadius = CornerRadius(trimHeight, trimHeight)
-                )
-
-                val cloudRadius = trimHeight * 0.38f
-                val centers = listOf(0.12f, 0.26f, 0.44f, 0.62f, 0.78f, 0.91f)
-                centers.forEachIndexed { index, fraction ->
-                    val y = top + trimHeight * if (index % 2 == 0) 0.46f else 0.58f
-                    drawCircle(
-                        color = decoration.bottomTrimAccent.copy(alpha = 0.18f),
-                        radius = cloudRadius * if (index % 2 == 0) 1.0f else 0.78f,
-                        center = Offset(size.width * fraction, y)
+                        topLeft = Offset(0f, top),
+                        size = Size(size.width, trimHeight),
+                        cornerRadius = CornerRadius(trimHeight, trimHeight)
                     )
+
+                    val cloudRadius = trimHeight * 0.38f
+                    val centers = listOf(0.12f, 0.26f, 0.44f, 0.62f, 0.78f, 0.91f)
+                    centers.forEachIndexed { index, fraction ->
+                        val y = top + trimHeight * if (index % 2 == 0) 0.46f else 0.58f
+                        drawCircle(
+                            color = decoration.bottomTrimAccent.copy(alpha = 0.18f),
+                            radius = cloudRadius * if (index % 2 == 0) 1.0f else 0.78f,
+                            center = Offset(size.width * fraction, y)
+                        )
+                    }
                 }
-            }
-    ) {
+        )
         val imagePath = decoration.bottomTrimImagePath
         if (!imagePath.isNullOrBlank()) {
             AsyncImage(
                 model = File(imagePath),
                 contentDescription = null,
-                // Cover the complete bar (including the gesture-navigation inset) while
-                // keeping the package artwork visually grounded like the reference skin.
-                contentScale = ContentScale.Crop,
+                // Preserve the whole asset; transparent/unused space is filled by
+                // the base surface instead of zooming and cropping the artwork.
+                contentScale = ContentScale.Fit,
                 alignment = Alignment.BottomCenter,
                 modifier = Modifier
                     .matchParentSize()

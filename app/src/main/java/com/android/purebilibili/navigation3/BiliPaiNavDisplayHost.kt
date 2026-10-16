@@ -45,6 +45,9 @@ import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.android.purebilibili.feature.settings.screen.settingsHasPersistentPanes
 import com.android.purebilibili.core.ui.AppSurfaceTokens
+import com.android.purebilibili.core.ui.globalWallpaperAwareBackground
+import com.android.purebilibili.feature.home.shouldRenderGlobalHomeWallpaperBackdrop
+import com.android.purebilibili.core.store.HomeWallpaperEffectScope
 import com.android.purebilibili.core.ui.LocalGlobalWallpaperBackdropVisible
 import com.android.purebilibili.core.ui.LocalSharedTransitionEnabled
 import com.android.purebilibili.core.ui.LocalVideoDetailNavigationTransitionScope
@@ -839,7 +842,12 @@ internal fun BiliPaiNavDisplayHost(
                     CompositionLocalProvider(
                         LocalVideoDetailNavigationTransitionScope provides LocalNavTransitionScope.current,
                         LocalGlobalWallpaperBackdropVisible provides
-                            (globalWallpaperVisible && !opaqueVideoChild),
+                            (globalWallpaperVisible && !opaqueVideoChild &&
+                                shouldRenderGlobalHomeWallpaperBackdrop(
+                                    effectScope = HomeWallpaperEffectScope.GLOBAL,
+                                    currentRoute = key.toLegacyRoute(),
+                                    mainHostTabRoute = activeMainHostRoute,
+                                )),
                         LocalVideoCardSharedElementSourceRoute provides key.toLegacyRoute(),
                         LocalVideoCardTransitionClock provides videoCardClock,
                         LocalVideoCardTransitionBackgroundState provides transitionBackgroundState,
@@ -854,6 +862,8 @@ internal fun BiliPaiNavDisplayHost(
                             modifier = Modifier.fillMaxSize().then(
                                 if (opaqueVideoChild) {
                                     Modifier.background(AppSurfaceTokens.groupedListContainer().copy(alpha = 1f))
+                                } else if (LocalGlobalWallpaperBackdropVisible.current) {
+                                    Modifier.globalWallpaperAwareBackground()
                                 } else Modifier
                             ),
                         ) {

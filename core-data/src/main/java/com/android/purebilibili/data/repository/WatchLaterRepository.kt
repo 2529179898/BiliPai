@@ -1,5 +1,6 @@
 package com.android.purebilibili.data.repository
 
+import com.android.purebilibili.data.model.response.VideoRights
 import com.android.purebilibili.core.network.NetworkModule
 import com.android.purebilibili.core.network.WbiKeyManager
 import com.android.purebilibili.core.network.WbiUtils
@@ -64,12 +65,6 @@ object WatchLaterRepository {
             if (response.code != 0) throw ContentRequestException(response.code, response.message)
             val data = response.data
             val items = data?.list.orEmpty().map { item ->
-                val badges = buildList {
-                    if (item.chargingPay?.level != null) add("充电")
-                    if (item.rights?.isCooperation == 1) add("合作")
-                    item.pgcLabel?.takeIf(String::isNotBlank)?.let(::add)
-                    if (item.isPugv == true) add("课程")
-                }
                 VideoItem(
                     id = item.aid,
                     aid = item.aid,
@@ -94,7 +89,13 @@ object WatchLaterRepository {
                         share = item.stat?.share ?: 0,
                     ),
                     pubdate = item.pubdate ?: 0L,
-                    contentType = badges.joinToString(" · "),
+                    rights = VideoRights(
+                        isCooperation = item.rights?.isCooperation ?: 0,
+                        isSteinGate = item.rights?.isSteinGate ?: 0,
+                    ),
+                    isLessonVideo = item.isPugv == true,
+                    chargingPay = item.chargingPay,
+                    pgcLabel = item.pgcLabel,
                     navigationUrl = item.redirectUrl.orEmpty(),
                 )
             }

@@ -64,6 +64,7 @@ import com.android.purebilibili.feature.video.ui.components.toAnime4KDisplayScal
 import com.android.purebilibili.feature.video.ui.components.toFullscreenAspectRatio
 import com.android.purebilibili.feature.video.ui.components.toVideoAspectRatio
 import com.android.purebilibili.feature.video.ui.gesture.GestureLevelOverlayHost
+import com.android.purebilibili.feature.video.ui.gesture.detectPlayerTapGestures
 import com.android.purebilibili.feature.video.ui.gesture.LockedTwoFingerSpeedAxis
 import com.android.purebilibili.feature.video.ui.gesture.TwoFingerSpeedGestureMode
 import com.android.purebilibili.feature.video.ui.gesture.resolveGestureLevelIcon
@@ -110,7 +111,6 @@ import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import com.android.purebilibili.feature.video.ambient.AmbientPresentation
@@ -1075,7 +1075,6 @@ private fun VideoPlayerSectionContent(
     // 在新播放器就绪后自动把锁定倍速写回。
     var longPressSpeedLocked by remember { mutableStateOf(false) }
     var lockedLongPressSpeed by remember { mutableFloatStateOf(1.0f) }
-    var longPressSpeedEndedAtMs by remember { mutableLongStateOf(0L) }
     var longPressSpeedStartedAtMs by remember { mutableLongStateOf(0L) }
     var longPressSpeedStartX by remember { mutableFloatStateOf(-1f) }
     var longPressSpeedStartY by remember { mutableFloatStateOf(-1f) }
@@ -1839,7 +1838,6 @@ private fun VideoPlayerSectionContent(
         applyLongPressPlaybackParameters(originalPlaybackParameters)
         isLongPressing = false
         longPressSpeedFeedbackVisible = false
-        longPressSpeedEndedAtMs = android.os.SystemClock.elapsedRealtime()
         totalDragDistanceY = 0f
         totalDragDistanceX = 0f
         longPressSpeedStartedAtMs = 0L
@@ -1869,7 +1867,6 @@ private fun VideoPlayerSectionContent(
         }
         isLongPressing = false
         longPressSpeedFeedbackVisible = false
-        longPressSpeedEndedAtMs = android.os.SystemClock.elapsedRealtime()
         totalDragDistanceY = 0f
         totalDragDistanceX = 0f
         longPressSpeedStartedAtMs = 0L
@@ -1906,8 +1903,6 @@ private fun VideoPlayerSectionContent(
         if (isLongPressing || longPressSpeedLocked) {
             finishLongPressSpeedGesture(gestureEnded = true)
         }
-        // 上一条媒体的长按结束时间不能抑制新媒体的首次单击。
-        longPressSpeedEndedAtMs = 0L
     }
 
     fun applyExplicitPlaybackSpeedChange(speed: Float) {
@@ -1930,7 +1925,8 @@ private fun VideoPlayerSectionContent(
 
     var rootModifier = Modifier
         .fillMaxSize()
-        .clipToBounds()
+        // Inline control docks may draw beyond the player viewport while being dragged.
+        .then(if (isFullscreen) Modifier.clipToBounds() else Modifier)
         .background(Color.Black)
         .hazeSourceCompat(overlayDrawerHazeState)
     val inputDevicePolicy = com.android.purebilibili.core.ui.adaptive.resolveInputDevicePolicy(
@@ -2896,20 +2892,12 @@ private fun VideoPlayerSectionContent(
                 if (!shouldEnableInlinePlayerGestures(isPortraitFullscreen)) {
                     return@pointerInput
                 }
-                detectTapGestures(
+                detectPlayerTapGestures(
                     onTap = {
                         com.android.purebilibili.core.util.Logger.d("VideoInputTrace") {
                             "player_tap fullscreen=$isFullscreen locked=$isScreenLocked controls=$showControls"
                         }
                         // 🔒 锁定时点击只显示解锁按钮
-                        if (
-                            !shouldToggleControlsForVideoTap(
-                                longPressSpeedEndedAtMs = longPressSpeedEndedAtMs,
-                                nowMs = android.os.SystemClock.elapsedRealtime()
-                            )
-                        ) {
-                            return@detectTapGestures
-                        }
                         if (isScreenLocked) {
                             showControls = !showControls  // 显示/隐藏解锁按钮
                         } else {
@@ -2922,7 +2910,7 @@ private fun VideoPlayerSectionContent(
                                 "playing=${playerState.player.isPlaying} playWhenReady=${playerState.player.playWhenReady}"
                         }
                         // 🔒 锁定时禁用双击
-                        if (isScreenLocked) return@detectTapGestures
+                        if (isScreenLocked) return@detectPlayerTapGestures
 
                         val screenWidth = size.width.toFloat()
                         val player = playerState.player
@@ -3752,8 +3740,8 @@ private fun VideoPlayerSectionContent(
                 requiresHdrSurfaceOutput = requiresHdrSurface,
             ),
         )
-        // 输出面能否参与 alpha 叠化：SurfaceView 不行（独立硬件层，alpha 无效），
-        // TextureView 可以。供封面垫底与揭开时序在 key 外统一引用。
+        // 输出面能力仅控制封面退场方式：SurfaceView/HDR 硬切，TextureView 保留淡出。
+        // 玻璃与原生路径都在揭开落定后移除封面，不改变各自的布局和尺寸。
         val surfaceCanCrossfade = canSurfaceParticipateInAlphaCrossfade(
             usesTextureSurface = useTextureSurface,
         )
@@ -3762,6 +3750,7 @@ private fun VideoPlayerSectionContent(
             val playerVideoSize = playerState.player.videoSize
             BoxWithConstraints(
                 modifier = playerContentModifier
+                    .clipToBounds()
                     .then(if (capturePlayerPage) playerPageBackdrop.video.modifier else Modifier)
                     .background(Color.Black),
                 contentAlignment = Alignment.Center
@@ -4177,8 +4166,6 @@ private fun VideoPlayerSectionContent(
         shouldKeepCoverForManualStart = keepCoverForManualStart,
         hasStartedSmoothReveal = hasStartedSmoothReveal,
         isSurfaceRevealSettling = isSurfaceRevealSettling,
-        // SurfaceView 无法叠化：首帧到后必须继续垫封面，否则露出整块黑。
-        surfaceCanCrossfade = surfaceCanCrossfade,
     )
     val showCover = shouldShowCoverImage(
         isFirstFrameRendered = isFirstFrameRendered,
@@ -4186,7 +4173,6 @@ private fun VideoPlayerSectionContent(
         shouldKeepCoverForManualStart = keepCoverForManualStart,
         hasStartedSmoothReveal = hasStartedSmoothReveal,
         isSurfaceRevealSettling = isSurfaceRevealSettling,
-        surfaceCanCrossfade = surfaceCanCrossfade,
     )
     val manualStartPlayButtonLayoutSpec = remember {
         resolveManualStartPlayButtonLayoutSpec()
@@ -4282,16 +4268,18 @@ private fun VideoPlayerSectionContent(
     val coverMotionSpec = remember(
         suppressCoverFade,
         holdEntryCoverUnderlay,
+        surfaceCanCrossfade,
         revealMotionSpec.surfaceRevealDurationMillis,
     ) {
         resolveVideoPlayerCoverMotionSpec(
             forceCoverDuringReturnAnimation = suppressCoverFade,
             holdEntryCoverUnderlay = holdEntryCoverUnderlay,
-            // 封面淡出与 surface 淡入锁死同一条时间轴：避免中间露出 PlayerView 黑底。
+            // 保留 TextureView 的原有时长，SurfaceView/HDR 在落定后直接移除。
             surfaceRevealDurationMillis = revealMotionSpec.surfaceRevealDurationMillis,
+            surfaceCanCrossfade = surfaceCanCrossfade,
         )
     }
-    // 返回强制封面 / 垫底 hold 时硬切；揭开阶段允许淡出，避免「永远盖着封面」。
+    // 强制封面、垫底和 SurfaceView/HDR 禁止淡出，但不阻止封面在揭开落定后退出。
     val disableCoverFadeAnimation = !coverMotionSpec.shouldAnimateFade
     val coverOverlaySharedBoundsEnabled = shouldEnableCoverOverlaySharedBounds(
         useCoverOverlaySharedBounds = entryPresentationSpec.coverUsesSharedBounds,
@@ -4371,7 +4359,9 @@ private fun VideoPlayerSectionContent(
             modifier = playerContentModifier
                 .then(if (capturePlayerPage) playerPageBackdrop.cover.modifier else Modifier),
         ) {
-            val coverContainerModifier = if (fillPlayerViewportForManualStartCover) {
+            val coverContainerModifier = if (fillPlayerViewportForManualStartCover ||
+                (!isVerticalVideo && !isFullscreen && !forceCoverDuringReturnAnimation)
+            ) {
                 sharedCoverOverlayModifier
                     .matchParentSize()
                     .background(Color.Black)
@@ -4651,7 +4641,8 @@ private fun VideoPlayerSectionContent(
                 )
                 val commandControlsReservePx = with(density) {
                     (maxOf(
-                        if (isFullscreen) com.android.purebilibili.feature.video.ui.overlay.PlayerChromeLayout.CircularButtonSizeDp else commandControlsLayout.playButtonSizeDp,
+                        commandControlsLayout.playButtonSizeDp,
+                        commandControlsLayout.danmakuInputHeightDp,
                         com.android.purebilibili.feature.video.ui.overlay.resolveFullscreenToggleTouchTargetDp(
                             commandControlsLayout.fullscreenIconSizeDp
                         ),

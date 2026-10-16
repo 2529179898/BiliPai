@@ -2,6 +2,7 @@ package com.android.purebilibili.feature.settings.ui
 
 import com.android.purebilibili.core.ui.AppContentColors
 
+import com.android.purebilibili.core.ui.globalWallpaperAwareBackground
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -253,7 +254,7 @@ internal fun SettingsPageScaffold(
                 .fillMaxSize()
                 .then(if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier)
                 .then(if (hazeState != null) Modifier.hazeSourceCompat(hazeState) else Modifier)
-                .background(pageContainerColor)
+                .globalWallpaperAwareBackground(pageContainerColor)
 
             val windowSizeClass = LocalWindowSizeClass.current
             val isExpandedScreen = windowSizeClass.isExpandedScreen

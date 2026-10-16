@@ -29,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import com.android.purebilibili.core.ui.AppShapes
@@ -60,7 +61,10 @@ internal fun sharedCardContainerBounds(
             enter = fadeIn(tween(SHARED_CARD_CONTAINER_DURATION_MS, easing = LinearEasing)),
             exit = fadeOut(tween(SHARED_CARD_CONTAINER_DURATION_MS, easing = LinearEasing)),
             boundsTransform = { _, _ -> tween(SHARED_CARD_CONTAINER_DURATION_MS, easing = LinearEasing) },
-            resizeMode = scaleToBounds(ContentScale.FillBounds),
+            // Cards and detail pages have very different aspect ratios. Stretching the whole
+            // subtree to the animated bounds distorts avatars, posters and glyphs on both sides.
+            // Keep each endpoint's layout and scale it uniformly while the container morphs.
+            resizeMode = scaleToBounds(ContentScale.Fit),
             clipInOverlayDuringTransition = OverlayClip(AppShapes.container(ContainerLevel.Card)),
         )
     }
@@ -119,11 +123,29 @@ internal fun <T : Any> SharedCardContainerHost(
                 fraction = event.progress.coerceIn(0f, 1f)
                 transitionState.seekTo(if (reduceMotion) 0f else fraction, null)
             }
-            transitionState.animateTo(null, tween((duration * (1f - fraction)).toInt(), easing = LinearEasing))
+            // Continue the existing seek direction and let Compose use its remaining time.
+            transitionState.animateTo(null)
             opened = null
         } catch (cancelled: CancellationException) {
             withContext(NonCancellable) {
-                opened?.let { transitionState.animateTo(it, tween(duration, easing = LinearEasing)) }
+                opened?.let { detail ->
+                    // Changing target to detail here creates a NEW transition while Compose
+                    // also settles the interrupted initial values. That produces a second
+                    // whole-page movement after release. Rewind the same shared bounds first.
+                    val restoreFraction = transitionState.fraction
+                    val restoreNanos = (duration * restoreFraction).toLong() * 1_000_000L
+                    if (restoreNanos > 0L && !reduceMotion) {
+                        val start = withFrameNanos { it }
+                        do {
+                            val elapsed = withFrameNanos { it } - start
+                            val progress = (elapsed.toFloat() / restoreNanos).coerceIn(0f, 1f)
+                            transitionState.seekTo(restoreFraction * (1f - progress), null)
+                        } while (progress < 1f)
+                    }
+                    // Both endpoints now match the original detail pixels; reset state
+                    // without starting another bounds/fade animation.
+                    transitionState.snapTo(detail)
+                }
             }
             throw cancelled
         }
@@ -134,7 +156,8 @@ internal fun <T : Any> SharedCardContainerHost(
         transition.AnimatedContent(
             modifier = Modifier.fillMaxSize(),
             contentKey = { if (it == null) "source" else "destination" },
-            transitionSpec = { EnterTransition.None togetherWith ExitTransition.None },
+            // Shared bounds own geometry; AnimatedContent must not add its default size spring.
+            transitionSpec = { (EnterTransition.None togetherWith ExitTransition.None).using(null) },
         ) { target ->
             CompositionLocalProvider(
                 LocalSharedTransitionScope provides if (reduceMotion) null else sharedScope,

@@ -8,6 +8,66 @@ import kotlin.test.assertTrue
 
 class FeedDocumentParserTest {
     @Test
+    fun `HTTP enclosure without MIME type and encoded body retain separate images`() {
+        val item = parseFeedDocument(
+            xml = """
+                <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+                  <channel><title>订阅</title><item>
+                    <title>文章</title><link>https://www.jintiankansha.me/post/one</link>
+                    <enclosure url="https://example.com/audio.mp3" type="audio/mpeg"/>
+                    <enclosure url="http://example.com/cover.jpg?size=large"/>
+                    <content:encoded><![CDATA[<p>正文</p><a href="/photo"><span><img src="http://example.com/body.jpg"></span></a>]]></content:encoded>
+                  </item></channel>
+                </rss>
+            """.trimIndent(),
+            sourceId = "s",
+            sourceTitle = "订阅",
+        ).items.single()
+
+        assertEquals("http://example.com/cover.jpg?size=large", item.imageUrl)
+        assertEquals(
+            listOf("http://example.com/body.jpg"),
+            parseFeedHtml(item.htmlContent, item.link).filterIsInstance<FeedBlock.Image>().map { it.url },
+        )
+    }
+
+    @Test
+    fun `untyped extensionless HTTP cover enclosure is accepted`() {
+        val item = parseFeedDocument(
+            """<rss><channel><item><title>文章</title><link>https://example.com/post</link><enclosure url="http://mmbiz.qpic.cn/mmbiz_jpg/cover/0?wx_fmt=jpeg"/><description><![CDATA[<img src="http://example.com/body.jpg">]]></description></item></channel></rss>""",
+            sourceId = "s",
+            sourceTitle = "订阅",
+        ).items.single()
+        assertEquals("http://mmbiz.qpic.cn/mmbiz_jpg/cover/0?wx_fmt=jpeg", item.imageUrl)
+    }
+
+    @Test
+    fun `podcast enclosure is not used as a cover`() {
+        val item = parseFeedDocument(
+            """<rss><channel><item><title>播客</title><link>https://example.com/post</link><enclosure url="https://example.com/audio.mp3" type="audio/mpeg"/><description><![CDATA[<img src="/cover.png">]]></description></item></channel></rss>""",
+            sourceId = "s",
+            sourceTitle = "订阅",
+        ).items.single()
+        assertEquals("https://example.com/cover.png", item.imageUrl)
+    }
+
+    @Test
+    fun `linked images keep order and surrounding inline formatting`() {
+        val blocks = parseFeedHtml(
+            """<p><strong>甲<a href="/post">链接<span><img src="http://example.com/a.jpg"></span>乙</a>丙</strong></p>""",
+            "https://example.com/",
+        )
+        assertEquals(3, blocks.size)
+        val before = (blocks[0] as FeedBlock.Paragraph).inlines
+        assertEquals(FeedInline.Text("甲", bold = true), before[0])
+        assertEquals(FeedInline.Link("链接", "https://example.com/post"), before[1])
+        assertEquals("http://example.com/a.jpg", (blocks[1] as FeedBlock.Image).url)
+        val after = (blocks[2] as FeedBlock.Paragraph).inlines
+        assertEquals(FeedInline.Link("乙", "https://example.com/post"), after[0])
+        assertEquals(FeedInline.Text("丙", bold = true), after[1])
+    }
+
+    @Test
     fun `rss keeps encoded body enclosure image and author`() {
         val feed = parseFeedDocument(
             xml = """

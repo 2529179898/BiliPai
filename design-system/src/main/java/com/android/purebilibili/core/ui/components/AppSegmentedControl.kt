@@ -24,6 +24,8 @@ import com.android.purebilibili.core.ui.renderer.miuix.AppMiuixTabRow
 data class AppSegmentOption<T>(
     val value: T,
     val label: String,
+    /** 下拉 / 弹窗里的补充说明；分段控件忽略该字段。 */
+    val description: String? = null,
 )
 
 /**
@@ -142,6 +144,12 @@ internal fun resolveAppTabSlotGeometry(
     }
     return AppTabSlotGeometry(width, slot, padding)
 }
+/** Glass-only slot breathing room. Native renderers retain their existing 12dp default. */
+val LiquidGlassTabSlotHorizontalPadding: Dp = 10.dp
+
+fun resolveLiquidGlassTabSlotHorizontalPadding(itemCount: Int): Dp =
+    if (itemCount == 2) 16.dp else LiquidGlassTabSlotHorizontalPadding
+
 internal fun resolveMeasuredTabMinWidth(
     requestedMinWidth: Dp,
     labelWidths: List<Dp>,
@@ -177,10 +185,11 @@ fun rememberMeasuredTabMinWidth(
     requestedMinWidth: Dp,
     labels: List<String>,
     textStyle: androidx.compose.ui.text.TextStyle,
+    horizontalPadding: Dp = 12.dp,
 ): Dp {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-    return androidx.compose.runtime.remember(requestedMinWidth, labels, textStyle, density, measurer) {
+    return androidx.compose.runtime.remember(requestedMinWidth, labels, textStyle, horizontalPadding, density, measurer) {
         resolveMeasuredTabMinWidth(
             requestedMinWidth,
             labels.map { label ->
@@ -190,6 +199,7 @@ fun rememberMeasuredTabMinWidth(
                     ).size.width.toDp()
                 }
             },
+            horizontalPadding = horizontalPadding,
         )
     }
 }
@@ -244,7 +254,7 @@ fun resolveMiuixNonGlassContentTabItemWidths(
     maxTabWidth: Dp = 320.dp,
     horizontalContentPadding: Dp = 24.dp,
 ): List<Dp> = labelWidths.map { labelWidth ->
-    (labelWidth + horizontalContentPadding).coerceIn(minTabWidth, maxTabWidth)
+    (labelWidth + horizontalContentPadding).coerceIn(minTabWidth, maxOf(minTabWidth, maxTabWidth))
 }
 
 fun resolveAppLiquidSegmentedControlSpec(
@@ -353,8 +363,10 @@ fun <T> AppNativeSegmentedControl(
     } else {
         AppSurfaceTokens.surfaceContainerHigh()
     }
-    val activeCardColor = AppSurfaceTokens.primaryContainer()
-    val activeTextColor = AppSurfaceTokens.onPrimaryContainer()
+    val activeCardColor = if (isMiuixNonGlass) AppSurfaceTokens.selectionContainer()
+        else AppSurfaceTokens.primaryContainer()
+    val activeTextColor = if (isMiuixNonGlass) com.android.purebilibili.core.ui.AppContentColors.accent()
+        else AppSurfaceTokens.onPrimaryContainer()
     val inactiveTextColor = com.android.purebilibili.core.ui.AppContentColors.secondaryText()
     val colors = resolveAppSegmentedControlColors(
         usesMaterialColorTokens = policy.usesMaterialColorTokens,
@@ -482,8 +494,10 @@ fun <T> AppNativeTabRow(
     } else {
         AppSurfaceTokens.surfaceContainerHigh()
     }
-    val activeCardColor = AppSurfaceTokens.primaryContainer()
-    val activeTextColor = AppSurfaceTokens.onPrimaryContainer()
+    val activeCardColor = if (isMiuixNonGlass) AppSurfaceTokens.selectionContainer()
+        else AppSurfaceTokens.primaryContainer()
+    val activeTextColor = if (isMiuixNonGlass) com.android.purebilibili.core.ui.AppContentColors.accent()
+        else AppSurfaceTokens.onPrimaryContainer()
     val inactiveTextColor = com.android.purebilibili.core.ui.AppContentColors.secondaryText()
     val colors = resolveAppSegmentedControlColors(
         usesMaterialColorTokens = policy.usesMaterialColorTokens,
@@ -541,7 +555,10 @@ fun <T> AppNativeTabRow(
             labelFontSize = labelFontSize,
             containerHorizontalPadding = containerHorizontalPadding,
             modifier = if (fixedItemWidth == null && shouldUseCompactMiuixTabRow(options.size, effectiveScrollable, compactMiuixWhenTwoOptions)) {
-                modifier.width(compactItemWidth * options.size)
+                modifier.width(
+                    compactItemWidth * options.size + containerHorizontalPadding * 2 +
+                        if (nonGlassMiuix) AppSpacingTokens.Small * (options.size - 1) else 0.dp,
+                )
             } else {
                 modifier
             },

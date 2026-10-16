@@ -31,7 +31,10 @@ data class PlaylistItem(
     // 番剧专用
     val isBangumi: Boolean = false,
     val seasonId: Long? = null,
-    val epId: Long? = null
+    val epId: Long? = null,
+    val playCount: Long? = null,
+    val commentCount: Long? = null,
+    val publishedAt: Long? = null,
 )
 
 /**
@@ -492,7 +495,12 @@ object PlaylistManager {
             playAt(_playlist.value.lastIndex)
         } else {
             val existing = _playlist.value[index]
-            val updated = item.copy(ownerFace = item.ownerFace.ifBlank { existing.ownerFace })
+            val updated = item.copy(
+                ownerFace = item.ownerFace.ifBlank { existing.ownerFace },
+                playCount = item.playCount ?: existing.playCount,
+                commentCount = item.commentCount ?: existing.commentCount,
+                publishedAt = item.publishedAt ?: existing.publishedAt,
+            )
             if (existing != updated) {
                 _playlist.value = _playlist.value.toMutableList().also { it[index] = updated }
             }

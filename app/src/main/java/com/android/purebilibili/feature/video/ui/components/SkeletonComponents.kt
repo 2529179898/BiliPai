@@ -319,7 +319,6 @@ private fun RelatedVideoItemSkeleton(
                 shape = VideoDetailShapes.media(),
             )
         },
-        infoVerticalArrangement = Arrangement.spacedBy(4.dp),
         infoContent = {
             SkeletonBox(modifier = Modifier.fillMaxWidth(), height = 16.dp, cornerRadius = 8.dp)
             SkeletonBox(modifier = Modifier.fillMaxWidth(0.82f), height = 16.dp, cornerRadius = 8.dp)

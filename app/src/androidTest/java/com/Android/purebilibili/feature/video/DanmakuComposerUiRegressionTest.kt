@@ -10,7 +10,7 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.android.purebilibili.feature.video.ui.components.LandscapeDanmakuComposer
+import com.android.purebilibili.feature.video.ui.components.PlainLandscapeDanmakuComposer
 import java.io.File
 import com.android.purebilibili.feature.video.ui.components.DanmakuSendDialog
 import com.android.purebilibili.feature.video.ui.components.CommentInputDialog
@@ -108,11 +108,11 @@ class DanmakuComposerUiRegressionTest {
     }
 
     @Test
-    fun landscapeComposer_styleAndKeyboardSwitchesPreserveDraftAndSelection() {
+    fun plainLandscapeComposer_styleAndKeyboardSwitchesPreserveDraftAndSelection() {
         val draft = mutableStateOf("")
         composeTestRule.setContent {
             MaterialTheme {
-                LandscapeDanmakuComposer(
+                PlainLandscapeDanmakuComposer(
                     visible = true,
                     onDismiss = {},
                     onSend = { _, _, _, _, _ -> },

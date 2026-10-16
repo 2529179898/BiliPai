@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.space
 
+import com.android.purebilibili.core.ui.components.VideoStatusBadges
 import com.android.purebilibili.core.ui.AppContentColors
 
 import android.os.Build
@@ -2085,7 +2086,6 @@ private fun SpaceContent(
                                                 syncedProgress = state.watchProgressByBvid[video.bvid]
                                             ),
                                             coverAspectRatio = spaceFeedCoverAspectRatio,
-                                            badgeLabel = resolveSpaceVideoChargeBadgeLabel(video),
                                             isLocateHighlight = highlightedLocateBvid == video.bvid &&
                                                 isLocateHighlightVisible,
                                             onClick = { playVideoFromSpace(video.bvid) },
@@ -2107,7 +2107,7 @@ private fun SpaceContent(
                                                 localPositionMs = localProgressMs,
                                                 syncedProgress = state.watchProgressByBvid[video.bvid]
                                             ),
-                                            badgeLabel = resolveSpaceVideoChargeBadgeLabel(video),
+                                            statusLabels = video.statusLabels,
                                             isLocateHighlight = highlightedLocateBvid == video.bvid &&
                                                 isLocateHighlightVisible,
                                             modifier = boundedListModifier,
@@ -3404,6 +3404,7 @@ private fun SpaceMainTabRow(
     selectedTab: SpaceMainTab,
     onSelect: (SpaceMainTab) -> Unit,
 ) {
+    val liquidGlassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
     val spec = remember(tabs, selectedTab) {
         resolveSpaceMainTabChromeSpec(tabs = tabs, selectedTab = selectedTab)
     }
@@ -3418,7 +3419,11 @@ private fun SpaceMainTabRow(
             options = tabs.map { AppSegmentOption(it.tab, it.title) },
             selectedValue = tabs[selectedIndex].tab,
             onSelectionChange = onSelect,
-            centerContent = false,
+            // Give the glass rail modest breathing room without returning to full-page slots.
+            // Native alignment, minimum width and typography keep their original defaults.
+            centerContent = liquidGlassEnabled,
+            minTabWidth = if (liquidGlassEnabled) 64.dp else androidx.compose.ui.unit.Dp.Unspecified,
+            labelFontSize = if (liquidGlassEnabled) 15.sp else androidx.compose.ui.unit.TextUnit.Unspecified,
             scrollable = spec.scrollable,
             dragSelectionEnabled = spec.dragSelectionEnabled,
             tapPressRefractionEnabled = true,
@@ -3844,6 +3849,10 @@ private fun SpaceHomeVideoCard(
                     .matchParentSize()
                     .then(nativeCardSnapshot.coverOverlayModifier),
             ) {
+            VideoStatusBadges(
+                labels = video.statusLabels,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+            )
             if (!badgeLabel.isNullOrBlank()) {
                 AppSurface(
                     modifier = Modifier
@@ -4048,6 +4057,10 @@ private fun SpaceAggregateMediaCard(
                 modifier = Modifier.fillMaxSize()
             )
 
+            VideoStatusBadges(
+                labels = item.statusLabels,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+            )
             if (item.length.isNotBlank()) {
                 VideoCardCoverDurationText(
                     text = item.length,
@@ -4213,6 +4226,7 @@ private fun SpaceContributionArchiveVideoItem(
                 title = video.title,
                 cover = video.pic,
                 duration = video.length,
+                statusLabels = video.statusLabels,
                 publishTime = FormatUtils.formatPublishTime(video.created),
                 play = video.play.toLong(),
                 secondaryCount = video.comment.toLong(),
@@ -4261,6 +4275,7 @@ private fun SpaceArchiveListItemRow(
     secondaryCount: Long,
     progressState: VideoProgressDisplayState? = null,
     badgeLabel: String? = null,
+    statusLabels: List<String> = emptyList(),
     isLocateHighlight: Boolean = false,
     showTrailingMore: Boolean = true,
     onClick: () -> Unit,
@@ -4406,6 +4421,10 @@ private fun SpaceArchiveListItemRow(
         },
         coverOverlayModifier = nativeCardSnapshot.coverOverlayModifier,
         coverOverlayContent = {
+            VideoStatusBadges(
+                labels = statusLabels,
+                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+            )
             if (!badgeLabel.isNullOrBlank()) {
                 AppSurface(
                     modifier = Modifier
@@ -4417,7 +4436,7 @@ private fun SpaceArchiveListItemRow(
                     AppText(
                         text = badgeLabel,
                         modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().statistic.copy(fontWeight = FontWeight.SemiBold),
                         color = AppContentColors.onAccent()
                     )
                 }
@@ -4451,14 +4470,14 @@ private fun SpaceArchiveListItemRow(
             AppText(
                 text = title,
                 modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().title,
                 maxLines = videoCardTitleMaxLines(),
                 overflow = videoCardTitleOverflow(),
                 color = AppContentColors.primaryText()
             )
             AppText(
                 text = if (progressState?.progressSec == -1) "$publishTime · 已看完" else publishTime,
-                style = MaterialTheme.typography.bodySmall,
+                style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().author,
                 color = AppContentColors.secondaryText()
             )
             HorizontalVideoStatRow(
@@ -4473,9 +4492,7 @@ private fun SpaceArchiveListItemRow(
                     contentDescription = null,
                     tint = AppContentColors.secondaryText().copy(alpha = 0.72f),
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(8.dp)
-                        .size(18.dp),
+                        .size(24.dp),
                 )
             }
         } else {

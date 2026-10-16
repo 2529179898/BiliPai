@@ -558,8 +558,9 @@ internal fun VideoDetailScreenStateHolder(
     val scopedHeroDriver = com.android.purebilibili.core.ui.transition.LocalMiuixVideoCardTransitionState.current
     val entryHeroDriver = scopedHeroDriver
         .takeIf {
-            it.enabled && isVideoDetailEntryActiveMiuixTransitionSource(
+            isVideoDetailEntryActiveMiuixTransitionSource(
                 sourceRouteForSharedElement, videoCardDepthBackgroundState.sourceRouteProvider(),
+                miuixTransitionEnabled = it.enabled,
             )
         }
     val frozenTransitionSourceCornerDp =
@@ -4243,8 +4244,9 @@ internal fun VideoDetailScreenStateHolder(
                             isFoldableCoverWindow = displayContext.isFoldableCoverWindow,
                         ).dp
                         val playerChromeProfile = rememberAppPlayerChromeProfile()
-                        val videoContentTabSwitchAnimationSpec = remember(playerChromeProfile.tabPresentation) {
-                            resolveVideoContentTabSwitchAnimationSpec(playerChromeProfile.tabPresentation)
+                        val liquidGlassTabMotion = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+                        val videoContentTabSwitchAnimationSpec = remember(playerChromeProfile.tabPresentation, liquidGlassTabMotion) {
+                            resolveVideoContentTabSwitchAnimationSpec(playerChromeProfile.tabPresentation, liquidGlassTabMotion)
                         }
 
                         //  读取竖屏播放器滚动缩小模式
@@ -4530,7 +4532,6 @@ internal fun VideoDetailScreenStateHolder(
                         ) {
                             object : NestedScrollConnection {
                                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                                    if (available.y != 0f) inlinePlayerCollapseState.beginScroll()
                                     val scrollUpdate = reduceVideoDetailPreScroll(
                                         currentOffsetPx = inlinePlayerCollapseState.offsetPx,
                                         deltaPx = available.y,
@@ -4538,13 +4539,11 @@ internal fun VideoDetailScreenStateHolder(
                                         inlinePortraitScrollEnabled = inlinePortraitScrollEnabled,
                                         isPortraitFullscreen = isPortraitFullscreen,
                                         layoutAlreadyCollapsed = skipGesturePlayerCollapse,
-                                    ) ?: return Offset.Zero
-                                    inlinePlayerCollapseState.updateOffset(scrollUpdate.nextOffsetPx)
-                                    return Offset(0f, scrollUpdate.consumedDeltaPx)
+                                    )
+                                    return Offset(0f, inlinePlayerCollapseState.consumeScroll(scrollUpdate))
                                 }
 
                                 override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                                    if (available.y != 0f) inlinePlayerCollapseState.beginScroll()
                                     val scrollUpdate = reduceVideoDetailPostScroll(
                                         currentOffsetPx = inlinePlayerCollapseState.offsetPx,
                                         deltaPx = available.y,
@@ -4552,9 +4551,8 @@ internal fun VideoDetailScreenStateHolder(
                                         inlinePortraitScrollEnabled = inlinePortraitScrollEnabled,
                                         isPortraitFullscreen = isPortraitFullscreen,
                                         layoutAlreadyCollapsed = skipGesturePlayerCollapse,
-                                    ) ?: return Offset.Zero
-                                    inlinePlayerCollapseState.updateOffset(scrollUpdate.nextOffsetPx)
-                                    return Offset(0f, scrollUpdate.consumedDeltaPx)
+                                    )
+                                    return Offset(0f, inlinePlayerCollapseState.consumeScroll(scrollUpdate))
                                 }
                             }
                         }
@@ -4850,9 +4848,11 @@ internal fun VideoDetailScreenStateHolder(
                         // A frozen now-playing snapshot contains the whole capsule, not just
                         // its cover. Land it in the complete source bounds for either bar layout.
                         val nativeSnapshotTargetBoundsProvider: (() -> Rect?)? =
-                            if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true ||
-                                (CardPositionManager.lastClickedNativeCardBitmap != null &&
-                                    miuixLandingState.sourceLayout == VideoCardSourceLayout.COVER_ONLY)
+                            if (
+                                entryOwnsMiuixCardTransition && miuixLandingState.enabled &&
+                                (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true ||
+                                    (CardPositionManager.lastClickedNativeCardBitmap != null &&
+                                        miuixLandingState.sourceLayout == VideoCardSourceLayout.COVER_ONLY))
                             ) {
                                 { miuixLandingState.sourceBoundsProvider() }
                             } else {
@@ -4916,8 +4916,16 @@ internal fun VideoDetailScreenStateHolder(
                             )
                         }
                         val returnMediaHandoffProgressProvider: () -> Float = {
-                            if (!entryOwnsMiuixCardTransition) {
+                            if (!entryOwnsMiuixCardTransition || !miuixLandingState.enabled) {
                                 0f
+                            } else if (isCommittedCardReturn &&
+                                !videoCardDepthBackgroundState.isReturnGestureInProgressProvider() &&
+                                !videoCardDepthBackgroundState.isGestureRestoreInProgressProvider() &&
+                                videoCardDepthBackgroundState.phaseProvider() ==
+                                    VideoCardTransitionBackgroundPhase.IDLE
+                            ) {
+                                // Keep every media path at its source endpoint until the entry leaves.
+                                1f
                             } else {
                                 if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true) {
                                     com.android.purebilibili.core.ui.transition
@@ -4931,7 +4939,7 @@ internal fun VideoDetailScreenStateHolder(
                                         )
                                 } else {
                                     com.android.purebilibili.core.ui.transition
-                                        .resolveVideoDetailReturnMediaLayoutHandoffProgress(
+                                        .resolveVideoDetailMediaLayoutHandoffProgress(
                                             morphDepthProgress = miuixLandingState.progressProvider(),
                                             phase = videoCardDepthBackgroundState.phaseProvider(),
                                             isReturnGestureInProgress =
@@ -4942,12 +4950,16 @@ internal fun VideoDetailScreenStateHolder(
                                             sourceLayout = landingLayoutForMedia?.layout
                                                 ?: miuixLandingState.sourceLayout,
                                             sourceChromeAlpha = flyingSourceChromeAlphaProvider(),
+                                            isCommittedCardReturn = isCommittedCardReturn,
                                         )
                                 }
                             }
                         }
+                        val residentCoverContentScale = VideoDetailCoverContentScale
                         val nowPlayingMediaAlphaProvider: () -> Float = {
-                            if (miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar != true) {
+                            if (!entryOwnsMiuixCardTransition || !miuixLandingState.enabled ||
+                                miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar != true
+                            ) {
                                 1f
                             } else if (isCommittedCardReturn &&
                                 videoCardDepthBackgroundState.phaseProvider() ==
@@ -5018,8 +5030,8 @@ internal fun VideoDetailScreenStateHolder(
                                     inlineHeight = inlinePlayerHeight,
                                     fullscreenHeight = fullscreenPlayerHeight,
                                     enabled = continuousFullscreenTransitionEnabled,
-                                    // 横屏 16:9：按真实布局宽度算高度，消除 vivo 等机型左右黑边。
-                                    preferLayoutWidth16x9Inline = !useOfficialInlinePortraitDetailExperience &&
+                                    // Loading cover and playback share 16:9 geometry; the first frame must not resize the viewport.
+                                    preferLayoutWidthInline = !useOfficialInlinePortraitDetailExperience &&
                                         !suppressPhoneDetailBodyForDirectPortrait,
                                     inlineTopInset = if (!useOfficialInlinePortraitDetailExperience) {
                                         playerTopInset
@@ -5134,8 +5146,15 @@ internal fun VideoDetailScreenStateHolder(
                                         .zIndex(1f)
                                         .graphicsLayer {
                                             alpha = returnMediaFrameProvider().coverAlpha * nowPlayingMediaAlphaProvider()
-                                        },
-                                    contentScale = ContentScale.Crop
+                                        }
+                                        // Keep the loading backing inside the cover alpha layer so it
+                                        // yields together with the image to the playback surface.
+                                        .background(Color.Black),
+                                    contentScale = if (isVerticalVideo) {
+                                        ContentScale.Crop
+                                    } else {
+                                        residentCoverContentScale
+                                    }
                                 )
                             }
                             var collapsedPlayerMoreRequestKey by remember(currentBvid) {
@@ -5380,7 +5399,8 @@ internal fun VideoDetailScreenStateHolder(
                                             }
                                         } else {
                                             VideoDetailSkeleton(
-                                                animated = entryTransitionFinished,
+                                                // Loading feedback is independent of the card-transition switch.
+                                                animated = !transitionEnabled || entryTransitionFinished,
                                             )
                                         }
                                     }

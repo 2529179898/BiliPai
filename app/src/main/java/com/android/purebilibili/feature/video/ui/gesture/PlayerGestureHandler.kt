@@ -5,8 +5,10 @@ import android.app.Activity
 import android.content.Context
 import android.media.AudioManager
 import android.provider.Settings
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -18,6 +20,7 @@ import androidx.compose.material.icons.filled.BrightnessHigh
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.platform.LocalContext
@@ -269,16 +272,57 @@ fun GestureIndicator(
 }
 
 /**
- * Create tap gesture detector
+ * Only short presses can enter the double-tap stream. Long presses remain owned by
+ * the separate speed/drag detector; awaitEachGesture drains their release events.
+ * Distant taps are independent, and the second can still start a new double tap.
  */
 suspend fun PointerInputScope.detectPlayerTapGestures(
-    onTap: () -> Unit,
-    onDoubleTap: () -> Unit
+    onTap: (Offset) -> Unit,
+    onDoubleTap: (Offset) -> Unit
 ) {
-    detectTapGestures(
-        onTap = { onTap() },
-        onDoubleTap = { onDoubleTap() }
-    )
+    val doubleTapSlopSquared = viewConfiguration.touchSlop * viewConfiguration.touchSlop
+    awaitEachGesture {
+        var down = awaitFirstDown()
+        while (true) {
+            down.consume()
+            val up = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                waitForUpOrCancellation()
+            } ?: return@awaitEachGesture
+            up.consume()
+
+            val secondDown = withTimeoutOrNull(viewConfiguration.doubleTapTimeoutMillis) {
+                val minUptime = up.uptimeMillis + viewConfiguration.doubleTapMinTimeMillis
+                var candidate = awaitFirstDown()
+                while (candidate.uptimeMillis < minUptime) {
+                    candidate = awaitFirstDown()
+                }
+                candidate
+            }
+            if (secondDown == null) {
+                onTap(up.position)
+                return@awaitEachGesture
+            }
+
+            val distanceSquared = (secondDown.position - down.position).getDistanceSquared()
+            if (distanceSquared > doubleTapSlopSquared) {
+                onTap(up.position)
+                down = secondDown
+                continue
+            }
+
+            secondDown.consume()
+            val secondUp = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                waitForUpOrCancellation()
+            }
+            if (secondUp == null) {
+                onTap(up.position)
+            } else {
+                secondUp.consume()
+                onDoubleTap(secondUp.position)
+            }
+            return@awaitEachGesture
+        }
+    }
 }
 
 /**

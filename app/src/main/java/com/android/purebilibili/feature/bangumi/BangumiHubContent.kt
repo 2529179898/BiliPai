@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.bangumi
 
+import com.android.purebilibili.core.ui.components.wallpaperMediaCardSurface
 import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.animation.AnimatedVisibility
@@ -411,7 +412,8 @@ private fun TimelineSection(
             style = MaterialTheme.typography.titleMedium,
         )
         val uiStyle = LocalAppUiStyle.current
-        val timelineRangeMinWidth = if (uiStyle == AppUiStyle.MATERIAL3) {
+        val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+        val timelineRangeMinWidth = if (liquidGlassEnabled || uiStyle == AppUiStyle.MATERIAL3) {
             AppChromeSizeTokens.MinimumTouchTarget
         } else {
             104.dp
@@ -437,7 +439,7 @@ private fun TimelineSection(
             state.error != null && state.days.isEmpty() -> InlineError(state.error, onRetry)
             state.days.isEmpty() -> InlineNotice("当前范围暂无更新时间表")
             else -> {
-                val timelineDayMinWidth = if (uiStyle == AppUiStyle.MATERIAL3) {
+                val timelineDayMinWidth = if (liquidGlassEnabled || uiStyle == AppUiStyle.MATERIAL3) {
                     AppChromeSizeTokens.MinimumTouchTarget
                 } else {
                     112.dp
@@ -449,6 +451,8 @@ private fun TimelineSection(
                     },
                     selectedValue = selectedDay,
                     onSelectionChange = { selectedDay = it },
+                    // Glass drags on the selected capsule choose a date; other slots remain scrollable.
+                    dragSelectionEnabled = liquidGlassEnabled,
                     scrollable = true,
                     minTabWidth = timelineDayMinWidth,
                     miuixBackdrop = tabBackdrop,
@@ -533,7 +537,11 @@ private fun BangumiIndexContent(
                 key = "index_categories",
             ) {
                 val uiStyle = LocalAppUiStyle.current
-                val categoryMinWidth = if (uiStyle == AppUiStyle.MATERIAL3) {
+                // Native Miuix widths do not participate in glass label measurement.
+                val categoryMinWidth = if (
+                    com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled ||
+                    uiStyle == AppUiStyle.MATERIAL3
+                ) {
                     AppChromeSizeTokens.MinimumTouchTarget
                 } else {
                     108.dp
@@ -687,12 +695,18 @@ private fun IndexFilterRow(
             maxLines = 1,
         )
         if (selectedChoice != null) {
-            val filterChoiceMinWidth = if (LocalAppUiStyle.current == AppUiStyle.MATERIAL3) {
+            val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+            val filterChoiceMinWidth = if (
+                liquidGlassEnabled ||
+                LocalAppUiStyle.current == AppUiStyle.MATERIAL3
+            ) {
                 AppChromeSizeTokens.MinimumTouchTarget
             } else 88.dp
             AppThemeAdaptiveTabRow(
                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
-                options = group.choices.map { AppSegmentOption(it, it.label) },
+                options = group.choices.map {
+                    AppSegmentOption(it, resolveBangumiIndexChoiceDisplayLabel(group, it, liquidGlassEnabled))
+                },
                 selectedValue = selectedChoice,
                 scrollable = true,
                 centerContent = false,
@@ -1222,13 +1236,19 @@ private fun FollowInfoCard(
     onMore: () -> Unit,
 ) {
     val transition = rememberBangumiCardTransition(onClick)
+    val cardSurface = wallpaperMediaCardSurface(
+        containerColor = if (selected) AppSurfaceTokens.secondaryContainer() else AppSurfaceTokens.cardContainer(),
+        shape = AppShapes.container(ContainerLevel.Card),
+        enabled = !selected,
+    )
     AppSurface(
-        color = if (selected) AppSurfaceTokens.secondaryContainer() else AppSurfaceTokens.cardContainer(),
+        color = cardSurface.containerColor,
         shape = AppShapes.container(ContainerLevel.Card),
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 150.dp)
             .then(transition.modifier)
+            .then(cardSurface.modifier)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = if (transition.enabled) null else LocalIndication.current,

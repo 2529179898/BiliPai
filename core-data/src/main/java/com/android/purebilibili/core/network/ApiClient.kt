@@ -1436,6 +1436,16 @@ interface BilibiliApi {
         @Query("order_type") orderType: String = ""  // 按关注顺序
     ): FollowingsResponse
     
+    // 对齐桌面 PiliPlus FanHttp.fans / Api.fans。
+    @GET("x/relation/fans")
+    suspend fun getFollowers(
+        @Query("vmid") vmid: Long,
+        @Query("pn") pn: Int = 1,
+        @Query("ps") ps: Int = 20,
+        @Query("order") order: String = "desc",
+        @Query("order_type") orderType: String = "attention",
+    ): FollowingsResponse
+
     //  [官方适配] 获取视频在线观看人数
     @GET("x/player/online/total")
     suspend fun getOnlineCount(
@@ -1569,7 +1579,7 @@ interface SearchApi {
         "Referer: https://search.bilibili.com/"
     )
     @GET("x/web-interface/wbi/search/all/v2")
-    suspend fun searchAll(@QueryMap params: Map<String, String>): SearchResponse
+    suspend fun searchAll(@QueryMap params: Map<String, String>): com.android.purebilibili.data.model.response.SearchAllResponse
     
     //  [修复] 分类搜索 - 支持排序和时长筛选
     @Headers(
@@ -1961,6 +1971,20 @@ interface DynamicApi {
     //  关注 UP 列表（含未读标记 has_update，供 UP 列表红点使用）
     @GET("https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/w_dyn_uplist")
     suspend fun getDynamicUplist(): UplistResponse
+
+    // Recent authors, not the complete followed-author list. Reading these flags is read-only.
+    @GET("x/polymer/web-dynamic/v1/portal")
+    suspend fun getDynamicAuthorUpdatesPortal(
+        @Query("up_list_more") upListMore: Int = 1,
+        @Query("web_location") webLocation: String = "333.1365"
+    ): DynamicAuthorUpdatesPortalResponse
+
+    @GET("x/polymer/web-dynamic/v1/uplist")
+    suspend fun getDynamicAuthorUpdatesPage(
+        @Query("offset") offset: String,
+        @Query("platform") platform: String = "web",
+        @Query("web_location") webLocation: String = "333.1365"
+    ): DynamicAuthorUpdatesPageResponse
 
     @retrofit2.http.POST("x/dynamic/feed/operate/remove")
     suspend fun deleteDynamic(
@@ -3243,6 +3267,7 @@ object NetworkModule {
                 val isAppBiliEndpoint = url.host == "app.bilibili.com" || isAndroidHdLoginEndpoint
                 val explicitReferer = original.header("Referer")
                 val explicitUserAgent = original.header("User-Agent")
+                val useBilibiliHeaders = usesDefaultBilibiliHeaders(url.host)
                 val builder = original.newBuilder()
                     .header(
                         "User-Agent",
@@ -3253,7 +3278,7 @@ object NetworkModule {
                             else -> "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
                         }
                     )
-                if (!isAppBiliEndpoint && explicitReferer.isNullOrBlank()) {
+                if (useBilibiliHeaders && !isAppBiliEndpoint && explicitReferer.isNullOrBlank()) {
                     builder.header("Origin", origin) //  动态 Origin 头
                 }
                 if (androidHdLoginAppKeyHeader != null || isHdFeedRequest) {
@@ -3297,7 +3322,7 @@ object NetworkModule {
                 //  [关键修复] WBI 签名接口绝对不能设置 Referer 头，否则会失败
                 // 参考：https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md
                 val isWbiEndpoint = url.encodedPath.contains("/wbi/")
-                if (explicitReferer.isNullOrBlank() &&
+                if (useBilibiliHeaders && explicitReferer.isNullOrBlank() &&
                     !isWbiEndpoint && !isAppBiliEndpoint
                 ) {
                     builder.header("Referer", referer)

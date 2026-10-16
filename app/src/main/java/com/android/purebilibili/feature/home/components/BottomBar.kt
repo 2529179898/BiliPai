@@ -595,10 +595,11 @@ internal fun resolveBiliPaiBottomBarDockHeight(
     searchExpanded: Boolean,
     hasUiSkinDecoration: Boolean = false
 ): Dp {
-    return if (searchExpanded) {
-        resolveBiliPaiBottomBarSearchCircleSize()
-    } else if (hasUiSkinDecoration) {
+    return if (hasUiSkinDecoration) {
+        // Search width changes must not compress the skin's icon/label stack.
         resolveBottomBarSkinDockHeight()
+    } else if (searchExpanded) {
+        resolveBiliPaiBottomBarSearchCircleSize()
     } else {
         // Keep the resting dock level with the adjacent search circle. Indicator
         // inset and press bloom are derived proportionally from this compact height.
@@ -3051,7 +3052,7 @@ private fun MiuixBottomBar(
                 .fillMaxWidth()
                 .then(
                     if (uiSkinDecoration != null) {
-                        Modifier.height(resolveBottomBarSkinDockHeight())
+                        Modifier.heightIn(min = resolveBottomBarSkinDockHeight())
                     } else {
                         Modifier
                     }
@@ -3061,10 +3062,11 @@ private fun MiuixBottomBar(
             defaultWindowInsetsPadding = true,
             mode = displayMode
         ) {
-            val selectedItemColor = AppContentColors.accent()
+            val selectedItemColor = AppContentColors.selectionAccent(sharedLiquidGlassEnabled)
             val unselectedItemColor = AppContentColors.secondaryText()
             val dockedIndicatorColor = resolveDockedBottomBarIndicatorColor(
-                defaultColor = MaterialTheme.colorScheme.secondaryContainer,
+                defaultColor = if (!sharedLiquidGlassEnabled) AppSurfaceTokens.selectionContainer()
+                    else MaterialTheme.colorScheme.secondaryContainer,
                 hasUiSkinDecoration = uiSkinDecoration != null,
             )
         val skinItemColors = resolveBottomBarSkinContentColors(
@@ -3189,7 +3191,10 @@ internal fun IllustratedSkinBottomBar(
         skinTrimTint = decoration.bottomTrimTint,
     )
     BoxWithConstraints(modifier = modifier) {
-        val iconSize = resolveIllustratedSkinIconSize(maxWidth / visibleItems.size.coerceAtLeast(1))
+        val preferredIconSize = resolveIllustratedSkinIconSize(maxWidth / visibleItems.size.coerceAtLeast(1))
+        // Keep illustrated icons within the same safe icon/label stack as floating skins.
+        val iconSize = if (showText) minOf(preferredIconSize, resolveBottomBarSkinDockIconSize())
+            else preferredIconSize
         DockedBottomBarSkinContainer(
             decoration = decoration,
             modifier = Modifier.fillMaxWidth(),
@@ -3223,7 +3228,7 @@ internal fun IllustratedSkinBottomBar(
                                 badgeText = badge,
                                 modifier = Modifier
                                     .align(if (showText) Alignment.TopCenter else Alignment.Center)
-                                    .offset(y = if (showText) (-10).dp else 0.dp),
+                                    .padding(top = if (showText) resolveBottomBarSkinDockIconTopPadding() else 0.dp),
                             ) {
                                 if (iconPath != null) {
                                     BottomBarSkinIcon(
@@ -3487,6 +3492,7 @@ private fun BiliPaiFloatingBottomBar(
             navigationItemCount = visibleItems.size + if (isTablet && onToggleSidebar != null) 1 else 0,
             navigationLabelMode = labelMode,
             navigationMinEdgePadding = tuning.outerHorizontalPaddingDp.dp,
+            hasUiSkinDecoration = uiSkinDecoration != null,
             nowPlayingContent = nowPlayingContent,
             modifier = modifier,
             navigationContent = {
@@ -3639,14 +3645,10 @@ private fun BiliPaiFloatingBottomBarChrome(
     }
     val selectedIndex = visibleItems.indexOf(currentItem).coerceAtLeast(0)
     val isValidSelection = currentItem in visibleItems
-    val neutralMiuixSelection = LocalAppUiStyle.current == AppUiStyle.MIUIX &&
+    val themedMiuixSelection = LocalAppUiStyle.current == AppUiStyle.MIUIX &&
         !effectiveGlassEnabled && uiSkinDecoration == null
-    val baseSelectedColor = if (neutralMiuixSelection) {
-        AppContentColors.primaryText()
-    } else {
-        AppContentColors.accent()
-    }
-    val baseUnselectedColor = if (!effectiveGlassEnabled && (neutralMiuixSelection || iconStyle == SharedFloatingBottomBarIconStyle.MATERIAL)) {
+    val baseSelectedColor = AppContentColors.selectionAccent(effectiveGlassEnabled)
+    val baseUnselectedColor = if (!effectiveGlassEnabled && (themedMiuixSelection || iconStyle == SharedFloatingBottomBarIconStyle.MATERIAL)) {
         AppContentColors.secondaryText()
     } else {
         AppContentColors.primaryText()
@@ -3666,7 +3668,7 @@ private fun BiliPaiFloatingBottomBarChrome(
     val unselectedColor = lerpColor(
         skinContentColors.unselectedColor,
         readableContentColor,
-        if (neutralMiuixSelection) 0f else liquidGlassTuning.contentReadabilityBoost,
+        if (themedMiuixSelection) 0f else liquidGlassTuning.contentReadabilityBoost,
     ).copy(alpha = 1f)
     val totalItems = allItems.size.coerceAtLeast(1)
 
@@ -3755,9 +3757,9 @@ private fun BiliPaiFloatingBottomBarChrome(
             hasUiSkinDecoration = uiSkinDecoration != null,
         )
     }
-    // Use the same opaque surface roles as the non-glass top dock capsule.
-    val neutralIndicatorContainerColor = if (neutralMiuixSelection) {
-        if (isDarkTheme) AppSurfaceTokens.surfaceContainerHighest() else AppSurfaceTokens.surfaceContainer()
+    // Share the theme-tinted selection fill with opaque top tabs and category rails.
+    val themedIndicatorContainerColor = if (themedMiuixSelection) {
+        AppSurfaceTokens.selectionContainer()
     } else {
         null
     }
@@ -4005,7 +4007,7 @@ private fun BiliPaiFloatingBottomBarChrome(
                                 tabsCount = totalItems,
                                 modifier = dockModifier,
                                 colors = floatingColors,
-                                indicatorContainerColor = neutralIndicatorContainerColor
+                                indicatorContainerColor = themedIndicatorContainerColor
                                     ?: floatingColors.indicatorColor.copy(alpha = 0.14f),
                                 content = dockContent,
                             )
@@ -4020,7 +4022,7 @@ private fun BiliPaiFloatingBottomBarChrome(
                                     modifier = dockModifier,
                                     mode = floatingMode,
                                     colors = floatingColors,
-                                    indicatorIdleSurfaceColorOverride = neutralIndicatorContainerColor,
+                                    indicatorIdleSurfaceColorOverride = themedIndicatorContainerColor,
                                     shellHeight = dockHeight,
                                     indicatorHeight = resolveBiliPaiBottomBarIndicatorHeight(dockHeight),
                                     minimumIndicatorWidth = searchLayoutState.minimumIndicatorWidth,
@@ -4277,6 +4279,10 @@ private fun ColumnScope.FloatingBottomBarTabVisual(
             fontSize = resolveFloatingDockLabelFontSize(
                 showIcon = showIcon,
                 showText = showText,
+                fontScale = LocalDensity.current.fontScale,
+            ),
+            lineHeight = resolveFloatingDockLabelLineHeight(
+                showIcon = showIcon,
                 fontScale = LocalDensity.current.fontScale,
             ),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,

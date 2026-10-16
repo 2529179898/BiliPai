@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.home.components.cards
 
+import com.android.purebilibili.core.ui.components.VideoStatusBadges
+import com.android.purebilibili.core.ui.components.wallpaperAwareMediaCardBackground
 import com.android.purebilibili.core.ui.AppContentColors
 
 import coil3.request.crossfade
@@ -105,7 +107,7 @@ internal fun HomeStyleSingleColumnVideoCard(
 ) {
     val context = LocalContext.current
     val isLongPressEnabled = com.android.purebilibili.core.ui.LocalVideoCardLongPressEnabled.current
-    val contentTypography = feedContentTypography(FeedTitleHierarchy.Standard)
+    val contentTypography = horizontalVideoCardTypography()
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val densityValue = density.density
@@ -241,7 +243,7 @@ internal fun HomeStyleSingleColumnVideoCard(
             )
             .clip(cardShape)
             .then(nativeCardSnapshot.modifier)
-            .background(AppSurfaceTokens.cardContainer())
+            .wallpaperAwareMediaCardBackground(AppSurfaceTokens.cardContainer(), cardShape)
             .combinedClickable(
                 onClick = triggerClick,
                 onLongClick = if (isLongPressEnabled) onLongClick else null,
@@ -259,23 +261,16 @@ internal fun HomeStyleSingleColumnVideoCard(
             )
         },
         coverOverlayContent = {
+            VideoStatusBadges(
+                labels = video.statusLabels,
+                modifier = Modifier.align(Alignment.TopEnd).padding(AppSpacingTokens.ExtraSmall),
+            )
             if (durationStyle == com.android.purebilibili.core.store.HomeDurationStyle.HIDDEN) {
                 return@HorizontalVideoCardFrame
             }
-            AppText(
+            VideoCardCoverDurationText(
                 text = FormatUtils.formatDuration(video.duration),
-                color = MediaContrastPalette.Foreground,
-                style = contentTypography.coverBadge.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    shadow = Shadow(
-                        color = MediaContrastPalette.Scrim.copy(alpha = 0.64f),
-                        blurRadius = 4f,
-                        offset = Offset(0f, 1f),
-                    ),
-                ),
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp),
             )
         },
         infoContent = {
@@ -352,22 +347,13 @@ internal fun HomeStyleSingleColumnVideoCard(
         trailingContent = when {
             trailingContent != null -> {
                 {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(
-                                end = AppSpacingTokens.Small,
-                                bottom = AppSpacingTokens.ExtraSmall,
-                            ),
-                    ) { trailingContent() }
+                    trailingContent()
                 }
             }
             onMoreClick != null -> {
                 {
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = AppSpacingTokens.Micro, bottom = AppSpacingTokens.Micro)
                             .size(AppChromeSizeTokens.MinimumTouchTarget)
                             .clip(CircleShape)
                             .semantics { contentDescription = "更多操作" }

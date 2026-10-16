@@ -13,19 +13,21 @@ class DanmakuComposerPolicyTest {
     }
 
     @Test
-    fun fullscreenSend_remainsVisibleAcrossViewportWidths() {
-        listOf(320, 393, 479, 480, 616, 720, 840, 1600).forEach { widthDp ->
-            assertTrue(shouldShowDanmakuSendInControlBar(isFullscreen = true, widthDp = widthDp))
-        }
+    fun fullscreenCapsule_requiresBothRoomyViewportAndMeasuredSlot() {
+        assertFalse(shouldShowDanmakuInputInControlBar(isFullscreen = true, widthDp = 719))
+        assertTrue(shouldShowDanmakuInputInControlBar(isFullscreen = true, widthDp = 720))
+        assertFalse(shouldShowDanmakuInputInControlBar(isFullscreen = false, widthDp = 720))
+        assertFalse(shouldDrawDanmakuInputCapsule(availableWidthDp = 95))
+        assertTrue(shouldDrawDanmakuInputCapsule(availableWidthDp = 96))
     }
 
     @Test
     fun inlineSend_retainsRoomyCinemaVisibility() {
-        assertFalse(shouldShowDanmakuSendInControlBar(isFullscreen = false, widthDp = 411))
-        assertFalse(shouldShowDanmakuSendInControlBar(isFullscreen = false, widthDp = 600))
-        assertFalse(shouldShowDanmakuSendInControlBar(isFullscreen = false, widthDp = 719))
-        assertTrue(shouldShowDanmakuSendInControlBar(isFullscreen = false, widthDp = 720))
-        assertTrue(shouldShowDanmakuSendInControlBar(isFullscreen = false, widthDp = 800))
+        assertFalse(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 411))
+        assertFalse(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 600))
+        assertFalse(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 719))
+        assertTrue(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 720))
+        assertTrue(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 800))
     }
 
 

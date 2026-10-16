@@ -64,6 +64,9 @@ import com.android.purebilibili.core.ui.rememberAppChevronUpIcon
 import com.android.purebilibili.core.ui.rememberAppVisibilityOffIcon
 import com.android.purebilibili.core.ui.rememberAppVisibilityOnIcon
 import com.android.purebilibili.core.ui.LocalGlobalWallpaperBackdropVisible
+import com.android.purebilibili.core.ui.LocalAppThemeConfig
+import com.android.purebilibili.core.ui.wallpaper.LocalGlobalWallpaperBackdropSource
+import com.android.purebilibili.core.ui.wallpaper.sharedGlobalWallpaperBackground
 import com.android.purebilibili.core.ui.resolveGlobalWallpaperProtectiveColor
 import com.android.purebilibili.core.ui.blur.BlurStyles
 import com.android.purebilibili.core.ui.blur.currentUnifiedBlurIntensity
@@ -71,6 +74,10 @@ import com.android.purebilibili.feature.dynamic.isDynamicUpPanelItemSelected
 import com.android.purebilibili.feature.dynamic.isDynamicUpPanelShortcut
 import com.android.purebilibili.feature.dynamic.resolveDynamicSidebarWidth
 import com.android.purebilibili.core.ui.blur.rememberRecoverableHazeState
+import com.android.purebilibili.core.ui.blur.rememberChromeBackdropSource
+import com.android.purebilibili.core.ui.blur.recoverableBlurEnabled
+import com.android.purebilibili.feature.home.components.BiliPaiImmersiveTopBar
+import com.android.purebilibili.feature.home.components.shouldUseBiliPaiProgressiveTopBlur
 import com.android.purebilibili.core.ui.blur.unifiedBlur
 import com.android.purebilibili.feature.dynamic.resolveDynamicSidebarDividerTopOffset
 import com.android.purebilibili.feature.dynamic.resolveDynamicSidebarReturnHeaderHeightDp
@@ -184,6 +191,23 @@ fun DynamicSidebar(
     val backgroundAlpha = BlurStyles.getBackgroundAlpha(blurIntensity)
     val returnHeaderHeight = resolveDynamicSidebarReturnHeaderHeightDp().dp
     val globalWallpaperVisible = LocalGlobalWallpaperBackdropVisible.current
+    val themeConfig = LocalAppThemeConfig.current
+    val glassWallpaperSidebar = themeConfig.liquidGlassEnabled && globalWallpaperVisible
+    // 独立记录列表，顶部效果只读取它，不记录返回按钮，避免反馈采样。
+    val progressiveRequested = themeConfig.progressiveTopBlurEnabled && !themeConfig.headerBlurEnabled
+    val sidebarBackdropSource = if (
+        themeConfig.liquidGlassEnabled ||
+        shouldUseBiliPaiProgressiveTopBlur(progressiveRequested, hasBackdrop = true)
+    ) rememberChromeBackdropSource() else null
+    val sidebarBackdrop = sidebarBackdropSource?.takeIf { it.isReady }?.backdrop
+    val headerBlurActive = themeConfig.headerBlurEnabled && !glassWallpaperSidebar &&
+        recoverableBlurEnabled(sidebarHazeState)
+    val wallpaperSource = LocalGlobalWallpaperBackdropSource.current
+    val returnIconBackdrop = if (themeConfig.liquidGlassEnabled) {
+        // Sample the sidebar list so avatars behind the back button remain visible
+        // through its glass. The wallpaper source alone does not contain page content.
+        sidebarBackdrop ?: wallpaperSource?.takeIf { it.isReady }?.backdrop ?: chromeBackdrop
+    } else chromeBackdrop
     val sidebarContainerColor = resolveDynamicSidebarContainerColor(
         surfaceColor = AppSurfaceTokens.surface(),
         globalWallpaperVisible = globalWallpaperVisible
@@ -265,8 +289,22 @@ fun DynamicSidebar(
             .width(animatedWidth.dp)
             .fillMaxHeight()
             .clip(androidx.compose.ui.graphics.RectangleShape) // [修复] 直角
-            .background(
-                sidebarContainerColor
+            // Glass GLOBAL mode replays the same full-window wallpaper as the feed. Keep
+            // the native sidebar's protective fill and header blur when glass is disabled.
+            .then(
+                if (glassWallpaperSidebar) {
+                    Modifier
+                        .then(
+                            if (wallpaperSource != null) {
+                                Modifier.sharedGlobalWallpaperBackground(AppSurfaceTokens.surface())
+                            } else {
+                                // Animated wallpapers stay in the full-window root player.
+                                // Reveal it directly rather than painting a separate panel.
+                                Modifier
+                            }
+                        )
+                        .background(AppSurfaceTokens.surface().copy(alpha = 0.12f))
+                } else Modifier.background(sidebarContainerColor)
             )
     ) {
         // 内容层 - 使用 Box 重新组织布局以支持模糊
@@ -282,7 +320,22 @@ fun DynamicSidebar(
                 ),
                 modifier = Modifier
                     .fillMaxSize()
-                    .hazeSourceCompat(sidebarHazeState) // 设置模糊源
+                    .then(sidebarBackdropSource?.modifier ?: Modifier)
+                    .then(
+                        if (sidebarBackdropSource != null) {
+                            // 将壁纸一起录入背景；玻璃关闭时仍使用原生侧栏底色。
+                            if (glassWallpaperSidebar && wallpaperSource != null) {
+                                Modifier.sharedGlobalWallpaperBackground(AppSurfaceTokens.surface())
+                                    .background(AppSurfaceTokens.surface().copy(alpha = 0.12f))
+                            } else Modifier.background(
+                                if (glassWallpaperSidebar) Color.Transparent else sidebarContainerColor
+                            )
+                        } else Modifier
+                    )
+                    .then(
+                        if (glassWallpaperSidebar) Modifier
+                        else Modifier.hazeSourceCompat(sidebarHazeState)
+                    )
             ) {
                 // 隐藏用户切换按钮 (胶囊样式)
                 if (hiddenCount > 0 || showHiddenUsers) {
@@ -379,13 +432,28 @@ fun DynamicSidebar(
                 }
             }
 
-            // 顶部返回按钮区域 - 应用模糊效果
-            Box(
+            // 与动态顶栏共用渐进模糊 / 纯色渐变设置，不改变原生按钮和区域尺寸。
+            BiliPaiImmersiveTopBar(
+                backdrop = sidebarBackdrop,
+                enabled = progressiveRequested,
+                headerBlurActive = headerBlurActive,
+                liquidGlassActive = themeConfig.liquidGlassEnabled,
+                fadeEnabled = themeConfig.progressiveTopFadeEnabled && !themeConfig.headerBlurEnabled,
+                surfaceColor = AppSurfaceTokens.surface(),
+                opaqueBackgroundFallback = false,
+                extendBelowBounds = false,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(topPadding + returnHeaderHeight)
-                    .unifiedBlur(sidebarHazeState) // 应用模糊
-                    .background(returnHeaderColor)
+                    .then(
+                        if (headerBlurActive) Modifier.unifiedBlur(sidebarHazeState)
+                        else Modifier
+                    )
+                    .background(
+                        if (glassWallpaperSidebar || progressiveRequested ||
+                            (themeConfig.progressiveTopFadeEnabled && !themeConfig.headerBlurEnabled)
+                        ) Color.Transparent else returnHeaderColor
+                    )
                     .align(Alignment.TopCenter)
             ) {
                 Box(
@@ -397,7 +465,7 @@ fun DynamicSidebar(
                 ) {
                     CompositionLocalProvider(
                         LocalAppTopBarIconDecorationEnabled provides true,
-                        LocalAppTopBarIconBackdrop provides chromeBackdrop,
+                        LocalAppTopBarIconBackdrop provides returnIconBackdrop,
                     ) {
                         AppIconButton(onClick = onBackClick) {
                             AppIcon(

@@ -38,7 +38,7 @@ internal fun rememberBiliPaiBottomBarSearchLayoutState(
 ): BiliPaiBottomBarSearchLayoutState {
     val targetDockHeight = resolveBiliPaiBottomBarDockHeight(
         searchExpanded = searchExpanded,
-        hasUiSkinDecoration = hasUiSkinDecoration && !fillAllocatedDockWidth,
+        hasUiSkinDecoration = hasUiSkinDecoration,
     )
     val resolvedSearchLayout = resolveBiliPaiBottomBarSearchLayout(
         containerWidth = containerWidth,

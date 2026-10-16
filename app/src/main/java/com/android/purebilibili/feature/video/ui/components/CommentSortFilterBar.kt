@@ -35,9 +35,13 @@ internal data class CommentSortSegmentedControlSpec(
     val indicatorHeightDp: Int
 )
 
-internal fun resolveCommentSortSegmentedControlSpec(itemCount: Int): CommentSortSegmentedControlSpec {
+internal fun resolveCommentSortSegmentedControlSpec(
+    itemCount: Int,
+    liquidGlassEnabled: Boolean = false,
+): CommentSortSegmentedControlSpec {
     return CommentSortSegmentedControlSpec(
-        itemWidthDp = if (itemCount >= 4) 56 else 66,
+        // The outer header and inner dock must shrink together. Native defaults stay intact.
+        itemWidthDp = if (liquidGlassEnabled || itemCount >= 4) 56 else 66,
         heightDp = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp,
         indicatorHeightDp = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp,
     )
@@ -123,8 +127,9 @@ fun CommentSortHeader(
 ) {
     val uiStyle = LocalAppUiStyle.current
     val sortModes = remember { listOf(CommentSortMode.HOT, CommentSortMode.NEWEST) }
-    val spec = remember(sortModes.size) {
-        resolveCommentSortSegmentedControlSpec(itemCount = sortModes.size)
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+    val spec = remember(sortModes.size, liquidGlassEnabled) {
+        resolveCommentSortSegmentedControlSpec(sortModes.size, liquidGlassEnabled)
     }
     FlowRow(
         modifier = modifier
@@ -209,8 +214,10 @@ fun CommentSortFilterBar(
     onSearchClick: (() -> Unit)? = null,
 ) {
     val sortModes = remember { listOf(CommentSortMode.HOT, CommentSortMode.NEWEST) }
-    val spec = remember(sortModes.size) {
-        resolveCommentSortSegmentedControlSpec(itemCount = sortModes.size)
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled &&
+        liquidGlassEffectsEnabled
+    val spec = remember(sortModes.size, liquidGlassEnabled) {
+        resolveCommentSortSegmentedControlSpec(sortModes.size, liquidGlassEnabled)
     }
     Row(
         modifier = modifier,
@@ -260,8 +267,10 @@ fun CommentSegmentedControl(
     miuixBackdrop: MiuixBackdrop? = null,
     liquidGlassEffectsEnabled: Boolean = true,
 ) {
-    val spec = remember(items.size) {
-        resolveCommentSortSegmentedControlSpec(itemCount = items.size)
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled &&
+        liquidGlassEffectsEnabled
+    val spec = remember(items.size, liquidGlassEnabled) {
+        resolveCommentSortSegmentedControlSpec(items.size, liquidGlassEnabled)
     }
     BottomBarLiquidSegmentedControl(
         items = items,
@@ -276,8 +285,8 @@ fun CommentSegmentedControl(
         liquidGlassEffectsEnabled = liquidGlassEffectsEnabled,
         dragSelectionEnabled = items.size > 1,
         tapPressRefractionEnabled = true,
-        // The detail header owns a fixed 66dp-per-item width. Keep native Miuix items
-        // evenly divided when its non-glass outer track is transparent.
+        // The header and child share this material-specific slot width. Keep native
+        // Miuix evenly divided in its original 66dp slots when the outer track is transparent.
         forceEqualWidth = true,
     )
 }

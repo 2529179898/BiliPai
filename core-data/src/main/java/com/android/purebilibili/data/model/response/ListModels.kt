@@ -216,7 +216,42 @@ data class VideoItem(
     val recommendationFeedback: RecommendationFeedbackMetadata? = null,
     val contentType: String = "",
     val navigationUrl: String = "",
-)
+    @SerialName("is_union_video")
+    @Serializable(with = FlexibleIntSerializer::class)
+    val isUnionVideo: Int = 0,
+    @SerialName("is_cooperation")
+    @Serializable(with = FlexibleBooleanSerializer::class)
+    val cooperation: Boolean = false,
+    @SerialName("is_steins")
+    @Serializable(with = FlexibleBooleanSerializer::class)
+    val isSteins: Boolean = false,
+    @SerialName("is_lesson_video")
+    @Serializable(with = FlexibleBooleanSerializer::class)
+    val isLessonVideo: Boolean = false,
+    @SerialName("is_charging_arc")
+    @Serializable(with = FlexibleBooleanSerializer::class)
+    val isChargingArc: Boolean = false,
+    @SerialName("charging_pay")
+    val chargingPay: WatchLaterChargingPay? = null,
+    @SerialName("pgc_label")
+    val pgcLabel: String? = null,
+    val badges: List<VideoContentBadge> = emptyList(),
+) {
+    val isCooperation: Boolean
+        get() = cooperation || isUnionVideo == 1 || rights?.isCooperation == 1
+
+    val statusLabels: List<String>
+        get() = resolveVideoStatusLabels(
+            cooperation = isCooperation,
+            interactive = isSteins || rights?.isSteinGate == 1,
+            course = isLessonVideo || contentType == "ketang",
+            charging = isChargingArc || chargingPay?.level != null ||
+                (rights?.ugcPay ?: 0) > 0 || (rights?.ugcPayPreview ?: 0) > 0,
+            paid = (rights?.pay ?: 0) > 0 || (rights?.arcPay ?: 0) > 0,
+            serverLabels = listOfNotNull(pgcLabel) + badges.map { it.text } +
+                if (contentType == "live_room") listOf("直播") else emptyList(),
+        )
+}
 
 @Serializable
 data class RecommendationFeedbackMetadata(
@@ -259,7 +294,13 @@ data class VideoRights(
     @SerialName("ugc_pay_preview")
     val ugcPayPreview: Int = 0,
     @SerialName("pay_free_watch")
-    val payFreeWatch: Int = 0
+    val payFreeWatch: Int = 0,
+    @SerialName("is_cooperation")
+    @Serializable(with = FlexibleIntSerializer::class)
+    val isCooperation: Int = 0,
+    @SerialName("is_stein_gate")
+    @Serializable(with = FlexibleIntSerializer::class)
+    val isSteinGate: Int = 0
 )
 
 @Serializable
@@ -325,6 +366,9 @@ data class RecommendItem(
     val tname: String = "",
     //  [新增] 视频尺寸信息 (用于判断竖屏视频)
     val dimension: Dimension? = null,
+    @SerialName("charging_pay") val chargingPay: WatchLaterChargingPay? = null,
+    @SerialName("pgc_label") val pgcLabel: String? = null,
+    val badges: List<VideoContentBadge> = emptyList(),
     val rights: VideoRights? = null,
     //  [新增] 是否已关注该 UP 主(推荐流过滤已关注豁免用; 接口返回 0/1 整数)
     @SerialName("is_followed")
@@ -352,7 +396,7 @@ data class RecommendItem(
             pubdate = pubdate ?: 0L,
             isVertical = dimension?.isVertical == true,
             isFollowed = isFollowed,
-            rights = rights
+            rights = rights, chargingPay = chargingPay, pgcLabel = pgcLabel, badges = badges
         )
     }
     private fun requestStatConvert(num: Long?): Int = num?.toInt() ?: 0
@@ -400,7 +444,10 @@ data class PopularItem(
     val pubdate: Long = 0,
     val owner: Owner = Owner(),
     val stat: PopularStat = PopularStat(),
-    val rights: VideoRights? = null
+    val rights: VideoRights? = null,
+    @SerialName("charging_pay") val chargingPay: WatchLaterChargingPay? = null,
+    @SerialName("pgc_label") val pgcLabel: String? = null,
+    val badges: List<VideoContentBadge> = emptyList()
 ) {
     fun toVideoItem(): VideoItem {
         val resolvedAid = if (aid > 0) aid else cid
@@ -425,7 +472,7 @@ data class PopularItem(
             tname = tname,
             duration = duration,
             pubdate = pubdate,
-            rights = rights
+            rights = rights, chargingPay = chargingPay, pgcLabel = pgcLabel, badges = badges
         )
     }
 }
@@ -548,6 +595,9 @@ data class DynamicRegionItem(
     val pubdate: Long = 0,
     val owner: Owner = Owner(),
     val stat: DynamicRegionStat = DynamicRegionStat(),
+    @SerialName("charging_pay") val chargingPay: WatchLaterChargingPay? = null,
+    @SerialName("pgc_label") val pgcLabel: String? = null,
+    val badges: List<VideoContentBadge> = emptyList(),
     val rights: VideoRights? = null
 ) {
      fun toVideoItem(): VideoItem {
@@ -572,7 +622,7 @@ data class DynamicRegionItem(
             tname = tname,
             duration = duration,
             pubdate = pubdate,
-            rights = rights
+            rights = rights, chargingPay = chargingPay, pgcLabel = pgcLabel, badges = badges
         )
     }
 }
@@ -635,7 +685,11 @@ data class MobileFeedItem(
     @SerialName("player_args") val playerArgs: MobileFeedPlayerArgs? = null,
     @SerialName("three_point_v2") val threePointV2: List<MobileFeedThreePoint> = emptyList(),
     @SerialName("cover_left_text_1") val coverLeftText1: String = "",  // 播放量
-    @SerialName("cover_left_text_2") val coverLeftText2: String = ""   // 弹幕数
+    @SerialName("cover_left_text_2") val coverLeftText2: String = "",  // 弹幕数
+    @SerialName("cover_right_text") val coverRightText: String = "",
+    val rights: VideoRights? = null,
+    @SerialName("charging_pay") val chargingPay: WatchLaterChargingPay? = null,
+    val badges: List<VideoContentBadge> = emptyList()
 ) {
     fun toVideoItem(): VideoItem {
         // [修复] 改进 bvid 提取逻辑
@@ -671,6 +725,11 @@ data class MobileFeedItem(
             tid = args?.tid?.takeIf { it > 0 } ?: args?.rid ?: 0,
             tname = args?.let { it.tname.ifBlank { it.rname } }.orEmpty(),
             duration = duration.toInt(),
+            rights = rights,
+            chargingPay = chargingPay,
+            // On AV cards this field is duration, not a badge. PiliPlus also gates it by goto.
+            pgcLabel = coverRightText.takeIf { goto == "bangumi" && it.isNotBlank() },
+            badges = badges,
             recommendationFeedback = RecommendationFeedbackMetadata(
                 goto = goto,
                 param = param,

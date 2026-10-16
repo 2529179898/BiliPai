@@ -595,6 +595,7 @@ fun DynamicCommentSheet(
                                         ReplyItemView(
                                             modifier = dynamicCommentItemModifier(),
                                             item = reply,
+                                            upMid = dynamicAuthorMid,
                                             onClick = { onViewReplies(reply) },
                                             onSubClick = { root, _ -> onViewReplies(root) },
                                             onReplyClick = { onReply(reply) },
@@ -659,6 +660,7 @@ fun DynamicCommentSheet(
                             SubReplyDetailContent(
                                 headerDragModifier = threadDrag.headerModifier,
                                 rootReply = rootReply,
+                                upMid = dynamicAuthorMid,
                                 subReplies = subReplyState.items,
                                 sortMode = subReplyState.sortMode,
                                 error = subReplyState.error,
@@ -736,8 +738,9 @@ private fun DynamicCommentSortControl(
     miuixBackdrop: MiuixBackdrop? = null,
 ) {
     if (items.isEmpty()) return
-    val spec = remember(items.size) {
-        resolveDynamicCommentSortControlSpec(itemCount = items.size)
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+    val spec = remember(items.size, liquidGlassEnabled) {
+        resolveDynamicCommentSortControlSpec(items.size, liquidGlassEnabled)
     }
     Box(
         modifier = modifier.requiredWidth((spec.itemWidthDp * items.size).dp),
@@ -764,12 +767,16 @@ internal data class DynamicCommentSortControlSpec(
     val indicatorHeightDp: Int,
 )
 
-internal fun resolveDynamicCommentSortControlSpec(itemCount: Int) = DynamicCommentSortControlSpec(
-    // Keep the beta.36 dynamic comment layout: two-option sorting tabs are 66dp each.
-    itemWidthDp = if (itemCount >= 4) 56 else 66,
-    heightDp = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp,
-    indicatorHeightDp = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp,
-)
+internal fun resolveDynamicCommentSortControlSpec(
+    itemCount: Int,
+    liquidGlassEnabled: Boolean = false,
+): DynamicCommentSortControlSpec {
+    // Share the video comment policy so outer/inner widths cannot drift between comment hosts.
+    // Disabled materials retain the original 66dp slots through the shared default.
+    val shared = com.android.purebilibili.feature.video.ui.components
+        .resolveCommentSortSegmentedControlSpec(itemCount, liquidGlassEnabled)
+    return DynamicCommentSortControlSpec(shared.itemWidthDp, shared.heightDp, shared.indicatorHeightDp)
+}
 
 internal fun hasDynamicCommentSortIndicatorScaleClearance(
     containerHeightDp: Int,
@@ -937,6 +944,7 @@ fun LazyListScope.dynamicInlineCommentItems(
             ReplyItemView(
                 modifier = dynamicCommentItemModifier(),
                 item = reply,
+                upMid = dynamicAuthorMid,
                 onClick = { onViewReplies(reply) },
                 onSubClick = { root, _ -> onViewReplies(root) },
                 onReplyClick = { onReply(reply) },

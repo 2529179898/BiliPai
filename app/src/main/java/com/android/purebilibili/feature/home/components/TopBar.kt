@@ -959,7 +959,7 @@ internal fun resolveTopTabUnselectedColor(isLightMode: Boolean): Color {
 internal fun resolveIosTopTabSelectedContentColor(
     colorScheme: ColorScheme,
     uiStyle: AppUiStyle = AppUiStyle.MIUIX
-): Color = if (uiStyle == AppUiStyle.MIUIX) colorScheme.onSurface else colorScheme.primary
+): Color = colorScheme.primary
 
 internal fun resolveIosTopTabCapsuleContainerColor(
     isDarkTheme: Boolean,
@@ -1303,7 +1303,12 @@ private fun LightweightHomeTopTabs(
             effectiveMaxDockWidth
         }
         if (useFloatingBottomBarDock) {
-            val floatingDockHeight = resolveHomeTopDockShellHeight(isFloatingStyle)
+            // Compact text geometry belongs only to liquid glass; native and icon layouts retain their sizes.
+            val floatingDockHeight = if (isLiquidGlassEnabled && showText && !showIcon) {
+                AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp
+            } else {
+                resolveHomeTopDockShellHeight(isFloatingStyle)
+            }
             val floatingDockWidth = resolveHomeTopTabFloatingDockWidth(
                 containerWidth = effectiveMaxDockWidth.dp,
                 itemCount = categories.size,
@@ -1315,15 +1320,24 @@ private fun LightweightHomeTopTabs(
                 showText = showText,
                 fontScale = density.fontScale,
             )
+            // Native pure-text top tabs were visually undersized; enlarge this mode only.
+            val resolvedFloatingLabelFontSize = if (!isLiquidGlassEnabled && showText && !showIcon) {
+                (floatingLabelFontSize.value + 2f).sp
+            } else {
+                floatingLabelFontSize
+            }
             val minimumSlotWidth = com.android.purebilibili.core.ui.components.rememberMeasuredTabMinWidth(
                 requestedMinWidth = maxOf(
                     (floatingDockHeight - AppSpacingTokens.ExtraSmall * 2).coerceAtLeast(0.dp),
-                    if (showIcon) resolveTopTabIconSizeDp(if (showText) 0 else 1).dp +
+                    if (showIcon) resolveHomeTopDockIconSizeDp(
+                        if (showText) 0 else 1,
+                        liquidGlassEnabled = isLiquidGlassEnabled,
+                    ).dp +
                         AppSpacingTokens.Small * 2 else AppChromeSizeTokens.MinimumTouchTarget,
                 ),
                 labels = if (showText) categories else emptyList(),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = floatingLabelFontSize,
+                    fontSize = resolvedFloatingLabelFontSize,
                     fontWeight = FontWeight.Bold,
                 ),
             )
@@ -1372,7 +1386,7 @@ private fun LightweightHomeTopTabs(
                     dockHeight = floatingDockHeight,
                     horizontalPadding = dockHorizontalPadding,
                     scrollState = dockScrollState.takeIf { needsDockScroll },
-                    labelFontSize = floatingLabelFontSize,
+                    labelFontSize = resolvedFloatingLabelFontSize,
                     liquidGlassEffectsEnabled = isLiquidGlassEnabled,
                     miuixBackdrop = miuixBackdrop,
                     liquidGlassPreset = liquidGlassPreset,
@@ -1419,7 +1433,13 @@ private fun LightweightHomeTopTabs(
             else -> md3ContentPadding
         }
         val textMeasurer = rememberTextMeasurer()
-        val md3ContentWidths = remember(categories, normalizedLabelMode, density, textMeasurer) {
+        val md3ContentWidths = remember(
+            categories,
+            normalizedLabelMode,
+            isLiquidGlassEnabled,
+            density,
+            textMeasurer,
+        ) {
             categories.map { category ->
                 val textWidth = if (showText) {
                     with(density) {
@@ -1436,7 +1456,10 @@ private fun LightweightHomeTopTabs(
                     0.dp
                 }
                 val iconWidth = if (showIcon) {
-                    resolveTopTabIconSizeDp(normalizedLabelMode).dp
+                    resolveHomeTopDockIconSizeDp(
+                        normalizedLabelMode,
+                        liquidGlassEnabled = isLiquidGlassEnabled,
+                    ).dp
                 } else {
                     0.dp
                 }
@@ -1725,7 +1748,7 @@ private fun LightweightHomeTopTabs(
             liquidGlassEnabled = shouldUseLiquidGlassIndicator,
         )
         val topTabVisibleContentZIndex = if (useTopTabGlassColorPath) 0f else 2f
-        val topTabThemeColor = AppContentColors.accent()
+        val topTabThemeColor = AppContentColors.selectionAccent(shouldUseLiquidGlassIndicator)
         val stableTopTabExportTintColor = resolveAndroidNativeExportTintColor(
             themeColor = topTabThemeColor,
             darkTheme = isDarkTheme
@@ -2595,7 +2618,6 @@ private fun BoxScope.LightweightTopTabMd3Underline(
 ) {
     val indicatorColor = when {
         skinPlainContentColor != null -> resolveHomeSkinTopTabIndicatorColor(skinPlainContentColor)
-        LocalAppUiStyle.current == AppUiStyle.MIUIX -> AppContentColors.primaryText()
         else -> AppContentColors.accent()
     }
     val iconOnlyIndicator = showIcon && !showText
@@ -2716,6 +2738,7 @@ private fun LightweightTopTabItem(
     )
     val selectedColor = when {
         skinPlainStyle -> skinPlainContentColor ?: colorScheme.onSurface
+        com.android.purebilibili.core.ui.isMiuixNonGlassEnabled() -> AppContentColors.accent()
         uiStyle == AppUiStyle.MIUIX -> colorScheme.onSurface
         presentation == AppTopTabPresentation.MOVING_CAPSULE ->
             resolveIosTopTabSelectedContentColor(colorScheme, uiStyle)
@@ -2742,6 +2765,12 @@ private fun LightweightTopTabItem(
     val containerColor = when {
         !drawContainer || colorMode == TopTabLiquidColorMode.GLASS_EXPORT -> Color.Transparent
         skinPlainStyle -> Color.Transparent
+        com.android.purebilibili.core.ui.isMiuixNonGlassEnabled() &&
+            presentation == AppTopTabPresentation.MOVING_CAPSULE &&
+            colorMode == TopTabLiquidColorMode.NORMAL ->
+            AppSurfaceTokens.selectionContainer().let { selectionColor ->
+                selectionColor.copy(alpha = selectionColor.alpha * selectionFraction.coerceIn(0f, 1f))
+            }
         presentation == AppTopTabPresentation.MOVING_CAPSULE && colorMode == TopTabLiquidColorMode.NORMAL ->
             resolveIosTopTabCapsuleContainerColor(
                 isDarkTheme = isDarkTheme,
@@ -2806,7 +2835,10 @@ private fun LightweightTopTabItem(
                         selectedAlpha = selectionFraction,
                         tint = contentColor,
                         modifier = Modifier.size(
-                            resolveTopTabIconSizeDp(if (showText) 0 else 1).dp
+                            resolveHomeTopDockIconSizeDp(
+                                if (showText) 0 else 1,
+                                liquidGlassEnabled = colorMode != TopTabLiquidColorMode.NORMAL,
+                            ).dp
                         )
                     )
                 }
@@ -3313,7 +3345,10 @@ fun CategoryTabItem(
          iconFamily = chromePolicy.effectiveIconFamily,
          selected = true
      )
-     val iconSize = resolveTopTabIconSizeDp(normalizedLabelMode).dp
+     val iconSize = resolveHomeTopDockIconSizeDp(
+         normalizedLabelMode,
+         liquidGlassEnabled = false,
+     ).dp
      val textSize = resolveTopTabLabelTextSizeSp(normalizedLabelMode).sp
      val textLineHeight = resolveTopTabLabelLineHeightSp(normalizedLabelMode).sp
      val contentMinHeight = resolveTopTabContentMinHeightDp(normalizedLabelMode).dp

@@ -9,6 +9,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
     // Compose 预组合兼容补丁：guard LayoutNodeSubcompositionsState 的 detached-root owner 查找
     id("com.android.bilipai.compose-detached-owner-guard")
+    id("com.android.bilipai.workmanager-namespace-guard")
     // Room 数据库编译插件
     id("com.google.devtools.ksp")
     // 🔥 Firebase 相关插件
@@ -122,8 +123,8 @@ android {
         targetSdk = 37
         // 版本名按发行计划确定；versionCode 每次发布单调 +1
         // 规范：docs/wiki/VERSIONING.md · 更新日志：CHANGELOG.md
-        versionCode = 465
-        versionName = "0.3.9"
+        versionCode = 473
+        versionName = "0.4.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

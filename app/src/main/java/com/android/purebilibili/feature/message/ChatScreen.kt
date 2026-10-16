@@ -91,7 +91,6 @@ import com.android.purebilibili.feature.home.resolveHomeWallpaperUri
 import com.android.purebilibili.feature.home.components.cards.HorizontalVideoCardFrame
 import com.android.purebilibili.feature.home.components.cards.VideoCardCoverDurationText
 import com.android.purebilibili.feature.home.components.cards.LocalWallpaperPalette
-import com.android.purebilibili.feature.home.components.cards.WallpaperPaletteStore
 import com.android.purebilibili.feature.home.components.BottomBarMatchedReusableLiquidDock
 import com.android.purebilibili.feature.home.components.liquid.rememberCombinedBackdrop
 import com.android.purebilibili.feature.home.components.resolveFloatingDockGeometryScale
@@ -544,9 +543,9 @@ private fun ChatWallpaperHost(
     wallpaperBackdrop: LayerBackdrop?,
     content: @Composable (@Composable () -> Unit) -> Unit,
 ) {
+    val wallpaperAllowed = LocalGlobalWallpaperBackdropVisible.current
     val context = LocalContext.current
-    val configuredHomeWallpaperUri by SettingsManager.getHomeWallpaperUri(context)
-        .collectAsStateWithLifecycle(initialValue = "")
+    val configuredHomeWallpaperUri = com.android.purebilibili.core.ui.wallpaper.LocalHomeWallpaperSelection.current.uri
     val splashWallpaperUri by SettingsManager.getSplashWallpaperUri(context)
         .collectAsStateWithLifecycle(initialValue = "")
     val wallpaperEffectMode by SettingsManager.getHomeWallpaperEffectMode(context)
@@ -557,14 +556,7 @@ private fun ChatWallpaperHost(
             splashWallpaperUri = splashWallpaperUri,
         )
     }
-    val wallpaperPalette by WallpaperPaletteStore.currentPalette.collectAsStateWithLifecycle()
-    LaunchedEffect(wallpaperUri) {
-        WallpaperPaletteStore.loadWallpaperPalette(
-            context = context,
-            uri = wallpaperUri,
-            scope = this,
-        )
-    }
+    val wallpaperPalette = LocalWallpaperPalette.current
 
     val baseColor = AppSurfaceTokens.chromeBackground()
     val isLightBackground = remember(baseColor) { baseColor.luminance() > 0.5f }
@@ -574,11 +566,12 @@ private fun ChatWallpaperHost(
     val wallpaperAppearance = remember(
         wallpaperUri,
         wallpaperEffectMode,
+        wallpaperAllowed,
         isLightBackground,
         isDataSaverActive,
     ) {
         resolveHomeWallpaperBackdropAppearance(
-            hasWallpaper = wallpaperUri.isNotBlank(),
+            hasWallpaper = wallpaperAllowed && wallpaperUri.isNotBlank(),
             effectMode = wallpaperEffectMode,
             isDarkTheme = !isLightBackground,
             isDataSaverActive = isDataSaverActive,
@@ -1177,7 +1170,7 @@ private fun MessageHorizontalVideoCard(
     supportingText: String? = null,
 ) {
     val cardShape = AppShapes.container(ContainerLevel.Card)
-    val contentTypography = feedContentTypography(FeedTitleHierarchy.Standard)
+    val contentTypography = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography()
     val glassContentColors = rememberMessageGlassContentColors(
         defaultOnSurface = AppContentColors.primaryText(),
         defaultOnSurfaceVariant = AppContentColors.secondaryText(),
@@ -1228,8 +1221,8 @@ private fun MessageHorizontalVideoCard(
                 AppText(
                     text = title,
                     style = contentTypography.title,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines = com.android.purebilibili.core.ui.videoCardTitleMaxLines(),
+                    overflow = com.android.purebilibili.core.ui.videoCardTitleOverflow(),
                     color = glassContentColors.titleColor,
                     modifier = Modifier.fillMaxWidth(),
                 )

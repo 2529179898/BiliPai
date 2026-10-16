@@ -1,6 +1,9 @@
 // 文件路径: core/store/SettingsManager.kt
 package com.android.purebilibili.core.store
 
+import com.android.purebilibili.core.store.home.HomeWallpaperSelection
+import com.android.purebilibili.core.ui.wallpaper.WallpaperTransform
+import com.android.purebilibili.core.ui.wallpaper.sanitizeWallpaperTransform
 import android.content.Context
 import com.android.purebilibili.BuildConfig
 import androidx.datastore.preferences.core.MutablePreferences
@@ -40,6 +43,7 @@ import com.android.purebilibili.core.theme.AndroidNativeVariant
 import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.theme.UiPreset
 import com.android.purebilibili.core.theme.normalizeThemeColorIndex
+import com.android.purebilibili.core.theme.resolveColorContrastPreference
 import com.android.purebilibili.core.theme.resolveColorSpecPreference
 import com.android.purebilibili.core.theme.resolvePaletteStylePreference
 import com.android.purebilibili.data.model.response.LiveFavoriteTagEntry
@@ -48,6 +52,8 @@ import com.android.purebilibili.feature.settings.share.SettingsShareEntryDefinit
 import com.android.purebilibili.feature.settings.share.SettingsShareSection
 import com.android.purebilibili.feature.settings.AppLanguage
 import com.android.purebilibili.feature.settings.AppThemeMode
+import com.android.purebilibili.feature.settings.DarkThemeSchedule
+import com.android.purebilibili.feature.settings.normalizeDarkThemeSchedule
 import com.android.purebilibili.feature.settings.DarkThemeStyle
 import com.android.purebilibili.feature.settings.Md3ColorSource
 import com.android.purebilibili.feature.settings.normalizeMd3CustomColorHex
@@ -69,6 +75,7 @@ import com.android.purebilibili.feature.video.ui.gesture.applyVerticalTwoFingerS
 import com.android.purebilibili.core.util.ENHANCED_DIAGNOSTIC_LOG_PREF_KEY
 import com.android.purebilibili.core.util.ENHANCED_DIAGNOSTIC_LOG_PREFS_NAME
 import com.android.purebilibili.core.util.isLargeScreenOrFoldableConfiguration
+import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import kotlinx.coroutines.Dispatchers
@@ -715,13 +722,16 @@ internal fun resolveHomeCardFrostedGlassEnabled(
 data class AppThemeSettings(
     val uiStyle: AppUiStyle = AppUiStyle.MATERIAL3,
     val themeMode: AppThemeMode = AppThemeMode.FOLLOW_SYSTEM,
+    val darkThemeSchedule: DarkThemeSchedule = DarkThemeSchedule(),
     val darkThemeStyle: DarkThemeStyle = DarkThemeStyle.DEFAULT,
     val appLanguage: AppLanguage = AppLanguage.FOLLOW_SYSTEM,
     val md3ColorSource: Md3ColorSource = Md3ColorSource.FOLLOW_WALLPAPER,
     val md3CustomColorHex: String = "#007AFF",
     val themeRoleOverrides: ThemeRoleOverrides = ThemeRoleOverrides(),
+    val wallpaperPaletteOverrides: WallpaperPaletteOverrides = WallpaperPaletteOverrides(),
     val colorStyle: PaletteStyle = PaletteStyle.TonalSpot,
     val colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
+    val colorContrast: Contrast = Contrast.Default,
     val themeColorIndex: Int = 0,
     val appFontSizePreset: AppFontSizePreset = AppFontSizePreset.DEFAULT,
     val appFontWeightPreset: AppFontWeightPreset = AppFontWeightPreset.FOLLOW_THEME,
@@ -797,7 +807,7 @@ enum class HomeWallpaperEffectMode(val value: Int, val label: String) {
 
 enum class HomeWallpaperEffectScope(val value: Int, val label: String) {
     HOME_ONLY(0, "仅首页"),
-    GLOBAL(1, "首页与聊天");
+    GLOBAL(1, "全局页面");
 
     companion object {
         fun fromValue(value: Int): HomeWallpaperEffectScope =
@@ -1358,6 +1368,9 @@ object SettingsManager {
     private val KEY_PLAYBACK_COMPLETION_BEHAVIOR = intPreferencesKey("playback_completion_behavior")
     private val KEY_HW_DECODE = booleanPreferencesKey("hw_decode")
     private val KEY_THEME_MODE = intPreferencesKey("theme_mode_v2")
+    private val KEY_DARK_SCHEDULE_ENABLED = booleanPreferencesKey("dark_theme_schedule_enabled")
+    private val KEY_DARK_SCHEDULE_START = intPreferencesKey("dark_theme_schedule_start_minute")
+    private val KEY_DARK_SCHEDULE_END = intPreferencesKey("dark_theme_schedule_end_minute")
     private val KEY_DARK_THEME_STYLE = intPreferencesKey("dark_theme_style_v1")
     private val KEY_APP_LANGUAGE = intPreferencesKey("app_language_v1")
     private val KEY_UI_PRESET = intPreferencesKey("ui_preset")
@@ -1377,6 +1390,7 @@ object SettingsManager {
     private val KEY_THEME_DARK_CONTROL_ACCENT = stringPreferencesKey("theme_dark_control_accent")
     private val KEY_THEME_COLOR_STYLE = stringPreferencesKey("theme_color_style")
     private val KEY_THEME_COLOR_SPEC = stringPreferencesKey("theme_color_spec")
+    private val KEY_THEME_COLOR_CONTRAST = stringPreferencesKey("theme_color_contrast")
     private val KEY_SINGLE_CHOICE_PRESENTATION =
         stringPreferencesKey("single_choice_presentation")
     private val KEY_BG_PLAY = booleanPreferencesKey("bg_play")
@@ -1623,6 +1637,12 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private val KEY_HOME_CARD_BADGE_EFFECT_MODE = intPreferencesKey("home_card_badge_effect_mode")
     private val KEY_HOME_CARD_INFO_GLASS_MODE = intPreferencesKey("home_card_info_glass_mode")
     private val KEY_HOME_WALLPAPER_URI = stringPreferencesKey("home_wallpaper_uri")
+    private val KEY_HOME_WALLPAPER_SCALE_MOBILE = floatPreferencesKey("home_wallpaper_scale_mobile")
+    private val KEY_HOME_WALLPAPER_OFFSET_X_MOBILE = floatPreferencesKey("home_wallpaper_offset_x_mobile")
+    private val KEY_HOME_WALLPAPER_OFFSET_Y_MOBILE = floatPreferencesKey("home_wallpaper_offset_y_mobile")
+    private val KEY_HOME_WALLPAPER_SCALE_TABLET = floatPreferencesKey("home_wallpaper_scale_tablet")
+    private val KEY_HOME_WALLPAPER_OFFSET_X_TABLET = floatPreferencesKey("home_wallpaper_offset_x_tablet")
+    private val KEY_HOME_WALLPAPER_OFFSET_Y_TABLET = floatPreferencesKey("home_wallpaper_offset_y_tablet")
     private val KEY_HOME_WALLPAPER_EFFECT_MODE = intPreferencesKey("home_wallpaper_effect_mode")
     private val KEY_HOME_WALLPAPER_EFFECT_SCOPE = intPreferencesKey("home_wallpaper_effect_scope")
     private val KEY_HOME_UP_BADGES_VISIBLE = booleanPreferencesKey("home_up_badges_visible")
@@ -2254,6 +2274,13 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             themeMode = resolveThemeModePreference(
                 preferences[KEY_THEME_MODE] ?: AppThemeMode.FOLLOW_SYSTEM.value
             ),
+            darkThemeSchedule = normalizeDarkThemeSchedule(
+                DarkThemeSchedule(
+                    enabled = preferences[KEY_DARK_SCHEDULE_ENABLED] ?: false,
+                    startMinute = preferences[KEY_DARK_SCHEDULE_START] ?: 22 * 60,
+                    endMinute = preferences[KEY_DARK_SCHEDULE_END] ?: 7 * 60,
+                ),
+            ),
             darkThemeStyle = resolveDarkThemeStylePreference(
                 darkThemeStyleValue = preferences[KEY_DARK_THEME_STYLE],
                 legacyThemeModeValue = preferences[KEY_THEME_MODE]
@@ -2264,6 +2291,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 legacyDynamicColorEnabled = preferences[KEY_DYNAMIC_COLOR]
             ),
             md3CustomColorHex = normalizeMd3CustomColorHex(preferences[KEY_MD3_CUSTOM_COLOR_HEX]),
+            wallpaperPaletteOverrides = readWallpaperPaletteOverrides(preferences),
             themeRoleOverrides = ThemeRoleOverrides(
                 enabled = preferences[KEY_THEME_ROLE_OVERRIDES_ENABLED] ?: false,
                 light = ThemeModeRoleOverrides(
@@ -2305,6 +2333,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             ),
             colorStyle = resolvePaletteStylePreference(preferences[KEY_THEME_COLOR_STYLE]),
             colorSpec = resolveColorSpecPreference(preferences[KEY_THEME_COLOR_SPEC]),
+            colorContrast = resolveColorContrastPreference(preferences[KEY_THEME_COLOR_CONTRAST]),
             themeColorIndex = normalizeThemeColorIndex(preferences[KEY_THEME_COLOR_INDEX] ?: 0),
             appFontSizePreset = AppFontSizePreset.fromValue(
                 preferences[KEY_APP_FONT_SIZE_PRESET] ?: AppFontSizePreset.DEFAULT.value
@@ -2347,9 +2376,42 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         )
     }
 
+    fun getCachedDarkThemeSchedule(context: Context): DarkThemeSchedule {
+        val prefs = context.getSharedPreferences("theme_cache", Context.MODE_PRIVATE)
+        return normalizeDarkThemeSchedule(
+            DarkThemeSchedule(
+                enabled = prefs.getBoolean("dark_theme_schedule_enabled", false),
+                startMinute = prefs.getInt("dark_theme_schedule_start_minute", 22 * 60),
+                endMinute = prefs.getInt("dark_theme_schedule_end_minute", 7 * 60),
+            ),
+        )
+    }
+
     fun getInitialAppThemeSettings(context: Context): AppThemeSettings {
         return AppThemeSettings(
-            appLanguage = getAppLanguageSync(context)
+            appLanguage = getAppLanguageSync(context),
+            darkThemeSchedule = getCachedDarkThemeSchedule(context),
+        )
+    }
+
+    fun getDarkThemeSchedule(context: Context): Flow<DarkThemeSchedule> =
+        getAppThemeSettings(context).map { it.darkThemeSchedule }.distinctUntilChanged()
+
+    suspend fun setDarkThemeSchedule(context: Context, schedule: DarkThemeSchedule) {
+        require(schedule.startMinute in 0..1439 && schedule.endMinute in 0..1439)
+        require(schedule.startMinute != schedule.endMinute)
+        editSettingsAndCommitPrefs(
+            context, "theme_cache",
+            editSettings = {
+                this[KEY_DARK_SCHEDULE_ENABLED] = schedule.enabled
+                this[KEY_DARK_SCHEDULE_START] = schedule.startMinute
+                this[KEY_DARK_SCHEDULE_END] = schedule.endMinute
+            },
+            editPrefs = {
+                putBoolean("dark_theme_schedule_enabled", schedule.enabled)
+                putInt("dark_theme_schedule_start_minute", schedule.startMinute)
+                putInt("dark_theme_schedule_end_minute", schedule.endMinute)
+            },
         )
     }
 
@@ -2501,7 +2563,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             resolveMd3ColorSourcePreference(
                 sourceValue = preferences[KEY_MD3_COLOR_SOURCE],
                 legacyDynamicColorEnabled = preferences[KEY_DYNAMIC_COLOR]
-            ) == Md3ColorSource.FOLLOW_WALLPAPER
+            ) != Md3ColorSource.CUSTOM
         }
 
     suspend fun setDynamicColor(context: Context, value: Boolean) {
@@ -2519,10 +2581,34 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             )
         }
 
-    suspend fun setMd3ColorSource(context: Context, source: Md3ColorSource) = context.settingsDataStore.edit { preferences ->
+    /** All color selection entrances commit source, seed and advanced control accents together. */
+    internal fun updateMd3ColorSelection(
+        preferences: MutablePreferences,
+        source: Md3ColorSource,
+        customHex: String? = null,
+        presetIndex: Int? = null,
+    ) {
+        val normalizedIndex = presetIndex?.let(::normalizeThemeColorIndex)
+        val selectedHex = if (normalizedIndex != null) {
+            com.android.purebilibili.core.theme.formatMd3CustomColorHex(
+                com.android.purebilibili.core.theme.ThemeColors[normalizedIndex]
+            )
+        } else customHex?.let { normalizeMd3CustomColorHex(it) }
         preferences[KEY_MD3_COLOR_SOURCE] = source.name
-        // 保持旧 key 同步，避免旧入口或导入旧配置时出现来源状态不一致。
-        preferences[KEY_DYNAMIC_COLOR] = source == Md3ColorSource.FOLLOW_WALLPAPER
+        preferences[KEY_DYNAMIC_COLOR] = source != Md3ColorSource.CUSTOM
+        if (normalizedIndex != null) preferences[KEY_THEME_COLOR_INDEX] = normalizedIndex
+        if (selectedHex != null) {
+            preferences[KEY_MD3_CUSTOM_COLOR_HEX] = selectedHex
+            if (preferences[KEY_THEME_ROLE_OVERRIDES_ENABLED] == true) {
+                preferences[KEY_THEME_LIGHT_CONTROL_ACCENT] = selectedHex
+                preferences[KEY_THEME_DARK_CONTROL_ACCENT] = selectedHex
+            }
+        }
+        // Wallpaper edits stay saved, but the endpoint resolver ignores them outside re-toning.
+    }
+
+    suspend fun setMd3ColorSource(context: Context, source: Md3ColorSource) = context.settingsDataStore.edit { preferences ->
+        updateMd3ColorSelection(preferences, source)
     }
 
     fun getMd3CustomColorHex(context: Context): Flow<String> = context.settingsDataStore.data.map {
@@ -2530,14 +2616,33 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     }
 
     suspend fun setMd3CustomColorHex(context: Context, hex: String) = context.settingsDataStore.edit { preferences ->
-        preferences[KEY_MD3_CUSTOM_COLOR_HEX] = normalizeMd3CustomColorHex(hex)
+        updateMd3ColorSelection(preferences, Md3ColorSource.CUSTOM, customHex = hex)
     }
 
-    suspend fun applyMd3CustomColor(context: Context, hex: String) = context.settingsDataStore.edit { preferences ->
-        preferences[KEY_MD3_COLOR_SOURCE] = Md3ColorSource.CUSTOM.name
-        preferences[KEY_DYNAMIC_COLOR] = false
-        preferences[KEY_MD3_CUSTOM_COLOR_HEX] = normalizeMd3CustomColorHex(hex)
+    suspend fun applyMd3CustomColor(context: Context, hex: String) = setMd3CustomColorHex(context, hex)
+
+    fun getWallpaperPaletteOverrides(context: Context): Flow<WallpaperPaletteOverrides> =
+        context.settingsDataStore.data.map(::readWallpaperPaletteOverrides)
+
+    suspend fun setWallpaperPaletteColor(
+        context: Context,
+        darkTheme: Boolean,
+        role: WallpaperPaletteRole,
+        hex: String?,
+    ) = context.settingsDataStore.edit { preferences ->
+        val key = wallpaperPalettePreferenceKeys.getValue(darkTheme to role)
+        if (hex == null) preferences.remove(key)
+        else if (com.android.purebilibili.feature.settings.isValidMd3CustomColorHex(hex)) {
+            preferences[key] = normalizeMd3CustomColorHex(hex)
+        }
     }
+
+    suspend fun resetWallpaperPaletteColors(context: Context, darkTheme: Boolean) =
+        context.settingsDataStore.edit { preferences ->
+            WallpaperPaletteRole.entries.forEach { role ->
+                preferences.remove(wallpaperPalettePreferenceKeys.getValue(darkTheme to role))
+            }
+        }
 
     fun getThemeRoleOverrides(context: Context): Flow<ThemeRoleOverrides> =
         context.settingsDataStore.data.map { preferences ->
@@ -2595,6 +2700,13 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
 
     suspend fun setThemeColorSpec(context: Context, spec: ColorSpec.SpecVersion) {
         context.settingsDataStore.edit { preferences -> preferences[KEY_THEME_COLOR_SPEC] = spec.name }
+    }
+
+    fun getThemeColorContrast(context: Context): Flow<Contrast> = context.settingsDataStore.data
+        .map { preferences -> resolveColorContrastPreference(preferences[KEY_THEME_COLOR_CONTRAST]) }
+
+    suspend fun setThemeColorContrast(context: Context, contrast: Contrast) {
+        context.settingsDataStore.edit { preferences -> preferences[KEY_THEME_COLOR_CONTRAST] = contrast.name }
     }
 
     fun getAppFontSizePreset(context: Context): Flow<AppFontSizePreset> = context.settingsDataStore.data
@@ -3079,7 +3191,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
 
     suspend fun setThemeColorIndex(context: Context, index: Int) {
         context.settingsDataStore.edit { preferences -> 
-            preferences[KEY_THEME_COLOR_INDEX] = normalizeThemeColorIndex(index)
+            updateMd3ColorSelection(preferences, Md3ColorSource.CUSTOM, presetIndex = index)
         }
     }
     
@@ -3493,9 +3605,38 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     fun getHomeWallpaperUri(context: Context): Flow<String> = context.settingsDataStore.data
         .map { preferences -> preferences[KEY_HOME_WALLPAPER_URI] ?: "" }
 
+    fun getHomeWallpaperSelection(context: Context): Flow<HomeWallpaperSelection> =
+        context.settingsDataStore.data.map { preferences ->
+            HomeWallpaperSelection(
+                uri = preferences[KEY_HOME_WALLPAPER_URI].orEmpty(),
+                mobileTransform = sanitizeWallpaperTransform(WallpaperTransform(
+                    scale = preferences[KEY_HOME_WALLPAPER_SCALE_MOBILE] ?: 1f,
+                    offsetX = preferences[KEY_HOME_WALLPAPER_OFFSET_X_MOBILE] ?: 0f,
+                    offsetY = preferences[KEY_HOME_WALLPAPER_OFFSET_Y_MOBILE] ?: 0f,
+                )),
+                tabletTransform = sanitizeWallpaperTransform(WallpaperTransform(
+                    scale = preferences[KEY_HOME_WALLPAPER_SCALE_TABLET] ?: 1f,
+                    offsetX = preferences[KEY_HOME_WALLPAPER_OFFSET_X_TABLET] ?: 0f,
+                    offsetY = preferences[KEY_HOME_WALLPAPER_OFFSET_Y_TABLET] ?: 0f,
+                )),
+            )
+        }
+
     suspend fun setHomeWallpaperUri(context: Context, uri: String) {
+        setHomeWallpaperSelection(context, HomeWallpaperSelection(uri = uri))
+    }
+
+    suspend fun setHomeWallpaperSelection(context: Context, selection: HomeWallpaperSelection) {
+        val mobile = sanitizeWallpaperTransform(selection.mobileTransform)
+        val tablet = sanitizeWallpaperTransform(selection.tabletTransform)
         context.settingsDataStore.edit { preferences ->
-            preferences[KEY_HOME_WALLPAPER_URI] = uri
+            preferences[KEY_HOME_WALLPAPER_URI] = selection.uri
+            preferences[KEY_HOME_WALLPAPER_SCALE_MOBILE] = mobile.scale
+            preferences[KEY_HOME_WALLPAPER_OFFSET_X_MOBILE] = mobile.offsetX
+            preferences[KEY_HOME_WALLPAPER_OFFSET_Y_MOBILE] = mobile.offsetY
+            preferences[KEY_HOME_WALLPAPER_SCALE_TABLET] = tablet.scale
+            preferences[KEY_HOME_WALLPAPER_OFFSET_X_TABLET] = tablet.offsetX
+            preferences[KEY_HOME_WALLPAPER_OFFSET_Y_TABLET] = tablet.offsetY
         }
     }
 
@@ -8122,11 +8263,17 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         listOf(
             StringShareablePreferenceDefinition(KEY_THEME_SELECTION, SettingsShareSection.APPEARANCE),
             IntShareablePreferenceDefinition(KEY_THEME_MODE, SettingsShareSection.APPEARANCE),
+            BooleanShareablePreferenceDefinition(KEY_DARK_SCHEDULE_ENABLED, SettingsShareSection.APPEARANCE),
+            IntShareablePreferenceDefinition(KEY_DARK_SCHEDULE_START, SettingsShareSection.APPEARANCE),
+            IntShareablePreferenceDefinition(KEY_DARK_SCHEDULE_END, SettingsShareSection.APPEARANCE),
             IntShareablePreferenceDefinition(KEY_DARK_THEME_STYLE, SettingsShareSection.APPEARANCE),
             IntShareablePreferenceDefinition(KEY_APP_LANGUAGE, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_DYNAMIC_COLOR, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_MD3_COLOR_SOURCE, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_MD3_CUSTOM_COLOR_HEX, SettingsShareSection.APPEARANCE),
+            *wallpaperPalettePreferenceKeys.values.map {
+                StringShareablePreferenceDefinition(it, SettingsShareSection.APPEARANCE)
+            }.toTypedArray(),
             BooleanShareablePreferenceDefinition(KEY_THEME_ROLE_OVERRIDES_ENABLED, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_LIGHT_BACKGROUND, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_LIGHT_PRIMARY_TEXT, SettingsShareSection.APPEARANCE),
@@ -8138,6 +8285,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             StringShareablePreferenceDefinition(KEY_THEME_DARK_CONTROL_ACCENT, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_COLOR_STYLE, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_COLOR_SPEC, SettingsShareSection.APPEARANCE),
+            StringShareablePreferenceDefinition(KEY_THEME_COLOR_CONTRAST, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(
                 KEY_SINGLE_CHOICE_PRESENTATION,
                 SettingsShareSection.APPEARANCE,
@@ -8270,7 +8418,14 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             ),
             BooleanShareablePreferenceDefinition(KEY_COMPACT_VIDEO_STATS_ON_COVER, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_HOME_WALLPAPER_URI, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_SCALE_MOBILE, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_OFFSET_X_MOBILE, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_OFFSET_Y_MOBILE, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_SCALE_TABLET, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_OFFSET_X_TABLET, SettingsShareSection.APPEARANCE),
+            FloatShareablePreferenceDefinition(KEY_HOME_WALLPAPER_OFFSET_Y_TABLET, SettingsShareSection.APPEARANCE),
             IntShareablePreferenceDefinition(KEY_HOME_WALLPAPER_EFFECT_MODE, SettingsShareSection.APPEARANCE),
+            IntShareablePreferenceDefinition(KEY_HOME_WALLPAPER_EFFECT_SCOPE, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_HOME_UP_BADGES_VISIBLE, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_HOME_REFRESH_TIP_VISIBLE, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_HOME_REFRESH_UNDO_VISIBLE, SettingsShareSection.APPEARANCE),

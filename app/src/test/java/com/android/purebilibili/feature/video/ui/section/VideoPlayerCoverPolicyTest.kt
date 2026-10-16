@@ -314,32 +314,24 @@ class VideoPlayerCoverPolicyTest {
     }
 
     @Test
-    fun surfaceViewKeepsOpaqueCoverUntilRevealSettlesEvenAfterFirstFrame() {
-        // SurfaceView 是独立硬件层，graphicsLayer.alpha 对它无效：一旦出帧就是不透明整块。
-        // 若此时按「已有首帧 → 允许叠化」放行，会露出「不透明帧 + 半透明封面」的黑底窗口。
-        assertFalse(canSurfaceParticipateInAlphaCrossfade(usesTextureSurface = false))
-        assertTrue(canSurfaceParticipateInAlphaCrossfade(usesTextureSurface = true))
-        assertTrue(
-            shouldHoldEntryCoverUnderlay(
-                isFirstFrameRendered = true,
-                forceCoverDuringReturnAnimation = false,
-                shouldKeepCoverForManualStart = false,
-                hasStartedSmoothReveal = true,
-                isSurfaceRevealSettling = false,
-                surfaceCanCrossfade = false,
-            )
+    fun surfaceViewRemovesSettledCoverWithoutFade() {
+        val holdUnderlay = shouldHoldEntryCoverUnderlay(
+            isFirstFrameRendered = true,
+            forceCoverDuringReturnAnimation = false,
+            shouldKeepCoverForManualStart = false,
+            hasStartedSmoothReveal = true,
+            isSurfaceRevealSettling = false,
         )
-        // TextureView 路径照旧：落定后移除垫底。
-        assertFalse(
-            shouldHoldEntryCoverUnderlay(
-                isFirstFrameRendered = true,
-                forceCoverDuringReturnAnimation = false,
-                shouldKeepCoverForManualStart = false,
-                hasStartedSmoothReveal = true,
-                isSurfaceRevealSettling = false,
-                surfaceCanCrossfade = true,
-            )
+        val motion = resolveVideoPlayerCoverMotionSpec(
+            forceCoverDuringReturnAnimation = false,
+            holdEntryCoverUnderlay = holdUnderlay,
+            surfaceCanCrossfade = canSurfaceParticipateInAlphaCrossfade(
+                usesTextureSurface = false,
+            ),
         )
+
+        assertFalse(holdUnderlay)
+        assertFalse(motion.shouldAnimateFade)
     }
 
     @Test
@@ -351,14 +343,22 @@ class VideoPlayerCoverPolicyTest {
             forceCoverDuringReturnAnimation = false,
             holdEntryCoverUnderlay = false,
             surfaceRevealDurationMillis = reveal.surfaceRevealDurationMillis,
+            surfaceCanCrossfade = canSurfaceParticipateInAlphaCrossfade(
+                usesTextureSurface = true,
+            ),
         )
+        assertTrue(cover.shouldAnimateFade)
         assertEquals(reveal.surfaceRevealDurationMillis, cover.exitFadeDurationMillis)
         val reduced = resolveVideoPlayerRevealMotionSpec(reducedMotion = true)
         val coverReduced = resolveVideoPlayerCoverMotionSpec(
             forceCoverDuringReturnAnimation = false,
             holdEntryCoverUnderlay = false,
             surfaceRevealDurationMillis = reduced.surfaceRevealDurationMillis,
+            surfaceCanCrossfade = canSurfaceParticipateInAlphaCrossfade(
+                usesTextureSurface = true,
+            ),
         )
+        assertTrue(coverReduced.shouldAnimateFade)
         assertEquals(reduced.surfaceRevealDurationMillis, coverReduced.exitFadeDurationMillis)
     }
 
@@ -469,6 +469,20 @@ class VideoPlayerCoverPolicyTest {
         assertTrue(spec.showManualStartPlayButton)
         assertTrue(spec.enableManualStartCoverOverlay)
         assertEquals(VideoPlayerCoverContentScaleMode.Crop, spec.coverContentScaleMode)
+    }
+
+    @Test
+    fun horizontalLoadingCoverFillsInlineSlotButKeepsFullscreenFit() {
+        for (manualStart in listOf(false, true)) {
+            for (target in listOf(VideoSharedTransitionTargetMode.InlineCover, VideoSharedTransitionTargetMode.InlinePlayer)) {
+                val spec = resolveVideoPlayerEntryPresentationSpec(manualStart, false, false, target)
+                assertEquals(VideoPlayerCoverContentScaleMode.Crop, spec.coverContentScaleMode)
+            }
+            val fullscreen = resolveVideoPlayerEntryPresentationSpec(
+                manualStart, false, false, VideoSharedTransitionTargetMode.LandscapeFullscreen,
+            )
+            assertEquals(VideoPlayerCoverContentScaleMode.Fit, fullscreen.coverContentScaleMode)
+        }
     }
 
     @Test

@@ -79,6 +79,19 @@ internal fun shouldUseOfficialMiuixHomeTopTabs(
     liquidGlassEnabled: Boolean,
 ): Boolean = uiStyle == AppUiStyle.MIUIX && !liquidGlassEnabled
 
+/** Glass exports the selected glyph in the exact accent, matching the bottom dock.
+ * Its translucent shell alone is not the composited backdrop for contrast checks.
+ * Native renderers retain the existing readable-foreground policy.
+ */
+internal fun resolveHomeTopTabSelectedContentColor(
+    accent: Color,
+    shellColor: Color,
+    liquidGlassEnabled: Boolean,
+): Color = if (liquidGlassEnabled) accent else resolveReadableBottomBarSkinForeground(
+    preferredColor = accent,
+    backgroundColor = shellColor,
+)
+
 /** Uses shared dock width policy with the top shell's own corner geometry. */
 internal fun resolveHomeTopTabFloatingDockWidth(
     containerWidth: Dp,
@@ -166,6 +179,13 @@ internal fun HomeTopTabFloatingDock(
                                 selected = selected,
                             ),
                             contentDescription = if (showText) null else label,
+                            modifier = if (showIcon && !showText) {
+                                Modifier.size(
+                                    resolveHomeTopDockIconSizeDp(1, liquidGlassEnabled = false).dp,
+                                )
+                            } else {
+                                Modifier
+                            },
                         )
                     }
                     val onClick = {
@@ -224,14 +244,17 @@ internal fun HomeTopTabFloatingDock(
         darkTheme = isDarkTheme,
         liquidGlassTuning = liquidGlassTuning,
     )
-    val selectedContentColor = resolveReadableBottomBarSkinForeground(
-        preferredColor = AppContentColors.accent(),
-        backgroundColor = shellColor,
+    val selectedContentColor = resolveHomeTopTabSelectedContentColor(
+        accent = AppContentColors.selectionAccent(liquidGlassEffectsEnabled),
+        shellColor = shellColor,
+        liquidGlassEnabled = liquidGlassEffectsEnabled,
     )
     val unselectedContentColor = resolveReadableBottomBarSkinForeground(
         preferredColor = AppContentColors.secondaryText(),
         backgroundColor = shellColor,
     )
+    // Text-only glass shares segmented capsule geometry; native and icon navigation keep their original insets.
+    val useTextSegmentedGeometry = liquidGlassEffectsEnabled && showText && !showIcon
     BottomBarFloatingSegmentedControl(
         items = categories,
         selectedIndex = selectedIndex,
@@ -240,7 +263,11 @@ internal fun HomeTopTabFloatingDock(
         enabled = true,
         itemWidth = itemWidth,
         height = dockHeight,
-        geometryMode = FloatingBottomBarGeometryMode.TopNavigation,
+        geometryMode = if (useTextSegmentedGeometry) {
+            FloatingBottomBarGeometryMode.Segmented
+        } else {
+            FloatingBottomBarGeometryMode.TopNavigation
+        },
         indicatorHeight = (dockHeight - AppSpacingTokens.ExtraSmall * 2).coerceAtLeast(0.dp),
         labelFontSize = labelFontSize,
         containerHorizontalPadding = horizontalPadding,
@@ -259,9 +286,17 @@ internal fun HomeTopTabFloatingDock(
         liquidGlassTuningOverride = liquidGlassTuning,
         onItemReselected = onReselected,
         scrollState = scrollState,
+        adaptIndicatorToLabel = showText,
         itemContent = { index, label, selected ->
             val contentColor = LocalFloatingBottomBarContentColor.current
             val selectionScale = LocalFloatingBottomBarItemSelectionScale.current
+            // Glass renders this slot twice: an idle rail and a lens-clipped active
+            // copy. The active copy must stay filled even before the pager commits
+            // the hovered tab; its visible selection is owned by the moving mask.
+            // Non-glass rails retain the native selected-index contract.
+            val iconSelected = if (liquidGlassEffectsEnabled) {
+                LocalFloatingBottomBarActiveContent.current
+            } else selected
             val categoryKey = categoryKeys.getOrNull(index) ?: label
             if (showIcon) {
                 Box(
@@ -277,10 +312,21 @@ internal fun HomeTopTabFloatingDock(
                         imageVector = resolveTopTabCategoryIcon(
                             categoryKey = categoryKey,
                             iconFamily = iconFamily,
-                            selected = selected,
+                            selected = iconSelected,
                         ),
                         contentDescription = label,
-                        modifier = Modifier.size(resolveTopTabIconSizeDp(if (showText) 0 else 1).dp),
+                        // Standalone glass icons use AppIcon's default dimensions, just
+                        // like the bottom dock. Keep compact icon+text and native sizing.
+                        modifier = if (liquidGlassEffectsEnabled && !showText) {
+                            Modifier
+                        } else {
+                            Modifier.size(
+                                resolveHomeTopDockIconSizeDp(
+                                    if (showText) 0 else 1,
+                                    liquidGlassEnabled = liquidGlassEffectsEnabled,
+                                ).dp,
+                            )
+                        },
                         tint = contentColor,
                     )
                 }
@@ -295,11 +341,15 @@ internal fun HomeTopTabFloatingDock(
                         showIcon = showIcon,
                         fontScale = fontScale,
                     ),
-                    autoSize = TextAutoSize.StepBased(
-                        minFontSize = (9f / fontScale).sp,
-                        maxFontSize = labelFontSize,
-                        stepSize = (0.5f / fontScale).sp,
-                    ),
+                    // Pure text already shares bottom-dock typography and measured slots.
+                    // Glass scrolls overflow instead of shrinking these labels below it.
+                    autoSize = if (liquidGlassEffectsEnabled && !showIcon) null else {
+                        TextAutoSize.StepBased(
+                            minFontSize = (9f / fontScale).sp,
+                            maxFontSize = labelFontSize,
+                            stepSize = (0.5f / fontScale).sp,
+                        )
+                    },
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

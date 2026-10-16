@@ -17,5 +17,9 @@ gradlePlugin {
             id = "com.android.bilipai.compose-detached-owner-guard"
             implementationClass = "com.android.purebilibili.build.ComposeDetachedOwnerGuardPlugin"
         }
+        create("workManagerNamespaceGuard") {
+            id = "com.android.bilipai.workmanager-namespace-guard"
+            implementationClass = "com.android.purebilibili.build.WorkManagerNamespaceGuardPlugin"
+        }
     }
 }
