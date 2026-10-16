@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -61,6 +62,23 @@ fun WebViewScreen(
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
+    val openInitialUrlExternally = remember(url) { shouldOpenWebUrlExternally(url) }
+    if (openInitialUrlExternally) {
+        val currentOnBack by rememberUpdatedState(onBack)
+        // App-initiated loadUrl() bypasses shouldOverrideUrlLoading(). Route external
+        // originals before creating AndroidView: host HWUI crashes cannot be caught here.
+        // This boundary is material-independent; official in-app pages keep their rendering.
+        LaunchedEffect(url) {
+            runCatching { uriHandler.openUri(url.trim()) }
+                .onFailure {
+                    Toast.makeText(context, "没有可打开此链接的应用", Toast.LENGTH_SHORT).show()
+                }
+            // Keep the source article/navigation entry, including when no handler exists.
+            currentOnBack()
+        }
+        return
+    }
+
     var rendererFailed by remember(url) { mutableStateOf(false) }
     var externalUrl by remember(url) { mutableStateOf<String?>(null) }
     val openExternal by rememberUpdatedState<(String) -> Unit>({ targetUrl ->
