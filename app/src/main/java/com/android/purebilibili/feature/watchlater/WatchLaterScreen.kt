@@ -72,6 +72,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.android.purebilibili.core.ui.components.PageAwareAsyncImage
 import coil3.request.ImageRequest
 import com.android.purebilibili.core.coroutines.AppScope
+import com.android.purebilibili.core.coroutines.AccountScopedRequests
+import com.android.purebilibili.core.store.AccountSessionIdentity
+import com.android.purebilibili.core.store.TokenManager
+import kotlinx.coroutines.CancellationException
 import com.android.purebilibili.core.refresh.WatchLaterRefreshBus
 import com.android.purebilibili.core.ui.AppScaffold
 import com.android.purebilibili.core.ui.rememberAppTopChromePolicy
@@ -226,6 +230,7 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setPageActive(active: Boolean) {
         isPageActive = active
+        if (active && needsAccountReload) loadData()
     }
 
     private val _uiState = MutableStateFlow(WatchLaterUiState(isLoading = true))
@@ -237,8 +242,17 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
     )
     private val tabCache = mutableMapOf<WatchLaterFilter, WatchLaterUiState>()
     private var loadGeneration = 0L
+    private val accountRequests = AccountScopedRequests(viewModelScope)
+    private var needsAccountReload = false
 
     init {
+        accountRequests.observe {
+            loadGeneration++
+            tabCache.clear()
+            _uiState.value = WatchLaterUiState()
+            needsAccountReload = true
+            if (isPageActive) loadData()
+        }
         observeWatchLaterRefresh()
     }
 
@@ -251,7 +265,10 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun loadData(showLoading: Boolean = true) = loadPage(reset = true, showLoading = showLoading)
+    fun loadData(showLoading: Boolean = true) {
+        needsAccountReload = false
+        loadPage(reset = true, showLoading = showLoading)
+    }
 
     fun loadMore() {
         val state = _uiState.value
@@ -311,14 +328,17 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
         } else {
             request.copy(isLoadingMore = true, error = null)
         }
-        viewModelScope.launch {
+        val identity = accountRequests.identity
+        accountRequests.launch {
             val result = WatchLaterRepository.getPage(
                 page = requestPage,
                 viewed = request.filter.viewed,
                 keyword = request.query,
                 ascending = request.sortOrder == WatchLaterSortOrder.REVERSE,
             )
-            if (generation != loadGeneration || _uiState.value.filter != request.filter) return@launch
+            if (!accountRequests.isCurrent(identity) ||
+                generation != loadGeneration || _uiState.value.filter != request.filter
+            ) return@launch
             result.fold(
                 onSuccess = { page ->
                     val current = _uiState.value
@@ -384,15 +404,18 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
             }
         )
 
-        viewModelScope.launch {
+        val identity = accountRequests.identity
+        val csrf = TokenManager.csrfCache.orEmpty()
+        val session = TokenManager.sessDataCache
+        accountRequests.launch {
             try {
-                val csrf = com.android.purebilibili.core.store.TokenManager.csrfCache ?: ""
                 if (csrf.isEmpty()) {
                     _uiState.value = rollbackState
                     android.widget.Toast.makeText(getApplication(), "请先登录", android.widget.Toast.LENGTH_SHORT).show()
                     return@launch
                 }
-                val result = deleteWatchLaterAidWithRetry(aid = aid, csrf = csrf)
+                val result = deleteWatchLaterAidWithRetry(aid, csrf, identity, session)
+                if (!accountRequests.isCurrent(identity)) return@launch
                 if (result.isSuccess) {
                     tabCache.clear()
                     android.widget.Toast.makeText(getApplication(), "已从稍后再看移除", android.widget.Toast.LENGTH_SHORT).show()
@@ -405,6 +428,8 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
                     ).show()
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                if (!accountRequests.isCurrent(identity)) return@launch
                 e.printStackTrace()
                 _uiState.value = rollbackState
                 android.widget.Toast.makeText(getApplication(), "移除失败: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
@@ -415,6 +440,9 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
     fun deleteItems(aids: List<Long>) {
         if (aids.isEmpty()) return
         val aidSet = aids.toSet()
+        val identity = accountRequests.identity
+        val csrf = TokenManager.csrfCache.orEmpty()
+        val session = TokenManager.sessDataCache
         val snapshotState = _uiState.value
         val snapshot = snapshotState.items
         val removeCount = snapshot.count { it.id in aidSet }
@@ -427,18 +455,20 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
 
         AppScope.ioScope.launch {
             try {
-                val csrf = com.android.purebilibili.core.store.TokenManager.csrfCache ?: ""
+                if (!isCurrentSession(identity, csrf, session)) return@launch
                 if (csrf.isEmpty()) {
                     withContext(Dispatchers.Main.immediate) {
+                        if (!isCurrentSession(identity, csrf, session)) return@withContext
                         _uiState.value = snapshotState
                         android.widget.Toast.makeText(getApplication(), "请先登录", android.widget.Toast.LENGTH_SHORT).show()
                     }
                     return@launch
                 }
 
-                val successIds = deleteWatchLaterItemsInBackground(aids = aids, csrf = csrf)
+                val successIds = deleteWatchLaterItemsInBackground(aids, csrf, identity, session)
 
                 withContext(Dispatchers.Main.immediate) {
+                    if (!isCurrentSession(identity, csrf, session)) return@withContext
                     val successCount = successIds.size
                     if (successCount > 0) tabCache.clear()
                     _uiState.value = _uiState.value.copy(
@@ -461,8 +491,10 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 e.printStackTrace()
                 withContext(Dispatchers.Main.immediate) {
+                    if (!isCurrentSession(identity, csrf, session)) return@withContext
                     _uiState.value = snapshotState
                     android.widget.Toast.makeText(getApplication(), "批量删除失败: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
                 }
@@ -470,10 +502,20 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    private fun isCurrentSession(
+        identity: AccountSessionIdentity,
+        csrf: String,
+        session: String?,
+    ): Boolean = accountRequests.isCurrent(identity) &&
+        TokenManager.csrfCache.orEmpty() == csrf && TokenManager.sessDataCache == session
+
     private suspend fun deleteWatchLaterItemsInBackground(
         aids: List<Long>,
-        csrf: String
+        csrf: String,
+        identity: AccountSessionIdentity,
+        session: String?,
     ): Set<Long> = withContext(Dispatchers.IO) {
+        if (!isCurrentSession(identity, csrf, session)) return@withContext emptySet()
         val response = NetworkModule.api.deleteMultipleFromWatchLater(
             aids = aids.distinct().joinToString(","),
             csrf = csrf,
@@ -486,8 +528,9 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
         if (snapshotState.isManaging) return
         val snapshot = applyWatchLaterManagementOptimisticState(snapshotState, action)
 
-        viewModelScope.launch {
-            val csrf = com.android.purebilibili.core.store.TokenManager.csrfCache.orEmpty()
+        val identity = accountRequests.identity
+        val csrf = TokenManager.csrfCache.orEmpty()
+        accountRequests.launch {
             if (csrf.isBlank()) {
                 _uiState.value = snapshot.state
                 android.widget.Toast.makeText(getApplication(), "请先登录", android.widget.Toast.LENGTH_SHORT).show()
@@ -495,6 +538,7 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
             }
 
             val result = executeWatchLaterManagementAction(action = action, csrf = csrf)
+            if (!accountRequests.isCurrent(identity)) return@launch
             handleWatchLaterManagementResult(action, snapshot, result)
         }
     }
@@ -564,14 +608,17 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
 
     fun loadFavoriteFolders() {
         if (_uiState.value.isTransferLoading) return
-        viewModelScope.launch {
-            val mid = com.android.purebilibili.core.store.TokenManager.midCache
+        val identity = accountRequests.identity
+        val mid = identity.mid
+        accountRequests.launch {
             if (mid == null) {
                 android.widget.Toast.makeText(getApplication(), "请先登录", android.widget.Toast.LENGTH_SHORT).show()
                 return@launch
             }
             _uiState.value = _uiState.value.copy(isTransferLoading = true)
-            FavoriteRepository.getFavFolders(mid).fold(
+            val result = FavoriteRepository.getFavFolders(mid)
+            if (!accountRequests.isCurrent(identity)) return@launch
+            result.fold(
                 onSuccess = { folders ->
                     _uiState.value = _uiState.value.copy(
                         favoriteFolders = folders,
@@ -602,8 +649,11 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
         } else {
             _uiState.value = snapshot.copy(isTransferLoading = true)
         }
-        viewModelScope.launch {
-            WatchLaterRepository.copyOrMoveToFavorite(targetMediaId, aids, copy).fold(
+        val identity = accountRequests.identity
+        accountRequests.launch {
+            val result = WatchLaterRepository.copyOrMoveToFavorite(targetMediaId, aids, copy)
+            if (!accountRequests.isCurrent(identity)) return@launch
+            result.fold(
                 onSuccess = {
                     tabCache.clear()
                     _uiState.value = _uiState.value.copy(isTransferLoading = false)
@@ -628,10 +678,13 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
 
     private suspend fun deleteWatchLaterAidWithRetry(
         aid: Long,
-        csrf: String
+        csrf: String,
+        identity: AccountSessionIdentity,
+        session: String?,
     ): Result<Unit> {
         val api = NetworkModule.api
         repeat(WATCH_LATER_DELETE_MAX_ATTEMPTS) { attempt ->
+            if (!isCurrentSession(identity, csrf, session)) throw CancellationException("Account changed")
             try {
                 val response = api.deleteFromWatchLater(aid = aid, csrf = csrf)
                 if (response.code == 0) {
@@ -645,6 +698,7 @@ class WatchLaterViewModel(application: Application) : AndroidViewModel(applicati
                     )
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 if (attempt >= WATCH_LATER_DELETE_MAX_ATTEMPTS - 1) {
                     return Result.failure(e)
                 }
@@ -686,6 +740,8 @@ fun WatchLaterScreen(
         onDispose { viewModel.setPageActive(false) }
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val accountIdentity by TokenManager.accountIdentity.collectAsStateWithLifecycle()
+    val initialAccountIdentity = remember { accountIdentity }
     // PiliPlus 式默认单列，双指缩放调节列数
     val windowSizeClass = LocalWindowSizeClass.current
     val isCompactGridWindow = com.android.purebilibili.feature.home.isCompactHomeFeedScreen(
@@ -743,13 +799,15 @@ fun WatchLaterScreen(
         com.android.purebilibili.core.store.CommonListHeaderCollapseMode.SHOW_AT_TOP_ONLY ->
             TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     }
-    var isBatchMode by rememberSaveable { mutableStateOf(false) }
-    var selectedBvids by rememberSaveable { mutableStateOf(setOf<String>()) }
-    var showBatchDeleteConfirm by rememberSaveable { mutableStateOf(false) }
-    var pendingTransferCopy by rememberSaveable { mutableStateOf<Boolean?>(null) }
-    var selectedTransferFolderId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var pendingManagementAction by rememberSaveable { mutableStateOf<WatchLaterManagementAction?>(null) }
-    var searchQuery by rememberSaveable { mutableStateOf(initialSearchQuery) }
+    var isBatchMode by rememberSaveable(accountIdentity) { mutableStateOf(false) }
+    var selectedBvids by rememberSaveable(accountIdentity) { mutableStateOf(setOf<String>()) }
+    var showBatchDeleteConfirm by rememberSaveable(accountIdentity) { mutableStateOf(false) }
+    var pendingTransferCopy by rememberSaveable(accountIdentity) { mutableStateOf<Boolean?>(null) }
+    var selectedTransferFolderId by rememberSaveable(accountIdentity) { mutableStateOf<Long?>(null) }
+    var pendingManagementAction by rememberSaveable(accountIdentity) { mutableStateOf<WatchLaterManagementAction?>(null) }
+    var searchQuery by rememberSaveable(accountIdentity) {
+        mutableStateOf(if (accountIdentity == initialAccountIdentity) initialSearchQuery else "")
+    }
     val hideListTopSearchBar = com.android.purebilibili.feature.list.shouldHideListTopSearchBar(
         bottomBarSearchEnabled = homeSettings.isBottomBarSearchEnabled,
         listScopedSearchEnabled = homeSettings.listScopedSearchEnabled,

@@ -4,6 +4,9 @@ package com.android.purebilibili.feature.home
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.android.purebilibili.core.coroutines.AccountScopedRequests
+import com.android.purebilibili.core.store.AccountSessionIdentity
+import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.core.plugin.FeedKind
 import com.android.purebilibili.core.plugin.PluginManager
 import com.android.purebilibili.core.plugin.RecommendationCreatorSignal
@@ -290,6 +293,7 @@ private data class TodayWatchRuntimeConfig(
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
+    private val accountRequests = AccountScopedRequests(viewModelScope)
     private val _uiState = MutableStateFlow(
         HomeUiState(
             isLoading = true,
@@ -396,6 +400,50 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private var todayWatchPluginObserverJob: Job? = null
     private var observedTodayWatchPlugin: TodayWatchPlugin? = null
 
+    private suspend fun ensureAccountCurrent(identity: AccountSessionIdentity) {
+        currentCoroutineContext().ensureActive()
+        if (!accountRequests.isCurrent(identity)) throw CancellationException("Home account changed")
+    }
+
+    private fun resetForAccountChange() {
+        categoryInitialLoadJob = null
+        userInfoRefreshJob = null
+        messageUnreadRefreshJob = null
+        undoDismissJob = null
+        todayWatchRebuildJob = null
+        _isRefreshing.value = false
+        _undoSnapshot = null
+        refreshIdx = 0
+        livePage = 1
+        hasMoreLiveData = true
+        historySampleCache = emptyList()
+        historySampleLoadedAtMs = 0L
+        historySampleCacheComplete = false
+        expandedCandidateCache = null
+        todayWatchBuildGeneration += 1L
+        todayConsumedBvids.clear()
+        pendingNotInterestedRefilterBvids.clear()
+        val previous = _uiState.value
+        // Keep navigation and global plugin settings, never the previous account's content.
+        _uiState.value = HomeUiState(
+            isLoading = true,
+            currentCategory = previous.currentCategory,
+            displayedTabIndex = previous.displayedTabIndex,
+            popularSubCategory = previous.popularSubCategory,
+            liveSubCategory = if (TokenManager.sessDataCache.isNullOrEmpty()) {
+                LiveSubCategory.POPULAR
+            } else previous.liveSubCategory,
+            categoryStates = HomeCategory.entries.associateWith { CategoryContent() }.toImmutableMap(),
+            popularCategoryStates = PopularSubCategory.entries.associateWith { CategoryContent() }.toImmutableMap(),
+            todayWatchMode = previous.todayWatchMode,
+            todayWatchPluginEnabled = previous.todayWatchPluginEnabled,
+            todayWatchCollapsed = previous.todayWatchCollapsed,
+            todayWatchCardConfig = previous.todayWatchCardConfig
+        )
+        refreshUserInfoInBackground()
+        loadData()
+    }
+
     init {
         viewModelScope.launch {
             SettingsManager.getIncrementalTimelineRefresh(getApplication()).collect { enabled ->
@@ -464,6 +512,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+        accountRequests.observe { resetForAccountChange() }
+        refreshUserInfoInBackground()
         loadData()
     }
     
@@ -495,7 +545,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         
         _uiState.value = newState
-        viewModelScope.launch {
+        accountRequests.launch {
             val runtime = syncTodayWatchPluginState(clearWhenDisabled = true)
             if (shouldAutoRebuildTodayWatchPlan(
                     currentCategory = _uiState.value.currentCategory,
@@ -572,7 +622,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val plugin = info.plugin as? TodayWatchPlugin
         plugin?.setCurrentMode(mode.toPluginMode())
         _uiState.value = _uiState.value.copy(todayWatchMode = mode)
-        viewModelScope.launch {
+        accountRequests.launch {
             rebuildTodayWatchPlan()
         }
     }
@@ -589,7 +639,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         if (collapsed) {
             cancelTodayWatchPlanRebuild()
         } else {
-            viewModelScope.launch {
+            accountRequests.launch {
                 val runtime = syncTodayWatchPluginState(clearWhenDisabled = true)
                 if (shouldAutoRebuildTodayWatchPlan(
                         currentCategory = _uiState.value.currentCategory,
@@ -611,7 +661,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             plan = _uiState.value.todayWatchPlan,
             previewLimit = _uiState.value.todayWatchCardConfig.queuePreviewLimit
         )
-        viewModelScope.launch {
+        accountRequests.launch {
             rebuildTodayWatchPlan(forceReloadHistory = false)
         }
     }
@@ -622,7 +672,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         val generation = ++todayWatchBuildGeneration
         todayWatchRebuildJob?.cancel()
-        todayWatchRebuildJob = viewModelScope.launch {
+        todayWatchRebuildJob = accountRequests.launch {
             performTodayWatchPlanRebuild(
                 forceReloadHistory = forceReloadHistory,
                 generation = generation
@@ -641,6 +691,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         forceReloadHistory: Boolean,
         generation: Long
     ) {
+        val identity = accountRequests.identity
+        ensureAccountCurrent(identity)
         val runtime = syncTodayWatchPluginState(clearWhenDisabled = true)
         if (!runtime.enabled) {
             return
@@ -663,7 +715,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             forceReload = forceReloadHistory,
             sampleLimit = runtime.historySampleLimit
         )
-        currentCoroutineContext().ensureActive()
+        ensureAccountCurrent(identity)
         if (!shouldApplyTodayWatchBuildResult(generation, todayWatchBuildGeneration)) return
         val creatorSignals = TodayWatchProfileStore.getCreatorSignals(
             context = getApplication(),
@@ -743,7 +795,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         val expandedResult = VideoRepository.getHomeVideos(refreshIdx + 1)
-        currentCoroutineContext().ensureActive()
+        ensureAccountCurrent(identity)
         if (!shouldApplyTodayWatchBuildResult(generation, todayWatchBuildGeneration)) return
 
         expandedResult.onSuccess { rawCandidates ->
@@ -786,6 +838,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun loadHistorySample(forceReload: Boolean, sampleLimit: Int): List<VideoItem> {
+        val identity = accountRequests.identity
+        ensureAccountCurrent(identity)
         val now = System.currentTimeMillis()
         val normalizedLimit = sampleLimit.coerceIn(20, 120)
         if (!forceReload &&
@@ -809,6 +863,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 viewAt = cursorViewAt,
                 business = cursorBusiness
             ).getOrNull()
+            ensureAccountCurrent(identity)
             if (page == null) {
                 if (pageCount == 0) {
                     _uiState.value = _uiState.value.copy(
@@ -860,7 +915,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         com.android.purebilibili.core.util.CardPositionManager.isSwitchingCategory = true
         
         categoryInitialLoadJob?.cancel()
-        categoryInitialLoadJob = viewModelScope.launch {
+        categoryInitialLoadJob = accountRequests.launch {
             //  [修复] 如果切换到直播分类，未登录用户默认显示热门
             val liveSubCategory = if (category == HomeCategory.LIVE) {
                 val isLoggedIn = !com.android.purebilibili.core.store.TokenManager.sessDataCache.isNullOrEmpty()
@@ -956,7 +1011,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             reFilterAllContent()
         }
         if (currentCategory == HomeCategory.RECOMMEND) {
-            viewModelScope.launch {
+            accountRequests.launch {
                 val runtime = syncTodayWatchPluginState(clearWhenDisabled = true)
                 if (shouldAutoRebuildTodayWatchPlan(
                         currentCategory = currentCategory,
@@ -985,7 +1040,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
         _uiState.value = currentState.copy(todayWatchPlan = consumeUpdate.updatedPlan)
         if (consumeUpdate.shouldRefill && currentState.currentCategory == HomeCategory.RECOMMEND) {
-            viewModelScope.launch {
+            accountRequests.launch {
                 rebuildTodayWatchPlan()
             }
         }
@@ -995,7 +1050,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     //  [新增] 切换直播子分类
     fun switchLiveSubCategory(subCategory: LiveSubCategory) {
         if (_uiState.value.liveSubCategory == subCategory) return
-        viewModelScope.launch {
+        accountRequests.launch {
             _uiState.value = _uiState.value.copy(
                 liveSubCategory = subCategory,
                 liveRooms = emptyList<LiveRoom>().toImmutableList(),
@@ -1029,7 +1084,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             !targetState.isLoading &&
             targetState.error == null
         if (current.currentCategory == HomeCategory.POPULAR && needFetch) {
-            viewModelScope.launch {
+            accountRequests.launch {
                 fetchData(isLoadMore = false)
             }
         }
@@ -1037,8 +1092,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     
     //  [新增] 添加到稍后再看
     fun addToWatchLater(bvid: String, aid: Long) {
-        viewModelScope.launch {
+        accountRequests.launch {
+            val identity = accountRequests.identity
             val result = com.android.purebilibili.data.repository.ActionRepository.toggleWatchLater(aid, true)
+            ensureAccountCurrent(identity)
             result.onSuccess {
                 android.widget.Toast.makeText(getApplication(), "已添加到稍后再看", android.widget.Toast.LENGTH_SHORT).show()
             }.onFailure { e ->
@@ -1052,7 +1109,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         reason: RecommendationFeedbackReason,
         dissolveAnimationEnabled: Boolean = true
     ) {
-        viewModelScope.launch {
+        accountRequests.launch {
+            val identity = accountRequests.identity
             val action = resolveHomeNotInterestedAction(video, reason)
             recordTodayWatchNegativeFeedback(video, action)
             if (action.shouldBlockCreator) {
@@ -1061,6 +1119,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     name = action.creatorName,
                     face = action.creatorFace
                 )
+                ensureAccountCurrent(identity)
                 blockedMids = blockedMids + action.creatorMid
             }
             if (action.shouldBlockCreator || action.keywords.isNotEmpty()) {
@@ -1078,12 +1137,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             if (action.shouldSyncCreatorToBilibiliBlockedList) {
-                viewModelScope.launch {
+                accountRequests.launch {
+                    val identity = accountRequests.identity
                     val writeResult = blockedUpRepository.blockUpWithBilibiliSync(
                         mid = action.creatorMid,
                         name = action.creatorName,
                         face = action.creatorFace
                     )
+                    ensureAccountCurrent(identity)
                     Logger.d("HomeVM", writeResult.message)
                 }
             }
@@ -1091,9 +1152,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val metadata = video.recommendationFeedback
             val supportsServerSync = metadata?.supportsServerSync == true && reason.id != null
             if (supportsServerSync) {
-                viewModelScope.launch {
-                    ActionRepository.submitRecommendationFeedback(metadata, reason)
-                        .onSuccess {
+                accountRequests.launch {
+                    val identity = accountRequests.identity
+                    val result = ActionRepository.submitRecommendationFeedback(metadata, reason)
+                    ensureAccountCurrent(identity)
+                    result.onSuccess {
                             _feedbackEvents.send(
                                 reason.toast.ifBlank { "已减少相关内容推荐" }
                             )
@@ -1121,12 +1184,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             android.widget.Toast.makeText(getApplication(), "无法获取 UP 主信息", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
-        viewModelScope.launch {
+        accountRequests.launch {
+            val identity = accountRequests.identity
             val writeResult = blockedUpRepository.blockUpWithBilibiliSync(
                 mid = action.creatorMid,
                 name = action.creatorName,
                 face = action.creatorFace
             )
+            ensureAccountCurrent(identity)
             blockedMids = blockedMids + action.creatorMid
             reFilterAllContent()
             android.widget.Toast.makeText(getApplication(), writeResult.message, android.widget.Toast.LENGTH_SHORT).show()
@@ -1192,7 +1257,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadData() {
         categoryInitialLoadJob?.cancel()
         val category = _uiState.value.currentCategory
-        categoryInitialLoadJob = viewModelScope.launch {
+        categoryInitialLoadJob = accountRequests.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 fetchData(isLoadMore = false, category = category)
@@ -1211,7 +1276,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         popularSubCategory: PopularSubCategory = _uiState.value.popularSubCategory,
     ) {
         if (_isRefreshing.value) return
-        viewModelScope.launch {
+        accountRequests.launch {
             _isRefreshing.value = true
             try {
                 val refreshingCategory = category
@@ -1333,6 +1398,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     //  [新增] 撤销刷新：恢复刷新前的推荐视频列表
     fun undoRefresh() {
+        if (!accountRequests.isCurrent()) return
         val snapshot = _undoSnapshot ?: return
         cancelUndoDismiss()
         updateCategoryState(HomeCategory.RECOMMEND) { oldState ->
@@ -1359,7 +1425,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun scheduleUndoDismiss() {
         cancelUndoDismiss()
-        undoDismissJob = viewModelScope.launch {
+        undoDismissJob = accountRequests.launch {
             delay(HOME_REFRESH_UNDO_TIMEOUT_MS)
             dismissUndo()
         }
@@ -1396,33 +1462,37 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         
-        viewModelScope.launch {
+        accountRequests.launch {
             fetchData(isLoadMore = true, category = category, popularSubCategory = popularSubCategory)
         }
     }
 
     private fun refreshUserInfoInBackground() {
         if (userInfoRefreshJob?.isActive == true) return
-        userInfoRefreshJob = viewModelScope.launch {
+        userInfoRefreshJob = accountRequests.launch {
             fetchUserInfo()
         }
     }
 
     private fun refreshMessageUnreadInBackground() {
         if (messageUnreadRefreshJob?.isActive == true) return
-        messageUnreadRefreshJob = viewModelScope.launch {
+        messageUnreadRefreshJob = accountRequests.launch {
             refreshMessageUnreadCount()
         }
     }
 
     private suspend fun refreshMessageUnreadCount() {
+        val identity = accountRequests.identity
+        ensureAccountCurrent(identity)
         if (com.android.purebilibili.core.store.TokenManager.sessDataCache.isNullOrEmpty()) {
             _uiState.value = _uiState.value.copy(messageUnreadCount = 0)
             return
         }
 
         val unreadResult = MessageRepository.getUnreadCount()
+        ensureAccountCurrent(identity)
         val feedUnreadResult = MessageRepository.getFeedUnread()
+        ensureAccountCurrent(identity)
         if (unreadResult.isSuccess && feedUnreadResult.isSuccess) {
             _uiState.value = _uiState.value.copy(
                 messageUnreadCount = totalMessageUnreadCount(
@@ -1439,6 +1509,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         category: HomeCategory = _uiState.value.currentCategory,
         popularSubCategory: PopularSubCategory = _uiState.value.popularSubCategory,
     ): Int? {
+        val identity = accountRequests.identity
+        ensureAccountCurrent(identity)
         val currentCategory = category
         var refreshNewItemsCount: Int? = null
         
@@ -1512,7 +1584,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
-        currentCoroutineContext().ensureActive()
+        ensureAccountCurrent(identity)
         videoResult.exceptionOrNull()?.let { error ->
             if (error is CancellationException) throw error
         }
@@ -1535,6 +1607,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
+        ensureAccountCurrent(identity)
 
         videoResult.onSuccess { videos ->
             val prepared = preparedHomeFeed ?: return@onSuccess
@@ -1638,7 +1711,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                  }
             }
             if (currentCategory == HomeCategory.RECOMMEND) {
-                viewModelScope.launch {
+                accountRequests.launch {
                     val runtime = syncTodayWatchPluginState(clearWhenDisabled = true)
                     if (shouldAutoRebuildTodayWatchPlan(
                             currentCategory = currentCategory,
@@ -1730,6 +1803,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         isLoadMore: Boolean,
         isManualRefresh: Boolean
     ): Int? {
+        val identity = accountRequests.identity
+        ensureAccountCurrent(identity)
         if (com.android.purebilibili.core.store.TokenManager.sessDataCache.isNullOrEmpty()) {
              updateCategoryState(HomeCategory.FOLLOW) { oldState ->
                 oldState.copy(
@@ -1742,10 +1817,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (!isLoadMore) {
-            fetchUserInfo()
+            refreshUserInfoInBackground()
         }
 
         if (isLoadMore) delay(100)
+        ensureAccountCurrent(identity)
 
         val followScope = com.android.purebilibili.data.repository.DynamicFeedScope.HOME_FOLLOW
         val followType = "video"
@@ -1766,6 +1842,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 !isLoadMore && incrementalTimelineRefreshEnabled
             }
         )
+        ensureAccountCurrent(identity)
 
         var tipCount: Int? = null
         result.onSuccess { feedResult ->
@@ -1787,6 +1864,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     type = followType,
                     incrementalRefresh = false
                 )
+                ensureAccountCurrent(identity)
                 fullResult.onSuccess { fullFeed ->
                     val fullVideos = mapHomeFollowDynamicItemsToVideos(fullFeed.items)
                     tipCount = resolveHomeFollowRefreshNewItemsCount(
@@ -1936,19 +2014,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     
     //  🔴 [改进] 获取直播间列表（同时获取关注和热门）
     private suspend fun fetchLiveRooms(isLoadMore: Boolean) {
+        val identity = accountRequests.identity
+        ensureAccountCurrent(identity)
         val page = if (isLoadMore) livePage else 1
         
         com.android.purebilibili.core.util.Logger.d("HomeVM", "🔴 fetchLiveRooms: isLoadMore=$isLoadMore, page=$page")
         
         if (!isLoadMore) {
-            fetchUserInfo()
+            refreshUserInfoInBackground()
             
             // 🔴 [改进] 首次加载时同时获取关注和热门直播
             val isLoggedIn = !com.android.purebilibili.core.store.TokenManager.sessDataCache.isNullOrEmpty()
             
             // 并行获取关注和热门直播
             val followedResult = if (isLoggedIn) LiveRepository.getFollowedLive(1) else Result.success(emptyList())
+            ensureAccountCurrent(identity)
             val popularResult = LiveRepository.getLiveRooms(1)
+            ensureAccountCurrent(identity)
             
             // 处理关注直播结果
             val followedRooms = followedResult.getOrDefault(emptyList())
@@ -1984,6 +2066,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             // 加载更多时只加载热门直播（关注的主播数量有限，不需要分页）
             val result = LiveRepository.getLiveRooms(page)
+            ensureAccountCurrent(identity)
             delay(100)
             
             result.onSuccess { rooms ->
@@ -2022,14 +2105,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     
     //  提取用户信息获取逻辑
     private suspend fun fetchUserInfo() {
-        val requestSession = com.android.purebilibili.core.store.TokenManager.sessDataCache
+        val identity = accountRequests.identity
+        ensureAccountCurrent(identity)
         val navResult = VideoRepository.getNavInfo()
-        if (requestSession != com.android.purebilibili.core.store.TokenManager.sessDataCache) return
+        ensureAccountCurrent(identity)
         navResult.onSuccess { navData ->
+            val resolvedMid = navData.mid.takeIf { navData.isLogin && it > 0L }
+            if (identity.mid != resolvedMid) {
+                // MID discovery changes identity; publish outside the scope it will cancel.
+                // The observer reloads once with that identity; equal MIDs never emit again.
+                viewModelScope.launch {
+                    if (accountRequests.isCurrent(identity)) {
+                        TokenManager.saveMid(getApplication(), resolvedMid ?: 0L)
+                    }
+                }
+                return@onSuccess
+            }
             if (navData.isLogin) {
                 val isVip = navData.vip.status == 1
                 com.android.purebilibili.core.store.TokenManager.isVipCache = isVip
-                com.android.purebilibili.core.store.TokenManager.saveMid(getApplication(), navData.mid)
                 com.android.purebilibili.core.util.AnalyticsHelper.syncUserContext(
                     mid = navData.mid,
                     isVip = isVip,
@@ -2061,7 +2155,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 messageUnreadRefreshJob?.cancel()
                 messageUnreadRefreshJob = null
                 com.android.purebilibili.core.store.TokenManager.isVipCache = false
-                com.android.purebilibili.core.store.TokenManager.saveMid(getApplication(), 0L)
                 com.android.purebilibili.core.util.AnalyticsHelper.syncUserContext(
                     mid = null,
                     isVip = false,
@@ -2079,6 +2172,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     
     //  获取关注列表（并行分页获取，支持更多关注，带本地缓存）
     private suspend fun fetchFollowingList(mid: Long) {
+        val identity = accountRequests.identity
+        ensureAccountCurrent(identity)
+        if (identity.mid != mid) return
         val context = getApplication<android.app.Application>()
         val prefs = context.getSharedPreferences("following_cache", android.content.Context.MODE_PRIVATE)
         val cacheKey = "following_mids_$mid"
@@ -2091,6 +2187,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val cachedMids = prefs.getStringSet(cacheKey, null)
             if (!cachedMids.isNullOrEmpty()) {
                 val mids = cachedMids.mapNotNull { it.toLongOrNull() }.toSet()
+                ensureAccountCurrent(identity)
                 _uiState.value = _uiState.value.copy(followingMids = mids.toImmutableSet())
                 com.android.purebilibili.core.util.Logger.d("HomeVM", " Loaded ${mids.size} following mids from cache")
                 return
@@ -2105,7 +2202,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 var page = 1
                 while (true) {  //  无限循环，直到获取完所有关注
                     try {
+                        ensureAccountCurrent(identity)
                         val result = com.android.purebilibili.core.network.NetworkModule.api.getFollowings(mid, page, 50)
+                        ensureAccountCurrent(identity)
                         if (result.code == 0 && result.data != null) {
                             val checkedResultData = requireNotNull(result.data)
                             val list = checkedResultData.list ?: break
@@ -2123,12 +2222,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                             break
                         }
                     } catch (e: Exception) {
+                        if (e is CancellationException) throw e
                         com.android.purebilibili.core.util.Logger.e("HomeVM", " Error at page $page", e)
                         break
                     }
                 }
             }
             
+            ensureAccountCurrent(identity)
             //  保存到本地缓存
             prefs.edit()
                 .putStringSet(cacheKey, allMids.map { it.toString() }.toSet())
@@ -2138,6 +2239,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = _uiState.value.copy(followingMids = allMids.toImmutableSet())
             com.android.purebilibili.core.util.Logger.d("HomeVM", " Total following mids fetched and cached: ${allMids.size}")
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             com.android.purebilibili.core.util.Logger.e("HomeVM", " Error fetching following list", e)
         }
     }

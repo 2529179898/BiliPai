@@ -260,6 +260,8 @@ fun CommonListScreen(
     isCurrentPage: Boolean = true
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val accountIdentity by com.android.purebilibili.core.store.TokenManager.accountIdentity
+        .collectAsStateWithLifecycle()
     // 个人列表（历史/收藏）默认单列，列数由双指缩放调节；其余页面保持双列默认。
     val personalListPage = viewModel is HistoryViewModel || viewModel is FavoriteViewModel
     val windowSizeClass = LocalWindowSizeClass.current
@@ -323,8 +325,9 @@ fun CommonListScreen(
 
     //  [修复] 分页支持：收藏 + 历史记录 + 用户最近点赞
     val favoriteViewModel = viewModel as? FavoriteViewModel
-    LaunchedEffect(favoriteViewModel, isCurrentPage) {
-        if (isCurrentPage) favoriteViewModel?.activateStartupLoads()
+    DisposableEffect(favoriteViewModel, isCurrentPage) {
+        favoriteViewModel?.setPageActive(isCurrentPage)
+        onDispose { favoriteViewModel?.setPageActive(false) }
     }
     val historyViewModel = viewModel as? HistoryViewModel
     DisposableEffect(historyViewModel, isCurrentPage) {
@@ -765,6 +768,48 @@ fun CommonListScreen(
     var favoriteSearchScope by rememberSaveable {
         androidx.compose.runtime.mutableStateOf(initialFavoriteSearchScope)
     }
+    var previousAccountMid by rememberSaveable { mutableStateOf(accountIdentity.mid) }
+    var previousAccountGeneration by rememberSaveable {
+        androidx.compose.runtime.mutableLongStateOf(accountIdentity.generation)
+    }
+    LaunchedEffect(accountIdentity) {
+        if (previousAccountMid == accountIdentity.mid &&
+            previousAccountGeneration == accountIdentity.generation
+        ) return@LaunchedEffect
+        // Persist ownership alongside SaveableStateProvider's restored search and management state.
+        previousAccountMid = accountIdentity.mid
+        previousAccountGeneration = accountIdentity.generation
+        // Only account-owned browsing and management state resets; appearance remains unchanged.
+        searchQuery = ""
+        favoriteSearchScope = initialFavoriteSearchScope
+        isHistoryBatchMode = false
+        selectedHistoryKeys = emptySet()
+        showHistoryBatchDeleteConfirm = false
+        showHistoryClearConfirm = false
+        pendingHistorySingleDeleteKey = null
+        isFavoriteBatchMode = false
+        selectedFavoriteResourceIds = emptySet()
+        showFavoriteBatchDeleteConfirm = false
+        pendingFavoriteTransferCopy = null
+        favoriteFolderEditorMode = null
+        favoriteFolderEditorTitle = ""
+        favoriteFolderEditorIntro = ""
+        showFavoriteFolderDeleteConfirm = false
+        showFavoriteCleanInvalidConfirm = false
+        showFavoriteDynamicShareConfirm = false
+        isFavoriteDetailBatchMode = false
+        selectedFavoriteDetailKeys = emptySet()
+        showFavoriteDetailRemoveConfirm = false
+        pendingFavoriteDetailTransferCopy = null
+        selectedFavoriteDetailTransferFolderId = null
+        pendingFavoriteDetailRemoveKeys = null
+        primaryGridState.scrollToItem(0)
+        subscribedFolderListState.scrollToItem(0)
+        favoriteFolderListState.scrollToItem(0)
+        favoriteCategoryGridState.scrollToItem(0)
+        favoritePagerGridStates.clear()
+        historyPagerGridStates.clear()
+    }
     val hideListTopSearchBar = shouldHideListTopSearchBar(
         bottomBarSearchEnabled = homeSettings.isBottomBarSearchEnabled,
         listScopedSearchEnabled = homeSettings.listScopedSearchEnabled,
@@ -787,6 +832,7 @@ fun CommonListScreen(
         favoriteViewModel,
         historyViewModel,
         isCurrentPage,
+        accountIdentity,
     ) {
         if (!isCurrentPage) return@LaunchedEffect
         if (isSearchDestination && favoriteViewModel != null) {

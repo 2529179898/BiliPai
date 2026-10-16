@@ -463,6 +463,11 @@ fun ProfileScreen(
         }
     }
 
+    DisposableEffect(viewModel, isCurrentPage) {
+        viewModel.setProfilePageActive(isCurrentPage)
+        onDispose { viewModel.setProfilePageActive(false) }
+    }
+
     LaunchedEffect(viewModel, isCurrentPage, accountSessionRefreshGeneration) {
         if (isCurrentPage) {
             val force = shouldForceProfileLoadForAccountSessionRefresh(
