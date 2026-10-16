@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.purebilibili.R
+import com.android.purebilibili.core.ui.appIconGlyphTextStyle
 import com.android.purebilibili.core.ui.components.AppText
 
 private val PiliPlusIconFont = FontFamily(Font(R.font.piliplus_custom_icons))
@@ -40,7 +41,10 @@ fun PiliPlusDanmakuSendIcon(
         Canvas(Modifier.matchParentSize()) {
             scale(this.size.width / 24f, this.size.height / 24f, pivot = Offset.Zero) {
                 // Balance the denser TV/character area against the lighter lower-right arrow.
-                translate(left = 0.75f, top = 0.75f) {
+                // The drawn frame spans y 2..23, so top = -0.5 puts its ink centre (12) on the
+                // canvas centre; the previous 0.75 rode 5.2% low and made this glyph sit below
+                // the font-drawn toggle glyph it is shown next to.
+                translate(left = 0.75f, top = -0.5f) {
                 val frame = Path().apply {
                     moveTo(19f, 13f)
                     lineTo(19f, 10f)
@@ -70,7 +74,7 @@ fun PiliPlusDanmakuSendIcon(
         }
         Box(
             modifier = Modifier
-                .offset(x = size * (2.75f / 24f), y = size * (6.75f / 24f))
+                .offset(x = size * (2.75f / 24f), y = size * (5.5f / 24f))
                 .size(width = size * (17f / 24f), height = size * (15f / 24f)),
             contentAlignment = Alignment.Center,
         ) {
@@ -113,6 +117,8 @@ internal fun PiliPlusDanmakuGlyph(
             fontSize = size.value.sp,
             lineHeight = size.value.sp,
             color = tint,
+            // Icon-font glyphs and the hand-drawn send glyph then share one vertical centre.
+            style = appIconGlyphTextStyle(),
             tapToCopyEnabled = false,
         )
     }

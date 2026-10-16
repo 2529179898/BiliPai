@@ -636,7 +636,11 @@ private fun AdaptivePlayerTitleInfoDock(
     }
 }
 
-/** A finite width lets long titles ellipsize without sizing or displacing the action dock. */
+/**
+ * A finite width keeps the title from displacing the action dock. Long titles scroll inside that
+ * width while motion is enabled (the pre-liquid-glass behaviour), and fall back to a single-line
+ * ellipsis when motion is off.
+ */
 @Composable
 private fun PlayerTitleInfoDock(
     title: String,
@@ -644,6 +648,7 @@ private fun PlayerTitleInfoDock(
     onlineCount: String,
     modifier: Modifier = Modifier,
 ) {
+    val motionEnabled = LocalComponentMotionEnabled.current
     PlayerControlGlassDock(
         enabled = true,
         modifier = modifier,
@@ -663,6 +668,8 @@ private fun PlayerTitleInfoDock(
                 maxLines = 1,
                 softWrap = false,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                // 长标题在胶囊宽度内滚动；关闭动效后回到单行省略号，保持原有静止行为。
+                modifier = if (motionEnabled) Modifier.basicMarquee() else Modifier,
             )
             if (shouldShowLandscapeMetaRow(statusInfo.isVisible, onlineCount)) {
                 Row(
