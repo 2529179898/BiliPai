@@ -4473,14 +4473,16 @@ internal fun VideoDetailScreenStateHolder(
                         val playerCollapsedForAutoPause by remember(
                             inlinePortraitScrollEnabled,
                             autoPauseCollapseRangePx,
-                            skipGesturePlayerCollapse,
+                            compactInlinePlayerForCommentTab,
                         ) {
                             derivedStateOf {
-                                resolveIsPlayerCollapsed(
+                                // 暂停会改变手势消费规则，但不会解除评论紧凑布局；两者不能共用判定。
+                                resolvePlayerCollapsedForAutoPause(
                                     swipeHidePlayerEnabled = inlinePortraitScrollEnabled,
                                     playerHeightOffsetPx = inlinePlayerCollapseState.offsetPx,
                                     videoHeightPx = autoPauseCollapseRangePx,
-                                ) || skipGesturePlayerCollapse
+                                    compactForCommentTab = compactInlinePlayerForCommentTab,
+                                )
                             }
                         }
                         LaunchedEffect(
