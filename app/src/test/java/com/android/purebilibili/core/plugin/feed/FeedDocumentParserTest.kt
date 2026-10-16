@@ -349,7 +349,7 @@ class FeedDocumentParserTest {
 
         val ruanyifeng = imported.first { it.url == "https://www.ruanyifeng.com/blog/atom.xml" }
         assertEquals("技术", ruanyifeng.group)
-        assertEquals("散列", imported.first { it.url == "https://example.com/feed" }.group)
+        assertEquals("", imported.first { it.url == "https://example.com/feed" }.group)
 
         val exported = buildSubscriptionOpml(
             listOf(
