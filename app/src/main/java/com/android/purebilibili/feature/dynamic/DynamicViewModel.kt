@@ -15,6 +15,7 @@ import com.android.purebilibili.core.network.DynamicVisibilityRequest
 import com.android.purebilibili.core.network.NetworkModule
 import com.android.purebilibili.core.network.buildDynamicRepostRequest
 import com.android.purebilibili.core.store.SettingsManager
+import com.android.purebilibili.core.store.AccountSessionStore
 import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.core.util.appendDistinctByKey
 import com.android.purebilibili.core.util.prependDistinctByKey
@@ -32,6 +33,7 @@ import com.android.purebilibili.data.repository.DynamicCreateRepository
 import com.android.purebilibili.data.repository.DynamicFeedScope
 import com.android.purebilibili.data.repository.DynamicRepository
 import com.android.purebilibili.data.repository.LiveRepository
+import com.android.purebilibili.data.repository.SessionRepository
 import com.android.purebilibili.feature.dynamic.components.DynamicManageAction
 import com.android.purebilibili.feature.dynamic.components.unfoldRelatedDynamicItems
 import com.android.purebilibili.feature.dynamic.components.DynamicReserveAction
@@ -180,6 +182,9 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
     //  侧边栏相关状态
     private val _followedUsers = MutableStateFlow<List<SidebarUser>>(emptyList())
     val followedUsers: StateFlow<List<SidebarUser>> = _followedUsers.asStateFlow()
+    private val _selfUser = MutableStateFlow<SidebarUser?>(null)
+    val selfUser: StateFlow<SidebarUser?> = _selfUser.asStateFlow()
+    private var selfProfileRefreshJob: Job? = null
 
     private val _selectedUserId = MutableStateFlow<Long?>(null)
     val selectedUserId: StateFlow<Long?> = _selectedUserId.asStateFlow()
@@ -224,6 +229,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
                 closeCommentSheet()
                 _uiState.value = createDynamicStartupUiState()
                 _followedUsers.value = emptyList()
+                _selfUser.value = null
                 _selectedUserId.value = null
                 _likedDynamics.value = emptySet()
                 _likeOverrides.value = emptyMap()
@@ -244,6 +250,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
                 lastFollowingsLoadMs = 0L
                 isFollowingsLoading = false
                 _authorSearchLoading.value = false
+                selfProfileRefreshJob = null
                 followingsFullyLoaded = false
                 completeFollowingsLoadRequested = false
                 startupFollowingsHydrationScheduled = false
@@ -260,14 +267,62 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
                 loadUserPreferences()
                 _uiState.value = createDynamicStartupUiState(_selectedTab.value)
                 startupLoadsActivated = false
-                if (isPageActive) activateStartupLoads()
+                if (isPageActive) {
+                    requestSelfProfileRefresh()
+                    activateStartupLoads()
+                }
             }
         }
     }
 
     fun setPageActive(active: Boolean) {
+        val wasActive = pageActivity.value
         pageActivity.value = active
-        if (active) activateStartupLoads()
+        if (active) {
+            if (!wasActive) requestSelfProfileRefresh()
+            activateStartupLoads()
+        }
+    }
+
+    private fun requestSelfProfileRefresh() {
+        if (selfProfileRefreshJob?.isActive == true) return
+        val identity = activeAccountIdentity
+        val mid = identity.mid ?: return
+        selfProfileRefreshJob = launchAccount {
+            try {
+                val cachedFace = withContext(Dispatchers.IO) {
+                    AccountSessionStore.getAccounts(appContext)
+                        .firstOrNull { it.mid == mid }?.face.orEmpty()
+                }
+                if (identity != TokenManager.accountIdentity.value || identity != activeAccountIdentity) {
+                    return@launchAccount
+                }
+                if (cachedFace.isNotBlank()) {
+                    _selfUser.value = SidebarUser(uid = mid, name = "我", face = cachedFace)
+                }
+                val profile = SessionRepository.account().getOrNull() ?: return@launchAccount
+                if (identity != TokenManager.accountIdentity.value ||
+                    identity != activeAccountIdentity || profile.mid != mid
+                ) {
+                    return@launchAccount
+                }
+                withContext(Dispatchers.IO) {
+                    AccountSessionStore.updateAccountAvatar(appContext, mid, profile.face)
+                }
+                if (identity != TokenManager.accountIdentity.value || identity != activeAccountIdentity) {
+                    return@launchAccount
+                }
+                _selfUser.value = SidebarUser(
+                    uid = mid,
+                    name = "我",
+                    face = profile.face.ifBlank { _selfUser.value?.face.orEmpty() }
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     private fun activateStartupLoads() {
@@ -294,7 +349,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
             loadUplistUpdates()
             refreshInBackground(resolveDynamicStartupLoadPlan())
         }
-        if (_selectedTab.value == 4) {
+        if (_selectedTab.value == 0) {
             requestCompleteFollowingsLoad()
         }
     }
@@ -449,6 +504,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
     ) {
         if (showRefreshIndicator) {
             _isRefreshing.value = true
+            requestSelfProfileRefresh()
         }
         try {
             val requestType = resolveDynamicFeedRequestType(selectedTab)
@@ -512,9 +568,8 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
         isFollowingsLoading = true
         _authorSearchLoading.value = true
         try {
-            // 先获取当前用户 mid
-            val navResponse = NetworkModule.api.getNavInfo()
-            val myMid = navResponse.data?.mid ?: return
+            // UID 来自当前账号身份；/nav 由本人资料刷新统一请求并更新头像缓存。
+            val myMid = activeAccountIdentity.mid ?: return
             
             val maxPages = pageLimit?.coerceAtLeast(1) ?: Int.MAX_VALUE
             // 首轮可限制一页；进入 UP 模式后按接口 total 拉完整关注列表。
@@ -729,6 +784,12 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
                 userIsLoading = false,
                 userError = null
             )
+            // 可能从作者筛选直接进入了尚未加载的投稿/专栏页；清除筛选时补齐该分类时间线。
+            val requestType = resolveDynamicFeedRequestType(_selectedTab.value)
+            val page = _uiState.value.timelinePage(requestType)
+            if (page.items.isEmpty() && page.hasMore && !page.isLoading && page.error == null) {
+                loadDynamicFeed(refresh = true, requestType = requestType)
+            }
         }
     }
     
@@ -874,25 +935,18 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
             savedTab = tab,
             tabCount = DYNAMIC_TOP_TAB_COUNT
         )
-        val previousSelectedUserId = _selectedUserId.value
-        val nextSelectedUserId = resolveDynamicSelectedUserForTab(
-            selectedTab = resolvedTab,
-            selectedUserId = previousSelectedUserId
-        )
-        if (resolvedTab == 4) {
+        if (shouldShowDynamicUpPanel(resolvedTab)) {
             requestCompleteFollowingsLoad()
         }
-        if (_selectedTab.value == resolvedTab && previousSelectedUserId == nextSelectedUserId) return
-        if (previousSelectedUserId != nextSelectedUserId) {
-            selectUser(nextSelectedUserId)
-        }
+        if (_selectedTab.value == resolvedTab) return
         _selectedTab.value = resolvedTab
         val requestType = resolveDynamicFeedRequestType(resolvedTab)
         _uiState.value = _uiState.value.selectTimelinePage(requestType)
         userPrefs.edit()
             .putInt(KEY_SELECTED_TAB, resolvedTab)
             .apply()
-        if (nextSelectedUserId == null) {
+        // 作者选择在全部、投稿和专栏之间保留，番剧只读取公共分类时间线。
+        if (!shouldUseSelectedUserDynamicFeed(resolvedTab, _selectedUserId.value)) {
             DynamicRepository.resetPagination(
                 scope = DynamicFeedScope.DYNAMIC_SCREEN,
                 type = requestType
@@ -2823,7 +2877,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
         private const val KEY_HIDDEN_USERS = "dynamic_hidden_users"
         private const val KEY_DISPLAY_MODE = "dynamic_display_mode"
         private const val KEY_SELECTED_TAB = "dynamic_selected_tab"
-        private const val DYNAMIC_TOP_TAB_COUNT = 5
+        private const val DYNAMIC_TOP_TAB_COUNT = 4
         private const val MAX_CACHE_ITEMS = 100
         private const val MAX_NOT_INTERESTED_DYNAMIC_IDS = 500
     }
