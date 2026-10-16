@@ -118,6 +118,7 @@ private val DefaultVideoCoinBalanceLoader = VideoCoinBalanceLoader {
 
 interface VideoEngagementActions {
     suspend fun queryLikeStatus(aid: Long): Result<Boolean>
+    suspend fun queryFollowStatus(mid: Long): Result<Boolean>
     suspend fun toggleFollow(mid: Long, currentlyFollowing: Boolean): Result<Boolean>
     suspend fun toggleLike(aid: Long, currentlyLiked: Boolean, bvid: String): Result<Boolean>
     suspend fun toggleDislike(aid: Long, currentlyDisliked: Boolean, bvid: String): Result<Boolean>
@@ -132,6 +133,9 @@ private class DefaultVideoEngagementActions(
 ) : VideoEngagementActions {
     override suspend fun queryLikeStatus(aid: Long) =
         com.android.purebilibili.data.repository.ActionRepository.queryLikeStatus(aid)
+
+    override suspend fun queryFollowStatus(mid: Long) =
+        com.android.purebilibili.data.repository.ActionRepository.queryFollowStatus(mid)
 
     override suspend fun toggleFollow(mid: Long, currentlyFollowing: Boolean) =
         useCase.toggleFollow(mid, currentlyFollowing)
@@ -288,10 +292,8 @@ class VideoEngagementViewModel(
         val state = _uiState.value
         val targetMid = mid ?: state.subject?.ownerMid ?: return
         val isOwner = targetMid == state.subject?.ownerMid
-        if (isOwner && !state.followStatusKnown) {
-            if (!followOnly) emitMessage("关注状态尚未确认，请稍后重试")
-            return
-        }
+        // 普通关注入口可重查未知状态；指令卡片仍由 followOnly 的已知状态门禁保护。
+        if (isOwner && !state.followStatusKnown && ownerFollowRequests > 0) return
         if (followOnly && !canSubmitVideoFollowAction(
                 statusKnown = state.followStatusKnown,
                 isFollowing = state.isFollowing,
@@ -307,10 +309,30 @@ class VideoEngagementViewModel(
                 followToggleMutex.withLock {
                     if (!isCurrent(state, session)) return@withLock
                     val latest = _uiState.value
-                    if (isOwner && !latest.followStatusKnown) return@withLock
-                    val wasFollowing = if (isOwner) latest.isFollowing else {
+                    if (isOwner && !latest.followStatusKnown) {
+                        val following = queryVideoInteractionStatusWithRetry(
+                            isCurrent = { isCurrent(state, session) },
+                            query = { actions.queryFollowStatus(targetMid) },
+                        ).getOrElse {
+                            it.rethrowCancellation()
+                            if (isCurrent(state, session)) emitMessage("关注状态获取失败，请稍后重试")
+                            return@withLock
+                        }
+                        if (!isCurrent(state, session)) return@withLock
+                        // 查询恢复后即使切换失败，也不让旧的未知 seed 覆盖真实关注状态。
+                        locallyModifiedFields = locallyModifiedFields + VideoEngagementField.FOLLOWING +
+                            VideoEngagementField.FOLLOWING_MIDS
+                        _uiState.update { current ->
+                            current.copy(
+                                isFollowing = following,
+                                followStatusKnown = true,
+                                followingMids = if (following) current.followingMids + targetMid else current.followingMids - targetMid,
+                            )
+                        }
+                    }
+                    val wasFollowing = if (isOwner) _uiState.value.isFollowing else {
                         com.android.purebilibili.data.repository.ActionRepository.cachedFollowStatus(targetMid)
-                            ?: com.android.purebilibili.data.repository.ActionRepository.queryFollowStatus(targetMid)
+                            ?: actions.queryFollowStatus(targetMid)
                                 .getOrElse {
                                     it.rethrowCancellation()
                                     if (isCurrent(state, session)) emitMessage("关注状态尚未确认，请稍后重试")

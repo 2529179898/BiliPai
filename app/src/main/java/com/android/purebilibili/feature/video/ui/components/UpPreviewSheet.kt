@@ -512,7 +512,10 @@ private fun UpPreviewSheetHeader(
             }
             Spacer(Modifier.width(8.dp))
             AppSurface(
-                modifier = Modifier.clickable(enabled = followStatusKnown, onClick = onFollowClick),
+                modifier = Modifier.clickable(
+                    onClickLabel = if (followStatusKnown) null else "重新确认状态并关注",
+                    onClick = onFollowClick,
+                ),
                 shape = CircleShape,
                 color = if (!followStatusKnown || isFollowing) {
                     colors.followingFillColor

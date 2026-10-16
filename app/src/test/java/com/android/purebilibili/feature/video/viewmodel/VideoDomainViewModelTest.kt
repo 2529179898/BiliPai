@@ -399,7 +399,7 @@ class VideoDomainViewModelTest {
     }
 
     @Test
-    fun `unknown interaction seed rejects dangerous actions until known`() = runTest(dispatcher) {
+    fun `failed confirmations block toggles until a known seed arrives`() = runTest(dispatcher) {
         val actions = FakeEngagementActions()
         val viewModel = VideoEngagementViewModel(actions = actions)
         val current = subject("BV1", 1L)
@@ -411,12 +411,14 @@ class VideoDomainViewModelTest {
         viewModel.toggleFollow()
         viewModel.doTripleAction()
         viewModel.doCoin(1, true)
-        runCurrent()
+        advanceUntilIdle()
         assertFalse(viewModel.uiState.value.isLiked)
         assertFalse(viewModel.uiState.value.isFollowing)
         assertEquals(null, actions.lastTripleCoinCount)
         assertEquals(0, viewModel.uiState.value.coinCount)
         assertTrue(viewModel.uiState.value.coinDialogVisible)
+        assertFalse(viewModel.uiState.value.isFollowSubmitting)
+        assertTrue(actions.followRequests.isEmpty())
         viewModel.bindSubject(current, VideoEngagementSeed(likeStatusKnown = true, followStatusKnown = true))
         viewModel.toggleLike()
         viewModel.toggleFollow()
@@ -855,6 +857,134 @@ class VideoDomainViewModelTest {
         assertEquals(1, actions.likeToggleCalls)
     }
 
+    @Test
+    fun `unknown follow confirms actual followed state before toggling off`() = runTest(dispatcher) {
+        val actions = FakeEngagementActions(followStatus = Result.success(true))
+        val viewModel = VideoEngagementViewModel(actions = actions)
+        viewModel.bindSubject(subject("BV1", 1L), VideoEngagementSeed())
+
+        viewModel.toggleFollow()
+        assertTrue(viewModel.uiState.value.isFollowSubmitting)
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L to true), actions.followRequests)
+        assertTrue(viewModel.uiState.value.followStatusKnown)
+        assertFalse(viewModel.uiState.value.isFollowing)
+        assertFalse(viewModel.uiState.value.isFollowSubmitting)
+        assertTrue(viewModel.uiState.value.followingMids.isEmpty())
+    }
+
+    @Test
+    fun `failed follow confirmation preserves unknown state and permits another attempt`() = runTest(dispatcher) {
+        val actions = FakeEngagementActions()
+        val viewModel = VideoEngagementViewModel(actions = actions)
+        viewModel.bindSubject(subject("BV1", 1L), VideoEngagementSeed())
+
+        viewModel.toggleFollow()
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.followStatusKnown)
+        assertFalse(viewModel.uiState.value.isFollowing)
+        assertFalse(viewModel.uiState.value.isFollowSubmitting)
+        assertTrue(actions.followRequests.isEmpty())
+
+        actions.followStatus = Result.success(false)
+        viewModel.toggleFollow()
+        advanceUntilIdle()
+        assertEquals(listOf(1L to false), actions.followRequests)
+        assertTrue(viewModel.uiState.value.followStatusKnown)
+        assertTrue(viewModel.uiState.value.isFollowing)
+        assertEquals(setOf(1L), viewModel.uiState.value.followingMids)
+        assertFalse(viewModel.uiState.value.isFollowSubmitting)
+    }
+
+    @Test
+    fun `recovered follow status survives a failed toggle and stale playback seed`() = runTest(dispatcher) {
+        val failure = CompletableDeferred(Result.failure<Boolean>(IllegalStateException("offline")))
+        val actions = FakeEngagementActions(
+            followStatus = Result.success(true),
+            followResponses = listOf(failure),
+        )
+        val viewModel = VideoEngagementViewModel(actions = actions)
+        val current = subject("BV1", 1L)
+        viewModel.bindSubject(current, VideoEngagementSeed())
+
+        viewModel.toggleFollow()
+        advanceUntilIdle()
+        viewModel.bindSubject(current, VideoEngagementSeed())
+
+        assertEquals(listOf(1L to true), actions.followRequests)
+        assertTrue(viewModel.uiState.value.followStatusKnown)
+        assertTrue(viewModel.uiState.value.isFollowing)
+        assertEquals(setOf(1L), viewModel.uiState.value.followingMids)
+        assertFalse(viewModel.uiState.value.isFollowSubmitting)
+    }
+
+    @Test
+    fun `late follow confirmation cannot act on next author or release its pending request`() = runTest(dispatcher) {
+        val pendingStatus = CompletableDeferred<Result<Boolean>>()
+        val nextFollow = CompletableDeferred<Result<Boolean>>()
+        val actions = FakeEngagementActions(
+            pendingFollowStatus = pendingStatus,
+            followResponses = listOf(nextFollow),
+        )
+        val viewModel = VideoEngagementViewModel(actions = actions)
+        viewModel.bindSubject(subject("BV1", 1L), VideoEngagementSeed())
+        viewModel.toggleFollow()
+        runCurrent()
+
+        val next = subject("BV2", 2L).copy(ownerMid = 2L)
+        viewModel.bindSubject(next, VideoEngagementSeed(followStatusKnown = true))
+        viewModel.toggleFollow()
+        pendingStatus.complete(Result.success(true))
+        runCurrent()
+
+        assertEquals(next, viewModel.uiState.value.subject)
+        assertEquals(listOf(2L to false), actions.followRequests)
+        assertFalse(viewModel.uiState.value.isFollowing)
+        assertTrue(viewModel.uiState.value.isFollowSubmitting)
+        nextFollow.complete(Result.success(true))
+        advanceUntilIdle()
+        assertEquals(setOf(2L), viewModel.uiState.value.followingMids)
+        assertTrue(viewModel.uiState.value.isFollowing)
+        assertFalse(viewModel.uiState.value.isFollowSubmitting)
+    }
+
+    @Test
+    fun `repeated taps during follow confirmation submit only one toggle`() = runTest(dispatcher) {
+        val pendingStatus = CompletableDeferred<Result<Boolean>>()
+        val actions = FakeEngagementActions(pendingFollowStatus = pendingStatus)
+        val viewModel = VideoEngagementViewModel(actions = actions)
+        viewModel.bindSubject(subject("BV1", 1L), VideoEngagementSeed())
+
+        viewModel.toggleFollow()
+        viewModel.toggleFollow()
+        runCurrent()
+        viewModel.toggleFollow()
+        pendingStatus.complete(Result.success(false))
+        advanceUntilIdle()
+
+        assertEquals(listOf(1L to false), actions.followRequests)
+        assertTrue(viewModel.uiState.value.isFollowing)
+        assertFalse(viewModel.uiState.value.isFollowSubmitting)
+    }
+
+    @Test
+    fun `cancelled follow confirmation releases pending without submitting a toggle`() = runTest(dispatcher) {
+        val actions = FakeEngagementActions(followStatus = Result.failure(CancellationException("cancelled")))
+        val viewModel = VideoEngagementViewModel(actions = actions)
+        val events = mutableListOf<VideoEngagementEvent>()
+        backgroundScope.launch { viewModel.events.collect { events += it } }
+        viewModel.bindSubject(subject("BV1", 1L), VideoEngagementSeed())
+
+        viewModel.toggleFollow()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.followStatusKnown)
+        assertFalse(viewModel.uiState.value.isFollowSubmitting)
+        assertTrue(actions.followRequests.isEmpty())
+        assertTrue(events.isEmpty())
+    }
+
     private fun subject(bvid: String, generation: Long) = VideoSubjectSnapshot(
         bvid = bvid,
         cid = generation,
@@ -871,10 +1001,13 @@ class VideoDomainViewModelTest {
         private val failCoin: Boolean = false,
         private val likeStatus: Result<Boolean> = Result.failure(IllegalStateException("offline")),
         private val pendingLikeStatus: CompletableDeferred<Result<Boolean>>? = null,
+        var followStatus: Result<Boolean> = Result.failure(IllegalStateException("offline")),
+        private val pendingFollowStatus: CompletableDeferred<Result<Boolean>>? = null,
         private val followResponses: List<CompletableDeferred<Result<Boolean>>> = emptyList(),
         private val tripleResponses: List<CompletableDeferred<Result<TripleActionResult>>> = emptyList()
     ) : VideoEngagementActions {
         override suspend fun queryLikeStatus(aid: Long) = pendingLikeStatus?.await() ?: likeStatus
+        override suspend fun queryFollowStatus(mid: Long) = pendingFollowStatus?.await() ?: followStatus
 
         var likeToggleCalls = 0
             private set

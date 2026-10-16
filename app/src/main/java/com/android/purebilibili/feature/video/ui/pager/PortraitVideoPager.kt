@@ -3642,7 +3642,7 @@ private fun VideoPageItem(
             isFollowing = isFollowing,
             followStatusKnown = followStatusKnown,
             onFollowClick = {
-                if (canHandlePortraitInteraction && followStatusKnown) onToggleFollow(authorMid, isFollowing)
+                if (canHandlePortraitInteraction && authorMid > 0L) onToggleFollow(authorMid, isFollowing)
             },
             
             onDetailClick = {
@@ -4098,7 +4098,7 @@ private fun VideoPageItem(
                     onUpPreviewActiveChange(false)
                 },
                 onFollowClick = {
-                    if (canHandlePortraitInteraction && followStatusKnown) onToggleFollow(authorMid, isFollowing)
+                    if (canHandlePortraitInteraction && authorMid > 0L) onToggleFollow(authorMid, isFollowing)
                 },
                 onEnterSpace = { mid ->
                     showUpPreview = false
