@@ -54,6 +54,9 @@ interface DanmakuEngine : AutoCloseable {
 
     fun invalidate()
 
+    /** Capture a tap in renderer-local pixels; invoke only after single-tap confirmation. */
+    fun captureClick(x: Float, y: Float): (() -> Unit)?
+
     fun setOnItemClickListener(listener: ((DanmakuItem, RectF, PointF) -> Unit)?)
 
     override fun close()

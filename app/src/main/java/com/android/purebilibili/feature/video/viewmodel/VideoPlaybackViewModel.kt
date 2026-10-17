@@ -33,6 +33,7 @@ import com.android.purebilibili.core.util.Logger
 import com.android.purebilibili.core.util.NetworkUtils
 import com.android.purebilibili.data.model.VideoLoadError
 import com.android.purebilibili.data.model.response.*
+import com.android.purebilibili.data.repository.DanmakuThumbupState
 import com.android.purebilibili.data.repository.VideoRepository
 import com.android.purebilibili.data.repository.VideoNoteRepository
 import com.android.purebilibili.data.repository.VideoNoteSavePayload
@@ -4024,7 +4025,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         val shouldLike = if (menuState.visible && menuState.dmid == dmid && menuState.canVote) {
             !menuState.hasLiked
         } else {
-            true
+            dmid !in _likedDanmakuIds.value
         }
         likeDanmaku(dmid = dmid, like = shouldLike)
     }
@@ -4876,16 +4877,20 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
     
     fun showDanmakuMenu(dmid: Long, text: String, userHash: String = "", isSelf: Boolean = false) {
         val supportsVote = dmid > 0L && currentCid > 0L
+        danmakuThumbupJob?.cancel()
+        val cachedVote = danmakuThumbupStates[currentCid to dmid]
         _danmakuMenuState.value = DanmakuMenuState(
             visible = true,
             text = text,
             dmid = dmid,
             userHash = userHash,
             isSelf = isSelf,
-            voteLoading = supportsVote,
+            voteCount = cachedVote?.likes ?: 0,
+            hasLiked = cachedVote?.liked ?: (dmid in _likedDanmakuIds.value),
+            voteLoading = (currentCid to dmid) in pendingDanmakuLikes,
             canVote = supportsVote
         )
-        if (supportsVote) {
+        if (supportsVote && (currentCid to dmid) !in pendingDanmakuLikes) {
             refreshDanmakuThumbupState(dmid)
         }
         // 暂停播放 (可选，防止弹幕飘走)
@@ -4898,6 +4903,8 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
     }
 
     /** 已点赞弹幕的会话级集合，供点按菜单与弹幕列表共享点赞状态 */
+    private var danmakuThumbupJob: Job? = null
+    private val danmakuThumbupStates = mutableMapOf<Pair<Long, Long>, DanmakuThumbupState>()
     private val pendingDanmakuLikes = mutableSetOf<Pair<Long, Long>>()
     private val _likedDanmakuIds = MutableStateFlow<Set<Long>>(emptySet())
     val likedDanmakuIds = _likedDanmakuIds.asStateFlow()
@@ -4906,11 +4913,13 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         if (dmid <= 0L || currentCid <= 0L) return
 
         val requestCid = currentCid
-        viewModelScope.launch {
+        danmakuThumbupJob?.cancel()
+        danmakuThumbupJob = viewModelScope.launch {
             com.android.purebilibili.data.repository.DanmakuRepository
                 .getDanmakuThumbupState(cid = requestCid, dmid = dmid)
                 .onSuccess { thumbupState ->
                     if (currentCid != requestCid) return@onSuccess
+                    danmakuThumbupStates[requestCid to dmid] = thumbupState
                     _likedDanmakuIds.update { if (thumbupState.liked) it + dmid else it - dmid }
                     _danmakuMenuState.update { current ->
                         if (!current.visible || current.dmid != dmid) current
@@ -4922,10 +4931,12 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                         )
                     }
                 }
+                // 查询仅补充票数和已赞状态，失败不能判定该弹幕不支持点赞。
                 .onFailure {
+                    if (currentCid != requestCid) return@onFailure
                     _danmakuMenuState.update { current ->
                         if (!current.visible || current.dmid != dmid) current
-                        else current.copy(voteLoading = false, canVote = false)
+                        else current.copy(voteLoading = false, canVote = true)
                     }
                 }
         }
@@ -4974,6 +4985,8 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         val requestCid = currentCid
         val requestKey = requestCid to dmid
         if (!pendingDanmakuLikes.add(requestKey)) return
+        // 停止旧状态查询，避免请求返回后覆盖这次点赞的结果。
+        danmakuThumbupJob?.cancel()
         val wasLiked = dmid in _likedDanmakuIds.value
         _likedDanmakuIds.update { if (like) it + dmid else it - dmid }
         _danmakuMenuState.update { current ->
@@ -4985,27 +4998,36 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
             try {
                 com.android.purebilibili.data.repository.DanmakuRepository
                     .likeDanmaku(cid = requestCid, dmid = dmid, like = like)
-                    .onSuccess {
+                    .onSuccess { confirmedLike ->
                         if (currentCid != requestCid) return@onSuccess
-                        _likedDanmakuIds.update { if (like) it + dmid else it - dmid }
+                        val cachedVote = danmakuThumbupStates[requestKey]
+                        val menu = _danmakuMenuState.value
+                        val previousCount = cachedVote?.likes
+                            ?: menu.takeIf { it.visible && it.dmid == dmid }?.voteCount ?: 0
+                        val previousLike = cachedVote?.liked ?: wasLiked
+                        val delta = when {
+                            confirmedLike && !previousLike -> 1
+                            !confirmedLike && previousLike -> -1
+                            else -> 0
+                        }
+                        val updatedVote = DanmakuThumbupState(
+                            likes = (previousCount + delta).coerceAtLeast(0),
+                            liked = confirmedLike
+                        )
+                        danmakuThumbupStates[requestKey] = updatedVote
+                        _likedDanmakuIds.update { if (confirmedLike) it + dmid else it - dmid }
                         _danmakuMenuState.update { current ->
                             if (!current.visible || current.dmid != dmid) current
                             else {
-                                val delta = when {
-                                    like && !current.hasLiked -> 1
-                                    !like && current.hasLiked -> -1
-                                    else -> 0
-                                }
                                 current.copy(
-                                    hasLiked = like,
-                                    voteCount = (current.voteCount + delta).coerceAtLeast(0),
+                                    hasLiked = updatedVote.liked,
+                                    voteCount = updatedVote.likes,
                                     voteLoading = false,
                                     canVote = true
                                 )
                             }
                         }
-                        toast(if (like) "点赞成功" else "已取消点赞")
-                        refreshDanmakuThumbupState(dmid)
+                        toast(if (confirmedLike) "已点赞" else "已取消点赞")
                     }
                     .onFailure { error ->
                         if (currentCid != requestCid) return@onFailure

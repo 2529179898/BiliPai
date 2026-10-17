@@ -1144,6 +1144,12 @@ interface BilibiliApi {
         @retrofit2.http.Field("dmid") dmid: Long,             // 弹幕 ID
         @retrofit2.http.Field("op") op: Int = 1,              // 操作: 1点赞/2取消
         @retrofit2.http.Field("platform") platform: String = "web_player",
+        // 对齐 PiliPlus 的播放器来源参数，仅用于弹幕点赞请求。
+        @retrofit2.http.Field("polaris_app_id") polarisAppId: Int = 100,
+        @retrofit2.http.Field("polaris_platform") polarisPlatform: Int = 5,
+        @retrofit2.http.Field("spmid") spmid: String = "333.788.0.0",
+        @retrofit2.http.Field("from_spmid") fromSpmid: String = "333.788.0.0",
+        @retrofit2.http.Field("statistics") statistics: String = "{\"appId\":100,\"platform\":5,\"abtest\":\"\",\"version\":\"\"}",
         @retrofit2.http.Field("csrf") csrf: String
     ): DanmakuActionResponse
 

@@ -246,6 +246,12 @@ internal class ByteDanceDanmakuEngine(
         if (!closed) controller.invalidateView()
     }
 
+    override fun captureClick(x: Float, y: Float): (() -> Unit)? {
+        if (closed) return null
+        val click = controller.captureDanmakuClick(x, y) ?: return null
+        return { if (!closed) click() }
+    }
+
     override fun setOnItemClickListener(listener: ((DanmakuItem, android.graphics.RectF, android.graphics.PointF) -> Unit)?) {
         if (closed) return
         controller.itemClickListener = listener?.let { callback ->
