@@ -766,6 +766,8 @@ internal fun VideoContentSection(
         resolveVideoContentTabSwitchAnimationSpec(playerChromeProfile.tabPresentation, liquidGlassEnabled)
     }
     val componentMotionEnabled = com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current
+    val commentChromeMotionEnabled = componentMotionEnabled &&
+        !com.android.purebilibili.core.ui.LocalSystemReduceMotion.current
     val tabSelectionAnimationSpec = remember(tabSwitchAnimationSpec, liquidGlassEnabled, componentMotionEnabled) {
         if (liquidGlassEnabled && !componentMotionEnabled) snap<Float>() else tween<Float>(
             durationMillis = tabSwitchAnimationSpec.durationMs,
@@ -1092,8 +1094,10 @@ internal fun VideoContentSection(
                         onSortModeChange = onSortModeChange,
                         showNativeSortHeader = !liquidGlassEnabled,
                         showSortControlInHeader = true,
-                        showHeader = !immersiveVideoContentChromeEnabled,
-                        floatingHeaderContentPadding = if (immersiveVideoContentChromeEnabled) 46.dp else 0.dp,
+                        // Glass title and sort share the sibling overlay. Keep its space as list
+                        // padding so hiding chrome cannot resize the list or move its anchors.
+                        showHeader = !immersiveVideoContentChromeEnabled && !liquidGlassEnabled,
+                        floatingHeaderContentPadding = if (immersiveVideoContentChromeEnabled || liquidGlassEnabled) 46.dp else 0.dp,
                         onSearchClick = { showCommentSearchSheet = true },
                     )
                 }
@@ -1209,24 +1213,35 @@ internal fun VideoContentSection(
                         translationX = pagerState.getOffsetDistanceInPages(1) * size.width
                     },
             ) {
-                if (immersiveVideoContentChromeEnabled && commentListAtTop) {
-                    CommentListHeader(
-                        count = replyCount,
-                        title = "${sortMode.label}评论",
-                        modifier = Modifier.align(Alignment.TopStart),
-                    )
+                // Scroll hiding belongs to glass only. With glass off, native sort controls
+                // and progressive-header behavior retain their original visibility.
+                AnimatedVisibility(
+                    visible = !liquidGlassEnabled || commentListAtTop,
+                    enter = if (commentChromeMotionEnabled) fadeIn(tween(120)) else EnterTransition.None,
+                    exit = if (commentChromeMotionEnabled) fadeOut(tween(90)) else ExitTransition.None,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Box(Modifier.fillMaxWidth().heightIn(min = 46.dp)) {
+                        if (liquidGlassEnabled || (immersiveVideoContentChromeEnabled && commentListAtTop)) {
+                            CommentListHeader(
+                                count = replyCount,
+                                title = "${sortMode.label}评论",
+                                modifier = Modifier.align(Alignment.TopStart),
+                            )
+                        }
+                        CommentSortFilterBar(
+                            sortMode = sortMode,
+                            onSortModeChange = onSortModeChange,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 6.dp, end = 16.dp)
+                                .offset(y = (-commentSortDockLiftDp).dp),
+                            miuixBackdrop = if (liquidGlassEnabled) videoContentMiuixBackdrop else null,
+                            liquidGlassEffectsEnabled = liquidGlassEnabled,
+                            onSearchClick = { showCommentSearchSheet = true },
+                        )
+                    }
                 }
-                CommentSortFilterBar(
-                    sortMode = sortMode,
-                    onSortModeChange = onSortModeChange,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 6.dp, end = 16.dp)
-                        .offset(y = (-commentSortDockLiftDp).dp),
-                    miuixBackdrop = if (liquidGlassEnabled) videoContentMiuixBackdrop else null,
-                    liquidGlassEffectsEnabled = liquidGlassEnabled,
-                    onSearchClick = { showCommentSearchSheet = true },
-                )
             }
         }
 

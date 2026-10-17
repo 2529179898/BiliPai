@@ -61,8 +61,10 @@ class VideoContentSectionPerformanceStructureTest {
         assertTrue(source.contains("enabled = tabBarCollapseEnabled"))
         assertFalse(source.contains("visible = !collapseTabBarForCommentScroll"))
         // Sort filter bar lives in the top chrome beside the comment tab.
-        assertTrue(source.contains("pagerState.currentPage == 1 &&"))
-        assertTrue(source.contains("visible = commentListAtTop"))
+        // The glass overlay leaves with list scrolling; native visibility stays unchanged.
+        assertTrue(source.contains("visible = !liquidGlassEnabled || commentListAtTop"))
+        assertTrue(source.contains("showHeader = !immersiveVideoContentChromeEnabled && !liquidGlassEnabled"))
+        assertTrue(source.contains("floatingHeaderContentPadding = if (immersiveVideoContentChromeEnabled || liquidGlassEnabled) 46.dp else 0.dp"))
         assertTrue(source.contains("CommentSortFilterBar("))
         val sortControlSource = source
             .substringAfter("CommentSortFilterBar(")

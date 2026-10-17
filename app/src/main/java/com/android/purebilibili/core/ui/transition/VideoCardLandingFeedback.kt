@@ -2,27 +2,20 @@ package com.android.purebilibili.core.ui.transition
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
 import com.android.purebilibili.core.ui.LocalSystemReduceMotion
 import com.android.purebilibili.core.ui.adaptive.MotionTier
-import com.android.purebilibili.core.util.CardPositionManager
 import kotlinx.coroutines.flow.collectLatest
-
-/** Only a committed return may start the source card's landing feedback. */
-internal fun shouldPlayVideoCardLandingFeedback(
-    previous: VideoCardTransitionExposure?,
-    current: VideoCardTransitionExposure?,
-): Boolean = previous == VideoCardTransitionExposure.Returning &&
-    current == VideoCardTransitionExposure.Idle
 
 /**
  * Custom video morph feedback, shared across materials; native MD3/Miuix controls are untouched.
@@ -38,32 +31,56 @@ internal fun Modifier.videoCardLandingFeedback(
     enabled: Boolean,
 ): Modifier {
     if (!enabled) return this
+    val landingFeedback = LocalVideoCardTransitionClock.current?.landingFeedback ?: return this
     val background = rememberUpdatedState(LocalVideoCardTransitionBackgroundState.current)
     val motionEnabled = LocalComponentMotionEnabled.current && !LocalSystemReduceMotion.current
-    val scale = remember(layer, bvid, sourceRoute) { Animatable(1f, 0.0001f) }
-    LaunchedEffect(layer, bvid, sourceRoute, motionEnabled) {
-        scale.snapTo(1f)
+    val density = LocalDensity.current.density
+    // Animate physical edge travel, not a fixed percentage: wide cards must not visibly
+    // shrink more than feed tiles. Read animated values only in the graphics layer.
+    val edgeCompression = remember(layer, bvid, sourceRoute, density) { Animatable(0f, 0.015f) }
+    LaunchedEffect(layer, bvid, sourceRoute, density, motionEnabled, landingFeedback) {
+        edgeCompression.snapTo(0f)
         if (!motionEnabled) return@LaunchedEffect
-        var previous: VideoCardTransitionExposure? = null
         snapshotFlow {
             val state = background.value
             val exposure = state.exposureProvider()
             val sourceMatches = isRecordedNativeCardSource(
                 bvid, sourceRoute, state.sourceKeyProvider(),
             )
-            // Native layers retire two frames after landing. Do not cancel an active pulse
-            // when that reference clears; ownership is needed only to arm the return.
-            if (sourceMatches && state.motionTierProvider() == MotionTier.Normal &&
-                (exposure == VideoCardTransitionExposure.Idle ||
-                    CardPositionManager.isNativeVideoCardLayerCurrentOwner(layer))
-            ) exposure else null
-        }.collectLatest { exposure ->
-            val play = shouldPlayVideoCardLandingFeedback(previous, exposure)
-            previous = exposure
-            scale.snapTo(1f)
-            if (play) {
-                scale.animateTo(0.992f, tween(durationMillis = 60))
-                scale.animateTo(1f, spring(dampingRatio = 0.85f, stiffness = 500f))
+            if (sourceMatches && state.motionTierProvider() == MotionTier.Normal) {
+                exposure to landingFeedback.event
+            } else null
+        }.collectLatest { frame ->
+            edgeCompression.snapTo(0f)
+            val readyFrame = frame ?: return@collectLatest
+            val event = readyFrame.second ?: return@collectLatest
+            if (readyFrame.first != VideoCardTransitionExposure.Idle) return@collectLatest
+            var compressionDp = 0f
+            // A recreated card may receive the event before its native layer's first draw.
+            // Wait for geometry without consuming the event or subscribing composition to size.
+            for (attempt in 0..2) {
+                compressionDp = resolveVideoCardLandingEdgeCompressionDp(
+                    widthPx = layer.size.width.toFloat(),
+                    heightPx = layer.size.height.toFloat(),
+                    density = density,
+                    sourceLayout = event.sourceLayout,
+                )
+                if (compressionDp > 0f) break
+                withFrameNanos { }
+            }
+            if (compressionDp > 0f && landingFeedback.claim(event, background.value.sourceKeyProvider())) {
+                // One impulse starts at identity and comes home on the same spring.
+                // No extra timed press after the flying card has already stopped.
+                val motion = resolveVideoCardLandingMotion(event.sourceLayout)
+                edgeCompression.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = motion.dampingRatio,
+                        stiffness = motion.stiffness,
+                        visibilityThreshold = 0.015f,
+                    ),
+                    initialVelocity = resolveVideoCardLandingImpulseVelocity(compressionDp, event.sourceLayout),
+                )
             }
         }
     }
@@ -72,7 +89,13 @@ internal fun Modifier.videoCardLandingFeedback(
         val state = background.value
         val value = if (motionEnabled && state.motionTierProvider() == MotionTier.Normal &&
             state.exposureProvider() == VideoCardTransitionExposure.Idle
-        ) scale.value else 1f
+        ) resolveVideoCardLandingScale(
+            widthPx = size.width,
+            heightPx = size.height,
+            density = density,
+            edgeCompressionDp = edgeCompression.value,
+            sourceLayout = landingFeedback.event?.sourceLayout ?: VideoCardSourceLayout.COVER_ONLY,
+        ) else 1f
         scaleX = value
         scaleY = value
     }

@@ -934,6 +934,29 @@ fun AppNavigation(
             sourceChromeSnapshot = CardPositionManager.lastClickedVideoSourceChromeSnapshot,
             hostOriginInRoot = navigationHostOriginInRoot,
         )
+        // Freeze the source before direction/offline lookups can suspend. A related click
+        // replaces the previous home-card globals, which may be invalidated while those
+        // lookups are pending; late capture then loses the first nested card morph.
+        fun captureVideoCardNavigationSession(
+            bvid: String,
+            sourceRoute: String?,
+            coverUrl: String?,
+            useRecordedCardSource: Boolean,
+        ): VideoCardTransitionSession {
+            val matchedRoute = resolveVideoCardSourceRouteForNavigation(
+                currentRoute = navigation3BackStack.lastOrNull()?.toLegacyRoute(),
+                videoBvid = bvid,
+                lastClickedVideoSourceKey = CardPositionManager.lastClickedVideoSourceKey,
+                visibleBottomBarRoutes = visibleBottomBarRoutes,
+            )
+            val source = resolveBiliPaiVideoSource(
+                bvid = bvid,
+                explicitSourceRoute = sourceRoute ?: matchedRoute.takeIf { useRecordedCardSource },
+                currentKey = navigation3BackStack.lastOrNull(),
+                previousSourceRoute = navigation3ReturnSession.lastVideoSourceRoute,
+            )
+            return captureVideoCardTransitionSession(bvid, source, coverUrl, useRecordedCardSource)
+        }
         fun prearmVideoCardOpening(session: VideoCardTransitionSession) {
             val transitionEnabledForSource = resolveVideoCardTransitionEnabledForSource(
                 cardTransitionEnabled = sharedVideoCardTransitionEnabled,
@@ -1166,9 +1189,16 @@ fun AppNavigation(
             sourceRoute: String?,
             skipPortraitStoryResolution: Boolean = false,
             useRecordedCardSource: Boolean = true,
+            pendingTransitionSession: VideoCardTransitionSession? = null,
         ) {
             val parsedKey = legacyRouteToBiliPaiNavKey(route)
             val videoKey = parsedKey as? BiliPaiNavKey.VideoDetail
+            val transitionSession = pendingTransitionSession ?: captureVideoCardNavigationSession(
+                bvid = videoKey?.bvid.orEmpty(),
+                sourceRoute = sourceRoute,
+                coverUrl = videoKey?.coverUrl,
+                useRecordedCardSource = useRecordedCardSource,
+            )
             val hasCommentJump = (videoKey?.commentRootRpid ?: 0L) > 0L || (videoKey?.commentTargetRpid ?: 0L) > 0L
             if (!skipPortraitStoryResolution && !hasCommentJump) {
                 resolvePortraitStoryNavigationSeed(
@@ -1205,6 +1235,7 @@ fun AppNavigation(
                                     sourceRoute = sourceRoute,
                                     skipPortraitStoryResolution = true,
                                     useRecordedCardSource = useRecordedCardSource,
+                                    pendingTransitionSession = transitionSession,
                                 )
                             } else {
                                 navigateToPortraitStoryInNavigation3(
@@ -1222,6 +1253,7 @@ fun AppNavigation(
                                 sourceRoute = sourceRoute,
                                 skipPortraitStoryResolution = true,
                                 useRecordedCardSource = useRecordedCardSource,
+                                pendingTransitionSession = transitionSession,
                             )
                         }
                     }
@@ -1232,24 +1264,6 @@ fun AppNavigation(
             // Story (or a cached direction lookup) makes that same click reject itself.
             if (!canNavigate(false)) return
             val videoBvid = videoKey?.bvid.orEmpty()
-            val matchedVisibleCardRoute = resolveVideoCardSourceRouteForNavigation(
-                currentRoute = navigation3BackStack.lastOrNull()?.toLegacyRoute(),
-                videoBvid = videoBvid,
-                lastClickedVideoSourceKey = CardPositionManager.lastClickedVideoSourceKey,
-                visibleBottomBarRoutes = visibleBottomBarRoutes
-            )
-            val source = resolveBiliPaiVideoSource(
-                bvid = videoBvid,
-                explicitSourceRoute = sourceRoute ?: matchedVisibleCardRoute.takeIf { useRecordedCardSource },
-                currentKey = navigation3BackStack.lastOrNull(),
-                previousSourceRoute = navigation3ReturnSession.lastVideoSourceRoute
-            )
-            val transitionSession = captureVideoCardTransitionSession(
-                bvid = videoBvid,
-                source = source,
-                coverIdentity = videoKey?.coverUrl,
-                useRecordedCardSource = useRecordedCardSource,
-            )
             navigation3ReturnSession = navigation3ReturnSession
                 .recordTransitionSession(
                     session = transitionSession,
@@ -1275,7 +1289,7 @@ fun AppNavigation(
                         startAudio = parsedKey.startAudio,
                     ) || parsedKey.directPortraitEntry
                     parsedKey.copy(
-                        sourceRoute = source.route,
+                        sourceRoute = transitionSession.sourceRoute,
                         autoPortrait = parsedKey.autoPortrait || morphDirectPortrait,
                         initialVertical = parsedKey.initialVertical || morphDirectPortrait,
                         directPortraitEntry = morphDirectPortrait,
@@ -1299,7 +1313,14 @@ fun AppNavigation(
             sourceRoute: String? = null,
             skipPortraitStoryResolution: Boolean = false,
             useRecordedCardSource: Boolean = true,
+            pendingTransitionSession: VideoCardTransitionSession? = null,
         ) {
+            val transitionSession = pendingTransitionSession ?: captureVideoCardNavigationSession(
+                bvid = bvid,
+                sourceRoute = sourceRoute,
+                coverUrl = coverUrl,
+                useRecordedCardSource = useRecordedCardSource,
+            )
             val morphDirectPortrait = resolveDirectPortraitDetailMorphEntry(
                 directPortraitStoryEntry = playerInteractionSettings.directPortraitStoryEntry,
                 cardTransitionEnabled = cardTransitionEnabled,
@@ -1340,6 +1361,7 @@ fun AppNavigation(
                         sourceRoute = sourceRoute,
                         skipPortraitStoryResolution = skipPortraitStoryResolution,
                         useRecordedCardSource = useRecordedCardSource,
+                        pendingTransitionSession = transitionSession,
                     )
                 }
                 return
@@ -1395,6 +1417,7 @@ fun AppNavigation(
                                 sourceRoute = sourceRoute,
                                 skipPortraitStoryResolution = true,
                                 useRecordedCardSource = useRecordedCardSource,
+                                pendingTransitionSession = transitionSession,
                             )
                         } else {
                             navigateToPortraitStoryInNavigation3(
@@ -1412,6 +1435,7 @@ fun AppNavigation(
                             sourceRoute = sourceRoute,
                             skipPortraitStoryResolution = true,
                             useRecordedCardSource = useRecordedCardSource,
+                            pendingTransitionSession = transitionSession,
                         )
                     }
                 }
@@ -1422,6 +1446,7 @@ fun AppNavigation(
                 sourceRoute = sourceRoute,
                 skipPortraitStoryResolution = true,
                 useRecordedCardSource = useRecordedCardSource,
+                pendingTransitionSession = transitionSession,
             )
         }
         fun navigateToHomeVideoInNavigation3(request: HomeVideoClickRequest) {
