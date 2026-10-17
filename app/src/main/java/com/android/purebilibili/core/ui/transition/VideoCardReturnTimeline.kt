@@ -34,6 +34,10 @@ internal object VideoCardTransitionVisualTimeline {
     const val DETAIL_CHROME_ENTER_END = 0.72f
     const val SECONDARY_CONTENT_ENTER_START = 0.24f
     const val SECONDARY_CONTENT_ENTER_END = 0.82f
+    // Keep content readable at gesture pickup, then yield alongside viewport contraction.
+    // Finish at the source chrome handoff, without an empty shell between the two.
+    const val NATIVE_BODY_RETURN_START = 0.10f
+    const val NATIVE_BODY_RETURN_END = 0.82f
     // The frozen background page starts yielding before the flying card's internal content morph.
     // This only refreshes the backdrop; it never reveals the source card as a stationary substitute.
     const val WHOLE_SOURCE_CARD_RETURN_START = 0.55f
@@ -204,6 +208,16 @@ internal fun resolveVideoCardTimelineWindowProgress(
     return ((value - safeStart) / (safeEnd - safeStart)).coerceIn(0f, 1f)
 }
 
+/** Shared, reversible envelope for native body opacity and the flying viewport's height. */
+internal fun resolveVideoCardNativeBodyPresence(morphDepthProgress: Float): Float {
+    val progress = resolveVideoCardTimelineWindowProgress(
+        progress = 1f - morphDepthProgress,
+        start = VideoCardTransitionVisualTimeline.NATIVE_BODY_RETURN_START,
+        end = VideoCardTransitionVisualTimeline.NATIVE_BODY_RETURN_END,
+    )
+    return 1f - progress * progress * (3f - 2f * progress)
+}
+
 /**
  * Whether detail body / controls must yield to source-card chrome on the flying entry.
  *
@@ -297,6 +311,7 @@ internal fun resolveVideoCardSecondaryContentVisualFrame(
      * 时 `else -> 1f` 把已让位的正文弹回不透明的缺口。
      */
     isCommittedCardReturn: Boolean = false,
+    preserveNativeViewport: Boolean = false,
 ): VideoCardSecondaryContentVisualFrame {
     val depth = resolveVisualProgress(morphDepthProgress, phase, VideoSharedTransitionDirection.ENTER)
     val returning = isVideoCardReturnContentYieldActive(
@@ -304,7 +319,8 @@ internal fun resolveVideoCardSecondaryContentVisualFrame(
         isReturnGestureInProgress = isReturnGestureInProgress,
         morphDepthProgress = depth,
     )
-    // Match landing chrome alpha so detail body and source-card text crossfade as a pair.
+    // Only the existing native-viewport path uses the shared envelope. Other material /
+    // shared-bounds paths keep their own timing; media and source chrome keep the late handoff.
     val handoff = if (!followProgressEnabled && depth > 0f) 0f else resolveVideoCardSourceChromeVisualFrame(
         morphDepthProgress = depth,
         phase = phase,
@@ -312,6 +328,11 @@ internal fun resolveVideoCardSecondaryContentVisualFrame(
         sourceLayout = sourceLayout,
     ).handoffProgress
     val alpha = when {
+        preserveNativeViewport && motionTier != MotionTier.Reduced && returning && followProgressEnabled ->
+            resolveVideoCardNativeBodyPresence(depth)
+        preserveNativeViewport && motionTier != MotionTier.Reduced &&
+            phase == VideoCardTransitionBackgroundPhase.OPENING ->
+            resolveVideoCardNativeBodyPresence(depth)
         // Detail body yields in the exact live → cover/source-card chrome window.
         returning -> 1f - handoff
         motionTier == MotionTier.Reduced -> depth

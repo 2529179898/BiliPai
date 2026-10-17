@@ -205,12 +205,14 @@ internal fun isVideoDetailIntroScrollPastCollapseThreshold(
 internal fun resolveInlinePortraitPlayerCollapseProgress(
     manualCollapseProgress: Float,
     compactForCommentTabProgress: Float,
-    restoreRequested: Boolean = false
+    restoreRequested: Boolean = false,
+    hidePausedPlayerForComments: Boolean = false,
 ): Float {
     if (restoreRequested) return 0f
-    // The list threshold drives the state holder to its compact offset. Rendering must follow
-    // that manual offset afterwards so an upward drag can restore the player immediately.
-    return manualCollapseProgress.coerceIn(0f, 1f)
+    // 评论空间保护会让手势让路给列表，画面必须同步采用紧凑进度，不能依赖暂停后再滑动。
+    // 暂停时仍按手势位移隐藏，避免把原本的紧凑画面直接压成高度 0。
+    val compactProgress = if (hidePausedPlayerForComments) 0f else compactForCommentTabProgress
+    return max(manualCollapseProgress, compactProgress).coerceIn(0f, 1f)
 }
 
 internal fun resolveInlinePortraitPlayerCommentCollapseDurationMillis(

@@ -9,6 +9,122 @@ import org.junit.Test
 class PlayerCollapseAutoPausePolicyTest {
 
     @Test
+    fun autoPauseKeepsCommentCollapseGeometryAndGestureConsumptionStable() {
+        val expandedHeight = 540f
+        val compactHeight = 230f
+        for (compactForComments in listOf(false, true)) {
+            for (offset in listOf(-300f, -310f)) {
+                val heights = mutableListOf<Float>()
+                val gestureSkips = mutableListOf<Boolean>()
+                for (playbackPaused in listOf(false, true, true)) {
+                    val layoutPaused = resolveIsPlaybackPausedForInlineLayout(
+                        isPlaybackPaused = playbackPaused,
+                        wasAutoPausedByCollapse = playbackPaused,
+                    )
+                    val hideForComments = shouldHidePausedInlinePlayerForComments(1, layoutPaused)
+                    val collapsedHeight = resolveInlinePlayerCollapsedViewportHeightDp(
+                        standardCollapsedHeightDp = compactHeight,
+                        hidePausedPlayerForComments = hideForComments,
+                    )
+                    val collapsedForAutoPause = resolvePlayerCollapsedForAutoPause(
+                        swipeHidePlayerEnabled = true,
+                        playerHeightOffsetPx = offset,
+                        videoHeightPx = expandedHeight - compactHeight,
+                        compactForCommentTab = compactForComments,
+                    )
+                    assertTrue(collapsedForAutoPause)
+                    assertFalse(shouldAutoResumeOnPlayerExpand(
+                        autoPauseEnabled = true,
+                        isPlayerCollapsed = collapsedForAutoPause,
+                        wasAutoPausedByCollapse = playbackPaused,
+                    ))
+                    val progress = resolveInlinePortraitPlayerCollapseProgress(
+                        manualCollapseProgress = -offset / (expandedHeight - collapsedHeight),
+                        compactForCommentTabProgress = if (compactForComments) 1f else 0f,
+                        hidePausedPlayerForComments = hideForComments,
+                    )
+                    heights += expandedHeight + (collapsedHeight - expandedHeight) * progress
+                    gestureSkips += com.android.purebilibili.feature.video.policy
+                        .shouldSkipGesturePlayerCollapseForLayout(
+                            compactForIntroScroll = false,
+                            compactForCommentTab = compactForComments,
+                            hidePausedPlayerForComments = hideForComments,
+                        )
+                }
+                assertEquals(1, heights.distinct().size)
+                assertEquals(1, gestureSkips.distinct().size)
+            }
+        }
+    }
+
+    @Test
+    fun manualPauseStillEnablesCommentHidingAfterPlaybackResumes() {
+        assertFalse(resolveIsPlaybackPausedForInlineLayout(false, false))
+        assertFalse(resolveIsPlaybackPausedForInlineLayout(true, true))
+        // Resuming releases auto-pause ownership; the next manual pause uses paused rules.
+        assertFalse(resolveIsPlaybackPausedForInlineLayout(false, false))
+        val manuallyPaused = resolveIsPlaybackPausedForInlineLayout(true, false)
+        assertTrue(shouldHidePausedInlinePlayerForComments(1, manuallyPaused))
+        assertTrue(shouldEnableInlinePortraitScrollTransform(
+            collapseMode = PortraitPlayerCollapseMode.PAUSED_ONLY,
+            selectedTabIndex = 0,
+            isPlaybackPaused = manuallyPaused,
+        ))
+    }
+
+    @Test
+    fun shortCommentViewportCompactsWhileAutoPauseIsDisabled() {
+        val expanded = resolvePortraitInlinePlayerLayoutSpec(412f, 760f, isCollapsed = false)
+        val compact = resolvePortraitInlinePlayerLayoutSpec(412f, 760f, isCollapsed = true)
+        val needsCompact = shouldUseCompactInlinePortraitPlayerForCommentTab(
+            useOfficialInlinePortraitDetailExperience = true,
+            selectedTabIndex = 1,
+            isPortraitFullscreen = false,
+            collapseMode = PortraitPlayerCollapseMode.INTRO_ONLY,
+            isVerticalVideo = true,
+            isPlaybackPaused = false,
+            availableCommentHeightDp = 180f,
+        )
+        assertTrue(needsCompact)
+        val progress = resolveInlinePortraitPlayerCollapseProgress(
+            manualCollapseProgress = 0f,
+            compactForCommentTabProgress = if (needsCompact) 1f else 0f,
+        )
+        val height = expanded.heightDp + (compact.heightDp - expanded.heightDp) * progress
+        assertEquals(compact.heightDp, height, 0.001f)
+        assertTrue(height > 0f && height < expanded.heightDp)
+        // 暂停把隐藏终点改为 0 高度，已同步的位移仍应保留紧凑画面，继续上滑才隐藏。
+        val compactOffset = expanded.heightDp - compact.heightDp
+        val pausedProgress = resolveInlinePortraitPlayerCollapseProgress(
+            manualCollapseProgress = compactOffset / expanded.heightDp,
+            compactForCommentTabProgress = 1f,
+            hidePausedPlayerForComments = true,
+        )
+        assertEquals(compact.heightDp, expanded.heightDp * (1f - pausedProgress), 0.001f)
+        val collapsed = resolvePlayerCollapsedForAutoPause(
+            swipeHidePlayerEnabled = true,
+            playerHeightOffsetPx = 0f,
+            videoHeightPx = expanded.heightDp - compact.heightDp,
+            compactForCommentTab = needsCompact,
+        )
+        assertFalse(shouldAutoPauseOnPlayerCollapse(false, collapsed, isPlaying = true))
+    }
+
+    @Test
+    fun restoredCommentPlayerDoesNotImmediatelyAutoPauseAgain() {
+        val collapsed = resolvePlayerCollapsedForAutoPause(
+            swipeHidePlayerEnabled = true,
+            playerHeightOffsetPx = 0f,
+            videoHeightPx = 320f,
+            compactForCommentTab = true,
+            restoreRequested = true,
+        )
+        assertFalse(collapsed)
+        assertFalse(shouldAutoPauseOnPlayerCollapse(true, collapsed, isPlaying = true))
+        assertTrue(shouldAutoResumeOnPlayerExpand(true, collapsed, wasAutoPausedByCollapse = true))
+    }
+
+    @Test
     fun pausesOnlyWhenEnabledCollapsedAndPlaying() {
         assertTrue(
             shouldAutoPauseOnPlayerCollapse(

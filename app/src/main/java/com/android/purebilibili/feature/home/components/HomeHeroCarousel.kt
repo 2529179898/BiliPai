@@ -45,7 +45,6 @@ import androidx.compose.material3.MaterialTheme
 import com.android.purebilibili.core.ui.components.AppText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,6 +82,7 @@ import com.android.purebilibili.core.ui.adaptive.adaptiveCardHoverEffect
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.components.AppSurface
+import com.android.purebilibili.core.ui.components.LocalPageImageLoadingAllowed
 import com.android.purebilibili.core.ui.LocalAnimatedVisibilityScope
 import com.android.purebilibili.core.ui.LocalSharedTransitionEnabled
 import com.android.purebilibili.core.ui.LocalSharedTransitionScope
@@ -406,7 +406,9 @@ private fun HomeHeroCarouselCard(
     // Use the same cover identity and return prefetch registry as ordinary
     // video cards so a detail return can settle into the hero without a
     // second decode or a one-frame placeholder.
-    SideEffect {
+    val coverRegistrationAllowed = LocalPageImageLoadingAllowed.current
+    LaunchedEffect(video.bvid, normalizedCoverUrl, coverRegistrationAllowed) {
+        if (!coverRegistrationAllowed) return@LaunchedEffect
         HomeCoverReturnPrefetchRegistry.onCardVisible(
             HomeCoverReturnPrefetchEntry(
                 bvid = video.bvid.trim(),

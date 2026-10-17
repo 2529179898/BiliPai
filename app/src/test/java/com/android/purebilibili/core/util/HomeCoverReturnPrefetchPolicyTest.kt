@@ -143,4 +143,29 @@ class HomeCoverReturnPrefetchPolicyTest {
 
         assertEquals(64, HomeCoverReturnPrefetchRegistry.snapshot().size)
     }
+
+    @Test
+    fun registry_refreshesDecodeSizeWithoutDuplicatingOrMutatingEarlierSnapshot() {
+        val first = entry("BV_A", "url_a", "key_a").copy(decodeWidthPx = 320, decodeHeightPx = 180)
+        HomeCoverReturnPrefetchRegistry.onCardVisible(first)
+        val earlier = HomeCoverReturnPrefetchRegistry.snapshot()
+        HomeCoverReturnPrefetchRegistry.onCardVisible(entry("BV_B", "url_b", "key_b"))
+        val updated = first.copy(decodeWidthPx = 640, decodeHeightPx = 360)
+        HomeCoverReturnPrefetchRegistry.onCardVisible(updated)
+
+        assertEquals(listOf(first), earlier)
+        val current = HomeCoverReturnPrefetchRegistry.snapshot()
+        assertEquals(2, current.size)
+        assertEquals(updated, current.first())
+        assertEquals(updated, resolveHomeCoverReturnPrefetchCandidates(current, "BV_A").first())
+    }
+
+    @Test
+    fun invalidSourceEntryDoesNotDisplaceAValidSourceCover() {
+        val valid = entry("BV_A", "url_a", "key_a")
+        assertEquals(
+            listOf(valid),
+            resolveHomeCoverReturnPrefetchCandidates(listOf(valid.copy(url = ""), valid), "BV_A", 1),
+        )
+    }
 }

@@ -134,15 +134,15 @@ class VideoDetailReturnMediaLayoutTest {
     @Test
     fun fullBarSnapshotKeepsItsAspectRatioWhileTheOuterShellIsStillTall() {
         val bounds = Rect(24f, 1800f, 1056f, 1968f)
-        // At depth 0.1 the page-height inverse is much larger than the width
-        // inverse. A bitmap must use the width inverse on both axes.
+        // Source bitmap reconstruction must preserve the width-based scale on both
+        // axes even before the flying shell reaches its final bounds.
         val inverse = com.android.purebilibili.navigation3.predictiveback
             .resolveMiuixVideoCardInverseScaleForDepth(
                 sourceScaleX = bounds.width / 1080f,
                 sourceScaleY = bounds.height / 2400f,
                 depth = 0.1f,
             )
-        assertTrue(inverse.scaleY > inverse.scaleX)
+        assertEquals(inverse.scaleX, inverse.scaleY, .0001f)
         val frame = resolveVideoDetailReturnMediaLayoutFrame(
             containerWidthPx = 1080,
             containerHeightPx = 608,

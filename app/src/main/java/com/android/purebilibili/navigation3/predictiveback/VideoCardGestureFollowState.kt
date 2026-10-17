@@ -124,11 +124,16 @@ internal fun resolveVideoCardFollowPose(
     arcAmplitudePx: Float,
     anchorPose: VideoCardFollowPose = VideoCardFollowPose(),
     gestureProgress: Float = (anchorMorph - morph).coerceIn(0f, 1f),
+    preserveViewport: Boolean = false,
 ): VideoCardFollowPose {
     val scaleX = resolveMiuixVideoCardOuterScale(bounds.width / width, morph, 1f)
-    val scaleY = resolveMiuixVideoCardOuterScale(bounds.height / height, morph, 1f)
+    val scaleY = if (preserveViewport) {
+        resolveMiuixVideoCardOuterScaleY(bounds.width / width, bounds.height / height, morph, 1f)
+    } else resolveMiuixVideoCardOuterScale(bounds.height / height, morph, 1f)
     val anchorScaleX = resolveMiuixVideoCardOuterScale(bounds.width / width, anchorMorph, 1f)
-    val anchorScaleY = resolveMiuixVideoCardOuterScale(bounds.height / height, anchorMorph, 1f)
+    val anchorScaleY = if (preserveViewport) {
+        resolveMiuixVideoCardOuterScaleY(bounds.width / width, bounds.height / height, anchorMorph, 1f)
+    } else resolveMiuixVideoCardOuterScale(bounds.height / height, anchorMorph, 1f)
     val path = resolveVideoCardPathOffset(bounds, width, height, morph, arcAmplitudePx)
     val anchorPath = resolveVideoCardPathOffset(bounds, width, height, anchorMorph, arcAmplitudePx)
     val delta = sample.touch - sample.initialTouch

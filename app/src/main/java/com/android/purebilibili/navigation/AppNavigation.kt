@@ -31,6 +31,9 @@ import com.android.purebilibili.feature.home.components.cards.WallpaperPaletteSt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.compose.runtime.getValue //  新增
 import androidx.compose.runtime.LaunchedEffect // 新增
 import androidx.compose.runtime.DisposableEffect
@@ -741,8 +744,7 @@ fun AppNavigation(
         )
         val bottomPagerSaveableStateHolder = rememberSaveableStateHolder()
         val mainBottomPagerState = rememberMainBottomPagerState(bottomPagerState)
-        // 跨 Activity 重建保留：进程仍然热（配置变更 / 系统回收 Activity）时，重新挂载这些页
-        // 既便宜又必要；冷启动时没有可恢复内容，轻量首帧策略照旧生效。
+        // 只在同一进程的 Activity 重建中保留；跨进程恢复时由 Saver 清空预热记录。
         var bottomPagerContentReady by rememberSaveable { mutableStateOf(false) }
         var preloadedBottomPagerItems by rememberSaveable(
             stateSaver = BottomPagerPreloadedItemsSaver
@@ -1487,9 +1489,12 @@ fun AppNavigation(
         }
         val predictiveBackEnabled = appNavigationSettings.predictiveBackEnabled
         // 返回封面预热：每次进入详情(栈顶 key 变化)重置一次，预测手势首帧 / 返回提交
-        // 各触发一次。Coil 对相同 cacheKey 幂等，重复调用无网络开销。
+        // 合并为一轮有界预热；后续返回会取消上一轮尚未完成的工作。
         val homeCoverPrefetchTriggered = remember(currentNavigation3Key) {
             mutableStateOf(false)
+        }
+        val homeCoverPrefetchWork = remember {
+            object { var job: kotlinx.coroutines.Job? = null }
         }
         fun maybePrefetchHomeCoversForVideoReturn() {
             if (homeCoverPrefetchTriggered.value) return
@@ -1499,7 +1504,10 @@ fun AppNavigation(
                 visibleEntries = HomeCoverReturnPrefetchRegistry.snapshot(),
                 sourceBvid = sourceBvid,
             )
-            prefetchHomeCoverImages(context = context, entries = candidates)
+            homeCoverPrefetchWork.job?.cancel()
+            homeCoverPrefetchWork.job = coroutineScope.launch {
+                prefetchHomeCoverImages(context = context, entries = candidates)
+            }
         }
         // 预测返回样式/方向从设置读取。style 为 legacy 存储值(默认 "scale"),
         // 经 fromStorageValue 归一化后由策略层按 routeTransition 分发,不再改变 handler 选择;
@@ -1540,6 +1548,15 @@ fun AppNavigation(
             exposure = videoCardChromeExposure,
             sourceIsBottomBarDestination = sourceIsBottomBarDestination,
         )
+        // 两种横条宿主共用过渡阶段；不依赖底栏是否挂载，也不逐帧读取过渡进度。
+        val pauseNowPlayingArtworkRotation = cardTransitionEnabled && when (videoCardChromeExposure) {
+            VideoCardTransitionExposure.Opening,
+            VideoCardTransitionExposure.BackPreview,
+            VideoCardTransitionExposure.Returning,
+            VideoCardTransitionExposure.Restoring -> true
+            VideoCardTransitionExposure.Idle,
+            VideoCardTransitionExposure.SettledHidden -> false
+        }
         val bottomBarMountRoute = resolveVideoCardTransitionChromeBottomBarRoute(
             isVideoDetailDestination = isVideoDetailDestination,
             activeBottomTabRoute = activeBottomTabRoute,
@@ -2025,15 +2042,19 @@ fun AppNavigation(
         }
         // [New] Global Scroll Offset State
         val homeFeedScrollInProgressState = remember { androidx.compose.runtime.mutableStateOf(false) }
-        val bottomPagerBackgroundWorkAllowed = shouldAllowBottomPagerBackgroundWork(
-            isMainHostTop = currentNavigation3Key == BiliPaiNavKey.MainHost,
+        fun bottomPagerBackgroundWorkAllowedNow() = shouldAllowBottomPagerBackgroundWork(
+            isMainHostTop = navigation3BackStack.lastOrNull() == BiliPaiNavKey.MainHost,
             isCardTransitionIdle = videoCardTransitionClock.phase ==
                 com.android.purebilibili.core.ui.transition.VideoCardTransitionBackgroundPhase.IDLE &&
                 videoCardTransitionClock.settleState == VideoCardTransitionSettleState.Idle,
             isPagerNavigating = mainBottomPagerState.isNavigating || bottomPagerState.isScrollInProgress,
         )
+        val bottomPagerBackgroundWorkAllowed = bottomPagerBackgroundWorkAllowedNow()
+        val preloadLifecycle = LocalLifecycleOwner.current.lifecycle
+        val preloadLifecycleState by preloadLifecycle.currentStateAsState()
         val allowBottomPagerPreload = bottomPagerBackgroundWorkAllowed &&
-            !homeFeedScrollInProgressState.value
+            !homeFeedScrollInProgressState.value &&
+            preloadLifecycleState.isAtLeast(Lifecycle.State.RESUMED)
         LaunchedEffect(allowBottomPagerPreload, visibleBottomBarItems) {
             if (!allowBottomPagerPreload) return@LaunchedEffect
             // A quiet window is a scheduling budget, not proof that all startup work completed.
@@ -2041,6 +2062,12 @@ fun AppNavigation(
                 visibleItems = visibleBottomBarItems,
                 preloadedItems = { preloadedBottomPagerItems },
                 awaitFrame = { withFrameNanos { } },
+                awaitIdle = { awaitBottomPagerPreloadIdle() },
+                isPreloadAllowed = {
+                    bottomPagerBackgroundWorkAllowedNow() &&
+                        !homeFeedScrollInProgressState.value &&
+                        preloadLifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+                },
                 onPreload = { preloadedBottomPagerItems = preloadedBottomPagerItems + it },
             )
         }
@@ -2818,6 +2845,11 @@ fun AppNavigation(
                                         userScrollEnabled = shouldEnableBottomPagerUserScroll()
                                     ) { page ->
                                         val slotItem = visibleBottomBarItems.getOrNull(page)
+                                        val slotContentReady by remember(slotItem) {
+                                            derivedStateOf(androidx.compose.runtime.structuralEqualityPolicy()) {
+                                                slotItem != null && slotItem in preloadedBottomPagerItems
+                                            }
+                                        }
                                         if (
                                             slotItem != null && shouldComposeBottomPagerPage(
                                                 item = slotItem,
@@ -2826,7 +2858,7 @@ fun AppNavigation(
                                                 selectedPage = mainBottomPagerState.selectedPage,
                                                 isNavigating = mainBottomPagerState.isNavigating,
                                                 navigationStartPage = mainBottomPagerState.navigationStartPage,
-                                                contentReady = slotItem in preloadedBottomPagerItems
+                                                contentReady = slotContentReady
                                             )
                                         ) {
                                             val pageKey = bottomPagerNavKeyForItem(slotItem)
@@ -4936,6 +4968,7 @@ fun AppNavigation(
                                         ),
                                         onCompactClick = compactClick,
                                         isLayoutStable = layoutStable && !driveBottomBarByProgress,
+                                        pauseArtworkRotation = pauseNowPlayingArtworkRotation,
                                         sourceRoute = currentRoute ?: ScreenRoutes.Home.route,
                                         handoff = audioNowPlayingHandoff,
                                         onExpand = {
@@ -5186,6 +5219,7 @@ fun AppNavigation(
                         null
                     },
                     isLayoutStable = !driveBottomBarByProgress,
+                    pauseArtworkRotation = pauseNowPlayingArtworkRotation,
                     sourceRoute = currentRoute ?: ScreenRoutes.Home.route,
                     handoff = audioNowPlayingHandoff,
                     onExpand = {

@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.zIndex
-import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.android.purebilibili.core.ui.AppShapes
@@ -217,23 +216,19 @@ internal fun LargeScreenVideoPlayerTransitionHost(
             },
         ) { content(viewportWidth) }
         if (request != null && landing != null) {
-            AsyncImage(
-                model = request,
+            VideoDetailReturnCoverImage(
+                request = request,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .videoDetailReturnMediaLayout(
-                    landingLayout = landing,
-                    handoffProgressProvider = progress,
-                    inverseScaleXProvider = { inverseScale().scaleX },
-                    inverseScaleYProvider = { inverseScale().scaleY },
-                    slotOriginProvider = origin,
-                    clipCornerDp = corner,
-                )
-                .zIndex(1f)
-                .graphicsLayer {
-                    alpha = if (shouldHideLargeScreenVideoAfterReturn(
+                landingLayout = landing,
+                handoffProgressProvider = progress,
+                inverseScaleXProvider = { inverseScale().scaleX },
+                inverseScaleYProvider = { inverseScale().scaleY },
+                slotOriginProvider = origin,
+                clipCornerDp = corner,
+                modifier = Modifier.fillMaxSize().zIndex(1f),
+                alphaProvider = {
+                    if (shouldHideLargeScreenVideoAfterReturn(
                         isCommittedReturn, phaseProvider(),
                     )) 0f else if (nativeBarBitmap != null) {
                         1f - sourceChromeAlpha()

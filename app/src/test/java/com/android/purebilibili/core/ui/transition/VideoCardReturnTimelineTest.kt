@@ -8,6 +8,41 @@ import kotlin.test.assertTrue
 
 class VideoCardReturnTimelineTest {
     @Test
+    fun nativeViewportBodyStaysVisibleMidReturnAndRestoresOnCancel() {
+        fun frame(depth: Float, phase: VideoCardTransitionBackgroundPhase) =
+            resolveVideoCardSecondaryContentVisualFrame(
+                morphDepthProgress = depth,
+                phase = phase,
+                isReturnGestureInProgress = phase == VideoCardTransitionBackgroundPhase.HELD,
+                motionTier = MotionTier.Normal,
+                preserveNativeViewport = true,
+            )
+        val boundary = 1f - VideoCardTransitionVisualTimeline.NATIVE_BODY_RETURN_END
+        val fadeStart = 1f - VideoCardTransitionVisualTimeline.NATIVE_BODY_RETURN_START
+        assertEquals(1f, frame(1f, VideoCardTransitionBackgroundPhase.RETURNING).alpha, .0001f)
+        assertEquals(1f, frame(fadeStart, VideoCardTransitionBackgroundPhase.RETURNING).alpha, .0001f)
+        assertEquals(.5f, frame((fadeStart + boundary) / 2f, VideoCardTransitionBackgroundPhase.RETURNING).alpha, .0001f)
+        assertEquals(0f, frame(boundary, VideoCardTransitionBackgroundPhase.RETURNING).alpha, .0001f)
+        // Neither the old 35% boundary nor mid-return should show an empty detail shell.
+        assertTrue(frame(.65f, VideoCardTransitionBackgroundPhase.RETURNING).alpha > .5f)
+        assertTrue(frame(.5f, VideoCardTransitionBackgroundPhase.RETURNING).alpha > .25f)
+        for (depth in listOf(0f, .2f, boundary, .8f, 1f)) {
+            assertEquals(
+                frame(depth, VideoCardTransitionBackgroundPhase.RETURNING).alpha,
+                frame(depth, VideoCardTransitionBackgroundPhase.HELD).alpha,
+                .0001f,
+            )
+            assertEquals(
+                frame(depth, VideoCardTransitionBackgroundPhase.RETURNING).alpha,
+                frame(depth, VideoCardTransitionBackgroundPhase.OPENING).alpha,
+                .0001f,
+            )
+        }
+        // The player's late cover handoff stays independent from the earlier body yield.
+        assertEquals(0f, resolveVideoCardLiveReturnVisualHandoffAlpha(boundary), .0001f)
+    }
+
+    @Test
     fun stackedOpeningStartsAtTheMeasuredCoverAndReleasesWithSourceChrome() {
         for (depth in listOf(0f, 0.1f, 0.3f, 0.5f, 0.72f, 1f)) {
             val expected = 1f - resolveVideoCardDetailChromeAlpha(

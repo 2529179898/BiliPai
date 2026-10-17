@@ -811,14 +811,16 @@ internal fun ElegantVideoCard(
             )
         )
     }
-    // 返回预热：组合即可见，上报 (bvid, url, cacheKey)，供详情返回时按同一 cacheKey
-    // prefetch，避免首页 scene 重建后封面重新解码造成落位闪变。
-    SideEffect {
+    val coverReturnPrefetchAllowed = LocalPageImageLoadingAllowed.current
+    LaunchedEffect(video.bvid, coverUrl, coverCacheKey, coverRequestSpec, coverReturnPrefetchAllowed) {
+        if (!coverReturnPrefetchAllowed) return@LaunchedEffect
         HomeCoverReturnPrefetchRegistry.onCardVisible(
             HomeCoverReturnPrefetchEntry(
                 bvid = video.bvid.trim(),
                 url = coverUrl,
                 cacheKey = coverCacheKey,
+                decodeWidthPx = coverRequestSpec?.widthPx ?: 0,
+                decodeHeightPx = coverRequestSpec?.heightPx ?: 0,
             )
         )
     }
@@ -1161,6 +1163,7 @@ internal fun ElegantVideoCard(
                     bvid = video.bvid,
                     sourceRoute = effectiveSharedElementSourceRoute,
                     enabled = effectiveTransitionEnabled,
+                    landingFeedbackEnabled = true,
                 ),
         ) {
             val cardShellBaseColor = if (useCardEffectSurface) {

@@ -606,9 +606,9 @@ class PortraitDetailPresentationPolicyTest {
     }
 
     @Test
-    fun inlinePortraitPlayer_scrollProgressFollowsManualOffsetForRestore() {
+    fun inlinePortraitPlayer_compactCommentsAffectLayoutWithoutPausingPlayback() {
         assertEquals(
-            0f,
+            1f,
             resolveInlinePortraitPlayerCollapseProgress(
                 manualCollapseProgress = 0f,
                 compactForCommentTabProgress = 1f
@@ -622,7 +622,7 @@ class PortraitDetailPresentationPolicyTest {
             )
         )
         assertEquals(
-            0.2f,
+            0.6f,
             resolveInlinePortraitPlayerCollapseProgress(
                 manualCollapseProgress = 0.2f,
                 compactForCommentTabProgress = 0.6f
@@ -634,6 +634,18 @@ class PortraitDetailPresentationPolicyTest {
                 manualCollapseProgress = 1f,
                 compactForCommentTabProgress = 1f,
                 restoreRequested = true
+            )
+        )
+    }
+
+    @Test
+    fun inlinePortraitPlayer_pausedCommentsKeepManualHideProgress() {
+        assertEquals(
+            0.2f,
+            resolveInlinePortraitPlayerCollapseProgress(
+                manualCollapseProgress = 0.2f,
+                compactForCommentTabProgress = 1f,
+                hidePausedPlayerForComments = true,
             )
         )
     }

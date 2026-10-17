@@ -1766,6 +1766,8 @@ internal fun VideoDetailScreenStateHolder(
             clickChromeSnapshot = clickCoverSnapshot,
             prefetchUrl = homePrefetchCover?.url,
             prefetchCacheKey = homePrefetchCover?.cacheKey,
+            prefetchDecodeWidthPx = homePrefetchCover?.decodeWidthPx ?: 0,
+            prefetchDecodeHeightPx = homePrefetchCover?.decodeHeightPx ?: 0,
             routeCoverUrl = coverUrl,
             bvid = bvid,
         )
@@ -2281,7 +2283,7 @@ internal fun VideoDetailScreenStateHolder(
     val returnBodyAlphaIsInvisible by remember(
         isCommittedCardReturn, liveReturnMorph, detailShellSharedBoundsEnabled,
         videoCardDepthBackgroundState, currentLandingState.sourceLayout,
-        detailTransitionProgress,
+        detailTransitionProgress, scopedHeroDriver.enabled,
     ) {
         derivedStateOf {
             if (!isCommittedCardReturn || liveReturnMorph) {
@@ -2299,6 +2301,7 @@ internal fun VideoDetailScreenStateHolder(
                         followProgressEnabled = videoCardDepthBackgroundState
                             .returnContentFollowProgressEnabledProvider(),
                         isCommittedCardReturn = isCommittedCardReturn,
+                        preserveNativeViewport = scopedHeroDriver.enabled,
                     ).alpha
                 } else {
                     resolveVideoDetailReturnContentAlpha(
@@ -4247,17 +4250,34 @@ internal fun VideoDetailScreenStateHolder(
                             .getPortraitPlayerCollapseMode(context)
                             .collectAsStateWithLifecycle(initialValue = PortraitPlayerCollapseMode.OFF
             )
+                        var autoPausedByPlayerCollapse by remember(currentBvid) { mutableStateOf(false) }
+                        DisposableEffect(playerState.player, currentBvid) {
+                            val player = playerState.player
+                            val listener = object : Player.Listener {
+                                override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                                    // A later manual pause must regain the normal paused layout.
+                                    if (playWhenReady) autoPausedByPlayerCollapse = false
+                                }
+                            }
+                            player.addListener(listener)
+                            onDispose { player.removeListener(listener) }
+                        }
+                        // 自动暂停只改变播放状态，不切换手势范围、评论隐藏终点或紧凑布局。
+                        val isPlaybackPausedForInlineLayout = resolveIsPlaybackPausedForInlineLayout(
+                            isPlaybackPaused = isPlaybackPaused,
+                            wasAutoPausedByCollapse = autoPausedByPlayerCollapse,
+                        )
                         val hidePausedPlayerForComments = !isPortraitFullscreen &&
                             shouldHidePausedInlinePlayerForComments(
                                 selectedTabIndex = selectedVideoContentTabIndex,
-                                isPlaybackPaused = isPlaybackPaused,
+                                isPlaybackPaused = isPlaybackPausedForInlineLayout,
                                 isCommentThreadVisible = subReplyState.visible,
                             )
                         val inlinePortraitScrollEnabled = shouldEnableInlinePortraitScrollTransform(
                             collapseMode = portraitPlayerCollapseMode,
                             selectedTabIndex = selectedVideoContentTabIndex,
                             isVerticalVideo = isVerticalVideo,
-                            isPlaybackPaused = isPlaybackPaused,
+                            isPlaybackPaused = isPlaybackPausedForInlineLayout,
                             isCommentThreadVisible = subReplyState.visible,
                         )
                         // 父层只关心折叠阈值，避免列表每个像素的滚动都触发整页重组。
@@ -4296,7 +4316,7 @@ internal fun VideoDetailScreenStateHolder(
                                 isCommentThreadVisible = subReplyState.visible,
                                 collapseMode = portraitPlayerCollapseMode,
                                 isVerticalVideo = isVerticalVideo,
-                                isPlaybackPaused = isPlaybackPaused,
+                                isPlaybackPaused = isPlaybackPausedForInlineLayout,
                                 isCompactFoldableCoverWindow = displayContext.isFoldableCoverWindow &&
                                     configuration.screenHeightDp < FOLDABLE_COVER_COMPACT_HEIGHT_MAX_DP,
                                 availableCommentHeightDp = configuration.screenHeightDp.toFloat() -
@@ -4312,7 +4332,7 @@ internal fun VideoDetailScreenStateHolder(
                                 firstVisibleItemScrollOffset = 0,
                                 collapseMode = portraitPlayerCollapseMode,
                                 isVerticalVideo = isVerticalVideo,
-                                isPlaybackPaused = isPlaybackPaused
+                                isPlaybackPaused = isPlaybackPausedForInlineLayout
                             )
 
                         // 📏 [Collapsing Player] 上滑隐藏播放器逻辑
@@ -4444,17 +4464,23 @@ internal fun VideoDetailScreenStateHolder(
                             compactForIntroScroll = compactInlinePlayerForIntroScroll,
                             compactForCommentTab = compactInlinePlayerForCommentTab,
                             hidePausedPlayerForComments = hidePausedPlayerForComments,
+                            restoreRequested = inlinePlayerCollapseState.restoreRequested,
                         )
                         LaunchedEffect(
                             skipGesturePlayerCollapse,
                             compactInlinePlayerForIntroScroll,
+                            compactInlinePlayerForCommentTab,
+                            hidePausedPlayerForComments,
+                            inlinePlayerCollapseState.restoreRequested,
                             collapseRangePx,
                             isExitTransitionInProgress,
                         ) {
                             // 返回 morph 期间不要再强制压扁，否则封面又被裁成一条。
                             if (isExitTransitionInProgress) return@LaunchedEffect
-                            if (compactInlinePlayerForIntroScroll && collapseRangePx > 0f) {
-                                // 与视觉折叠对齐，避免之后阈值解除时 offset 仍停在半途。
+                            val syncCommentCompactOffset = compactInlinePlayerForCommentTab &&
+                                !hidePausedPlayerForComments && !inlinePlayerCollapseState.restoreRequested
+                            if ((compactInlinePlayerForIntroScroll || syncCommentCompactOffset) && collapseRangePx > 0f) {
+                                // 同步实际位移；自动暂停切换到隐藏视口时保持当前画面尺寸，继续上滑才隐藏。
                                 inlinePlayerCollapseState.updateOffset(-collapseRangePx)
                             }
                         }
@@ -4463,7 +4489,6 @@ internal fun VideoDetailScreenStateHolder(
                         val pauseOnPlayerCollapseEnabled by com.android.purebilibili.core.store.SettingsManager
                             .getPauseOnPlayerCollapseEnabled(context)
                             .collectAsStateWithLifecycle(initialValue = true)
-                        var autoPausedByPlayerCollapse by remember(currentBvid) { mutableStateOf(false) }
                         val playerCollapsedForAutoPause by remember(
                             inlinePortraitScrollEnabled,
                             autoPauseCollapseRangePx,
@@ -4476,6 +4501,7 @@ internal fun VideoDetailScreenStateHolder(
                                     playerHeightOffsetPx = inlinePlayerCollapseState.offsetPx,
                                     videoHeightPx = autoPauseCollapseRangePx,
                                     compactForCommentTab = compactInlinePlayerForCommentTab,
+                                    restoreRequested = inlinePlayerCollapseState.restoreRequested,
                                 )
                             }
                         }
@@ -4493,9 +4519,9 @@ internal fun VideoDetailScreenStateHolder(
                                     isPortraitFullscreen = isPortraitFullscreen,
                                 )
                             ) {
+                                autoPausedByPlayerCollapse = true
                                 player.pause()
                                 player.playWhenReady = false
-                                autoPausedByPlayerCollapse = true
                                 com.android.purebilibili.core.util.Logger.d(
                                     "VideoDetailScreen",
                                     "⏸️ 折叠播放器自动暂停 bvid=$currentBvid"
@@ -4585,7 +4611,8 @@ internal fun VideoDetailScreenStateHolder(
                         val effectiveCollapseProgress = resolveInlinePortraitPlayerCollapseProgress(
                             manualCollapseProgress = collapseProgress,
                             compactForCommentTabProgress = commentTabCollapseProgress,
-                            restoreRequested = inlinePlayerCollapseState.restoreRequested
+                            restoreRequested = inlinePlayerCollapseState.restoreRequested,
+                            hidePausedPlayerForComments = hidePausedPlayerForComments,
                         )
                         // Drag/scroll collapse stays directly coupled to the finger. Only an
                         // An explicit restore (for example comment back-to-top) eases the player from
@@ -5082,12 +5109,16 @@ internal fun VideoDetailScreenStateHolder(
                                     )
                                 }
                                 //  [PiP修复] 捕获视频播放器在屏幕上的位置
-                                .onGloballyPositioned { layoutCoordinates ->
-                                    // Morph height changes every frame. PiP and system-bar bounds only need
-                                    // the settled geometry, so avoid feeding this layout work back into composition.
-                                    if (isContinuousPlayerMorphing) {
-                                        return@onGloballyPositioned
-                                    }
+                                .onSettledVideoPlayerPositioned(
+                                    freezeProvider = {
+                                        shouldFreezeVideoDetailPlayerBounds(
+                                            continuousPlayerMorphing = isContinuousPlayerMorphing,
+                                            ownsCardTransition = entryOwnsMiuixCardTransition,
+                                            committedCardReturn = isCommittedCardReturn,
+                                            exposure = videoCardDepthBackgroundState.exposureProvider(),
+                                        )
+                                    },
+                                ) { layoutCoordinates ->
                                     val position = layoutCoordinates.positionInWindow()
                                     val rootPosition = layoutCoordinates.positionInRoot()
                                     val size = layoutCoordinates.size
@@ -5105,7 +5136,7 @@ internal fun VideoDetailScreenStateHolder(
                                         videoPlayerRootBottomPx = nextRootBottomPx
                                     }
                                     if (!hasMeaningfulVideoPlayerBoundsChange(videoPlayerBounds, nextBounds)) {
-                                        return@onGloballyPositioned
+                                        return@onSettledVideoPlayerPositioned
                                     }
                                     videoPlayerBounds = nextBounds
                                 }
@@ -5113,38 +5144,22 @@ internal fun VideoDetailScreenStateHolder(
                             // 媒体只有两个显式层：上层常驻封面、下层播放器。返回 seek 时两者
                             // 共享同一帧进度，不再依赖导航 entry alpha 遮挡平台视频 surface。
                             if (residentCoverImageRequest != null) {
-                                AsyncImage(
-                                    model = residentCoverImageRequest,
+                                VideoDetailReturnCoverImage(
+                                    request = residentCoverImageRequest,
                                     contentDescription = "cover",
-                                    onSuccess = { hasDecodedResidentReturnCover = true },
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .videoDetailReturnMediaLayout(
-                                            landingLayout = landingLayoutForMedia,
-                                            // Match the section cover below the status-bar backdrop
-                                            // before the resident cover hands off to manual playback.
-                                            contentTopInset = playerTopInset,
-                                            contentTopInsetProvider = floatingPlayerTopInsetProvider,
-                                            nativeSnapshotBoundsProvider = nativeSnapshotTargetBoundsProvider,
-                                            handoffProgressProvider =
-                                                returnMediaHandoffProgressProvider,
-                                            inverseScaleXProvider = {
-                                                returnMediaInverseScaleProvider().scaleX
-                                            },
-                                            inverseScaleYProvider = {
-                                                returnMediaInverseScaleProvider().scaleY
-                                            },
-                                            clipCornerDp = returnMediaClipCornerDp,
-                                        )
-                                        // Cover is the top media layer. SurfaceView does not reliably obey
-                                        // an ancestor Compose alpha, but it can be occluded by this layer.
-                                        .zIndex(1f)
-                                        .graphicsLayer {
-                                            alpha = returnMediaFrameProvider().coverAlpha * nowPlayingMediaAlphaProvider()
-                                        }
-                                        // Keep the loading backing inside the cover alpha layer so it
-                                        // yields together with the image to the playback surface.
-                                        .background(Color.Black),
+                                    onDecoded = { hasDecodedResidentReturnCover = true },
+                                    landingLayout = landingLayoutForMedia,
+                                    contentTopInsetProvider = floatingPlayerTopInsetProvider,
+                                    nativeSnapshotBoundsProvider = nativeSnapshotTargetBoundsProvider,
+                                    handoffProgressProvider = returnMediaHandoffProgressProvider,
+                                    inverseScaleXProvider = { returnMediaInverseScaleProvider().scaleX },
+                                    inverseScaleYProvider = { returnMediaInverseScaleProvider().scaleY },
+                                    clipCornerDp = returnMediaClipCornerDp,
+                                    alphaProvider = {
+                                        returnMediaFrameProvider().coverAlpha * nowPlayingMediaAlphaProvider()
+                                    },
+                                    backingColor = Color.Black,
+                                    modifier = Modifier.fillMaxSize().zIndex(1f),
                                     contentScale = if (isVerticalVideo) {
                                         ContentScale.Crop
                                     } else {
@@ -5335,6 +5350,7 @@ internal fun VideoDetailScreenStateHolder(
                                             followProgressEnabled = videoCardDepthBackgroundState
                                                 .returnContentFollowProgressEnabledProvider(),
                                             isCommittedCardReturn = isCommittedCardReturn,
+                                            preserveNativeViewport = scopedHeroDriver.enabled,
                                         )
                                         alpha = frame.alpha
                                         // Native entry already owns geometry. Keep only its content

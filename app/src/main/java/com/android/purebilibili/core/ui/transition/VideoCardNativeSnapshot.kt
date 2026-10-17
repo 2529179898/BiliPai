@@ -1,6 +1,8 @@
 package com.android.purebilibili.core.ui.transition
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -13,6 +15,11 @@ import com.android.purebilibili.core.util.CardPositionManager
 import kotlinx.coroutines.launch
 
 internal const val VIDEO_CARD_FLYING_OVERLAY_COVER_DEPTH = 0.001f
+
+/** Draw-owned latch; survives modifier rebuilding without subscribing composition. */
+private class NativeVideoCardCoverLatch {
+    var covered = false
+}
 
 /**
  * Click pre-arms OPENING before NavDisplay mounts the destination. Whether the flying overlay
@@ -153,26 +160,39 @@ internal fun Modifier.recordNativeVideoCardLayer(
     bvid: String = "",
     sourceRoute: String?,
     enabled: Boolean = true,
+    landingFeedbackEnabled: Boolean = false,
 ): Modifier {
     if (!enabled) return this
     val bgState = LocalVideoCardTransitionBackgroundState.current
-    // 点击锁存：draw 之间保持，只在真正回到 Idle 时清除，避免 depth 抖动造成卡槽闪烁。
-    var coverLatch = false
-    return drawWithContent {
-        val exposure = bgState.exposureProvider()
-        val returnGestureInProgress = bgState.isReturnGestureInProgressProvider() ||
-            bgState.isGestureRestoreInProgressProvider()
-        coverLatch = advanceSourceCardCoverLatch(
-            latch = coverLatch,
-            exposure = exposure,
-            isReturnGestureInProgress = returnGestureInProgress,
-        )
+    val coverLatch = remember(layer, bvid, sourceRoute) { NativeVideoCardCoverLatch() }
+    val sourceExposure = remember(bgState) {
+        derivedStateOf(structuralEqualityPolicy()) { bgState.exposureProvider() }
+    }
+    val sourceReturnGesture = remember(bgState) {
+        derivedStateOf(structuralEqualityPolicy()) {
+            bgState.isReturnGestureInProgressProvider() || bgState.isGestureRestoreInProgressProvider()
+        }
+    }
+    return videoCardLandingFeedback(
+        layer = layer,
+        bvid = bvid,
+        sourceRoute = sourceRoute,
+        enabled = landingFeedbackEnabled,
+    ).drawWithContent {
         // Read the latch in draw. Waiting for recomposition after a click can otherwise
         // overwrite the frozen first-click card after OPENING has hidden its info band.
         val isSharedMorphSourceCard = isRecordedNativeCardSource(
             bvid = bvid,
             sourceRoute = sourceRoute,
             activeSourceKey = bgState.sourceKeyProvider(),
+        )
+        // Neighbour cards must not subscribe to the transition driver. They still record
+        // real content invalidations (images/statistics), rather than freezing stale pixels.
+        val exposure = if (isSharedMorphSourceCard) sourceExposure.value else null
+        coverLatch.covered = advanceSourceCardCoverLatch(
+            latch = coverLatch.covered && isSharedMorphSourceCard,
+            exposure = exposure,
+            isReturnGestureInProgress = isSharedMorphSourceCard && sourceReturnGesture.value,
         )
         if (shouldRecordNativeVideoCardLayer(exposure, isSharedMorphSourceCard) && !freezeProvider()) {
             layer.record {
@@ -182,7 +202,7 @@ internal fun Modifier.recordNativeVideoCardLayer(
         val hide = shouldHideStationarySourceCard(
             isSharedMorphSourceCard = isSharedMorphSourceCard,
             exposure = exposure,
-            isCoveredLatch = coverLatch,
+            isCoveredLatch = coverLatch.covered,
         )
         if (!hide) {
             if (isNativeVideoCardLayerDrawable(layer.size.width, layer.size.height)) {
@@ -255,6 +275,7 @@ internal fun rememberNativeVideoCardSnapshotController(
             bvid = bvid,
             sourceRoute = sourceRoute,
             enabled = enabled,
+            landingFeedbackEnabled = true,
         ),
         coverOverlayModifier = Modifier.recordNativeVideoCardLayer(
             layer = coverOverlayLayer,

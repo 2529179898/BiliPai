@@ -1,6 +1,9 @@
 package com.android.purebilibili.feature.home.components.cards
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.runCurrent
@@ -12,6 +15,30 @@ import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class VideoCardOnlineCountStoreTest {
+
+    @Test
+    fun cancellingHiddenCardRefreshPreservesTextAndAllowsNextRefresh() = runTest {
+        var nowMs = 0L
+        var calls = 0
+        val store = VideoCardOnlineCountStore(
+            fetchOnlineCount = { _, _ ->
+                calls++
+                if (calls == 2) awaitCancellation()
+                if (calls == 1) "100" else "200"
+            },
+            nowMs = { nowMs },
+            ttlMs = 10L,
+        )
+        store.refreshIfNeeded("BV_A", 1L)
+        nowMs = 20L
+        val refresh = launch { store.refreshIfNeeded("BV_A", 1L) }
+        runCurrent()
+        refresh.cancelAndJoin()
+        assertEquals("100", store.observe("BV_A", 1L).value)
+        store.refreshIfNeeded("BV_A", 1L)
+        assertEquals(3, calls)
+        assertEquals("200", store.observe("BV_A", 1L).value)
+    }
 
     @Test
     fun shouldLoadOnlineCount_onlyWhenEnabledAndVideoIdentityValid() {
