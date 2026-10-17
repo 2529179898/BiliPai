@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.components.rememberFollowActionWithConfirmation
 import com.android.purebilibili.core.ui.MediaContrastPalette
 
 import com.android.purebilibili.core.ui.AppContentColors
@@ -805,7 +806,12 @@ private fun PortraitVideoInfo(
                         .fillMaxHeight()
                         .clickable(
                             onClickLabel = if (followStatusKnown) null else "重新确认状态并关注",
-                            onClick = onFollowClick,
+                            onClick = rememberFollowActionWithConfirmation(
+                                targetKey = ownerMid,
+                                userName = authorName,
+                                isFollowing = isFollowing,
+                                onFollowClick = onFollowClick,
+                            ),
                         )
                 ) {
                     Row(
@@ -981,15 +987,22 @@ private fun PortraitStaffSheet(
                         } else {
                             AppContentColors.accent()
                         },
-                        modifier = Modifier.clickable {
-                            scope.launch {
-                                val target = !isFollowing
-                                val ok = com.android.purebilibili.data.repository.ActionRepository
-                                    .followUser(member.mid, target)
-                                    .getOrDefault(false)
-                                if (ok) followStates[member.mid] = target
-                            }
-                        }
+                        modifier = Modifier.clickable(
+                            onClick = rememberFollowActionWithConfirmation(
+                                targetKey = member.mid,
+                                userName = member.name,
+                                isFollowing = isFollowing,
+                                onFollowClick = {
+                                    scope.launch {
+                                        val target = !isFollowing
+                                        val ok = com.android.purebilibili.data.repository.ActionRepository
+                                            .followUser(member.mid, target)
+                                            .getOrDefault(false)
+                                        if (ok) followStates[member.mid] = target
+                                    }
+                                },
+                            ),
+                        )
                     ) {
                         AppText(
                             text = if (isFollowing) "已关注" else "关注",

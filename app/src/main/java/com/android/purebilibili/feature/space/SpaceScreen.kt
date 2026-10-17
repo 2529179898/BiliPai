@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.space
 
+import com.android.purebilibili.core.ui.components.rememberFollowActionWithConfirmation
 import com.android.purebilibili.core.ui.components.VideoStatusBadges
 import com.android.purebilibili.core.ui.AppContentColors
 
@@ -3182,17 +3183,22 @@ private fun SpaceHeader(
                         isFollowed = userInfo.isFollowed,
                         followButtonColors = followButtonColors,
                         onMessageClick = onMessageClick,
-                        onFollowClick = {
-                            if (isOwner) {
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "可在「我的」页面编辑个人资料",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
-                            } else {
-                                onFollowClick()
-                            }
-                        },
+                        onFollowClick = rememberFollowActionWithConfirmation(
+                            targetKey = userInfo.mid,
+                            userName = userInfo.name,
+                            isFollowing = userInfo.isFollowed && !isOwner,
+                            onFollowClick = {
+                                if (isOwner) {
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        "可在「我的」页面编辑个人资料",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    onFollowClick()
+                                }
+                            },
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                         isOwner = isOwner,
                     )
@@ -3949,8 +3955,8 @@ private fun SpaceHomeVideoCard(
                 clipShape = coverShape
             )
             .border(width = 3.dp, color = locateHighlightColor, shape = coverShape)
-            .clip(coverShape)
             .then(nativeCardSnapshot.modifier)
+            .clip(coverShape)
             .onGloballyPositioned { coordinates ->
                 cardBounds = coordinates.boundsInRoot()
             }
@@ -4163,8 +4169,8 @@ private fun SpaceAggregateMediaCard(
     Column(
         modifier = Modifier
             .padding(horizontal = 8.dp)
-            .clip(coverShape)
             .then(nativeCardSnapshot.modifier)
+            .clip(coverShape)
             .onGloballyPositioned { coordinates ->
                 cardBounds = coordinates.boundsInRoot()
             }
@@ -4522,8 +4528,8 @@ private fun SpaceArchiveListItemRow(
                 clipShape = cardShellShape,
                 crossfadeSourceContent = true,
             )
-            .clip(cardShellShape)
             .then(nativeCardSnapshot.modifier)
+            .clip(cardShellShape)
             .background(AppSurfaceTokens.cardContainer())
             .border(width = 3.dp, color = locateHighlightColor, shape = cardShellShape)
             .onGloballyPositioned { coordinates ->

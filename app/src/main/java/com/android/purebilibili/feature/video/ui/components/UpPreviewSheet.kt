@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.components.rememberFollowActionWithConfirmation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
@@ -539,7 +540,12 @@ private fun UpPreviewSheetHeader(
             AppSurface(
                 modifier = Modifier.clickable(
                     onClickLabel = if (followStatusKnown) null else "重新确认状态并关注",
-                    onClick = onFollowClick,
+                    onClick = rememberFollowActionWithConfirmation(
+                        targetKey = owner.mid,
+                        userName = owner.name,
+                        isFollowing = isFollowing,
+                        onFollowClick = onFollowClick,
+                    ),
                 ),
                 shape = CircleShape,
                 color = if (!followStatusKnown || isFollowing) {
