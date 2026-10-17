@@ -6661,6 +6661,22 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             .edit().putBoolean("enabled", value).apply()
     }
     
+    // Search-only recording preference. Global privacy still overrides this choice.
+    private val KEY_SEARCH_HISTORY_RECORDING_ENABLED = booleanPreferencesKey("search_history_recording_enabled")
+
+    fun getSearchHistoryRecordingEnabled(context: Context): Flow<Boolean> = context.settingsDataStore.data
+        .map { it[KEY_SEARCH_HISTORY_RECORDING_ENABLED] ?: true }
+
+    suspend fun setSearchHistoryRecordingEnabled(context: Context, enabled: Boolean) {
+        context.settingsDataStore.edit { it[KEY_SEARCH_HISTORY_RECORDING_ENABLED] = enabled }
+        context.getSharedPreferences("privacy_mode", Context.MODE_PRIVATE)
+            .edit().putBoolean("search_history_recording_enabled", enabled).apply()
+    }
+
+    fun isSearchHistoryRecordingEnabledSync(context: Context): Boolean =
+        context.getSharedPreferences("privacy_mode", Context.MODE_PRIVATE)
+            .getBoolean("search_history_recording_enabled", true)
+
     //  同步读取隐私模式状态（用于非协程环境）
     fun isPrivacyModeEnabledSync(context: Context): Boolean {
         return context.getSharedPreferences("privacy_mode", Context.MODE_PRIVATE)
@@ -8427,6 +8443,11 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             BooleanShareablePreferenceDefinition(KEY_UI_ENTRANCE_ANIMATION_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_GLOBAL_DRAG_FEEDBACK_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_CARD_TRANSITION_ENABLED, SettingsShareSection.APPEARANCE),
+            BooleanShareablePreferenceDefinition(KEY_RELATED_VIDEO_TRANSITION_ENABLED, SettingsShareSection.APPEARANCE),
+            BooleanShareablePreferenceDefinition(
+                booleanPreferencesKey("video_return_content_follow_progress_enabled"),
+                SettingsShareSection.APPEARANCE,
+            ),
             BooleanShareablePreferenceDefinition(
                 KEY_LIVE_SURFACE_CARD_TRANSITION_ENABLED,
                 SettingsShareSection.APPEARANCE

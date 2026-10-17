@@ -527,7 +527,7 @@ internal fun resolveSearchResultPageState(
     return if (state.searchType == searchType) {
         state.toCurrentSearchResultPage()
     } else {
-        state.resultPages[searchType] ?: SearchResultPageUiState(query = state.query.trim())
+        state.resultPages[searchType] ?: SearchResultPageUiState(query = state.submittedQuery)
     }
 }
 
@@ -692,9 +692,11 @@ fun SearchScreen(
     var searchFieldFocused by remember { mutableStateOf(false) }
     var retainSearchImeAfterClear by remember { mutableStateOf(false) }
     var searchQueryClearedAtElapsedMs by remember { mutableLongStateOf(-1L) }
-    // One-shot autofocus for empty landing only; never re-open keyboard after results.
+    // Startup autofocus is one-shot; returning from results owns its explicit edit-context restore.
     var autoFocusConsumed by rememberSaveable { mutableStateOf(false) }
     var previousShowResults by rememberSaveable { mutableStateOf(false) }
+    var restoreLandingFocusOnBack by rememberSaveable { mutableStateOf(false) }
+    var pendingLandingFocusRestore by remember { mutableStateOf(false) }
     val searchLayoutPolicy = remember(configuration.screenWidthDp) {
         resolveSearchLayoutPolicy(
             widthDp = configuration.screenWidthDp
@@ -1113,10 +1115,9 @@ fun SearchScreen(
         }
         viewModel.onQueryChange(query)
     }
-    // No in-field clear icon. Leaving results through this path must not reopen the IME.
+    // Clearing by button and deleting by keyboard share one edit path; neither navigates.
     val clearSearchQuery = {
-        viewModel.onQueryChange("")
-        viewModel.exitResultsToLanding()
+        updateSearchQuery("")
     }
     LaunchedEffect(retainSearchImeAfterClear) {
         if (!retainSearchImeAfterClear) return@LaunchedEffect
@@ -1125,13 +1126,19 @@ fun SearchScreen(
         keyboardController?.show()
         retainSearchImeAfterClear = false
     }
-    val submitSearch: (String) -> Unit = { keyword ->
+    val submitSearch: (String) -> Unit = submitSearch@{ keyword ->
         when (val action = resolveSearchSubmitAction(keyword)) {
-            SearchSubmitAction.Ignore -> Unit
-            is SearchSubmitAction.OpenSearch -> viewModel.search(action.keyword)
+            SearchSubmitAction.Ignore -> return@submitSearch
+            is SearchSubmitAction.OpenSearch -> {
+                if (!state.showResults) restoreLandingFocusOnBack = searchFieldFocused
+                viewModel.search(action.keyword)
+            }
             is SearchSubmitAction.OpenNativeTarget -> {
                 viewModel.dismissSuggestions()
-                if (!onNavigateSearchTarget(action.target)) viewModel.search(keyword)
+                if (!onNavigateSearchTarget(action.target)) {
+                    if (!state.showResults) restoreLandingFocusOnBack = searchFieldFocused
+                    viewModel.search(keyword)
+                }
             }
         }
         dismissSearchKeyboardAndFocus()
@@ -1145,6 +1152,12 @@ fun SearchScreen(
                 searchFieldFocused = searchFieldFocused
             )
         ) {
+            SearchBackAction.RETURN_TO_LANDING -> {
+                pendingLandingFocusRestore = restoreLandingFocusOnBack || searchFieldFocused
+                viewModel.exitResultsToLanding()
+                if (pendingLandingFocusRestore) viewModel.onQueryChange(state.query)
+                else dismissSearchKeyboardAndFocus()
+            }
             SearchBackAction.LEAVE_SEARCH -> {
                 dismissSearchKeyboardAndFocus()
                 if (exitMotionSpec != null && !exitMotionInProgress) {
@@ -1169,6 +1182,16 @@ fun SearchScreen(
             dismissSearchKeyboardAndFocus()
         }
         previousShowResults = state.showResults
+    }
+
+    LaunchedEffect(state.showResults, pendingLandingFocusRestore) {
+        if (state.showResults || !pendingLandingFocusRestore) return@LaunchedEffect
+        // The same movable input keeps selection; wait until it is placed on the landing surface.
+        androidx.compose.runtime.withFrameNanos { }
+        if (runCatching { searchFocusRequester.requestFocus() }.isSuccess) {
+            keyboardController?.show()
+        }
+        pendingLandingFocusRestore = false
     }
 
     //  [埋点] 页面浏览追踪
@@ -1734,7 +1757,7 @@ fun SearchScreen(
                                     if (isEmptyVideoPage && pageResultState.loadMoreError != null) {
                                         viewModel.loadMoreResults()
                                     } else {
-                                        viewModel.search(pageResultState.query)
+                                        viewModel.search(pageResultState.query, updateDraft = false)
                                     }
                                 },
                                 modifier = Modifier
@@ -1757,7 +1780,7 @@ fun SearchScreen(
                                         subtitle = copy.subtitle,
                                         animation = com.android.purebilibili.core.ui.MaidAnimation.SEARCH_EMPTY,
                                         actionText = "重新搜索",
-                                        onAction = { viewModel.search(pageResultState.query) },
+                                        onAction = { viewModel.search(pageResultState.query, updateDraft = false) },
                                         enableEasterEgg = false,
                                         isVisible = searchPagerState.currentPage == page
                                     )
@@ -2569,6 +2592,9 @@ fun SearchScreen(
                     discoverListError = state.discoverListError,
                     isRefreshingDiscoverList = state.isRefreshingDiscoverList,
                     historyList = state.historyList,
+                    recordSearchHistory = state.recordSearchHistory,
+                    globalPrivacyMode = state.globalPrivacyMode,
+                    onToggleHistoryRecording = viewModel::toggleSearchHistoryRecording,
                     hotSearchEnabled = hotSearchEnabled,
                     discoverSectionEnabled = discoverSectionEnabled,
                     onToggleHotSearch = {
@@ -2818,7 +2844,9 @@ fun SearchTopBar(
     // Preserve caret/selection while typing; only resync when external text changes
     // (clear, keyword click, initial keyword). Using TextFieldValue avoids String-field
     // cursor jumps on every parent recomposition.
-    var textFieldValue by remember {
+    var textFieldValue by rememberSaveable(
+        stateSaver = androidx.compose.ui.text.input.TextFieldValue.Saver,
+    ) {
         mutableStateOf(
             androidx.compose.ui.text.input.TextFieldValue(
                 text = query,

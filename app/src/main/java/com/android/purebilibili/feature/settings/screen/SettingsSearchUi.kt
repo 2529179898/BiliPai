@@ -1,6 +1,7 @@
 package com.android.purebilibili.feature.settings
 
 import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
@@ -115,7 +116,7 @@ internal fun SettingsHomeSearchEntry(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = AppChromeSizeTokens.LiquidSearchFieldHeightDp.dp)
                 .clip(CircleShape)
                 .clickable(onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 8.dp),

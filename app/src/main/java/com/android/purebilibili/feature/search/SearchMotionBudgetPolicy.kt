@@ -75,32 +75,27 @@ internal fun shouldAutoFocusSearchField(
 ): Boolean = false
 
 enum class SearchBackAction {
+    RETURN_TO_LANDING,
     LEAVE_SEARCH
 }
 
-/**
- * Search has one navigation back action. Suggestions, IME focus, and result content are chrome
- * inside the same destination; consuming Back for them makes users press Back twice to leave.
- */
+/** Result Back restores the search landing context; landing Back leaves the destination. */
 internal fun resolveSearchBackAction(
-    @Suppress("UNUSED_PARAMETER") showResults: Boolean,
+    showResults: Boolean,
     @Suppress("UNUSED_PARAMETER") suggestionsVisible: Boolean,
     @Suppress("UNUSED_PARAMETER") searchFieldFocused: Boolean
-): SearchBackAction = SearchBackAction.LEAVE_SEARCH
+): SearchBackAction = if (showResults) SearchBackAction.RETURN_TO_LANDING else SearchBackAction.LEAVE_SEARCH
 
 internal fun shouldClearSearchFocusWhenShowingResults(
     showResults: Boolean,
     previousShowResults: Boolean
 ): Boolean = showResults && !previousShowResults
 
-/**
- * Typing in the results query must keep the result chrome so the top search field is not
- * disposed mid-edit (which drops IME and caret). Only an empty query returns to landing.
- */
-internal fun shouldKeepResultsOnQueryChange(
-    showResults: Boolean,
-    newQuery: String
-): Boolean = showResults && newQuery.isNotEmpty()
+/** Editing the draft, including clearing it, never changes the active search surface. */
+internal fun SearchUiState.withEditedSearchQuery(newQuery: String): SearchUiState = copy(
+    query = newQuery,
+    suggestions = if (newQuery.isBlank()) emptyList() else suggestions,
+)
 
 /**
  * Keep the IME when a focused field goes from a non-empty query to empty.
