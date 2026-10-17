@@ -89,7 +89,18 @@ internal fun resolvePlaybackNotificationColor(context: Context, settings: AppThe
     )
     val wallpaperAccent = if (settings.md3ColorSource == Md3ColorSource.FOLLOW_WALLPAPER) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (settings.seedPaletteStyle.enabled) {
+            val compatibilitySeed = com.android.purebilibili.core.theme.latestWallpaperColorCompatibility.seed
+            if (compatibilitySeed != null) {
+                createBiliPaiStyleColorScheme(
+                    seedColor = compatibilitySeed,
+                    darkTheme = appearance.useDarkTheme,
+                    amoledDarkTheme = appearance.useAmoledDarkTheme,
+                    paletteStyle = settings.colorStyle,
+                    colorSpec = settings.colorSpec,
+                    colorContrast = settings.colorContrast,
+                    seedPaletteStyle = settings.seedPaletteStyle,
+                ).primary
+            } else if (settings.seedPaletteStyle.enabled) {
                 val scheme = readSeedWallpaperColorScheme(context, appearance.useDarkTheme)
                 if (appearance.useAmoledDarkTheme) darkenSeedColorScheme(scheme).primary else scheme.primary
             } else if (appearance.useDarkTheme) dynamicDarkColorScheme(context).primary
@@ -110,7 +121,7 @@ internal fun resolvePlaybackNotificationColor(context: Context, settings: AppThe
     return resolvePlaybackNotificationAccentColor(
         settings, appearance.useDarkTheme, wallpaperAccent,
         wallpaperSeed = if (settings.md3ColorSource == Md3ColorSource.WALLPAPER_RETONED) {
-            readSystemWallpaperSeed(context)
+            com.android.purebilibili.core.theme.latestWallpaperColorCompatibility.seed ?: readSystemWallpaperSeed(context)
         } else null,
     ).toArgb()
 }

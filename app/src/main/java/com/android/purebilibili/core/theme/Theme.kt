@@ -903,15 +903,17 @@ fun PureBiliBiliTheme(
             .withFontWeight(appFontWeightPreset.fontWeight)
     }
     val systemWallpaperRefreshToken = rememberSystemWallpaperRefreshToken(isDynamicColorActive)
+    val wallpaperCompatibility by rememberWallpaperColorCompatibility(isDynamicColorActive, systemWallpaperRefreshToken)
+    val compatibilitySeed = wallpaperCompatibility.seed.takeIf { isDynamicColorActive }
     val customPrimaryColor = remember(
-        context, md3ColorSource, md3CustomColorHex, themeColorIndex, systemWallpaperRefreshToken,
+        context, md3ColorSource, md3CustomColorHex, themeColorIndex, systemWallpaperRefreshToken, compatibilitySeed,
     ) {
         resolveMd3ThemeSeedColor(
             source = md3ColorSource,
             customColorHex = md3CustomColorHex,
             themeColorIndex = themeColorIndex,
             wallpaperSeed = if (md3ColorSource == Md3ColorSource.WALLPAPER_RETONED) {
-                readSystemWallpaperSeed(context)
+                compatibilitySeed ?: readSystemWallpaperSeed(context)
             } else null,
         )
     }
@@ -922,8 +924,11 @@ fun PureBiliBiliTheme(
         // key() only groups composition; it does not cache these resource-backed
         // palettes. A new ColorScheme on each theme frame changes the transition
         // endpoint by identity and can keep the entire app recomposing indefinitely.
-        remember(context, systemWallpaperRefreshToken, seedPaletteStyle) {
-            if (seedPaletteStyle.enabled) readSeedWallpaperColorScheme(context, false)
+        remember(context, systemWallpaperRefreshToken, seedPaletteStyle, compatibilitySeed, colorStyle, colorSpec, colorContrast) {
+            if (compatibilitySeed != null) createBiliPaiStyleColorScheme(
+                compatibilitySeed, false, false, colorStyle, colorSpec,
+                colorContrast = colorContrast, seedPaletteStyle = seedPaletteStyle,
+            ) else if (seedPaletteStyle.enabled) readSeedWallpaperColorScheme(context, false)
             else dynamicLightColorScheme(context)
         }
     } else {
@@ -933,8 +938,11 @@ fun PureBiliBiliTheme(
         md3ColorSource == Md3ColorSource.FOLLOW_WALLPAPER &&
         isDynamicColorActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     ) {
-        remember(context, systemWallpaperRefreshToken, seedPaletteStyle) {
-            if (seedPaletteStyle.enabled) readSeedWallpaperColorScheme(context, true)
+        remember(context, systemWallpaperRefreshToken, seedPaletteStyle, compatibilitySeed, colorStyle, colorSpec, colorContrast) {
+            if (compatibilitySeed != null) createBiliPaiStyleColorScheme(
+                compatibilitySeed, true, false, colorStyle, colorSpec,
+                colorContrast = colorContrast, seedPaletteStyle = seedPaletteStyle,
+            ) else if (seedPaletteStyle.enabled) readSeedWallpaperColorScheme(context, true)
             else dynamicDarkColorScheme(context)
         }
     } else {
@@ -1096,6 +1104,7 @@ fun PureBiliBiliTheme(
     CompositionLocalProvider(
         LocalAppUiStyle provides uiStyle,
         LocalDynamicColorActive provides isDynamicColorActive,
+        LocalWallpaperColorCompatibility provides wallpaperCompatibility,
         LocalBaseThemeRoleOverrides provides baseThemeRoleOverrides,
         com.android.purebilibili.core.ui.LocalLiquidControlThemeColor provides animatedPalette.liquidAccent,
         LocalAppIconStyle provides resolveAppIconStyle(

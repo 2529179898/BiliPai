@@ -6,6 +6,7 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -33,7 +34,12 @@ internal fun rememberContentTabPager(
     onPageSelected: (Int) -> Unit,
     prepareNeighbors: (Int) -> Unit,
 ): PagerState {
-    val pager = rememberPagerState(initialPage = selectedPage) { pageCount }
+    // Async tabs can change count while the old layout still owns its key/content lambdas.
+    // Replace the pager on a count change so its count never outgrows that layout's list.
+    // The caller's selection and per-tab scroll states survive the replacement.
+    val pager = key(pageCount) {
+        rememberPagerState(initialPage = selectedPage) { pageCount }
+    }
     val latestOnSelected = rememberUpdatedState(onPageSelected)
     val latestPrepare = rememberUpdatedState(prepareNeighbors)
     LaunchedEffect(pager, selectedPage) {

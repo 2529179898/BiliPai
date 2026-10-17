@@ -797,6 +797,7 @@ fun AppearanceSettingsContent(
                                 } else {
                                     DynamicColorPreview()
                                 }
+                                com.android.purebilibili.feature.settings.WallpaperCompatibilitySettings()
                             }
                         }
 
@@ -867,13 +868,14 @@ fun AppearanceSettingsContent(
                         ) {
                             Column {
                                 val currentPrimary = MaterialTheme.colorScheme.primary
+                                val compatibilitySeed = com.android.purebilibili.core.theme.LocalWallpaperColorCompatibility.current.seed
                                 val seedPreviewColor = remember(
-                                    state.md3ColorSource, state.md3CustomColorHex, state.themeColorIndex, currentPrimary,
+                                    state.md3ColorSource, state.md3CustomColorHex, state.themeColorIndex, currentPrimary, compatibilitySeed,
                                 ) {
                                     resolveMd3ThemeSeedColor(
                                         state.md3ColorSource, state.md3CustomColorHex, state.themeColorIndex,
                                         wallpaperSeed = if (state.md3ColorSource == Md3ColorSource.WALLPAPER_RETONED) {
-                                            com.android.purebilibili.core.theme.readSystemWallpaperSeed(context)
+                                            compatibilitySeed ?: com.android.purebilibili.core.theme.readSystemWallpaperSeed(context)
                                         } else null,
                                     )
                                 }

@@ -386,11 +386,13 @@ fun ProfileScreen(
         .collectAsStateWithLifecycle(initialValue = SettingsManager.isPrivacyModeEnabledSync(context))
     val profileActionScope = androidx.compose.runtime.rememberCoroutineScope()
     val togglePrivacyMode: () -> Unit = {
+        // 固定本次切换目标，避免保存期间状态更新导致提示反转。
+        val targetPrivacyModeEnabled = !privacyModeEnabled
         profileActionScope.launch {
-            SettingsManager.setPrivacyModeEnabled(context, !privacyModeEnabled)
+            SettingsManager.setPrivacyModeEnabled(context, targetPrivacyModeEnabled)
             Toast.makeText(
                 context,
-                if (privacyModeEnabled) "已关闭无痕模式" else "已开启无痕模式",
+                if (targetPrivacyModeEnabled) "已开启无痕模式" else "已关闭无痕模式",
                 Toast.LENGTH_SHORT,
             ).show()
         }
@@ -1622,13 +1624,23 @@ private fun ProfilePinnedSpaceTopBar(
                 listOf(
                     AppWindowAction(label = "搜索", onClick = onSearchClick),
                     AppWindowAction(label = "消息", onClick = onInboxClick),
-                    AppWindowAction(label = "编辑资料", onClick = onEditClick),
-                    AppWindowAction(label = "切换账号", onClick = onAccountManageClick),
+                    AppWindowAction(
+                        label = "账号与资料",
+                        children = listOf(
+                            AppWindowAction(label = "编辑资料", onClick = onEditClick),
+                            AppWindowAction(label = "切换账号", onClick = onAccountManageClick),
+                        ),
+                    ),
                 ),
                 listOf(
                     AppWindowAction(label = if (privacyModeEnabled) "关闭无痕模式" else "开启无痕模式", onClick = onPrivacyClick),
-                    AppWindowAction(label = "切换主题", onClick = onThemeClick),
-                    AppWindowAction(label = "更换背景", onClick = onWallpaperClick),
+                    AppWindowAction(
+                        label = "主题与背景",
+                        children = listOf(
+                            AppWindowAction(label = "切换主题", onClick = onThemeClick),
+                            AppWindowAction(label = "更换背景", onClick = onWallpaperClick),
+                        ),
+                    ),
                     AppWindowAction(label = "设置", onClick = onSettingsClick),
                     AppWindowAction(label = "返回", onClick = onBack),
                 ),

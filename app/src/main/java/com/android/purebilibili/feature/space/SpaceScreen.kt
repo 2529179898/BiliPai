@@ -65,6 +65,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -1234,6 +1235,11 @@ private fun SpaceContent(
         .getHomeSettings(context)
         .collectAsStateWithLifecycle(initialValue = com.android.purebilibili.core.store.HomeSettings())
     val selectedMainTab = state.tabShellState.selectedTab
+    val singleGlassPrimaryRail = LocalAppThemeConfig.current.liquidGlassEnabled
+    // Glass owns one drag/press lifecycle outside the pager. Per-page native rails keep
+    // their existing sticky layout and animation; only glass pages reserve an empty slot.
+    var glassPrimaryRailHeightPx by remember { mutableStateOf(0) }
+    var glassPrimaryRailBoundsInRoot by remember { mutableStateOf<Rect?>(null) }
     val displayedMainTabs = resolveSpaceDisplayedMainTabs(
         tabs = state.mainTabs,
         selectedTab = selectedMainTab,
@@ -1667,6 +1673,12 @@ private fun SpaceContent(
                         )
                         .onGloballyPositioned {
                             if (isPageActive) pinnedTabsRootBottomPx = it.boundsInRoot().bottom
+                            if (singleGlassPrimaryRail && page == pagerState.currentPage) {
+                                glassPrimaryRailBoundsInRoot = Rect(
+                                    it.positionInRoot(),
+                                    androidx.compose.ui.geometry.Size(it.size.width.toFloat(), it.size.height.toFloat()),
+                                )
+                            }
                         }
                 ) {
                     SpaceContentTabs(
@@ -1674,6 +1686,9 @@ private fun SpaceContent(
                         onMainTabSelected = onMainTabSelected,
                         pagerState = pagerState,
                         page = page,
+                        primaryTabHeightProvider = if (singleGlassPrimaryRail) {
+                            { glassPrimaryRailHeightPx }
+                        } else null,
                         onContributionTabSelected = onContributionTabSelected,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -2792,6 +2807,46 @@ private fun SpaceContent(
         )
         } // HorizontalPager
 
+        if (singleGlassPrimaryRail) {
+            // A single fixed owner survives page changes, so the incoming page cannot
+            // start a second pager-driven bloom while the dragged capsule is releasing.
+            // Read geometry in measurement/placement rather than recomposing on scroll.
+            SpaceMainTabRow(
+                tabs = displayedMainTabs,
+                selectedTab = resolveSpacePrimaryTab(selectedMainTab),
+                onSelect = onMainTabSelected,
+                indicatorPositionProvider = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
+                isScrollInProgressProvider = { pagerState.isScrollInProgress },
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            0,
+                            ((glassPrimaryRailBoundsInRoot?.top ?: gridContainerRootTopPx) -
+                                gridContainerRootTopPx).roundToInt(),
+                        )
+                    }
+                    .layout { measurable, constraints ->
+                        val bounds = glassPrimaryRailBoundsInRoot
+                        val width = (bounds?.width?.roundToInt() ?: constraints.maxWidth)
+                            .coerceIn(constraints.minWidth, constraints.maxWidth)
+                        val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+                        layout(constraints.maxWidth, placeable.height) {
+                            if (bounds != null) {
+                                // Ignore the pager's horizontal translation; the grid's
+                                // symmetric content padding only determines the rail width.
+                                placeable.placeRelative((constraints.maxWidth - placeable.width) / 2, 0)
+                            }
+                        }
+                    }
+                    .onSizeChanged { glassPrimaryRailHeightPx = it.height }
+                    .background(
+                        com.android.purebilibili.core.ui.globalWallpaperAwareChromeColor(
+                            MaterialTheme.colorScheme.surface
+                        ).let { if (it.alpha < 0.97f) it.copy(alpha = 0.97f) else it }
+                    ),
+            )
+        }
+
     }
     }
 }
@@ -3378,6 +3433,7 @@ private fun SpaceContentTabs(
     modifier: Modifier = Modifier,
     pagerState: PagerState,
     page: Int,
+    primaryTabHeightProvider: (() -> Int)? = null,
 ) {
     val selectedMainTab = state.tabShellState.selectedTab
     val hasCheese = state.hasCheeseTab || state.cheeseItems.isNotEmpty()
@@ -3422,14 +3478,24 @@ private fun SpaceContentTabs(
         }
     }
     Column(modifier = modifier) {
-        SpaceMainTabRow(
-            tabs = displayedMainTabs,
-            selectedTab = resolveSpacePrimaryTab(selectedMainTab),
-            onSelect = onMainTabSelected,
-            modifier = Modifier.stationaryPagerHeader(pagerState, page),
-            indicatorPositionProvider = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
-            isScrollInProgressProvider = { pagerState.isScrollInProgress },
-        )
+        if (primaryTabHeightProvider != null) {
+            Spacer(
+                Modifier.fillMaxWidth().layout { measurable, constraints ->
+                    val height = primaryTabHeightProvider().coerceIn(constraints.minHeight, constraints.maxHeight)
+                    val placeable = measurable.measure(constraints.copy(minHeight = height, maxHeight = height))
+                    layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
+                }
+            )
+        } else {
+            SpaceMainTabRow(
+                tabs = displayedMainTabs,
+                selectedTab = resolveSpacePrimaryTab(selectedMainTab),
+                onSelect = onMainTabSelected,
+                modifier = Modifier.stationaryPagerHeader(pagerState, page),
+                indicatorPositionProvider = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
+                isScrollInProgressProvider = { pagerState.isScrollInProgress },
+            )
+        }
         if (shouldShowSpaceSecondarySwitch(selectedMainTab) && secondarySwitchItems.isNotEmpty()) {
             SpaceSecondarySwitchRow(
                 items = secondarySwitchItems,
