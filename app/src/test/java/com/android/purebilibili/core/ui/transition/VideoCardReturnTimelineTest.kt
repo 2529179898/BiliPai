@@ -572,7 +572,7 @@ class VideoCardReturnTimelineTest {
             0.001f,
         )
         assertEquals(
-            0f,
+            1f - resolveVideoCardNativeBodyPresence(0.5f),
             resolveVideoDetailReturnMediaLayoutHandoffProgress(
                 morphDepthProgress = 0.5f,
                 phase = VideoCardTransitionBackgroundPhase.HELD,
@@ -590,7 +590,9 @@ class VideoCardReturnTimelineTest {
             VideoCardTransitionBackgroundPhase.RETURNING,
         )) {
             for (depth in listOf(0f, 0.02f, 0.1f, 0.18f, 0.45f, 0.72f, 1f)) {
-                val infoAlpha = 1f - resolveVideoCardDetailChromeAlpha(depth, phase, false)
+                val infoAlpha = 1f - resolveVideoCardDetailChromeAlpha(
+                    depth, phase, false, sourceLayout = VideoCardSourceLayout.SIDE_BY_SIDE,
+                )
                 val mediaLayout = resolveVideoDetailReturnMediaLayoutHandoffProgress(
                     morphDepthProgress = depth,
                     phase = phase,

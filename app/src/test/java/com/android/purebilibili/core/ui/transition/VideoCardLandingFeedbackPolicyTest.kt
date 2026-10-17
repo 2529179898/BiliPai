@@ -1,5 +1,7 @@
 package com.android.purebilibili.core.ui.transition
 
+import androidx.compose.animation.core.TargetBasedAnimation
+import androidx.compose.animation.core.VectorConverter
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.sin
@@ -51,7 +53,7 @@ class VideoCardLandingFeedbackPolicyTest {
     }
 
     @Test
-    fun impulseReachesItsBudgetWithoutSecondEnlargementOrLongVisibleTail() {
+    fun compressionImpulseKeepsItsOriginalBudgetAndDecay() {
         for (layout in VideoCardSourceLayout.entries) {
             val motion = resolveVideoCardLandingMotion(layout)
             val omega = sqrt(motion.stiffness)
@@ -66,7 +68,7 @@ class VideoCardLandingFeedbackPolicyTest {
                     val time = ms / 1000f
                     val edge = velocity * exp(-decay * time) * sin(dampedOmega * time) / dampedOmega
                     peak = maxOf(peak, edge)
-                    val scale = resolveVideoCardLandingScale(width, height, 1f, edge, layout)
+                    val scale = resolveVideoCardLandingScale(width, height, 1f, edge.coerceAtLeast(0f), layout)
                     assertTrue(scale in 0.988f..1f)
                     if (ms >= 300) assertTrue(abs(edge) < 0.02f)
                 }
@@ -76,12 +78,54 @@ class VideoCardLandingFeedbackPolicyTest {
     }
 
     @Test
-    fun invalidGeometryAndNegativeSpringLobeStayAtIdentity() {
+    fun combinedMotionReleasesOutwardOnceAndFinishesAtOriginalSize() {
+        for (layout in VideoCardSourceLayout.entries) {
+            val width = if (layout == stacked) 180f else 380f
+            val height = if (layout == stacked) 240f else 110f
+            val motion = resolveVideoCardLandingMotion(layout)
+            val compression = resolveVideoCardLandingEdgeCompressionDp(width, height, 1f, layout)
+            val release = resolveVideoCardLandingReleaseDp(width, height, 1f, layout)
+            val releaseAnimation = TargetBasedAnimation(
+                animationSpec = videoCardLandingReleaseSpec(release),
+                typeConverter = Float.VectorConverter,
+                initialValue = 0f,
+                targetValue = 0f,
+            )
+            val velocity = resolveVideoCardLandingImpulseVelocity(compression, layout)
+            val omega = sqrt(motion.stiffness)
+            val decay = motion.dampingRatio * omega
+            val dampedOmega = omega * sqrt(1f - motion.dampingRatio * motion.dampingRatio)
+            var outwardIntervals = 0
+            var wasOutward = false
+            var peakOutwardDp = 0f
+            for (ms in 0..500) {
+                val time = ms / 1000f
+                val spring = velocity * exp(-decay * time) * sin(dampedOmega * time) / dampedOmega
+                val releaseValue = releaseAnimation.getValueFromNanos(ms * 1_000_000L)
+                val travel = spring.coerceAtLeast(0f) - releaseValue
+                val scale = resolveVideoCardLandingScale(width, height, 1f, travel, layout)
+                val outward = scale > 1.000001f
+                if (outward && !wasOutward) outwardIntervals++
+                wasOutward = outward
+                peakOutwardDp = maxOf(peakOutwardDp, -travel)
+                assertTrue(scale in 0.988f..1.003001f)
+                if (ms <= 100) assertEquals(0f, releaseValue)
+                if (ms >= 350) assertEquals(1f, scale, 0.00001f)
+            }
+            assertEquals(1, outwardIntervals)
+            assertTrue(peakOutwardDp > compression * 0.10f)
+            assertTrue(peakOutwardDp <= release)
+        }
+    }
+
+    @Test
+    fun invalidGeometryStaysAtIdentityAndOutwardTravelIsBounded() {
         for (invalid in listOf(0f, -1f, Float.NaN, Float.POSITIVE_INFINITY)) {
             assertEquals(1f, resolveVideoCardLandingScale(invalid, 100f, 1f, 1.1f, stacked))
             assertEquals(1f, resolveVideoCardLandingScale(200f, 100f, invalid, 1.1f, stacked))
         }
-        assertEquals(1f, resolveVideoCardLandingScale(200f, 100f, 1f, -0.01f, stacked))
+        val releaseCap = resolveVideoCardLandingReleaseDp(200f, 100f, 1f, stacked)
+        assertEquals(1f + 2f * releaseCap / 200f, resolveVideoCardLandingScale(200f, 100f, 1f, -100f, stacked))
         assertEquals(1f, resolveVideoCardLandingScale(200f, 100f, 1f, Float.NaN, stacked))
     }
 }

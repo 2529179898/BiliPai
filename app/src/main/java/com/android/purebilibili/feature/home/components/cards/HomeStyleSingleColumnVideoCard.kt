@@ -42,6 +42,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -144,7 +145,10 @@ internal fun HomeStyleSingleColumnVideoCard(
     }
     val cardBounds = remember { object { var value: Rect? = null } }
     val coverBounds = remember { object { var value: Rect? = null } }
-    val nativeCardSnapshot = rememberNativeVideoCardSnapshotController(video.bvid)
+    val infoCoordinates = remember { object { var value: LayoutCoordinates? = null } }
+    val nativeCardSnapshot = rememberNativeVideoCardSnapshotController(
+        video.bvid, enabled = sharedTransitionEnabled,
+    )
     val cardShape = AppShapes.container(ContainerLevel.Card)
     val cardCornerDp = AppShapes.containerCornerDp(ContainerLevel.Card)
     val useCardShellSharedBounds = shouldUseVideoCardShellSharedBounds(
@@ -183,6 +187,7 @@ internal fun HomeStyleSingleColumnVideoCard(
                 sourceCornerDp = cardCornerDp.value.roundToInt(),
                 coverBounds = sourceCoverBounds,
                 sourceLayout = VideoCardSourceLayout.SIDE_BY_SIDE,
+                infoBounds = infoCoordinates.value?.takeIf { it.isAttached }?.boundsInRoot(),
                 sourceChromeSnapshot = VideoCardSourceChromeSnapshot(
                     title = video.title,
                     ownerName = video.owner.name,
@@ -242,8 +247,8 @@ internal fun HomeStyleSingleColumnVideoCard(
                 clipShape = cardShape,
                 crossfadeSourceContent = true,
             )
-            .clip(cardShape)
             .then(nativeCardSnapshot.modifier)
+            .clip(cardShape)
             .wallpaperAwareMediaCardBackground(AppSurfaceTokens.cardContainer(), cardShape)
             .combinedClickable(
                 onClick = triggerClick,
@@ -251,6 +256,9 @@ internal fun HomeStyleSingleColumnVideoCard(
             ),
         coverModifier = Modifier.onGloballyPositioned { coordinates ->
             coverBounds.value = coordinates.boundsInRoot()
+        },
+        infoModifier = Modifier.onGloballyPositioned { coordinates ->
+            infoCoordinates.value = coordinates
         },
         coverOverlayModifier = nativeCardSnapshot.coverOverlayModifier,
         coverContent = {

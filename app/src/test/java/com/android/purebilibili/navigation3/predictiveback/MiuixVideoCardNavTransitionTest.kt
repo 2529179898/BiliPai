@@ -295,6 +295,25 @@ class MiuixVideoCardNavTransitionTest {
     }
 
     @Test
+    fun sourcePixelInverseScaleIsIndependentOfMorphDepth() {
+        // Native chrome can measure once: FillWidthTop cancels the outer morph on BOTH
+        // axes, including highly non-uniform horizontal cards and interrupted returns.
+        for ((sourceX, sourceY) in listOf(.01f to .01f, .46f to .25f, .92f to .12f, 1f to .08f)) {
+            val frozen = resolveMiuixVideoCardInverseScaleForDepth(sourceX, sourceY, 0f)
+            for (autoReturning in listOf(false, true)) {
+                for (step in 0..100) {
+                    val live = resolveMiuixVideoCardInverseScaleForDepth(
+                        sourceX, sourceY, step / 100f, autoReturning,
+                    )
+                    assertEquals(frozen.scaleX, live.scaleX, .0001f)
+                    assertEquals(frozen.scaleY, live.scaleY, .0001f)
+                    assertEquals(1f / sourceX, live.scaleX, .0001f)
+                }
+            }
+        }
+    }
+
+    @Test
     fun reconstructedCardPixelsStayUndistortedAndFitTheShellAtHandoff() {
         for ((sourceX, sourceY) in listOf(.46f to .25f, .92f to .12f, .3f to .08f)) {
             for (autoReturning in listOf(false, true)) {

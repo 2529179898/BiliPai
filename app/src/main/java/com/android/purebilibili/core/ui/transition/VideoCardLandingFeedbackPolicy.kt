@@ -69,6 +69,23 @@ internal fun resolveVideoCardLandingImpulseVelocity(
     return edgeCompressionDp.coerceAtMost(motion.maxEdgeCompressionDp) / motion.peakResponseSeconds
 }
 
+/** Outward release is deliberately smaller than compression, with a separate 0.3% scale cap. */
+internal fun resolveVideoCardLandingReleaseDp(
+    widthPx: Float,
+    heightPx: Float,
+    density: Float,
+    sourceLayout: VideoCardSourceLayout,
+): Float {
+    val compression = resolveVideoCardLandingEdgeCompressionDp(widthPx, heightPx, density, sourceLayout)
+    if (compression <= 0f) return 0f
+    val edgeCap = when (sourceLayout) {
+        VideoCardSourceLayout.STACKED -> 0.30f
+        VideoCardSourceLayout.SIDE_BY_SIDE -> 0.34f
+        VideoCardSourceLayout.COVER_ONLY -> 0.18f
+    }
+    return minOf(edgeCap, compression * 0.30f, maxOf(widthPx, heightPx) / density * 0.0015f)
+}
+
 internal fun resolveVideoCardLandingScale(
     widthPx: Float,
     heightPx: Float,
@@ -82,7 +99,9 @@ internal fun resolveVideoCardLandingScale(
     ) return 1f
     val longestEdgePx = maxOf(widthPx, heightPx)
     val limit = resolveVideoCardLandingEdgeCompressionDp(widthPx, heightPx, density, sourceLayout)
-    // Clamp the imperceptible negative spring lobe: no second enlargement or text shimmer.
-    val edgeTravel = edgeCompressionDp.coerceIn(0f, limit)
+    val releaseLimit = resolveVideoCardLandingReleaseDp(widthPx, heightPx, density, sourceLayout)
+    // Signed travel: positive compresses, negative briefly releases beyond the original size.
+    // Bound outward motion separately so a small card never receives a large text-scale pulse.
+    val edgeTravel = edgeCompressionDp.coerceIn(-releaseLimit, limit)
     return 1f - 2f * edgeTravel * density / longestEdgePx
 }

@@ -11,6 +11,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import com.android.purebilibili.core.ui.LocalSharedTransitionEnabled
 import com.android.purebilibili.core.util.CardPositionManager
 import kotlinx.coroutines.launch
 
@@ -255,11 +256,23 @@ internal class NativeVideoCardSnapshotController(
     val freezeToBitmap: () -> Unit,
 )
 
+private val DisabledNativeVideoCardSnapshotController = NativeVideoCardSnapshotController(
+    modifier = Modifier,
+    coverOverlayModifier = Modifier,
+    capture = {},
+    freezeToBitmap = {},
+)
+
 @Composable
 internal fun rememberNativeVideoCardSnapshotController(
     key: Any,
     enabled: Boolean = true,
 ): NativeVideoCardSnapshotController {
+    // Shared card-morph work only, across materials: disabling transitions must also skip
+    // layer allocation, recording and capture. Native MD3/Miuix card layout stays untouched.
+    if (!enabled || !LocalSharedTransitionEnabled.current) {
+        return DisabledNativeVideoCardSnapshotController
+    }
     val layer = rememberNativeVideoCardLayer()
     val coverOverlayLayer = rememberNativeVideoCardLayer()
     val captureScope = rememberCoroutineScope()

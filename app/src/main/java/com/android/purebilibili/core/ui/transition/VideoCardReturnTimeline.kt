@@ -147,6 +147,7 @@ internal fun resolveVideoDetailReturnMediaLayoutHandoffProgress(
             morphDepthProgress = depth,
             phase = phase,
             isReturnGestureInProgress = isReturnGestureInProgress,
+            sourceLayout = sourceLayout,
         ))
     }
     // Remeasure only on an actual return. HELD with a tiny depth dip is enough to squash a
@@ -271,8 +272,16 @@ internal fun resolveVideoCardDetailChromeAlpha(
      * 重新弹成不透明，表现为「飞行壳已落位、详情 chrome 却整块闪现在卡槽」。
      */
     isCommittedCardReturn: Boolean = false,
+    sourceLayout: VideoCardSourceLayout? = null,
 ): Float {
     val depth = resolveVisualProgress(morphDepthProgress, phase, VideoSharedTransitionDirection.ENTER)
+    // Horizontal cover geometry and right-hand chrome must follow the same envelope as
+    // the native shell height. A late chrome-only handoff leaves a full-width player
+    // inside an already short clip, cutting faces and turning the cover into a strip.
+    if (sourceLayout == VideoCardSourceLayout.SIDE_BY_SIDE &&
+        (phase == VideoCardTransitionBackgroundPhase.OPENING ||
+            isVideoCardReturnContentYieldActive(phase, isReturnGestureInProgress, depth))
+    ) return resolveVideoCardNativeBodyPresence(depth)
     val handoff = resolveVideoCardContentHandoffProgress(
         morphDepthProgress = depth,
         phase = phase,
