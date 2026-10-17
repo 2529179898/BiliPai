@@ -238,7 +238,12 @@ fun DynamicScreen(
     var showAuthorSearch by rememberSaveable(selfUid) { mutableStateOf(false) }
     var authorFeedTabEnabled by rememberSaveable(selfUid) { mutableStateOf(false) }
     val authorSearchLoading by viewModel.authorSearchLoading.collectAsStateWithLifecycle()
+    var handledScrollAccountGeneration by rememberSaveable {
+        mutableStateOf(accountIdentity.generation)
+    }
     LaunchedEffect(accountIdentity.generation) {
+        // Returning from a child page must preserve the restored list anchors.
+        if (handledScrollAccountGeneration == accountIdentity.generation) return@LaunchedEffect
         listOf(
             allListState, userListState, videoListState, userVideoListState,
             pgcListState, articleListState, userArticleListState
@@ -246,6 +251,7 @@ fun DynamicScreen(
             .forEach { it.scrollToItem(0) }
         sidebarUserListState.scrollToItem(0)
         horizontalUserListState.scrollToItem(0)
+        handledScrollAccountGeneration = accountIdentity.generation
     }
     val selfFace = selfUser?.takeIf { it.uid == selfUid }?.face.orEmpty()
     val displayUsers = remember(followedUsers, selfUid, selfFace) {
@@ -483,10 +489,13 @@ fun DynamicScreen(
             viewModel.setSelectedTab(activeSelectedTab)
         }
     }
+    var handledScrollUserId by rememberSaveable { mutableStateOf(selectedUserId) }
     LaunchedEffect(selectedUserId) {
+        if (handledScrollUserId == selectedUserId) return@LaunchedEffect
         userListState.scrollToItem(0)
         userVideoListState.scrollToItem(0)
         userArticleListState.scrollToItem(0)
+        handledScrollUserId = selectedUserId
     }
     val handleUserSelection = remember(selectedUserId, displayedLogicalTab) {
         { clickedUserId: Long? ->
@@ -538,7 +547,7 @@ fun DynamicScreen(
     // 分类直接过滤作者动态；当前页尚无匹配项时仍按原分页链路继续加载。
     val allowAutomaticLoadMore = isCurrentPage
 
-    var handledUserListRefreshBoundary by remember { mutableStateOf<String?>(null) }
+    var handledUserListRefreshBoundary by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(
         state.timelinePages,
         selectedUserId
