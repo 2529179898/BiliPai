@@ -5,6 +5,17 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class AudioWaveformPolicyTest {
+
+    @Test
+    fun soundWaveHistoryCoversNearlyOneSecondWithoutShowingFutureAudio() {
+        val samples = (1..100).map { AudioWaveformSample(it * 20_000L, it / 100f) }
+        val history = resolveWaveformBars(samples, 1_200_000L, barCount = 48)
+        assertEquals(48, history.size)
+        assertEquals(.13f, history.first())
+        assertEquals(.60f, history.last())
+        assertTrue(history.all { it <= .60f })
+        assertTrue(resolveWaveformBars(emptyList(), 1_200_000L, 48).all { it == 0f })
+    }
     @Test
     fun `five bars follow audible history and never anticipate a future burst`() {
         val samples = (1..5).map { AudioWaveformSample(it * 20_000L, it / 5f) }

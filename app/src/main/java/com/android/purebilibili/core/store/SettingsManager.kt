@@ -6808,7 +6808,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     }
 
     /**
-     * 「听视频」声音短柱律动。数据取自音频输出链路的 PCM（无录音权限），
+     * 「听视频」音乐氛围。数据取自音频输出链路的 PCM（无录音权限），
      * 默认关闭；公共 AudioSink 按缓冲读取开关，已有 PCM 播放会话内即可生效。
      */
     fun getAudioSpectrumEnabled(context: Context): Flow<Boolean> =

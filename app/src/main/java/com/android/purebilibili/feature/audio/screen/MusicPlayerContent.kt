@@ -245,9 +245,6 @@ internal val LocalMusicPlayerMaterial = staticCompositionLocalOf {
     )
 }
 
-/** 声音律动开关：听视频页在 Provider 中提供，关闭时所有接入点都不进入 composition。 */
-internal val LocalMusicSpectrumEnabled = staticCompositionLocalOf { false }
-
 /** 当前听视频页前景色（随封面色板明暗切换，保证可读）。 */
 internal val MusicContentColor: Color
     @Composable
@@ -384,6 +381,8 @@ internal fun MusicPlayerContent(
     onShuffleEnabledChange: (Boolean) -> Unit = {},
     onLyricsOffsetChange: (Long) -> Unit = {},
     subtitleLanguageOptions: List<Pair<String, String>> = emptyList(),
+    videoSubtitlesEnabled: Boolean = true,
+    onVideoSubtitlesEnabledChange: ((Boolean) -> Unit)? = null,
     selectedSubtitleTrackKey: String? = null,
     onSubtitleTrackSelected: (String) -> Unit = {},
     onLyricsRetry: () -> Unit = {},
@@ -469,6 +468,14 @@ internal fun MusicPlayerContent(
     var lyricsControlsVisible by remember(state.title) { mutableStateOf(false) }
     // 翻译开关提升到内容层：顶栏与歌词设置面板共用，保证同一状态源
     var lyricsShowTranslations by rememberSaveable { mutableStateOf(true) }
+    // All material/layout branches consume the same display projection. Keep original
+    // source data intact so re-enabling translations needs no reload or track change.
+    val displayLyrics = remember(state.lyrics, lyricsShowTranslations) {
+        com.android.purebilibili.feature.audio.lyrics.resolveLyricsDisplayDocument(
+            state.lyrics, lyricsShowTranslations,
+        )
+    }
+    val displayState = state.copy(lyrics = displayLyrics)
     var lyricSearchText by remember(state.title) { mutableStateOf(state.title) }
     val currentItem = remember(state.title, state.artist, state.coverUrl) {
         state.queue.getOrNull(state.currentQueueIndex) ?: MusicQueueItemUi(
@@ -550,7 +557,7 @@ internal fun MusicPlayerContent(
         reduceMotion = effectiveReduceMotion
     )
     var coverStyle by remember { mutableStateOf(MusicCoverStyle.APPLE_MUSIC_CARD) }
-    // 声音律动开关仅控制短柱；封面、歌词和各材质原生参数沿用原有调用链。
+    // 音乐氛围仅替换背景绘制；关闭时保留既有背景和各材质原生组件参数。
     val audioSpectrumEnabled by SettingsManager
         .getAudioSpectrumEnabled(context)
         .collectAsStateWithLifecycle(initialValue = false)
@@ -584,7 +591,6 @@ internal fun MusicPlayerContent(
 
     CompositionLocalProvider(
         LocalMusicPlayerMaterial provides musicMaterial,
-        LocalMusicSpectrumEnabled provides audioSpectrumEnabled,
         com.android.purebilibili.core.ui.LocalAppButtonSlotColorCorrectionEnabled provides false,
     ) {
     BoxWithConstraints(
@@ -627,6 +633,7 @@ internal fun MusicPlayerContent(
             hingeEndDp = hingeEndDp,
             hasObstructingHinge = adaptiveInfo.foldingFeature.hasObstructingHinge,
         )
+        val pagerState = rememberPagerState(pageCount = { 2 })
         if (layout != MusicPlayerLayout.PIP_ARTWORK) {
             Box(
                 modifier = Modifier
@@ -639,12 +646,16 @@ internal fun MusicPlayerContent(
                     bitmap = artworkBitmap,
                     palette = playerPalette,
                     isPlaying = state.isPlaying,
-                    positionMs = state.positionMs,
+                    atmosphereEnabled = audioSpectrumEnabled,
+                    reduceMotion = effectiveReduceMotion,
+                    lyricsPageProgress = {
+                        if (layout == MusicPlayerLayout.COMPACT_PAGER) {
+                            (pagerState.currentPage + pagerState.currentPageOffsetFraction).coerceIn(0f, 1f)
+                        } else 0f
+                    },
                 )
             }
         }
-        // 分页状态提升到布局分支之外：顶栏 leadingActions 需要感知当前是否在歌词页
-        val pagerState = rememberPagerState(pageCount = { 2 })
         when (layout) {
             MusicPlayerLayout.PIP_ARTWORK -> MusicArtwork(
                 coverUrl = state.coverUrl,
@@ -696,18 +707,9 @@ internal fun MusicPlayerContent(
                                 onClick = { coverStyle = resolveNextCoverStyle(coverStyle) },
                             )
                             if (landscapeLyrics) {
-                                if (LocalMusicSpectrumEnabled.current) {
-                                    Spacer(Modifier.height(12.dp))
-                                    MusicWaveformBars(
-                                        isPlaying = state.isPlaying,
-                                        reduceMotion = effectiveReduceMotion,
-                                        color = MusicContentColor.copy(alpha = 0.82f),
-                                        modifier = Modifier.size(MUSIC_WAVEFORM_WIDTH_DP.dp, MUSIC_WAVEFORM_HEIGHT_DP.dp),
-                                    )
-                                }
                                 Spacer(Modifier.height(8.dp))
                                 MusicProgress(
-                                    state = state,
+                                    state = displayState,
                                     onSeek = { positionMs ->
                                         progressSeekRevision += 1
                                         onSeek(positionMs)
@@ -720,7 +722,7 @@ internal fun MusicPlayerContent(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 MusicPlayPauseButton(
-                                    state = state,
+                                    state = displayState,
                                     onPlayPause = onPlayPause,
                                     sizeDp = 56,
                                     glassEnabled = glassEnabled,
@@ -746,7 +748,7 @@ internal fun MusicPlayerContent(
                         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             if (landscapeLyrics) {
                             LyricsPage(
-                                state = state,
+                                state = displayState,
                                 glassEnabled = glassEnabled,
                                 onPlayPause = onPlayPause,
                                 onSeek = { positionMs ->
@@ -776,7 +778,7 @@ internal fun MusicPlayerContent(
                             } else {
                             PlayerPage(
                                 liquidGlassTuning = liquidGlassTuning,
-                                state = state,
+                                state = displayState,
                                 artworkBitmap = artworkBitmap,
                                 artworkSizeDp = resolveMusicArtworkSizeDp(
                                     availableWidthDp,
@@ -843,7 +845,7 @@ internal fun MusicPlayerContent(
                         if (page == 0) {
                             PlayerPage(
                                 liquidGlassTuning = liquidGlassTuning,
-                                state = state,
+                                state = displayState,
                                 artworkBitmap = artworkBitmap,
                                 artworkSizeDp = resolveMusicArtworkSizeDp(
                                     availableWidthDp,
@@ -891,7 +893,7 @@ internal fun MusicPlayerContent(
                             )
                         } else {
                             LyricsPage(
-                                state = state,
+                                state = displayState,
                                 glassEnabled = glassEnabled,
                                 onPlayPause = onPlayPause,
                                 onSeek = { positionMs ->
@@ -939,7 +941,7 @@ internal fun MusicPlayerContent(
                                 if (liquidGlassEffectsEnabled) {
                                     // 液态玻璃模式保持原有悬浮三键 + 细进度线排版
                                     PlaybackControls(
-                                        state = state,
+                                        state = displayState,
                                         onPlayPause = onPlayPause,
                                         onPrevious = onPrevious,
                                         onNext = onNext,
@@ -957,7 +959,7 @@ internal fun MusicPlayerContent(
                                         },
                                     )
                                     Spacer(Modifier.height(12.dp))
-                                    LyricsImmersiveProgress(state = state)
+                                    LyricsImmersiveProgress(state = displayState)
                                 } else {
                                     // 紧凑 dock：进度线 + 三键 + 封面/歌词切换收进单容器，
                                     // 高度约为原分段控件方案的一半，不再压住歌词。
@@ -970,7 +972,7 @@ internal fun MusicPlayerContent(
                                             slideOutVertically(tween(300)) { it / 2 },
                                     ) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            LyricsImmersiveProgress(state = state)
+                                            LyricsImmersiveProgress(state = displayState)
                                             Spacer(Modifier.height(10.dp))
                                             Row(
                                                 modifier = Modifier
@@ -1002,7 +1004,7 @@ internal fun MusicPlayerContent(
                                                     sizeDp = 44
                                                 )
                                                 MusicPlayPauseButton(
-                                                    state = state,
+                                                    state = displayState,
                                                     onPlayPause = onPlayPause,
                                                     sizeDp = 52,
                                                     glassEnabled = glassEnabled,
@@ -1082,7 +1084,7 @@ internal fun MusicPlayerContent(
 
             MusicPlayerLayout.TABLETOP -> TabletopPlayerLayout(
                 coverStyle = coverStyle,
-                state = state,
+                state = displayState,
                 queue = effectiveQueue,
                 currentIndex = effectiveCurrentIndex,
                 artworkBitmap = artworkBitmap,
@@ -1173,7 +1175,7 @@ internal fun MusicPlayerContent(
                         ) {
                             PlayerPage(
                                 liquidGlassTuning = liquidGlassTuning,
-                                state = state,
+                                state = displayState,
                                 artworkBitmap = artworkBitmap,
                                 artworkSizeDp = resolveMusicArtworkSizeDp(
                                     availableWidthDp,
@@ -1224,7 +1226,7 @@ internal fun MusicPlayerContent(
                                     when (tab) {
                                         ExpandedRightPaneTab.LYRICS -> {
                                             LyricsPage(
-                                                state = state,
+                                                state = displayState,
                                                 glassEnabled = glassEnabled,
                                                 onPlayPause = onPlayPause,
                                                 onSeek = onSeek,
@@ -1386,7 +1388,7 @@ internal fun MusicPlayerContent(
                                     coverStyle = resolveNextCoverStyle(coverStyle)
                                 }
                                 MusicActionSheetItem(
-                                    if (audioSpectrumEnabled) "声音律动：开启" else "声音律动：关闭",
+                                    if (audioSpectrumEnabled) "音乐氛围：开启" else "音乐氛围：关闭",
                                     contentColor = sheetContentColor
                                 ) {
                                     showActions = false
@@ -1396,7 +1398,7 @@ internal fun MusicPlayerContent(
                                     }
                                     android.widget.Toast.makeText(
                                         context,
-                                        if (nextEnabled) "已开启声音律动" else "已关闭声音律动",
+                                        if (nextEnabled) "已开启音乐氛围" else "已关闭音乐氛围",
                                         android.widget.Toast.LENGTH_SHORT,
                                     ).show()
                                 }
@@ -1516,7 +1518,9 @@ internal fun MusicPlayerContent(
                                     showActions = false
                                     showLyricsSearch = true
                                 }
-                                if (state.lyrics != null || subtitleLanguageOptions.isNotEmpty()) {
+                                if (state.lyrics != null || subtitleLanguageOptions.isNotEmpty() ||
+                                    onVideoSubtitlesEnabledChange != null
+                                ) {
                                     MusicActionSheetItem("字幕 / 歌词设置", contentColor = sheetContentColor) {
                                         showActions = false
                                         showLyricsOffsetSettings = true
@@ -1728,6 +1732,8 @@ internal fun MusicPlayerContent(
                 sourceLabel = state.lyrics?.let(BiliSubtitleLyricsPolicy::resolveSourceLabel).orEmpty(),
                 onOffsetChange = onLyricsOffsetChange,
                 subtitleLanguageOptions = subtitleLanguageOptions,
+                videoSubtitlesEnabled = videoSubtitlesEnabled,
+                onVideoSubtitlesEnabledChange = onVideoSubtitlesEnabledChange,
                 selectedSubtitleTrackKey = selectedSubtitleTrackKey,
                 onSubtitleTrackSelected = onSubtitleTrackSelected,
             )
@@ -2032,27 +2038,39 @@ private fun MusicArtworkBackground(
     palette: com.android.purebilibili.feature.audio.lyrics.halcyon.PlayerPalette =
         com.android.purebilibili.feature.audio.lyrics.halcyon.PlayerPalette.Default,
     isPlaying: Boolean = false,
-    positionMs: Long = 0L,
+    atmosphereEnabled: Boolean = false,
+    reduceMotion: Boolean = false,
+    lyricsPageProgress: () -> Float = { 0f },
 ) {
     val coverBitmap = remember(bitmap) { bitmap?.toAndroidBitmapOrNull() }
-    if (coverBitmap != null) {
-        // Halcyon default lyric/player backdrop: AppleCoverFlowBackground (three-layer
-        // oversaturated cover aurora). BeautifulLyrics is opt-in in Halcyon, not the default.
-        com.android.purebilibili.feature.audio.lyrics.halcyon.AppleCoverFlowBackground(
-            coverBitmap = coverBitmap,
-            backgroundColor = palette.middle,
-            isDark = !palette.isLight,
-            isPlaying = isPlaying,
-            animate = isPlaying,
-            modifier = Modifier.fillMaxSize(),
-        )
-    } else {
-        com.android.purebilibili.feature.audio.lyrics.halcyon.PlayerBlurBackground(
-            palette = palette,
-            coverBitmap = null,
-            animate = false,
-            modifier = Modifier.fillMaxSize(),
-        )
+    // All materials retain the original immersive renderer and its colour/readability
+    // settings. The opt-in feature only supplies energy to that renderer's image layer.
+    MusicAtmosphereHost(
+        enabled = atmosphereEnabled,
+        isPlaying = isPlaying,
+        reduceMotion = reduceMotion,
+        lyricsPageProgress = lyricsPageProgress,
+        modifier = Modifier.fillMaxSize(),
+    ) { audioEnergy ->
+        if (coverBitmap != null) {
+            com.android.purebilibili.feature.audio.lyrics.halcyon.AppleCoverFlowBackground(
+                coverBitmap = coverBitmap,
+                backgroundColor = palette.middle,
+                isDark = !palette.isLight,
+                isPlaying = isPlaying,
+                animate = isPlaying && !reduceMotion,
+                audioEnergyProvider = audioEnergy,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            // No artwork: keep the existing palette fallback. Do not invent audio colours.
+            com.android.purebilibili.feature.audio.lyrics.halcyon.PlayerBlurBackground(
+                palette = palette,
+                coverBitmap = null,
+                animate = false,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 
@@ -2296,16 +2314,7 @@ private fun PlayerPage(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
-                        // 声音指示器由独立开关控制；各材质沿用原有文字、间距与封面参数。
-                        if (LocalMusicSpectrumEnabled.current) {
-                            Spacer(Modifier.width(10.dp))
-                            MusicWaveformBars(
-                                isPlaying = state.isPlaying,
-                                reduceMotion = reduceMotion,
-                                color = MusicContentColor.copy(alpha = 0.82f),
-                                modifier = Modifier.size(MUSIC_WAVEFORM_WIDTH_DP.dp, MUSIC_WAVEFORM_HEIGHT_DP.dp),
-                            )
-                        }
+
                     }
                     state.error?.let {
                         AppText(it, color = AppContentColors.error(), style = MaterialTheme.typography.bodySmall)
@@ -3489,6 +3498,8 @@ private fun LyricsOffsetSettingsContent(
     sourceLabel: String,
     onOffsetChange: (Long) -> Unit,
     subtitleLanguageOptions: List<Pair<String, String>> = emptyList(),
+    videoSubtitlesEnabled: Boolean = true,
+    onVideoSubtitlesEnabledChange: ((Boolean) -> Unit)? = null,
     selectedSubtitleTrackKey: String? = null,
     onSubtitleTrackSelected: (String) -> Unit = {},
 ) {
@@ -3509,6 +3520,18 @@ private fun LyricsOffsetSettingsContent(
             fontWeight = FontWeight.Bold,
             color = contentColor,
         )
+        if (onVideoSubtitlesEnabledChange != null) {
+            AppTextButton(
+                onClick = { onVideoSubtitlesEnabledChange(!videoSubtitlesEnabled) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            ) {
+                AppText(
+                    text = if (videoSubtitlesEnabled) "视频字幕：开（点击关闭）" else "视频字幕：关（点击开启）",
+                    color = contentColor,
+                )
+            }
+            AppText("同时控制视频自带字幕和 AI 字幕，关闭后仍可显示匹配的音乐歌词。", color = secondaryColor)
+        }
         AppText("字幕语言", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = contentColor)
         if (subtitleLanguageOptions.isEmpty()) {
             AppText("当前视频没有可切换的字幕语言", color = secondaryColor)

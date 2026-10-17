@@ -1955,7 +1955,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
             val stopPlaybackOnExit = SettingsManager.getStopPlaybackOnExitSync(context)
             val audioFocusEnabled = SettingsManager.getAudioFocusEnabledSync(context)
 
-            // 声音律动在 HiResCompatibleRenderersFactory 的公共音频入口动态读取开关。
+            // 音乐氛围在 HiResCompatibleRenderersFactory 的公共音频入口动态读取开关。
             val renderersFactory = if (SettingsManager.getLoudnessNormalizationEnabledSync(context)) {
                 com.android.purebilibili.core.player.LoudnessAwareRenderersFactory(context)
             } else {
