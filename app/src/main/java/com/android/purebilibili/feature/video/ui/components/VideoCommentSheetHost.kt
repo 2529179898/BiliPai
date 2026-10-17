@@ -3,7 +3,6 @@ package com.android.purebilibili.feature.video.ui.components
 import com.android.purebilibili.core.ui.AppContentColors
 
 import android.os.Build
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.MutableTransitionState
@@ -80,10 +79,7 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import com.android.purebilibili.core.ui.InteractiveOverlayProgressVisual
 import com.android.purebilibili.core.ui.InteractiveOverlaySurfaceType
 import com.android.purebilibili.core.ui.resolveInteractiveOverlayProgressVisual
-import com.android.purebilibili.data.model.CommentFraudStatus
 import com.android.purebilibili.data.model.response.ReplyItem
-import com.android.purebilibili.data.repository.resolveCommentFraudLightMessage
-import com.android.purebilibili.data.repository.shouldShowCommentFraudResultDialog
 import com.android.purebilibili.feature.dynamic.components.ImagePreviewDialog
 import com.android.purebilibili.feature.dynamic.components.ImagePreviewTextContent
 import com.android.purebilibili.feature.dynamic.components.ImagePreviewSourceAnchor
@@ -585,36 +581,7 @@ fun VideoCommentSheetHost(
         }
     }
 
-    var fraudDialogStatus by remember { mutableStateOf<CommentFraudStatus?>(null) }
-    LaunchedEffect(handleFraudEvents) {
-        if (!handleFraudEvents) return@LaunchedEffect
-        commentViewModel.fraudEvent.collect { status ->
-            val lightMessage = resolveCommentFraudLightMessage(status)
-            if (lightMessage != null) {
-                Toast.makeText(context, lightMessage, Toast.LENGTH_SHORT).show()
-            } else if (shouldShowCommentFraudResultDialog(status)) {
-                fraudDialogStatus = status
-            }
-        }
-    }
-
-    fraudDialogStatus?.let { status ->
-        CommentFraudResultDialog(
-            status = status,
-            onDismiss = {
-                fraudDialogStatus = null
-                commentViewModel.dismissFraudResult()
-            },
-            onDeleteComment = if (status == CommentFraudStatus.SHADOW_BANNED) {
-                {
-                    val rpid = commentViewModel.commentState.value.fraudDetectRpid
-                    if (rpid > 0) {
-                        commentViewModel.startDissolve(rpid)
-                    }
-                }
-            } else null
-        )
-    }
+    CommentFraudFeedbackHost(commentViewModel = commentViewModel, enabled = handleFraudEvents)
 
     val openCommentUrl: (String) -> Unit = openCommentUrl@{ rawUrl ->
         val url = rawUrl.trim()

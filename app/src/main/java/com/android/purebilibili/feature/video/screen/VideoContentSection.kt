@@ -98,10 +98,10 @@ import com.android.purebilibili.feature.video.ui.components.CollectionRow
 import com.android.purebilibili.feature.video.ui.components.CollectionSheet
 import com.android.purebilibili.feature.video.ui.components.PagesSelector
 import com.android.purebilibili.feature.video.ui.components.CommentListHeader
+import com.android.purebilibili.feature.video.ui.components.VideoCommentFloatingHeader
 import com.android.purebilibili.feature.video.ui.components.CommentSortHeader
 import com.android.purebilibili.feature.video.ui.components.CommentSortFilterBar
 import com.android.purebilibili.feature.video.ui.components.CommentSearchSheet
-import com.android.purebilibili.feature.video.ui.components.resolveCommentSortDockViewportOverflowDp
 import com.android.purebilibili.feature.video.ui.components.ReplyItemView
 import com.android.purebilibili.feature.video.ui.components.VideoCommentVoteCard
 import com.android.purebilibili.feature.video.ui.components.rememberVideoCommentAppearance
@@ -559,7 +559,6 @@ internal class VideoContentNoteActions(
 
 internal class VideoContentUiActions(
     val onSelectedTabChange: (Int) -> Unit,
-    val onIntroScrollThresholdChange: (Boolean) -> Unit,
     val onCommentScrollStateChange: (Int, Int) -> Unit,
 )
 
@@ -673,7 +672,6 @@ internal fun VideoContentSection(
     val onLoadMorePublicVideoNotes = noteActions.onLoadMorePublicVideoNotes
     val onPublicVideoNoteClick = noteActions.onPublicVideoNoteClick
     val onSelectedTabChange = uiActions.onSelectedTabChange
-    val onIntroScrollThresholdChange = uiActions.onIntroScrollThresholdChange
     val onCommentScrollStateChange = uiActions.onCommentScrollStateChange
     val context = LocalContext.current
     val themeConfig = LocalAppThemeConfig.current
@@ -806,16 +804,6 @@ internal fun VideoContentSection(
                 latestOnSelectedTabChange(effectiveTabIndex)
             }
     }
-    LaunchedEffect(introListState) {
-        snapshotFlow {
-            isVideoDetailIntroScrollPastCollapseThreshold(
-                firstVisibleItemIndex = introListState.firstVisibleItemIndex,
-                firstVisibleItemScrollOffset = introListState.firstVisibleItemScrollOffset
-            )
-        }
-            .distinctUntilChanged()
-            .collect(onIntroScrollThresholdChange)
-    }
     LaunchedEffect(commentListState) {
         snapshotFlow { commentListState.firstVisibleItemIndex to commentListState.firstVisibleItemScrollOffset }
             .distinctUntilChanged()
@@ -926,12 +914,6 @@ internal fun VideoContentSection(
             topPx = { if (immersiveVideoContentChromeEnabled) tabBarVisibleHeightPx() else 0f },
             bottom = bottomContentPadding,
             density = density,
-        )
-    }
-    val commentSortDockLiftDp = remember {
-        resolveCommentSortDockViewportOverflowDp(
-            containerHeightDp = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp,
-            indicatorHeightDp = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp,
         )
     }
     // Match the home bottom dock: one full-size content source, with liquid docks rendered as
@@ -1050,7 +1032,9 @@ internal fun VideoContentSection(
                     1 -> VideoCommentTab(
                         listState = commentListState,
                         modifier = Modifier,
-                        info = info,
+                        upMid = info.owner.mid,
+                        maxTimestampMs = info.pages.firstOrNull { it.cid == info.cid }?.duration?.times(1000L)
+                            ?: info.pages.firstOrNull()?.duration?.times(1000L),
                         replies = replies,
                         replyCount = replyCount,
                         emoteMap = emoteMap,
@@ -1059,7 +1043,6 @@ internal fun VideoContentSection(
                         repliesError = repliesError,
                         isRepliesEnd = isRepliesEnd,
                         voteCard = voteCard,
-                        videoTags = videoTags,
                         onUpClick = onUpClick,
                         onSubReplyClick = onSubReplyClick,
                         onCommentReplyClick = onCommentReplyClick,
@@ -1213,35 +1196,17 @@ internal fun VideoContentSection(
                         translationX = pagerState.getOffsetDistanceInPages(1) * size.width
                     },
             ) {
-                // Scroll hiding belongs to glass only. With glass off, native sort controls
-                // and progressive-header behavior retain their original visibility.
-                AnimatedVisibility(
-                    visible = !liquidGlassEnabled || commentListAtTop,
-                    enter = if (commentChromeMotionEnabled) fadeIn(tween(120)) else EnterTransition.None,
-                    exit = if (commentChromeMotionEnabled) fadeOut(tween(90)) else ExitTransition.None,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Box(Modifier.fillMaxWidth().heightIn(min = 46.dp)) {
-                        if (liquidGlassEnabled || (immersiveVideoContentChromeEnabled && commentListAtTop)) {
-                            CommentListHeader(
-                                count = replyCount,
-                                title = "${sortMode.label}评论",
-                                modifier = Modifier.align(Alignment.TopStart),
-                            )
-                        }
-                        CommentSortFilterBar(
-                            sortMode = sortMode,
-                            onSortModeChange = onSortModeChange,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = 6.dp, end = 16.dp)
-                                .offset(y = (-commentSortDockLiftDp).dp),
-                            miuixBackdrop = if (liquidGlassEnabled) videoContentMiuixBackdrop else null,
-                            liquidGlassEffectsEnabled = liquidGlassEnabled,
-                            onSearchClick = { showCommentSearchSheet = true },
-                        )
-                    }
-                }
+                VideoCommentFloatingHeader(
+                    count = replyCount,
+                    sortMode = sortMode,
+                    onSortModeChange = onSortModeChange,
+                    onSearchClick = { showCommentSearchSheet = true },
+                    backdrop = videoContentMiuixBackdrop,
+                    liquidGlassEnabled = liquidGlassEnabled,
+                    listAtTop = commentListAtTop,
+                    motionEnabled = commentChromeMotionEnabled,
+                    showNativeTitle = immersiveVideoContentChromeEnabled && commentListAtTop,
+                )
             }
         }
 
@@ -1577,7 +1542,8 @@ private fun VideoIntroTab(
 internal fun VideoCommentTab(
     listState: LazyListState,
     modifier: Modifier,
-    info: ViewInfo,
+    upMid: Long,
+    maxTimestampMs: Long?,
     replies: List<ReplyItem>,
     replyCount: Int,
     emoteMap: Map<String, String>,
@@ -1586,7 +1552,6 @@ internal fun VideoCommentTab(
     repliesError: String?,
     isRepliesEnd: Boolean,
     voteCard: ReplyVoteCard?,
-    videoTags: List<VideoTag>,
     onUpClick: (Long) -> Unit,
     onSubReplyClick: (ReplyItem, Long) -> Unit,
     onCommentReplyClick: (ReplyItem) -> Unit,
@@ -1620,6 +1585,7 @@ internal fun VideoCommentTab(
     floatingHeaderContentPadding: Dp = 0.dp,
     onSearchClick: (() -> Unit)? = null,
     pullToRefreshEnabled: Boolean = true,
+    pinnedReplyIds: Set<Long> = emptySet(),
 ) {
     val commentAppearance = rememberVideoCommentAppearance()
     val avatarPushEnabled = com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled()
@@ -1754,7 +1720,8 @@ internal fun VideoCommentTab(
                         ReplyItemView(
                             showUpFlag = showUpFlag,
                             item = reply,
-                            upMid = info.owner.mid,
+                            isPinned = reply.rpid in pinnedReplyIds,
+                            upMid = upMid,
                             emoteMap = emoteMap,
                             avatarListState = listState.takeIf { avatarPushEnabled },
                             lightweightMode = lightweightCommentRendering,
@@ -1762,8 +1729,7 @@ internal fun VideoCommentTab(
                             onClick = {},
                             onSubClick = onSubReplyClick,
                             onTimestampClick = onTimestampClick,
-                            maxTimestampMs = info.pages.firstOrNull { it.cid == info.cid }?.duration?.times(1000L)
-                                ?: info.pages.firstOrNull()?.duration?.times(1000L),
+                            maxTimestampMs = maxTimestampMs,
                             onImagePreview = { images, index, rect, textContent ->
                                 onImagePreview(images, index, rect, textContent)
                             },
@@ -1774,7 +1740,7 @@ internal fun VideoCommentTab(
                             onReportClick = { reason -> onReportComment(reply.rpid, reason) },
                             canToggleTop = shouldShowReplyTopAction(
                                 currentMid = currentMid,
-                                upMid = info.owner.mid,
+                                upMid = upMid,
                                 item = reply
                             ),
                             onToggleTopClick = { onToggleTopComment(reply) },
@@ -1949,7 +1915,9 @@ internal fun LandscapeCommentPanel(
                         VideoCommentTab(
                             listState = listState,
                             modifier = Modifier.weight(1f),
-                            info = info,
+                            upMid = info.owner.mid,
+                            maxTimestampMs = info.pages.firstOrNull { it.cid == info.cid }?.duration?.times(1000L)
+                                ?: info.pages.firstOrNull()?.duration?.times(1000L),
                             replies = replies,
                             replyCount = replyCount,
                             emoteMap = emoteMap,
@@ -1958,7 +1926,6 @@ internal fun LandscapeCommentPanel(
                             repliesError = repliesError,
                             isRepliesEnd = isRepliesEnd,
                             voteCard = voteCard,
-                            videoTags = videoTags,
                             onUpClick = onUpClick,
                             onSubReplyClick = onSubReplyClick,
                             onCommentReplyClick = onCommentReplyClick,
@@ -2191,7 +2158,7 @@ private fun VideoHeaderContent(
  * Tab 栏组件
  */
 @Composable
-private fun VideoContentTabBar(
+internal fun VideoContentTabBar(
     tabs: List<String>,
     replyCount: Int,
     selectedTabIndex: Int,
@@ -2207,6 +2174,7 @@ private fun VideoContentTabBar(
     miuixBackdrop: MiuixBackdrop? = null,
     indicatorPositionProvider: (() -> Float)? = null,
     isScrollInProgressProvider: () -> Boolean = { false },
+    showDanmakuActions: Boolean = true,
 ) {
     val liquidGlassEnabledForTabBar = LocalAppThemeConfig.current.liquidGlassEnabled
     val configuration = LocalConfiguration.current
@@ -2281,7 +2249,7 @@ private fun VideoContentTabBar(
                 isScrollInProgressProvider = isScrollInProgressProvider,
             )
 
-            if (shouldShowVideoContentTabBarDanmakuActions(selectedTabIndex)) {
+            if (showDanmakuActions && shouldShowVideoContentTabBarDanmakuActions(selectedTabIndex)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {

@@ -79,7 +79,10 @@ fun CommentListHeader(
     count: Int,
     title: String = "评论",
     modifier: Modifier = Modifier,
+    liquidGlassEffectsEnabled: Boolean = true,
 ) {
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled &&
+        liquidGlassEffectsEnabled
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -88,25 +91,29 @@ fun CommentListHeader(
             .padding(top = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CommentListTitle(title = title, count = count)
+        CommentListTitle(title = title, count = count, liquidGlassEnabled = liquidGlassEnabled)
     }
 }
 
 @Composable
-private fun CommentListTitle(title: String, count: Int) {
+private fun CommentListTitle(title: String, count: Int, liquidGlassEnabled: Boolean) {
+    // 紧凑标题字阶只用于玻璃评论栏；关闭玻璃时保留 MD3/Miuix 原有标题与计数样式。
+    val titleStyle = if (liquidGlassEnabled) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge
+    val countStyle = if (liquidGlassEnabled) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium
+    val titleWeight = if (liquidGlassEnabled) FontWeight.SemiBold else FontWeight.Bold
     val appearance = rememberVideoCommentAppearance()
     Row(verticalAlignment = Alignment.CenterVertically) {
         AppText(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            style = titleStyle,
+            fontWeight = titleWeight,
             color = appearance.primaryTextColor,
             modifier = Modifier.alignByBaseline(),
         )
         Spacer(modifier = Modifier.width(6.dp))
         AppText(
             text = FormatUtils.formatStat(count.toLong()),
-            style = MaterialTheme.typography.titleMedium,
+            style = countStyle,
             fontWeight = FontWeight.Normal,
             color = appearance.secondaryTextColor,
             modifier = Modifier.alignByBaseline(),
@@ -143,6 +150,7 @@ fun CommentSortHeader(
         CommentListTitle(
             title = if (uiStyle == AppUiStyle.MIUIX) "评论" else "${sortMode.label}评论",
             count = count,
+            liquidGlassEnabled = liquidGlassEnabled,
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,
