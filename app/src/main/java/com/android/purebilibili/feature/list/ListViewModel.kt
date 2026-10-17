@@ -1786,21 +1786,42 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         }
     }
 
-    internal fun editSelectedFavoriteFolder(
+    internal suspend fun loadFavoriteFolderForEditing(
+        mediaId: Long,
+    ): Result<com.android.purebilibili.data.model.response.FavoriteInfo> {
+        val identity = accountRequests.identity
+        if (!accountRequests.isCurrent(identity)) throw CancellationException("账号已切换")
+        if (_folders.value.none {
+                resolveFavoriteFolderMediaId(it) == mediaId &&
+                    it.source == com.android.purebilibili.data.model.response.FavFolderSource.OWNED
+            }) {
+            return Result.failure(IllegalArgumentException("无法编辑此收藏夹"))
+        }
+        val result = com.android.purebilibili.data.repository.FavoriteRepository.getFolderInfo(mediaId)
+        if (!accountRequests.isCurrent(identity)) throw CancellationException("账号已切换")
+        return result
+    }
+
+    internal fun editFavoriteFolder(
+        mediaId: Long,
         title: String,
         intro: String,
         isPrivate: Boolean,
+        cover: String,
     ) {
         if (_isFavoriteManagingState.value || title.isBlank()) return
-        val folder = _folders.value.getOrNull(_selectedFolderIndex.value) ?: return
+        if (_folders.value.none {
+                resolveFavoriteFolderMediaId(it) == mediaId &&
+                    it.source == com.android.purebilibili.data.model.response.FavFolderSource.OWNED
+            }) return
         _isFavoriteManagingState.value = true
         accountRequests.launch {
             val result = com.android.purebilibili.data.repository.FavoriteRepository.editFolder(
-                mediaId = resolveFavoriteFolderMediaId(folder),
+                mediaId = mediaId,
                 title = title.trim(),
                 intro = intro.trim(),
                 isPrivate = isPrivate,
-                cover = folder.cover,
+                cover = cover,
             )
             finishFolderMutation(result, "已更新收藏夹")
         }

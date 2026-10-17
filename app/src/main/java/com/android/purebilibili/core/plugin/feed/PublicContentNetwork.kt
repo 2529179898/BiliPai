@@ -55,7 +55,13 @@ internal fun withPublicImageReferer(request: Request): Request {
     return request.newBuilder().header("Referer", publicImageReferer(request.url)).build()
 }
 
-internal fun publicImageReferer(url: HttpUrl): String = "${url.scheme}://${publicSiteRoot(url.host)}/"
+internal fun publicImageReferer(url: HttpUrl): String {
+    val siteRoot = publicSiteRoot(url.host)
+    // Gcores rejects the bare-domain Referer (403), but accepts its canonical www site.
+    // Keep this public fixed origin within the anonymous image chain.
+    val refererHost = if (siteRoot == "gcores.com") "www.gcores.com" else siteRoot
+    return "${url.scheme}://$refererHost/"
+}
 
 /** Article pages are served from the site root, so that is the Referer a browser would send. */
 internal fun publicSiteRoot(host: String): String {

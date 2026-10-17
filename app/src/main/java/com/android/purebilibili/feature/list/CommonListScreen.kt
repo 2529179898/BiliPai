@@ -114,6 +114,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -531,16 +532,13 @@ fun CommonListScreen(
     var favoriteFolderEditorTitle by rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
     var favoriteFolderEditorIntro by rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
     var favoriteFolderEditorPrivate by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    var favoriteFolderEditorMediaId by rememberSaveable { androidx.compose.runtime.mutableStateOf(0L) }
+    var favoriteFolderEditorCover by rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
+    var favoriteFolderEditorLoaded by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    var favoriteFolderEditorError by remember { mutableStateOf<String?>(null) }
+    var favoriteFolderEditorRetry by remember { mutableIntStateOf(0) }
     var showFavoriteFolderDeleteConfirm by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-    LaunchedEffect(foldersState.size, subscribedFoldersState.size) {
-        favoriteBrowseSection = when {
-            initialFavoriteSubscribed -> FavoriteBrowseSection.SUBSCRIBED
-            favoriteBrowseSection == FavoriteBrowseSection.SUBSCRIBED && subscribedFoldersState.isNotEmpty() -> FavoriteBrowseSection.SUBSCRIBED
-            foldersState.isNotEmpty() -> FavoriteBrowseSection.OWNED
-            subscribedFoldersState.isNotEmpty() -> FavoriteBrowseSection.SUBSCRIBED
-            else -> FavoriteBrowseSection.OWNED
-        }
-    }
+    // 浏览分区由入口和用户操作决定。目录并行加载，不能用暂时为空的收藏夹列表切换到订阅。
     val isSubscribedBrowse = favoriteViewModel != null &&
         favoriteSection == FavoriteSection.VIDEO &&
         favoriteBrowseSection == FavoriteBrowseSection.SUBSCRIBED
@@ -816,6 +814,10 @@ fun CommonListScreen(
         favoriteFolderEditorMode = null
         favoriteFolderEditorTitle = ""
         favoriteFolderEditorIntro = ""
+        favoriteFolderEditorMediaId = 0L
+        favoriteFolderEditorCover = ""
+        favoriteFolderEditorLoaded = false
+        favoriteFolderEditorError = null
         showFavoriteFolderDeleteConfirm = false
         showFavoriteCleanInvalidConfirm = false
         showFavoriteDynamicShareConfirm = false
@@ -1854,6 +1856,9 @@ fun CommonListScreen(
                                                             favoriteFolderEditorTitle = ""
                                                             favoriteFolderEditorIntro = ""
                                                             favoriteFolderEditorPrivate = false
+                                                            favoriteFolderEditorMediaId = 0L
+                                                            favoriteFolderEditorLoaded = true
+                                                            favoriteFolderEditorError = null
                                                         },
                                                     ),
                                                     AppWindowAction(
@@ -1863,8 +1868,11 @@ fun CommonListScreen(
                                                             selectedFavoriteFolder?.let { folder ->
                                                                 favoriteFolderEditorMode = "edit"
                                                                 favoriteFolderEditorTitle = folder.title
-                                                                favoriteFolderEditorIntro = folder.intro
-                                                                favoriteFolderEditorPrivate = folder.attr != 0
+                                                                favoriteFolderEditorIntro = ""
+                                                                favoriteFolderEditorMediaId = resolveFavoriteFolderMediaId(folder)
+                                                                favoriteFolderEditorCover = ""
+                                                                favoriteFolderEditorLoaded = false
+                                                                favoriteFolderEditorError = null
                                                             }
                                                         },
                                                     ),
@@ -1891,7 +1899,7 @@ fun CommonListScreen(
                                                 listOf(
                                                     AppWindowAction(
                                                         label = "分享收藏夹",
-                                                        enabled = selectedFavoriteFolder?.attr == 0 && !isFavoriteManaging,
+                                                        enabled = selectedFavoriteFolder?.let { !isFavoriteFolderPrivate(it.attr) } == true && !isFavoriteManaging,
                                                         onClick = {
                                                             selectedFavoriteFolder?.let { folder ->
                                                                 com.android.purebilibili.core.util.ShareUtils.shareText(
@@ -1905,7 +1913,7 @@ fun CommonListScreen(
                                                     ),
                                                     AppWindowAction(
                                                         label = "分享至动态",
-                                                        enabled = selectedFavoriteFolder?.attr == 0 && !isFavoriteManaging,
+                                                        enabled = selectedFavoriteFolder?.let { !isFavoriteFolderPrivate(it.attr) } == true && !isFavoriteManaging,
                                                         onClick = { showFavoriteDynamicShareConfirm = true },
                                                     ),
                                                     AppWindowAction(
@@ -2346,42 +2354,69 @@ fun CommonListScreen(
     }
 
     favoriteFolderEditorMode?.let { mode ->
+        LaunchedEffect(mode, favoriteFolderEditorMediaId, favoriteFolderEditorRetry, accountIdentity) {
+            if (mode != "edit" || favoriteFolderEditorLoaded) return@LaunchedEffect
+            favoriteFolderEditorError = null
+            val result = favoriteViewModel?.loadFavoriteFolderForEditing(favoriteFolderEditorMediaId)
+            val info = result?.getOrNull()
+            if (info != null) {
+                favoriteFolderEditorTitle = info.title
+                favoriteFolderEditorIntro = info.intro
+                favoriteFolderEditorPrivate = isFavoriteFolderPrivate(info.attr)
+                favoriteFolderEditorCover = info.cover
+                favoriteFolderEditorLoaded = true
+            } else {
+                favoriteFolderEditorError = result?.exceptionOrNull()?.message ?: "读取收藏夹信息失败"
+            }
+        }
         AppAlertDialog(
             onDismissRequest = { favoriteFolderEditorMode = null },
             title = { AppText(if (mode == "create") "新建收藏夹" else "编辑收藏夹") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(AppSpacingTokens.Medium)) {
-                    AppTextField(
-                        value = favoriteFolderEditorTitle,
-                        onValueChange = { favoriteFolderEditorTitle = it },
-                        label = "名称",
-                        placeholder = "收藏夹名称",
-                    )
-                    AppTextField(
-                        value = favoriteFolderEditorIntro,
-                        onValueChange = { favoriteFolderEditorIntro = it },
-                        label = "简介",
-                        placeholder = "可选",
-                        singleLine = false,
-                        minLines = 2,
-                        maxLines = 4,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        AppText("设为私密")
-                        AppSwitch(
-                            checked = favoriteFolderEditorPrivate,
-                            onCheckedChange = { favoriteFolderEditorPrivate = it },
+                    if (!favoriteFolderEditorLoaded) {
+                        AppText(favoriteFolderEditorError ?: "正在读取收藏夹信息…")
+                        if (favoriteFolderEditorError != null) {
+                            AppTextButton(onClick = { favoriteFolderEditorRetry++ }) {
+                                AppText("重试")
+                            }
+                        }
+                    } else {
+                        if (mode == "edit") {
+                            AppText("修改当前收藏夹的名称、简介和可见性")
+                        }
+                        AppTextField(
+                            value = favoriteFolderEditorTitle,
+                            onValueChange = { favoriteFolderEditorTitle = it },
+                            label = "名称",
+                            placeholder = "收藏夹名称",
                         )
+                        AppTextField(
+                            value = favoriteFolderEditorIntro,
+                            onValueChange = { favoriteFolderEditorIntro = it },
+                            label = "简介",
+                            placeholder = "可选",
+                            singleLine = false,
+                            minLines = 2,
+                            maxLines = 4,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            AppText("设为私密")
+                            AppSwitch(
+                                checked = favoriteFolderEditorPrivate,
+                                onCheckedChange = { favoriteFolderEditorPrivate = it },
+                            )
+                        }
                     }
                 }
             },
             confirmButton = {
                 AppTextButton(
-                    enabled = favoriteFolderEditorTitle.isNotBlank() && isFavoriteManaging.not(),
+                    enabled = favoriteFolderEditorLoaded && favoriteFolderEditorTitle.isNotBlank() && isFavoriteManaging.not(),
                     onClick = {
                         if (mode == "create") {
                             favoriteViewModel?.createFavoriteFolder(
@@ -2390,16 +2425,18 @@ fun CommonListScreen(
                                 isPrivate = favoriteFolderEditorPrivate,
                             )
                         } else {
-                            favoriteViewModel?.editSelectedFavoriteFolder(
+                            favoriteViewModel?.editFavoriteFolder(
+                                mediaId = favoriteFolderEditorMediaId,
                                 title = favoriteFolderEditorTitle,
                                 intro = favoriteFolderEditorIntro,
                                 isPrivate = favoriteFolderEditorPrivate,
+                                cover = favoriteFolderEditorCover,
                             )
                         }
                         favoriteFolderEditorMode = null
                     },
                 ) {
-                    AppText("保存")
+                    AppText(if (mode == "create") "创建" else "保存修改")
                 }
             },
             dismissButton = {

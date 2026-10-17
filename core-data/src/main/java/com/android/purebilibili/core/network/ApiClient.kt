@@ -351,6 +351,11 @@ interface BilibiliApi {
         @Query("web_location") webLocation: String = "333.1387"
     ): FavFolderResponse
 
+    @GET("x/v3/fav/folder/info")
+    suspend fun getFavFolderInfo(
+        @Query("media_id") mediaId: Long,
+    ): FavoriteInfoResponse
+
     @GET("x/v3/fav/folder/collected/list")
     suspend fun getCollectedFavFolders(
         @Query("up_mid") mid: Long,

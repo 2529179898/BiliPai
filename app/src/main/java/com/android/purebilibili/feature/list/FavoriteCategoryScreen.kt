@@ -490,10 +490,13 @@ private fun FavoriteCategoryFilterRow(
         labels.mapIndexed { index, label -> AppSegmentOption(index, label) }
     }
     val uiStyle = LocalAppUiStyle.current
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val isScrollable = labels.size > 4
     val horizontalPadding = if (uiStyle == AppUiStyle.MATERIAL3 && isScrollable) 0.dp else AppSpacingTokens.Medium
     val minTabWidth = if (labels.size <= 3) {
-        84.dp
+        // Only tighten the glass PGC status dock. Native MD3/Miuix and the two-option
+        // notes filter retain their original slots; measured text still supports large fonts.
+        if (liquidGlassEnabled && labels.size == 3) 64.dp else 84.dp
     } else if (uiStyle == AppUiStyle.MATERIAL3) {
         AppChromeSizeTokens.MinimumTouchTarget
     } else {

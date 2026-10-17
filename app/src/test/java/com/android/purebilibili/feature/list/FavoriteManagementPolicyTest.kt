@@ -10,6 +10,14 @@ import kotlin.test.assertTrue
 class FavoriteManagementPolicyTest {
 
     @Test
+    fun `privacy ignores unrelated folder attribute bits`() {
+        listOf(0, 2, 6, 22, 54).forEach { attr ->
+            assertFalse(isFavoriteFolderPrivate(attr), "attr=$attr should be public")
+            assertTrue(isFavoriteFolderPrivate(attr or 1), "attr=${attr or 1} should be private")
+        }
+    }
+
+    @Test
     fun `favorite sort order maps to bilibili api values`() {
         assertEquals("mtime", FavoriteResourceOrder.FAVORITE_TIME.apiValue)
         assertEquals("view", FavoriteResourceOrder.PLAY_COUNT.apiValue)

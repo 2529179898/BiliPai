@@ -104,6 +104,22 @@ object FavoriteRepository {
         }
     }
 
+    suspend fun getFolderInfo(mediaId: Long): Result<FavoriteInfo> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.getFavFolderInfo(mediaId)
+            val info = response.data
+            if (response.code == 0 && info != null && info.id == mediaId) {
+                Result.success(info)
+            } else {
+                Result.failure(favoriteApiFailure("获取收藏夹信息失败", response.code, response.message))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun editFolder(
         mediaId: Long,
         title: String,

@@ -42,6 +42,12 @@
 -dontwarn javax.inject.**
 -dontwarn org.seamless.**
 
+# slf4j-api 1.7.x (pulled in transitively by readability4j) looks up its logging
+# binding reflectively from LoggerFactory's static initializer. This app bundles
+# no binding, so SLF4J deliberately falls back to the NOP logger; tell R8 that the
+# absent binding class is expected instead of keeping a dead implementation.
+-dontwarn org.slf4j.impl.StaticLoggerBinder
+
 # WebView JavaScript bridges are discovered by annotation at runtime.
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;

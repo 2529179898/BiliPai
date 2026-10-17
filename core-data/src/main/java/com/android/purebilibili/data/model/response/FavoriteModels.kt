@@ -40,6 +40,13 @@ data class FavoriteResourceData(
 )
 
 @Serializable
+data class FavoriteInfoResponse(
+    val code: Int = 0,
+    val message: String = "",
+    val data: FavoriteInfo? = null
+)
+
+@Serializable
 data class FavoriteInfo(
     val id: Long = 0,
     val fid: Long = 0,

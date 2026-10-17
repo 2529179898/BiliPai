@@ -92,6 +92,23 @@ class PublicContentNetworkTest {
     }
 
     @Test
+    fun `gcores cover images use the canonical www site after sanitizing`() {
+        val request = Request.Builder()
+            .url("https://image.gcores.com/cover.png?x-oss-process=image/resize,w_626")
+            .header("Referer", "https://www.bilibili.com/?access_key=test")
+            .header("Cookie", "test-session")
+            .build()
+        val safe = withPublicImageReferer(sanitizePublicContentRequest(request))
+        assertEquals("https://www.gcores.com/", safe.header("Referer"))
+        assertNull(safe.header("Cookie"))
+        assertEquals("image/resize,w_626", safe.url.queryParameter("x-oss-process"))
+        assertEquals(
+            "https://example.com/",
+            publicImageReferer("https://gcores.com.example.com/cover.png".toHttpUrl()),
+        )
+    }
+
+    @Test
     fun `image referer follows the public site root without touching the bilibili CDN rule`() {
         assertEquals("https://sspai.com/", publicImageReferer("https://cdnfile.sspai.com/a.jpeg".toHttpUrl()))
         assertEquals("https://example.com/", publicImageReferer("https://example.com/a.jpg".toHttpUrl()))
