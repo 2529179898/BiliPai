@@ -35,6 +35,7 @@ class BiliPaiNavKeyMappingPolicyTest {
                 "Compose",
                 com.android.purebilibili.data.model.response.FavoriteSearchScope.ALL_VIDEO_FOLDERS,
             ),
+            BiliPaiNavKey.FavoriteSearch(query = "教程 + 合集", subscribed = true),
             BiliPaiNavKey.WatchLaterSearch("稍后"),
         )
 

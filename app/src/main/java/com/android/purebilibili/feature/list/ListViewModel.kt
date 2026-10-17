@@ -14,8 +14,10 @@ import com.android.purebilibili.core.coroutines.AppScope
 import com.android.purebilibili.core.coroutines.AccountScopedRequests
 import com.android.purebilibili.core.network.NetworkModule
 import com.android.purebilibili.core.refresh.HistoryRefreshBus
+import com.android.purebilibili.core.refresh.FavoriteSubscriptionBus
 import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.core.store.FavoriteFolderCoverCache
+import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.data.model.response.FavFolder
 import com.android.purebilibili.data.model.response.VideoItem
 import kotlinx.coroutines.CancellationException
@@ -976,11 +978,13 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         currentFolderIndex = 0
         isLoadingMore = false
         subscribedCurrentPage = 0
+        subscribedRequestGeneration += 1
         subscribedHasMore = true
         isLoadingSubscribedMore = false
         allFolderIds = emptyList()
         _folders.value = emptyList()
         _subscribedFolders.value = emptyList()
+        _subscribedFolderActions.value = emptyMap()
         _folderStates.values.forEach { it.value = ListUiState(isLoading = true) }
         _folderStates.clear()
         _fetchingIndices.clear()
@@ -1012,6 +1016,7 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
     private var subscribedCurrentPage = 0
     private var subscribedHasMore = true
     private var isLoadingSubscribedMore = false
+    private var subscribedRequestGeneration = 0L
     // collected/list 允许较大 ps；示例与常见客户端用 20，避免过大页触发风控
     private val subscribedPageSize = 20
     
@@ -1036,11 +1041,22 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         val currentPage: Int = 1,
         val lastAddedCount: Int = 0,
         val hasMore: Boolean = false,
-        val isLoadingMore: Boolean = false
+        val isLoadingMore: Boolean = false,
+        val error: String? = null,
     )
 
     private val _subscribedFolderProgressState = MutableStateFlow(SubscribedFolderProgressState())
     val subscribedFolderProgressState = _subscribedFolderProgressState.asStateFlow()
+
+    data class SubscribedFolderActionState(
+        val isSubscribed: Boolean = true,
+        val isLoading: Boolean = false,
+        val error: String? = null,
+    )
+
+    private val _subscribedFolderActions =
+        MutableStateFlow<Map<String, SubscribedFolderActionState>>(emptyMap())
+    val subscribedFolderActions = _subscribedFolderActions.asStateFlow()
     
     // 📁 [新增] 当前选中的收藏夹索引
     private val _selectedFolderIndex = MutableStateFlow(0)
@@ -1365,11 +1381,16 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         }
     }
 
+    fun ensureSubscribedFoldersLoaded() {
+        launchInitialSubscribedFoldersLoad()
+    }
+
     private fun launchInitialSubscribedFoldersLoad() {
         if (
             _subscribedFolders.value.isNotEmpty() ||
             subscribedCurrentPage > 0 ||
-            isLoadingSubscribedMore
+            isLoadingSubscribedMore ||
+            _subscribedFolderProgressState.value.error != null
         ) {
             return
         }
@@ -1392,17 +1413,20 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         return currentUserMid
     }
 
-    private suspend fun loadSubscribedFoldersPage(reset: Boolean) {
-        val mid = ensureCurrentUserMid()
-        if (mid == 0L) return
-        if (!reset && (!subscribedHasMore || isLoadingSubscribedMore)) return
-
+    private suspend fun loadSubscribedFoldersPage(reset: Boolean, explicitRetry: Boolean = false) {
+        if (
+            isLoadingSubscribedMore || (!reset && !subscribedHasMore) ||
+            (!explicitRetry && _subscribedFolderProgressState.value.error != null)
+        ) return
+        val requestedIdentity = accountRequests.identity
+        val requestedGeneration = subscribedRequestGeneration
+        if (!accountRequests.isCurrent(requestedIdentity)) return
         val nextPage = if (reset) 1 else subscribedCurrentPage + 1
         isLoadingSubscribedMore = true
-        _subscribedFolderProgressState.value = _subscribedFolderProgressState.value.copy(
-            isLoadingMore = true
-        )
+        _subscribedFolderProgressState.update { it.copy(isLoadingMore = true, error = null) }
         try {
+            val mid = ensureCurrentUserMid()
+            check(mid > 0L) { "请先登录" }
             val page = requestFavoriteFolderWithRetry {
                 com.android.purebilibili.data.repository.FavoriteRepository.getCollectedFavFolders(
                     mid = mid,
@@ -1412,18 +1436,23 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
                 )
             }.getOrThrow()
 
+            if (!accountRequests.isCurrent(requestedIdentity) || requestedGeneration != subscribedRequestGeneration) return
             val existing = if (reset) emptyList() else _subscribedFolders.value
-            val existingKeys = existing.map { "${it.id}_${it.fid}" }.toHashSet()
+            val existingKeys = existing.mapTo(HashSet(), ::resolveSubscribedFavoriteFolderKey)
             val uniqueNewFolders = page.folders
-                .filter { existingKeys.add("${it.id}_${it.fid}") }
+                .filter { existingKeys.add(resolveSubscribedFavoriteFolderKey(it)) }
             val merged = if (reset) uniqueNewFolders else existing + uniqueNewFolders
 
             _subscribedFolders.value = merged
             subscribedCurrentPage = nextPage
             val totalCount = page.totalCount
+            val activeCount = merged.count {
+                _subscribedFolderActions.value[resolveSubscribedFavoriteFolderKey(it)]?.isSubscribed != false
+            }
             subscribedHasMore = when {
-                totalCount > 0 -> merged.size < totalCount
-                else -> uniqueNewFolders.size >= subscribedPageSize
+                page.folders.isEmpty() -> false
+                totalCount > 0 -> activeCount < totalCount
+                else -> page.folders.size >= subscribedPageSize
             }
             _subscribedFolderProgressState.value = SubscribedFolderProgressState(
                 loadedCount = merged.size,
@@ -1436,22 +1465,116 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            if (!accountRequests.isCurrent(requestedIdentity) || requestedGeneration != subscribedRequestGeneration) return
+            _subscribedFolderProgressState.update {
+                it.copy(error = resolveFavoriteErrorMessage(e))
+            }
             com.android.purebilibili.core.util.Logger.w(
                 "FavoriteVM",
                 "加载追更收藏夹失败: ${resolveFavoriteErrorMessage(e)}"
             )
         } finally {
-            isLoadingSubscribedMore = false
-            _subscribedFolderProgressState.value = _subscribedFolderProgressState.value.copy(
-                isLoadingMore = false
-            )
+            if (accountRequests.isCurrent(requestedIdentity) && requestedGeneration == subscribedRequestGeneration) {
+                isLoadingSubscribedMore = false
+                _subscribedFolderProgressState.update { it.copy(isLoadingMore = false) }
+            }
         }
     }
 
     fun loadMoreSubscribedFolders() {
-        if (isLoadingSubscribedMore || !subscribedHasMore) return
+        if (
+            isLoadingSubscribedMore || !subscribedHasMore ||
+            _subscribedFolderProgressState.value.error != null
+        ) return
         accountRequests.launch {
             loadSubscribedFoldersPage(reset = false)
+        }
+    }
+
+    fun retrySubscribedFolders() {
+        if (isLoadingSubscribedMore || _subscribedFolderProgressState.value.error == null) return
+        accountRequests.launch {
+            if (_subscribedFolderProgressState.value.error == null) return@launch
+            loadSubscribedFoldersPage(
+                reset = subscribedCurrentPage == 0 && _subscribedFolders.value.isEmpty(),
+                explicitRetry = true,
+            )
+        }
+    }
+
+    fun toggleSubscribedFolderSubscription(folder: FavFolder) {
+        val requestedIdentity = accountRequests.identity
+        if (!accountRequests.isCurrent(requestedIdentity)) return
+        val key = resolveSubscribedFavoriteFolderKey(folder)
+        // 出现在 collected/list 就是已订阅事实，不能用不可靠的 fav_state 推断。
+        val current = _subscribedFolderActions.value[key] ?: SubscribedFolderActionState()
+        if (current.isLoading) return
+        val subscribe = !current.isSubscribed
+        _subscribedFolderActions.update {
+            it + (key to current.copy(isLoading = true, error = null))
+        }
+        accountRequests.launch {
+            try {
+                val subscribed = if (folder.type == 21) {
+                    com.android.purebilibili.data.repository.ActionRepository
+                        .setCollectionSubscription(seasonId = folder.id, subscribe = subscribe)
+                } else {
+                    com.android.purebilibili.data.repository.FavoriteRepository
+                        .setFolderSubscription(
+                            mediaId = resolveFavoriteFolderMediaId(folder),
+                            subscribe = subscribe,
+                        )
+                }.getOrThrow()
+                if (!accountRequests.isCurrent(requestedIdentity)) return@launch
+                applySubscribedFolderSubscription(folder, subscribed, isLoading = true)
+                FavoriteSubscriptionBus.notifyChanged(requestedIdentity, folder, subscribed)
+                if (!accountRequests.isCurrent(requestedIdentity)) return@launch
+                if (folder.type == 21) {
+                    SettingsManager.setCollectionSubscription(
+                        getApplication(), folder.id, subscribed
+                    )
+                }
+                if (!accountRequests.isCurrent(requestedIdentity)) return@launch
+                _subscribedFolderActions.update {
+                    it + (key to it.getValue(key).copy(isLoading = false))
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (!accountRequests.isCurrent(requestedIdentity)) return@launch
+                _subscribedFolderActions.update {
+                    val state = it[key] ?: current
+                    it + (key to state.copy(
+                        isLoading = false,
+                        error = e.message?.takeIf(String::isNotBlank) ?: "订阅操作失败，请重试",
+                    ))
+                }
+            }
+        }
+    }
+
+    private fun applySubscribedFolderSubscription(folder: FavFolder, subscribed: Boolean, isLoading: Boolean) {
+        val key = resolveSubscribedFavoriteFolderKey(folder)
+        _subscribedFolderActions.update {
+            it + (key to SubscribedFolderActionState(isSubscribed = subscribed, isLoading = isLoading))
+        }
+        if (_subscribedFolders.value.none { resolveSubscribedFavoriteFolderKey(it) == key }) {
+            _subscribedFolders.update { it + folder }
+        }
+        // 写操作改变服务端 offset；从第一页重新校准，保留撤销行且丢弃旧分页响应。
+        subscribedRequestGeneration += 1
+        subscribedCurrentPage = 0
+        subscribedHasMore = true
+        isLoadingSubscribedMore = false
+        _subscribedFolderProgressState.update {
+            it.copy(
+                loadedCount = _subscribedFolders.value.size,
+                currentPage = 1,
+                lastAddedCount = 0,
+                hasMore = true,
+                isLoadingMore = false,
+                error = null,
+            )
         }
     }
 
@@ -1570,15 +1693,14 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
     override suspend fun fetchItems(): List<VideoItem> {
         // Folder contents have independent observable states; the base list initializes the catalog.
         try {
+            launchInitialSubscribedFoldersLoad()
             fetchFolders()
             if (allFolderIds.isNotEmpty()) {
                  loadFolder(0)
-                 launchInitialSubscribedFoldersLoad()
                  // Sync base UI state with first folder? 
                  // Actually CommonListScreen should observe getFolderUiState if it's FavoriteVM
                  return _folderStates[0]?.value?.items ?: emptyList()
             }
-            launchInitialSubscribedFoldersLoad()
             return emptyList()
         } catch (e: CancellationException) {
             throw e
@@ -1884,6 +2006,24 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
                  val message = e.message ?: "取消收藏失败"
                  stateFlow.value = originalState.copy(error = message)
                  _uiState.value = _uiState.value.copy(error = message)
+            }
+        }
+    }
+
+    init {
+        viewModelScope.launch {
+            FavoriteSubscriptionBus.changes.collect { change ->
+                if (change.identity != accountRequests.identity || !accountRequests.isCurrent(change.identity)) return@collect
+                val key = resolveSubscribedFavoriteFolderKey(change.folder)
+                val current = _subscribedFolderActions.value[key]
+                val hasRow = _subscribedFolders.value.any { resolveSubscribedFavoriteFolderKey(it) == key }
+                if ((current?.isSubscribed ?: true) != change.subscribed || !hasRow) {
+                    applySubscribedFolderSubscription(
+                        change.folder,
+                        change.subscribed,
+                        isLoading = current?.isLoading == true,
+                    )
+                }
             }
         }
     }

@@ -3026,7 +3026,7 @@ fun AppNavigation(
                                     initialSearchQuery = historySearchKey?.query.orEmpty(),
                                     isSearchDestination = historySearchKey != null,
                                     onOpenSearchDestination = if (historySearchKey == null) {
-                                        { query -> pushNavigation3Key(BiliPaiNavKey.HistorySearch(query)) }
+                                        { query, _ -> pushNavigation3Key(BiliPaiNavKey.HistorySearch(query)) }
                                     } else null,
                                     listScopedSearchChannel = if (historySearchKey == null) {
                                         historyListScopedSearchChannel
@@ -4216,10 +4216,15 @@ fun AppNavigation(
                                     initialSearchQuery = favoriteSearchKey?.query.orEmpty(),
                                     initialFavoriteSearchScope = favoriteSearchKey?.scope
                                         ?: com.android.purebilibili.data.model.response.FavoriteSearchScope.CURRENT_FOLDER,
-                                    initialFavoriteSubscribed = key == BiliPaiNavKey.FavoriteSubscribed,
+                                    initialFavoriteSubscribed = key == BiliPaiNavKey.FavoriteSubscribed ||
+                                        favoriteSearchKey?.subscribed == true,
                                     isSearchDestination = favoriteSearchKey != null,
                                     onOpenSearchDestination = if (favoriteSearchKey == null) {
-                                        { query -> pushNavigation3Key(BiliPaiNavKey.FavoriteSearch(query)) }
+                                        { query, subscribed ->
+                                            pushNavigation3Key(
+                                                BiliPaiNavKey.FavoriteSearch(query = query, subscribed = subscribed)
+                                            )
+                                        }
                                     } else null,
                                     listScopedSearchChannel = if (favoriteSearchKey == null) {
                                         favoriteListScopedSearchChannel

@@ -359,6 +359,21 @@ interface BilibiliApi {
         @Query("platform") platform: String = "web"
     ): FavFolderResponse
 
+    // 普通收藏夹使用完整 media_id；UGC 合集订阅使用 favoriteSeason 的 season_id。
+    @retrofit2.http.FormUrlEncoded
+    @retrofit2.http.POST("x/v3/fav/folder/fav")
+    suspend fun favoriteFolder(
+        @retrofit2.http.Field("media_id") mediaId: Long,
+        @retrofit2.http.Field("csrf") csrf: String,
+    ): SimpleApiResponse
+
+    @retrofit2.http.FormUrlEncoded
+    @retrofit2.http.POST("x/v3/fav/folder/unfav")
+    suspend fun unfavoriteFolder(
+        @retrofit2.http.Field("media_id") mediaId: Long,
+        @retrofit2.http.Field("csrf") csrf: String,
+    ): SimpleApiResponse
+
     // [新增] 创建收藏夹
     @retrofit2.http.FormUrlEncoded
     @retrofit2.http.POST("x/v3/fav/folder/add")
