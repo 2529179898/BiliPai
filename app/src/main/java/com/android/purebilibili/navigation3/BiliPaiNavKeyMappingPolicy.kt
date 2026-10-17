@@ -77,7 +77,7 @@ internal fun BiliPaiNavKey.toLegacyRoute(): String {
         BiliPaiNavKey.Favorite -> ScreenRoutes.Favorite.route
         BiliPaiNavKey.FavoriteSubscribed -> "favorite_subscribed"
         is BiliPaiNavKey.FavoriteSearch ->
-            "favorite_search?query=${encodeRouteValue(query)}&scope=${scope.name}"
+            "favorite_search?query=${encodeRouteValue(query)}&scope=${scope.name}&subscribed=$subscribed"
         is BiliPaiNavKey.LikedVideos -> if (mid > 0L) {
             ScreenRoutes.LikedVideos.createRoute(mid, ownerName, isCoinArchive)
         } else {
@@ -229,6 +229,7 @@ internal fun legacyRouteToBiliPaiNavKey(route: String?): BiliPaiNavKey {
             scope = com.android.purebilibili.data.model.response.FavoriteSearchScope.entries
                 .firstOrNull { it.name == query["scope"] }
                 ?: com.android.purebilibili.data.model.response.FavoriteSearchScope.CURRENT_FOLDER,
+            subscribed = query["subscribed"].toBoolean(),
         )
         routeBase == ScreenRoutes.LikedVideos.route || normalized == ScreenRoutes.LikedVideos.route -> {
             val mid = query["mid"]?.toLongOrNull() ?: 0L
