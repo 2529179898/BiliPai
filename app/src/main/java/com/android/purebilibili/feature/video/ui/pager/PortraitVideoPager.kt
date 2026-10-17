@@ -15,6 +15,9 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import com.android.purebilibili.feature.video.screen.VideoDetailDanmakuContextMenu
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -424,6 +427,27 @@ fun PortraitVideoPager(
         sessionKey = "portrait_danmaku_$initialBvid"
     )
     val danmakuScope = DanmakuSettingsScope.PORTRAIT
+    DisposableEffect(danmakuManager, viewModel, isActive) {
+        if (isActive) {
+            danmakuManager.setOnDanmakuClickListener { text, dmid, userHash, isSelf ->
+                viewModel.showDanmakuMenu(dmid, text, userHash, isSelf)
+            }
+        }
+        onDispose { danmakuManager.setOnDanmakuClickListener(null) }
+    }
+    // 详情页内的竖屏播放器复用外层菜单；独立竖屏视频页在这里承载菜单。
+    if (!useSharedPlayer) {
+        val blockRulesRaw by SettingsManager.getDanmakuBlockRulesRaw(context, danmakuScope)
+            .collectAsStateWithLifecycle(initialValue = "")
+        VideoDetailDanmakuContextMenu(
+            context = context,
+            viewModel = viewModel,
+            activeDanmakuBlockRulesRaw = blockRulesRaw,
+            activeDanmakuScope = danmakuScope,
+            sortPreferenceScope = scope
+        )
+    }
+
     val loadedDanmakuSettings by produceState<DanmakuSettings?>(
         initialValue = null,
         context,
@@ -2749,10 +2773,12 @@ private fun VideoPageItem(
         }
     }
 
+    val danmakuTapCoordinates = remember { mutableStateOf<LayoutCoordinates?>(null) }
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .onGloballyPositioned { danmakuTapCoordinates.value = it }
             .onSizeChanged { size ->
                 portraitPageWidthPx = size.width
                 portraitPageHeightPx = size.height
@@ -2836,16 +2862,41 @@ private fun VideoPageItem(
                 isCurrentPage,
                 playerGesturesEnabled,
                 portraitOverlayVisible,
+                danmakuEnabled,
+                danmakuManager,
                 doubleTapSeekEnabled,
                 seekForwardSeconds,
                 seekBackwardSeconds
             ) {
+                var capturedDanmakuTap: (() -> Unit)? = null
                 detectTapGestures(
+                    onPress = { offset ->
+                        capturedDanmakuTap = null
+                        val candidate = if (playerGesturesEnabled && isCurrentPage && danmakuEnabled &&
+                            shouldHandlePortraitTapGesture(scale = scale)
+                        ) danmakuManager.captureTap(danmakuTapCoordinates.value, offset) else null
+                        try {
+                            if (tryAwaitRelease() && !isLongPressing) capturedDanmakuTap = candidate
+                        } finally {
+                            // 弹幕单击捕获与长按倍速共用 onPress，松手或取消都恢复原播放参数。
+                            if (isLongPressing) {
+                                applyPortraitTemporaryPlaybackParameters(longPressOriginPlaybackParameters)
+                                isLongPressing = false
+                                showLongPressSpeedFeedback = false
+                            }
+                        }
+                    },
                     onTap = {
                         if (
                             !playerGesturesEnabled ||
+                            !isCurrentPage ||
                             !shouldHandlePortraitTapGesture(scale = scale)
                         ) {
+                            return@detectTapGestures
+                        }
+                        capturedDanmakuTap?.let { click ->
+                            capturedDanmakuTap = null
+                            click()
                             return@detectTapGestures
                         }
                         onPortraitOverlayVisibleChange(
@@ -2934,14 +2985,6 @@ private fun VideoPageItem(
                         isLongPressing = true
                         longPressSpeedHintDismissed = false
                         showLongPressSpeedFeedback = true
-                    },
-                    onPress = {
-                        tryAwaitRelease()
-                        if (isLongPressing) {
-                            applyPortraitTemporaryPlaybackParameters(longPressOriginPlaybackParameters)
-                            isLongPressing = false
-                            showLongPressSpeedFeedback = false
-                        }
                     }
                 )
             }

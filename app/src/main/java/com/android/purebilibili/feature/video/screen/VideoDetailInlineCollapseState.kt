@@ -31,6 +31,13 @@ internal class InlinePortraitPlayerCollapseState(
         restoreRequested = false
     }
 
+    /** Tab/list changes preserve the current drag; only invalid geometry requests restoration. */
+    fun reconcileLayout(collapseEnabled: Boolean, collapseRangePx: Float) {
+        if (offsetPx < 0f && (!collapseEnabled || offsetPx < -collapseRangePx.coerceAtLeast(0f))) {
+            restore()
+        }
+    }
+
     fun consumeScroll(update: VideoDetailScrollUpdate?): Float {
         if (update == null || update.consumedDeltaPx == 0f) return 0f
         restoreRequested = false

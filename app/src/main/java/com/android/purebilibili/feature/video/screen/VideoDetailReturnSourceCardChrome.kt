@@ -223,6 +223,7 @@ internal fun resolveVideoDetailFlyingSourceChromeAlpha(
         morphDepthProgress = morphDepthProgress,
         phase = phase,
         isReturnGestureInProgress = isReturnGestureInProgress,
+        sourceLayout = sourceLayout,
     )
     if (!detailContentLoading || !isVideoCardReturnContentYieldActive(
             phase = phase,
@@ -312,13 +313,14 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
     val frozenCardAnchorXPx = layout.cardAnchorXInViewportPx * layout.sourceScale
     val frozenCardAnchorYPx = layout.cardAnchorYInViewportPx * layout.sourceScale
 
-    fun currentInverseScale(): MiuixVideoCardInverseScale {
-        return resolveMiuixVideoCardInverseScaleForDepth(
-            sourceScaleX = layout.sourceScale,
-            sourceScaleY = sourceScaleY,
-            depth = morphDepthProgressProvider(),
-        )
-    }
+    // FillWidthTop compensation cancels the outer scale on both axes. Source-pixel
+    // reconstruction is therefore constant (1 / sourceScale), even while depth changes.
+    // Do not subscribe the native info slot's measure pass to a frame-rate value.
+    val sourcePixelInverseScale = resolveMiuixVideoCardInverseScaleForDepth(
+        sourceScaleX = layout.sourceScale,
+        sourceScaleY = sourceScaleY,
+        depth = 0f,
+    )
 
     fun horizontalInfoClipLeftPx(localScaleX: Float = 1f): Float {
         if (!horizontalMediaHandoffEnabled ||
@@ -337,7 +339,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
             viewportWidthPx = viewportWidthPx,
             coverRightPx = layout.coverOffsetXPx + layout.coverWidthPx,
             infoLeftPx = frozenInfoAnchorXPx,
-            inverseScaleX = currentInverseScale().scaleX,
+            inverseScaleX = sourcePixelInverseScale.scaleX,
             handoffProgress = sourceAlpha,
             localScaleX = localScaleX,
         )
@@ -351,7 +353,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
         }
 
     fun Modifier.landingOffset(anchorXPx: Float, anchorYPx: Float): Modifier = offset {
-        val inverse = currentInverseScale()
+        val inverse = sourcePixelInverseScale
         IntOffset(
             x = (anchorXPx * inverse.scaleX).roundToInt(),
             y = if (layout.layout == VideoCardSourceLayout.STACKED) {
@@ -402,13 +404,13 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
             cropXPx: Float,
             cropYPx: Float,
         ): Modifier = offset {
-            val inverse = currentInverseScale()
+            val inverse = sourcePixelInverseScale
             IntOffset(
                 x = (frozenInfoAnchorXPx * inverse.scaleX).roundToInt(),
                 y = infoTopPx(inverse),
             )
         }.layout { measurable, _ ->
-            val inverse = currentInverseScale()
+            val inverse = sourcePixelInverseScale
             val w = (widthPx * inverse.scaleX).roundToInt().coerceAtLeast(1)
             val h = (heightPx * inverse.scaleY).roundToInt().coerceAtLeast(1)
             val placeable = measurable.measure(Constraints.fixed(w, h))
@@ -427,7 +429,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
                 isCommittedCardReturn = isCommittedCardReturn,
             )
         }.drawWithContent {
-            val inverse = currentInverseScale()
+            val inverse = sourcePixelInverseScale
             clipRect(left = horizontalInfoClipLeftPx().coerceAtMost(size.width)) {
                 scale(
                     scaleX = inverse.scaleX,
@@ -556,7 +558,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
                     .height(cardHeight)
                     .landingLayer()
                     .drawWithContent {
-                        val left = horizontalInfoClipLeftPx(currentInverseScale().scaleX)
+                        val left = horizontalInfoClipLeftPx(sourcePixelInverseScale.scaleX)
                             .coerceAtMost(size.width)
                         clipRect(left = left) { this@drawWithContent.drawContent() }
                     }

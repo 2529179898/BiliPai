@@ -144,9 +144,12 @@ internal fun resolvePortraitFullscreenButtonAction(
     return PortraitFullscreenButtonAction.ENTER_PORTRAIT_FULLSCREEN
 }
 
-// Includes the tab row, sort header, action dock and a usable comment drag region.
-internal const val MIN_INLINE_COMMENT_VIEWPORT_HEIGHT_DP = 240f
-
+/**
+ * Switching tabs never requests a compact player, including short windows and foldable covers.
+ * Collapse belongs to the scroll gesture and its orientation/pause setting. A viewport-space
+ * fallback here bypasses OFF and also skips nested-scroll consumption, locking comments compact.
+ */
+@Suppress("UNUSED_PARAMETER")
 internal fun shouldUseCompactInlinePortraitPlayerForCommentTab(
     useOfficialInlinePortraitDetailExperience: Boolean,
     selectedTabIndex: Int,
@@ -155,21 +158,7 @@ internal fun shouldUseCompactInlinePortraitPlayerForCommentTab(
     collapseMode: PortraitPlayerCollapseMode = PortraitPlayerCollapseMode.BOTH,
     isVerticalVideo: Boolean = true,
     isPlaybackPaused: Boolean = false,
-    isCompactFoldableCoverWindow: Boolean = false,
-    availableCommentHeightDp: Float = Float.POSITIVE_INFINITY,
-): Boolean {
-    // Keep the player visible, but do not require a list gesture when expanded video leaves
-    // no usable comment hit region. Window geometry also covers unrecognized foldable covers.
-    if (
-        (isCompactFoldableCoverWindow || availableCommentHeightDp < MIN_INLINE_COMMENT_VIEWPORT_HEIGHT_DP) &&
-        useOfficialInlinePortraitDetailExperience &&
-        selectedTabIndex == 1 &&
-        !isPortraitFullscreen
-    ) {
-        return true
-    }
-    return false
-}
+): Boolean = false
 
 internal fun shouldUseCompactInlinePortraitPlayerForIntroScroll(
     useOfficialInlinePortraitDetailExperience: Boolean,

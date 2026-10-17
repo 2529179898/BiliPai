@@ -7,6 +7,8 @@ import androidx.compose.ui.unit.dp
 object AppChromeSizeTokens {
     val MinimumTouchTarget = 48.dp
     val TopBarIconVisualSize = 40.dp
+    // Glass search visuals have their own height; native search metrics stay unchanged.
+    const val LiquidSearchFieldHeightDp = 40
     val CompactTabMinWidth = 52.dp
     const val CompactControlHeightDp = 44
     const val CompactControlCornerRadiusDp = 20

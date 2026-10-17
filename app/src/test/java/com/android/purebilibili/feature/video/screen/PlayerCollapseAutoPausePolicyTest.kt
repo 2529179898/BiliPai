@@ -73,7 +73,7 @@ class PlayerCollapseAutoPausePolicyTest {
     }
 
     @Test
-    fun shortCommentViewportCompactsWhileAutoPauseIsDisabled() {
+    fun switchingToCommentsKeepsExpandedPlayerUntilScrollWhileAutoPauseIsDisabled() {
         val expanded = resolvePortraitInlinePlayerLayoutSpec(412f, 760f, isCollapsed = false)
         val compact = resolvePortraitInlinePlayerLayoutSpec(412f, 760f, isCollapsed = true)
         val needsCompact = shouldUseCompactInlinePortraitPlayerForCommentTab(
@@ -83,16 +83,15 @@ class PlayerCollapseAutoPausePolicyTest {
             collapseMode = PortraitPlayerCollapseMode.INTRO_ONLY,
             isVerticalVideo = true,
             isPlaybackPaused = false,
-            availableCommentHeightDp = 180f,
         )
-        assertTrue(needsCompact)
+        assertFalse(needsCompact)
         val progress = resolveInlinePortraitPlayerCollapseProgress(
             manualCollapseProgress = 0f,
             compactForCommentTabProgress = if (needsCompact) 1f else 0f,
         )
         val height = expanded.heightDp + (compact.heightDp - expanded.heightDp) * progress
-        assertEquals(compact.heightDp, height, 0.001f)
-        assertTrue(height > 0f && height < expanded.heightDp)
+        assertEquals(expanded.heightDp, height, 0.001f)
+        assertEquals(0f, progress, 0.001f)
         // 暂停把隐藏终点改为 0 高度，已同步的位移仍应保留紧凑画面，继续上滑才隐藏。
         val compactOffset = expanded.heightDp - compact.heightDp
         val pausedProgress = resolveInlinePortraitPlayerCollapseProgress(
@@ -189,7 +188,7 @@ class PlayerCollapseAutoPausePolicyTest {
     }
 
     @Test
-    fun compactCommentLayoutRemainsPausedUntilLeavingComments() {
+    fun collapseOffDoesNotAutoPauseWhenSwitchingToShortCommentPage() {
         var playing = true
         var autoPaused = false
         val actions = mutableListOf<String>()
@@ -205,7 +204,7 @@ class PlayerCollapseAutoPausePolicyTest {
         )
         val autoPauseRange = expanded.heightDp - compact.heightDp
 
-        // Recomposition after pausing enables comment hiding, but must not resume playback.
+        // Tab changes must not create a collapse or pause, even when comments have little room.
         for (tab in listOf(1, 1, 1, 0)) {
             val inlineScrollEnabled = shouldEnableInlinePortraitScrollTransform(
                 collapseMode = PortraitPlayerCollapseMode.OFF,
@@ -217,7 +216,7 @@ class PlayerCollapseAutoPausePolicyTest {
                 selectedTabIndex = tab,
                 isPortraitFullscreen = false,
                 isPlaybackPaused = !playing,
-                availableCommentHeightDp = 760f - expanded.heightDp - 32f - 24f,
+                collapseMode = PortraitPlayerCollapseMode.OFF,
             )
             val collapsed = resolvePlayerCollapsedForAutoPause(
                 swipeHidePlayerEnabled = inlineScrollEnabled,
@@ -234,10 +233,11 @@ class PlayerCollapseAutoPausePolicyTest {
                 autoPaused = false
                 actions += "resume"
             }
-            if (tab == 1) assertFalse(playing)
+            assertFalse(compactForComments)
+            assertTrue(playing)
         }
 
-        assertEquals(listOf("pause", "resume"), actions)
+        assertEquals(emptyList<String>(), actions)
         assertTrue(playing)
     }
 

@@ -9,6 +9,58 @@ import kotlin.test.assertTrue
 
 class VideoDetailInlineCollapseStateTest {
     @Test
+    fun switchingBetweenIntroAndCommentsKeepsPartialCollapseAndNextDragContinues() {
+        val state = InlinePortraitPlayerCollapseState(initialOffsetPx = -120f)
+        // Both tabs share one player. Their different list positions must not reset it.
+        repeat(4) {
+            state.reconcileLayout(collapseEnabled = true, collapseRangePx = 300f)
+            assertEquals(-120f, state.offsetPx)
+            assertFalse(state.restoreRequested)
+        }
+        val up = reduceVideoDetailPreScroll(
+            currentOffsetPx = state.offsetPx,
+            deltaPx = -30f,
+            minOffsetPx = -300f,
+            inlinePortraitScrollEnabled = true,
+            isPortraitFullscreen = false,
+        )
+        assertEquals(-30f, state.consumeScroll(up))
+        assertEquals(-150f, state.offsetPx)
+        state.reconcileLayout(collapseEnabled = true, collapseRangePx = 300f)
+        val down = reduceVideoDetailPostScroll(
+            currentOffsetPx = state.offsetPx,
+            deltaPx = 20f,
+            minOffsetPx = -300f,
+            inlinePortraitScrollEnabled = true,
+            isPortraitFullscreen = false,
+        )
+        assertEquals(20f, state.consumeScroll(down))
+        assertEquals(-130f, state.offsetPx)
+    }
+
+    @Test
+    fun switchingTabsKeepsExpandedAndFullyCollapsedEndpoints() {
+        for (offset in listOf(0f, -300f)) {
+            val state = InlinePortraitPlayerCollapseState(initialOffsetPx = offset)
+            repeat(4) { state.reconcileLayout(collapseEnabled = true, collapseRangePx = 300f) }
+            assertEquals(offset, state.offsetPx)
+            assertFalse(state.restoreRequested)
+        }
+    }
+
+    @Test
+    fun disablingCollapseOrLeavingAnIncompatiblePausedRangeRequestsAnimatedRestore() {
+        for ((enabled, range) in listOf(false to 300f, true to 80f)) {
+            val state = InlinePortraitPlayerCollapseState(initialOffsetPx = -120f)
+            state.reconcileLayout(collapseEnabled = enabled, collapseRangePx = range)
+            assertEquals(0f, state.offsetPx)
+            assertTrue(state.restoreRequested)
+            state.reconcileLayout(collapseEnabled = enabled, collapseRangePx = range)
+            assertTrue(state.restoreRequested)
+        }
+    }
+
+    @Test
     fun disabledCollapse_commentScrollDoesNotInterruptRestore() {
         val state = InlinePortraitPlayerCollapseState(initialOffsetPx = -120f)
         state.restore()

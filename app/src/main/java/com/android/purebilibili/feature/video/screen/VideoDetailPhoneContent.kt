@@ -116,7 +116,6 @@ internal fun VideoDetailPhoneSuccessContentLayer(
     homeUpBadgesVisible: Boolean,
     isVideoPlaying: Boolean,
     onSelectedTabChange: (Int) -> Unit,
-    onIntroScrollThresholdChange: (Boolean) -> Unit,
     openFavoriteFolders: (VideoFavoriteEntryPoint, isLongPress: Boolean) -> Unit,
     navigateToUserSpaceFromVideo: (Long) -> Unit,
     navigateToRelatedVideo: (String, android.os.Bundle?) -> Unit,
@@ -387,7 +386,6 @@ internal fun VideoDetailPhoneSuccessContentLayer(
                                 ),
                                 uiActions = VideoContentUiActions(
                                     onSelectedTabChange = onSelectedTabChange,
-                                    onIntroScrollThresholdChange = onIntroScrollThresholdChange,
                                     onCommentScrollStateChange = { _, _ -> },
                                 ),
                             )
