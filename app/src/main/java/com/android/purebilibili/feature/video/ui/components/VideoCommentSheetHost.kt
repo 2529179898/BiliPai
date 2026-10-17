@@ -909,6 +909,7 @@ internal fun VideoCommentMainList(
                 scope.launch { SettingsManager.setCommentDefaultSortMode(context, mode.apiMode) }
             },
             onSearchClick = { showCommentSearchSheet = true },
+            compactTypography = true,
             modifier = Modifier
                 .fillMaxWidth()
                 .then(headerDragModifier),

@@ -1149,6 +1149,7 @@ internal fun TabletSecondaryContent(
                                     }
                                 },
                                 onSearchClick = { showCommentSearchSheet = true },
+                                compactTypography = true,
                             )
                             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             AdaptivePullToRefreshBox(

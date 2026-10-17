@@ -1077,6 +1077,8 @@ internal fun VideoContentSection(
                         onSortModeChange = onSortModeChange,
                         showNativeSortHeader = !liquidGlassEnabled,
                         showSortControlInHeader = true,
+                        // 详情页评论标题在玻璃开/关时统一使用紧凑字阶；仅影响这一处调用。
+                        compactSortHeader = true,
                         // Glass title and sort share the sibling overlay. Keep its space as list
                         // padding so hiding chrome cannot resize the list or move its anchors.
                         showHeader = !immersiveVideoContentChromeEnabled && !liquidGlassEnabled,
@@ -1206,6 +1208,7 @@ internal fun VideoContentSection(
                     listAtTop = commentListAtTop,
                     motionEnabled = commentChromeMotionEnabled,
                     showNativeTitle = immersiveVideoContentChromeEnabled && commentListAtTop,
+                    compactTitleTypography = true,
                 )
             }
         }
@@ -1582,6 +1585,8 @@ internal fun VideoCommentTab(
     showNativeSortHeader: Boolean = false,
     showSortControlInHeader: Boolean = false,
     showHeader: Boolean = true,
+    /** 详情页评论栏与切换后的浮动栏使用同一紧凑字阶；其他宿主保留原生默认。 */
+    compactSortHeader: Boolean = false,
     floatingHeaderContentPadding: Dp = 0.dp,
     onSearchClick: (() -> Unit)? = null,
     pullToRefreshEnabled: Boolean = true,
@@ -1625,17 +1630,20 @@ internal fun VideoCommentTab(
                     sortMode = sortMode,
                     onSortModeChange = onSortModeChange,
                     onSearchClick = onSearchClick,
+                    compactTypography = compactSortHeader,
                 )
             } else {
                 CommentListHeader(
                     count = replyCount,
                     title = "${sortMode.label}评论",
+                    compactTypography = compactSortHeader,
                 )
             }
         } else if (showHeader) {
             CommentListHeader(
                 count = replyCount,
                 title = "${sortMode.label}评论",
+                compactTypography = compactSortHeader,
             )
         }
         val commentContentPadding = remember(contentPadding, floatingHeaderContentPadding) {
@@ -1955,6 +1963,7 @@ internal fun LandscapeCommentPanel(
                             onCheckCommentFraud = onCheckCommentFraud,
                             showIdentityDecorations = showIdentityDecorations,
                             lightweightCommentRendering = false,
+                            compactSortHeader = true,
                         )
                     }
                 }

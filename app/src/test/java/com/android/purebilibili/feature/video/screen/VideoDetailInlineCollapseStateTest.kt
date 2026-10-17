@@ -49,15 +49,62 @@ class VideoDetailInlineCollapseStateTest {
     }
 
     @Test
-    fun disablingCollapseOrLeavingAnIncompatiblePausedRangeRequestsAnimatedRestore() {
-        for ((enabled, range) in listOf(false to 300f, true to 80f)) {
-            val state = InlinePortraitPlayerCollapseState(initialOffsetPx = -120f)
-            state.reconcileLayout(collapseEnabled = enabled, collapseRangePx = range)
-            assertEquals(0f, state.offsetPx)
-            assertTrue(state.restoreRequested)
-            state.reconcileLayout(collapseEnabled = enabled, collapseRangePx = range)
-            assertTrue(state.restoreRequested)
-        }
+    fun disablingCollapseRequestsAnimatedRestore() {
+        val state = InlinePortraitPlayerCollapseState(initialOffsetPx = -120f)
+        state.reconcileLayout(collapseEnabled = false, collapseRangePx = 300f)
+        assertEquals(0f, state.offsetPx)
+        assertTrue(state.restoreRequested)
+        assertFalse(state.layoutReconciled)
+        state.reconcileLayout(collapseEnabled = false, collapseRangePx = 300f)
+        assertTrue(state.restoreRequested)
+    }
+
+    @Test
+    fun shrinkingPausedCommentRangeClampsSharedCollapseWithoutExpanding() {
+        // The paused comment tab can hide the player past the intro tab's compact endpoint.
+        val state = InlinePortraitPlayerCollapseState(initialOffsetPx = -350f)
+        state.reconcileLayout(collapseEnabled = true, collapseRangePx = 263f)
+
+        assertEquals(-263f, state.offsetPx)
+        assertFalse(state.restoreRequested)
+        assertTrue(state.layoutReconciled)
+
+        // Re-grabbing the clamped player follows the finger and consumes the correction.
+        val down = reduceVideoDetailPostScroll(
+            currentOffsetPx = state.offsetPx,
+            deltaPx = 20f,
+            minOffsetPx = -263f,
+            inlinePortraitScrollEnabled = true,
+            isPortraitFullscreen = false,
+        )
+        assertEquals(20f, state.consumeScroll(down))
+        assertEquals(-243f, state.offsetPx)
+        assertFalse(state.layoutReconciled)
+    }
+
+    @Test
+    fun growingCommentRangeKeepsTheSharedCollapse() {
+        val state = InlinePortraitPlayerCollapseState(initialOffsetPx = -263f)
+        state.reconcileLayout(collapseEnabled = true, collapseRangePx = 494f)
+        assertEquals(-263f, state.offsetPx)
+        assertFalse(state.restoreRequested)
+        assertFalse(state.layoutReconciled)
+    }
+
+    @Test
+    fun scrollBeforeReconcileStartsFromTheVisibleOffsetInsteadOfSnapping() {
+        val state = InlinePortraitPlayerCollapseState(initialOffsetPx = -350f)
+        // A scroll delivered between the tab change and the reconcile effect must start
+        // from the currently visible offset, not jump to the new range's endpoint.
+        val down = reduceVideoDetailPostScroll(
+            currentOffsetPx = state.offsetPx,
+            deltaPx = 20f,
+            minOffsetPx = minOf(-263f, state.offsetPx),
+            inlinePortraitScrollEnabled = true,
+            isPortraitFullscreen = false,
+        )
+        assertEquals(20f, state.consumeScroll(down))
+        assertEquals(-330f, state.offsetPx)
     }
 
     @Test

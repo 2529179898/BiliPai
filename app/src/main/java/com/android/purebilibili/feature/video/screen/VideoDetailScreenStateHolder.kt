@@ -4341,28 +4341,23 @@ internal fun VideoDetailScreenStateHolder(
                             standardCollapsedHeightDp = standardCollapsedViewportHeight.value,
                             hidePausedPlayerForComments = hidePausedPlayerForComments,
                         ).dp
+                        // 两种竖屏内联体验共用同一套位移语义：手势范围始终等于
+                        // “展开高度 - 当前折叠终点”，高度才能只由共享位移推导且保持连续。
                         val collapseRangePx = with(LocalDensity.current) {
-                            if (useOfficialInlinePortraitDetailExperience) {
-                                (expandedViewportHeight - collapsedViewportHeight)
-                                    .toPx()
-                                    .coerceAtLeast(0f)
-                            } else {
-                                videoHeight.toPx()
-                            }
+                            (expandedViewportHeight - collapsedViewportHeight)
+                                .toPx()
+                                .coerceAtLeast(0f)
                         }
                         // Hiding increases the gesture range, not the auto-pause threshold;
                         // otherwise an automatic pause would look like an expansion and resume itself.
                         val autoPauseCollapseRangePx = with(LocalDensity.current) {
-                            if (useOfficialInlinePortraitDetailExperience) {
-                                (expandedViewportHeight - standardCollapsedViewportHeight)
-                                    .toPx()
-                                    .coerceAtLeast(0f)
-                            } else {
-                                videoHeight.toPx()
-                            }
+                            (expandedViewportHeight - standardCollapsedViewportHeight)
+                                .toPx()
+                                .coerceAtLeast(0f)
                         }
                         // 简介与评论共享手势高度；横向切页和列表历史位置不得改写折叠位移。
-                        // 仅在设置/暂停规则不再允许当前高度时，沿原恢复动画展开。
+                        // 关闭折叠时动画展开；仅因页签的折叠终点变小而超界的位移只做收回，
+                        // 由高度动画过渡，不再整段还原成展开态。
                         LaunchedEffect(inlinePlayerCollapseState, inlinePortraitScrollEnabled, collapseRangePx) {
                             inlinePlayerCollapseState.reconcileLayout(
                                 collapseEnabled = inlinePortraitScrollEnabled,
@@ -4488,7 +4483,12 @@ internal fun VideoDetailScreenStateHolder(
                                     val scrollUpdate = reduceVideoDetailPreScroll(
                                         currentOffsetPx = inlinePlayerCollapseState.offsetPx,
                                         deltaPx = available.y,
-                                        minOffsetPx = -collapseRangePx,
+                                        // 切页后位移可能暂时超出新范围；先允许它从当前位置
+                                        // 平滑回到合法范围，避免手势第一帧被硬夹到新终点。
+                                        minOffsetPx = minOf(
+                                            -collapseRangePx,
+                                            inlinePlayerCollapseState.offsetPx,
+                                        ),
                                         inlinePortraitScrollEnabled = inlinePortraitScrollEnabled,
                                         isPortraitFullscreen = isPortraitFullscreen,
                                         layoutAlreadyCollapsed = skipGesturePlayerCollapse,
@@ -4500,7 +4500,10 @@ internal fun VideoDetailScreenStateHolder(
                                     val scrollUpdate = reduceVideoDetailPostScroll(
                                         currentOffsetPx = inlinePlayerCollapseState.offsetPx,
                                         deltaPx = available.y,
-                                        minOffsetPx = -collapseRangePx,
+                                        minOffsetPx = minOf(
+                                            -collapseRangePx,
+                                            inlinePlayerCollapseState.offsetPx,
+                                        ),
                                         inlinePortraitScrollEnabled = inlinePortraitScrollEnabled,
                                         isPortraitFullscreen = isPortraitFullscreen,
                                         layoutAlreadyCollapsed = skipGesturePlayerCollapse,
@@ -4551,7 +4554,10 @@ internal fun VideoDetailScreenStateHolder(
                         // the compact viewport back to its full size instead of jumping in one frame.
                         val animatedCollapseProgress by animateFloatAsState(
                             targetValue = effectiveCollapseProgress,
-                            animationSpec = if (inlinePlayerCollapseState.restoreRequested) {
+                            animationSpec = if (
+                                inlinePlayerCollapseState.restoreRequested ||
+                                    inlinePlayerCollapseState.layoutReconciled
+                            ) {
                                 tween(
                                     durationMillis = resolveInlinePortraitPlayerCommentCollapseDurationMillis(
                                         videoContentTabSwitchAnimationSpec
@@ -4622,11 +4628,39 @@ internal fun VideoDetailScreenStateHolder(
                                 inlinePlayerCollapseState.reset()
                             }
                         }
-                        val inlineViewportHeight = lerp(
-                            expandedViewportHeight,
-                            collapsedViewportHeight,
-                            layoutCollapseProgress
+                        // 高度只由简介/评论共享的折叠位移决定，而不是由当前页签的折叠终点
+                        // 重新插值；这样暂停评论页隐藏到 0 后切到简介不会在一帧内弹回。
+                        // 范围收缩属于布局校正，交给 tween；跟手拖动仍用 snap。
+                        val viewportHeightDensity = LocalDensity.current
+                        val targetInlineViewportHeight = if (
+                            expandPlayerForSharedReturn || isPortraitFullscreen
+                        ) {
+                            expandedViewportHeight
+                        } else {
+                            (expandedViewportHeight + with(viewportHeightDensity) {
+                                playerHeightOffset.toDp()
+                            }).coerceIn(0.dp, expandedViewportHeight)
+                        }
+                        val animatedInlineViewportHeight by animateFloatAsState(
+                            targetValue = targetInlineViewportHeight.value,
+                            animationSpec = if (
+                                inlinePlayerCollapseState.restoreRequested ||
+                                    inlinePlayerCollapseState.layoutReconciled
+                            ) {
+                                tween(
+                                    durationMillis = resolveInlinePortraitPlayerCommentCollapseDurationMillis(
+                                        videoContentTabSwitchAnimationSpec
+                                    ),
+                                    easing = FastOutSlowInEasing
+                                )
+                            } else {
+                                snap()
+                            },
+                            label = "inline_portrait_player_viewport_height"
                         )
+                        // 两种内联体验都从共享位移推导高度，横屏视频详情也不再按页签
+                        // 重算折叠终点；手势范围已同步为“展开高度 - 折叠终点”。
+                        val inlineViewportHeight = animatedInlineViewportHeight.dp
                         val expandedViewportWidth = if (useOfficialInlinePortraitDetailExperience) {
                             expandedPortraitInlineSpec.widthDp.dp
                         } else {

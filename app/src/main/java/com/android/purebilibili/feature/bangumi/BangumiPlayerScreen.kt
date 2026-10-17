@@ -1083,7 +1083,11 @@ fun BangumiPlayerScreen(
 
         val animatedCollapseProgress by animateFloatAsState(
             targetValue = if (inlineCollapseEnabled) rawCollapseProgress else 0f,
-            animationSpec = if (inlinePlayerCollapseState.restoreRequested || !inlineCollapseEnabled) {
+            animationSpec = if (
+                inlinePlayerCollapseState.restoreRequested ||
+                    inlinePlayerCollapseState.layoutReconciled ||
+                    !inlineCollapseEnabled
+            ) {
                 tween(durationMillis = 280, easing = FastOutSlowInEasing)
             } else {
                 snap()

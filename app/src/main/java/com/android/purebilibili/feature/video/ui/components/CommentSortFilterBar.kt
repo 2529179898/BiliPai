@@ -80,6 +80,7 @@ fun CommentListHeader(
     title: String = "评论",
     modifier: Modifier = Modifier,
     liquidGlassEffectsEnabled: Boolean = true,
+    compactTypography: Boolean = false,
 ) {
     val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled &&
         liquidGlassEffectsEnabled
@@ -91,16 +92,28 @@ fun CommentListHeader(
             .padding(top = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CommentListTitle(title = title, count = count, liquidGlassEnabled = liquidGlassEnabled)
+        CommentListTitle(
+            title = title,
+            count = count,
+            liquidGlassEnabled = liquidGlassEnabled,
+            compactTypography = compactTypography,
+        )
     }
 }
 
 @Composable
-private fun CommentListTitle(title: String, count: Int, liquidGlassEnabled: Boolean) {
-    // 紧凑标题字阶只用于玻璃评论栏；关闭玻璃时保留 MD3/Miuix 原有标题与计数样式。
-    val titleStyle = if (liquidGlassEnabled) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge
-    val countStyle = if (liquidGlassEnabled) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium
-    val titleWeight = if (liquidGlassEnabled) FontWeight.SemiBold else FontWeight.Bold
+private fun CommentListTitle(
+    title: String,
+    count: Int,
+    liquidGlassEnabled: Boolean,
+    compactTypography: Boolean = false,
+) {
+    // 紧凑字阶用于玻璃评论栏与详情页共享浮动评论栏；关闭玻璃的原生列表栏默认保持
+    // MD3/Miuix 原字阶，只有明确传入 compactTypography 的调用点才跟随紧凑字阶。
+    val compact = liquidGlassEnabled || compactTypography
+    val titleStyle = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge
+    val countStyle = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium
+    val titleWeight = if (compact) FontWeight.SemiBold else FontWeight.Bold
     val appearance = rememberVideoCommentAppearance()
     Row(verticalAlignment = Alignment.CenterVertically) {
         AppText(
@@ -131,6 +144,7 @@ fun CommentSortHeader(
     onSortModeChange: (CommentSortMode) -> Unit,
     modifier: Modifier = Modifier,
     onSearchClick: (() -> Unit)? = null,
+    compactTypography: Boolean = false,
 ) {
     val uiStyle = LocalAppUiStyle.current
     val sortModes = remember { listOf(CommentSortMode.HOT, CommentSortMode.NEWEST) }
@@ -151,6 +165,7 @@ fun CommentSortHeader(
             title = if (uiStyle == AppUiStyle.MIUIX) "评论" else "${sortMode.label}评论",
             count = count,
             liquidGlassEnabled = liquidGlassEnabled,
+            compactTypography = compactTypography,
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,

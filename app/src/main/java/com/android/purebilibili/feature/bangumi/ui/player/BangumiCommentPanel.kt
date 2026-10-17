@@ -168,6 +168,7 @@ internal fun BangumiCommentPanel(
                 showNativeSortHeader = true,
                 showSortControlInHeader = true,
                 showHeader = !floatingHeader,
+                compactSortHeader = true,
                 floatingHeaderContentPadding = if (floatingHeader) 46.dp else 0.dp,
                 onSearchClick = { showSearch = true },
             )
@@ -197,6 +198,7 @@ internal fun BangumiCommentPanel(
                         listAtTop = listAtTop,
                         motionEnabled = motionEnabled,
                         showNativeTitle = listAtTop,
+                        compactTitleTypography = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

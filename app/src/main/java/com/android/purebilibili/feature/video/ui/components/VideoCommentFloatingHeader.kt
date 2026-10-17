@@ -35,6 +35,8 @@ internal fun VideoCommentFloatingHeader(
     listAtTop: Boolean,
     motionEnabled: Boolean,
     showNativeTitle: Boolean,
+    /** 详情页可在玻璃关闭时也使用紧凑标题；番剧等宿主保持原生默认。 */
+    compactTitleTypography: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val nativeSortDockLiftDp = remember {
@@ -55,6 +57,7 @@ internal fun VideoCommentFloatingHeader(
                     count = count,
                     title = "${sortMode.label}评论",
                     liquidGlassEffectsEnabled = liquidGlassEnabled,
+                    compactTypography = compactTitleTypography,
                     modifier = Modifier.align(
                         if (liquidGlassEnabled) Alignment.CenterStart else Alignment.TopStart
                     ),
