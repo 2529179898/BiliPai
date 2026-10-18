@@ -84,7 +84,8 @@ import com.android.purebilibili.core.ui.ContainerLevel
  * iOS 风格设计
  */
 enum class PlaybackSettingsPage(val title: String) {
-    PLAYBACK("播放设置"), FULLSCREEN("全屏与手势"), COMMENTS("评论与内容"),
+    PLAYBACK(settingsDestinationCopy(SettingsSearchTarget.PLAYBACK).title),
+    FULLSCREEN("全屏与手势"), COMMENTS("评论与内容"),
     DECODER("视频解码"), DIAGNOSTICS("播放器诊断")
 }
 
@@ -555,10 +556,10 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                                .padding(vertical = 10.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            PlaybackSpeedOptionsPreferenceControl(
+                            PlaybackSpeedOptionsMenuPreference(
                                 options = playbackSpeedOptions,
                                 defaultSpeed = defaultPlaybackSpeed,
                                 onAddSpeed = { speed ->
@@ -574,10 +575,11 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                 modifier = Modifier.fillMaxWidth()
                             )
                             AppPreferenceDivider()
-                            PlaybackSpeedPreferenceControl(
-                                currentSpeed = defaultPlaybackSpeed,
-                                options = playbackSpeedOptions,
-                                onSpeedChange = { speed ->
+                            AppSingleChoicePreference(
+                                selectedValue = defaultPlaybackSpeed,
+                                options = playbackSpeedOptions.map { AppChoiceOption(it, formatPlaybackSpeed(it)) },
+                                presentation = AppSingleChoicePresentation.WINDOW_POPUP,
+                                onValueChange = { speed ->
                                     scope.launch {
                                         SettingsManager.setDefaultPlaybackSpeed(context, speed)
                                     }
@@ -595,8 +597,8 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                     }
                                 },
                                 title = "长按临时加速",
-                                subtitle = "按住视频时使用此速度；点按倍速数值可输入",
-                                modifier = Modifier.fillMaxWidth()
+                                subtitle = "点按右侧倍速，选择预设或输入 1–8x",
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                             )
                         }
                     }

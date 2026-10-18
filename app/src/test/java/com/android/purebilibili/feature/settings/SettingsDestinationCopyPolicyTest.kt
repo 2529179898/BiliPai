@@ -34,7 +34,7 @@ class SettingsDestinationCopyPolicyTest {
     @Test
     fun knownDestinations_keepUnifiedTitles() {
         assertEquals("外观设置", settingsDestinationCopy(SettingsSearchTarget.APPEARANCE).title)
-        assertEquals("播放设置", settingsDestinationCopy(SettingsSearchTarget.PLAYBACK).title)
+        assertEquals("播放器与画质", settingsDestinationCopy(SettingsSearchTarget.PLAYBACK).title)
         assertEquals("导航设置", settingsDestinationCopy(SettingsSearchTarget.BOTTOM_BAR).title)
         assertEquals("WebDAV 云备份", settingsDestinationCopy(SettingsSearchTarget.WEBDAV_BACKUP).title)
         assertEquals("首页与推荐", settingsDestinationCopy(SettingsSearchTarget.HOME_FEED).title)
