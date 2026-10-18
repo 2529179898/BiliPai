@@ -9,6 +9,7 @@ plugins {
 dependencies {
     compileOnly("com.android.tools.build:gradle-api:${libs.versions.agp.get()}")
     implementation("org.ow2.asm:asm:9.8")
+    implementation("org.ow2.asm:asm-commons:9.8")
 }
 
 gradlePlugin {
@@ -20,6 +21,10 @@ gradlePlugin {
         create("workManagerNamespaceGuard") {
             id = "com.android.bilipai.workmanager-namespace-guard"
             implementationClass = "com.android.purebilibili.build.WorkManagerNamespaceGuardPlugin"
+        }
+        create("miuixMaterialKolorCompat") {
+            id = "com.android.bilipai.miuix-materialkolor-compat"
+            implementationClass = "com.android.purebilibili.build.MiuixMaterialKolorCompatPlugin"
         }
     }
 }
