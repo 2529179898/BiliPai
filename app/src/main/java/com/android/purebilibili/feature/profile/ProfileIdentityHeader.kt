@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -38,11 +40,15 @@ internal fun ProfileIdentityHeader(
     expandedFractionProvider: () -> Float,
     statsTopProvider: () -> Float,
     collapseRangeProvider: () -> Float,
+    onIdentityMeasured: (nameHeightPx: Int, uidHeightPx: Int) -> Unit,
     listState: LazyListState,
     flingBehavior: FlingBehavior,
     onAvatarClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val measuredIdentityHeights = remember(LocalDensity.current, statusBarTopPadding) {
+        intArrayOf(-1, -1)
+    }
     Box(modifier = modifier) {
         ProfileAvatarEffect(
             user = user,
@@ -97,13 +103,16 @@ internal fun ProfileIdentityHeader(
             val expanded = expandedFractionProvider().coerceIn(0f, 1f)
             val width = constraints.maxWidth
             val top = statusBarTopPadding.toPx()
-            val nameScale = 1f + 0.12f * expanded
+            val nameScale = 1f + (PROFILE_EXPANDED_NAME_SCALE - 1f) * expanded
             val name = measurables[0].measure(Constraints(maxWidth = ((width - 112.dp.toPx()).coerceAtLeast(0f) / nameScale).roundToInt()))
             val status = measurables[1].measure(Constraints(maxWidth = width))
-            val expandedNameY = minOf(
-                top + 147.3.dp.toPx(),
-                statsTopProvider() - name.height * 1.12f - status.height - 24.dp.toPx(),
-            )
+            if (measuredIdentityHeights[0] != name.height || measuredIdentityHeights[1] != status.height) {
+                measuredIdentityHeights[0] = name.height
+                measuredIdentityHeights[1] = status.height
+                onIdentityMeasured(name.height, status.height)
+            }
+            // Large text grows the hero reserve downward, never moves the name into the avatar.
+            val expandedNameY = top + PROFILE_EXPANDED_NAME_TOP_DP.dp.toPx()
             val collapsedNameY = top + (56.dp.toPx() - name.height) / 2f
             // Both the foreground identity and the scrolling statistics use one measured range.
             val nameY = collapsedNameY + (expandedNameY - collapsedNameY) * expanded
