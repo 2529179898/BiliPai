@@ -774,6 +774,7 @@ private fun VideoPlayerSectionContent(
     val preserveCurrentFrameOnFullscreenChange = state.preserveCurrentFrameOnFullscreenChange
     val liveBackPreview = state.liveBackPreview
     val useTextureSurfaceForNavigation = state.useTextureSurfaceForNavigation
+    val isPlayerSurfaceReady = state.isPlayerSurfaceReady
     val predictiveBackCancelRecoveryGeneration = state.predictiveBackCancelRecoveryGeneration
     val allowLivePlayerSharedElement = state.allowLivePlayerSharedElement
     val sourceRouteForSharedElement = state.sourceRouteForSharedElement
@@ -3831,7 +3832,8 @@ private fun VideoPlayerSectionContent(
                     )
                 }
 
-                AndroidView(
+                // Keep the viewport and cover mounted while the persisted surface choice loads.
+                if (isPlayerSurfaceReady) AndroidView(
                     factory = { ctx ->
                         val basePlayerView = if (useTextureSurface) {
                             LayoutInflater.from(ctx)
@@ -3924,7 +3926,7 @@ private fun VideoPlayerSectionContent(
                     }
                 )
 
-                if (shouldUseAnime4kPipeline) {
+                if (isPlayerSurfaceReady && shouldUseAnime4kPipeline) {
                     AndroidView(
                         factory = { ctx ->
                             Anime4KGLSurfaceView(ctx, initialConfig = anime4kConfig).apply {
@@ -4122,11 +4124,13 @@ private fun VideoPlayerSectionContent(
     // 封面揭开状态机：仅在 forceCover / 手动起播垫底时回退；首帧抖动不得清掉揭开。
     LaunchedEffect(
         bvid,
+        isPlayerSurfaceReady,
         isFirstFrameRendered,
         forceCoverDuringReturnAnimation,
         keepCoverForManualStart,
         revealMotionSpec,
     ) {
+        if (!isPlayerSurfaceReady) return@LaunchedEffect
         if (
             shouldResetSmoothCoverReveal(
                 forceCoverDuringReturnAnimation = forceCoverDuringReturnAnimation,
@@ -4173,14 +4177,14 @@ private fun VideoPlayerSectionContent(
         hasSurfaceRevealSettled = true
     }
     val isSurfaceRevealSettling = hasStartedSmoothReveal && !hasSurfaceRevealSettled
-    val holdEntryCoverUnderlay = shouldHoldEntryCoverUnderlay(
+    val holdEntryCoverUnderlay = !isPlayerSurfaceReady || shouldHoldEntryCoverUnderlay(
         isFirstFrameRendered = isFirstFrameRendered,
         forceCoverDuringReturnAnimation = forceCoverDuringReturnAnimation,
         shouldKeepCoverForManualStart = keepCoverForManualStart,
         hasStartedSmoothReveal = hasStartedSmoothReveal,
         isSurfaceRevealSettling = isSurfaceRevealSettling,
     )
-    val showCover = shouldShowCoverImage(
+    val showCover = !isPlayerSurfaceReady || shouldShowCoverImage(
         isFirstFrameRendered = isFirstFrameRendered,
         forceCoverDuringReturnAnimation = forceCoverDuringReturnAnimation,
         shouldKeepCoverForManualStart = keepCoverForManualStart,
@@ -4190,7 +4194,7 @@ private fun VideoPlayerSectionContent(
     val manualStartPlayButtonLayoutSpec = remember {
         resolveManualStartPlayButtonLayoutSpec()
     }
-    val loadCoverImage = shouldLoadVideoPlayerCoverImage(
+    val loadCoverImage = !isPlayerSurfaceReady || shouldLoadVideoPlayerCoverImage(
         isVerticalVideo = isVerticalVideo,
         shouldKeepCoverForManualStart = keepCoverForManualStart,
         forceCoverDuringReturnAnimation = forceCoverDuringReturnAnimation,

@@ -87,6 +87,7 @@ internal data class VideoPlayerSectionState(
     val preserveCurrentFrameOnFullscreenChange: Boolean = false,
     val liveBackPreview: Boolean = false,
     val useTextureSurfaceForNavigation: Boolean = false,
+    val isPlayerSurfaceReady: Boolean = true,
     val predictiveBackCancelRecoveryGeneration: Int = 0,
     val allowLivePlayerSharedElement: Boolean = true,
     val sourceRouteForSharedElement: String? = null,

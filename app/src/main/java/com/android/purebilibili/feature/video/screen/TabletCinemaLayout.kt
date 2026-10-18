@@ -217,6 +217,7 @@ internal fun TabletCinemaLayout(
     predictiveBackCancelRecoveryGeneration: Int = 0,
     sponsorContributionState: SponsorContributionUiState = SponsorContributionUiState(),
     liveSurfaceCardTransitionEnabled: Boolean = true,
+    isPlayerSurfaceReady: Boolean = true,
 ) {
     val appContext = LocalContext.current
     val secondaryDefaultTab by SettingsManager
@@ -349,6 +350,7 @@ internal fun TabletCinemaLayout(
                     predictiveBackCancelRecoveryGeneration = predictiveBackCancelRecoveryGeneration,
                     sponsorContributionState = sponsorContributionState,
                     liveSurfaceCardTransitionEnabled = liveSurfaceCardTransitionEnabled,
+                    isPlayerSurfaceReady = isPlayerSurfaceReady,
                 )
 
                 if (success != null) {
@@ -488,6 +490,7 @@ private fun CinemaStagePlayer(
     predictiveBackCancelRecoveryGeneration: Int,
     sponsorContributionState: SponsorContributionUiState,
     liveSurfaceCardTransitionEnabled: Boolean = true,
+    isPlayerSurfaceReady: Boolean = true,
 ) {
     val success = uiState as? VideoPlaybackUiState.Success
     val sharedTransitionScope = LocalSharedTransitionScope.current
@@ -553,6 +556,7 @@ private fun CinemaStagePlayer(
                             cardTransitionEnabled = transitionEnabled,
                             liveSurfaceCardTransitionEnabled = liveSurfaceCardTransitionEnabled,
                         ),
+                        isPlayerSurfaceReady = isPlayerSurfaceReady,
                         allowLivePlayerSharedElement = resolveAllowLivePlayerSharedElementForMorph(
                             cardTransitionEnabled = transitionEnabled,
                             liveSurfaceCardTransitionEnabled = liveSurfaceCardTransitionEnabled,
