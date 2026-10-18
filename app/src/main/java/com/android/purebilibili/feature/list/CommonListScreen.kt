@@ -388,8 +388,6 @@ fun CommonListScreen(
     val canCopyFavoriteDetailResources = seasonSeriesDetailViewModel?.canCopyFavoriteResources == true
     val canManageFavoriteDetailResources = state.canRemoveItems &&
         seasonSeriesDetailViewModel?.canManageFavoriteResources == true
-    val isFavoriteDetailManaging by seasonSeriesDetailViewModel?.isManagingState?.collectAsStateWithLifecycle()
-        ?: remember { mutableStateOf(false) }
     val favoriteDetailRenderKey: (VideoItem) -> String = { video -> video.bvid.ifBlank { video.id.toString() } }
     var isFavoriteDetailBatchMode by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     var selectedFavoriteDetailKeys by rememberSaveable { androidx.compose.runtime.mutableStateOf(setOf<String>()) }
