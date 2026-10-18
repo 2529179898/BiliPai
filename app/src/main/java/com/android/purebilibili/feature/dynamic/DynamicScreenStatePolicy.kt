@@ -1,16 +1,15 @@
 package com.android.purebilibili.feature.dynamic
 
+import com.android.purebilibili.core.ui.AppChromeSizeTokens
+import com.android.purebilibili.core.ui.AppSpacingTokens
 import com.android.purebilibili.core.util.appendDistinctByKey
 import com.android.purebilibili.core.util.prependDistinctByKey
 import com.android.purebilibili.data.model.response.DynamicItem
 import kotlinx.collections.immutable.toImmutableList
 import kotlin.math.max
 
-internal const val DynamicTopBarReservedHeightDp = 108
 // 头像、名称基线及字体下行（如英文 y）都需要落在裁切边界内。
 internal const val DynamicHorizontalUserListReservedHeightDp = 96
-internal const val DynamicHorizontalExpandedHeaderReservedHeightDp =
-    DynamicTopBarReservedHeightDp + DynamicHorizontalUserListReservedHeightDp
 internal const val DynamicHeaderCollapseTriggerPx = 0
 
 internal fun normalizeDynamicNotInterestedIds(
@@ -87,15 +86,19 @@ internal fun resolveDynamicPagePresentation(
 
 internal fun resolveDynamicListTopPaddingExtraDp(
     isHorizontalMode: Boolean,
+    actionDockCollapsed: Boolean,
+    fontScale: Float,
     shouldShowHorizontalUserList: Boolean = true,
-): Int {
-    // Keep the lazy grid's coordinate space stable while chrome collapses. Feeding scroll-driven
-    // collapse state back into contentPadding forces a staggered-grid remeasure; uneven cards can
-    // then move the visible anchor because each lane has a different accumulated height.
-    return when {
-        // 横向关注列表展开时，头像下方可能同时有直播标记和 UP 名称两行。
-        isHorizontalMode && shouldShowHorizontalUserList -> DynamicHorizontalExpandedHeaderReservedHeightDp
-        else -> DynamicTopBarReservedHeightDp
+): Float {
+    // Only explicit action expansion changes this inset. Scroll-driven chrome collapse
+    // must not remeasure the staggered grid or disturb its restored anchors.
+    val topBarHeightDp = resolveDynamicTopBarTabHeightDp(fontScale) +
+        AppSpacingTokens.Small.value +
+        if (actionDockCollapsed) 0f else AppChromeSizeTokens.MinimumTouchTarget.value
+    return topBarHeightDp + if (isHorizontalMode && shouldShowHorizontalUserList) {
+        DynamicHorizontalUserListReservedHeightDp
+    } else {
+        0
     }
 }
 

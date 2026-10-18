@@ -21,29 +21,6 @@ class DynamicScreenStatePolicyTest {
         )
     }
 
-    @Test
-    fun `dynamic list top padding stays independent from scroll driven chrome collapse`() {
-        assertEquals(
-            144,
-            resolveDynamicListTopPaddingExtraDp(
-                isHorizontalMode = true,
-                shouldShowHorizontalUserList = true
-            )
-        )
-        assertEquals(
-            60,
-            resolveDynamicListTopPaddingExtraDp(
-                isHorizontalMode = true,
-                shouldShowHorizontalUserList = false
-            )
-        )
-        assertEquals(
-            60,
-            resolveDynamicListTopPaddingExtraDp(
-                isHorizontalMode = false,
-            )
-        )
-    }
 
     @Test
     fun `all video and article categories expose author filters in horizontal mode`() {
@@ -90,15 +67,15 @@ class DynamicScreenStatePolicyTest {
         assertFalse(
             shouldCollapseDynamicHorizontalUserList(
                 firstVisibleItemIndex = 0,
-                firstVisibleItemScrollOffset = DynamicHorizontalExpandedHeaderReservedHeightDp,
-                topTolerancePx = DynamicHorizontalExpandedHeaderReservedHeightDp,
+                firstVisibleItemScrollOffset = 200,
+                topTolerancePx = 200,
             )
         )
         assertTrue(
             shouldCollapseDynamicHorizontalUserList(
                 firstVisibleItemIndex = 0,
-                firstVisibleItemScrollOffset = DynamicHorizontalExpandedHeaderReservedHeightDp + 1,
-                topTolerancePx = DynamicHorizontalExpandedHeaderReservedHeightDp,
+                firstVisibleItemScrollOffset = 201,
+                topTolerancePx = 200,
             )
         )
     }

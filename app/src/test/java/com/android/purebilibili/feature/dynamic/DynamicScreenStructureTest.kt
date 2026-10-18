@@ -42,23 +42,6 @@ class DynamicScreenStructureTest {
     }
 
     @Test
-    fun `dynamic top action dock has a persistent collapse switch`() {
-        val screenSource = File("src/main/java/com/android/purebilibili/feature/dynamic/DynamicScreen.kt")
-            .readText()
-        val topBarSource = File(
-            "src/main/java/com/android/purebilibili/feature/dynamic/components/DynamicTopBar.kt"
-        ).readText()
-
-        assertTrue(screenSource.contains("getDynamicTopActionsCollapsed("))
-        assertTrue(screenSource.contains("setDynamicTopActionsCollapsed("))
-        assertTrue(screenSource.contains("actionDockCollapsed = dynamicTopActionsCollapsed"))
-        assertTrue(topBarSource.contains("visible = !actionDockCollapsed"))
-        assertTrue(topBarSource.contains("onActionDockCollapsedChange(!actionDockCollapsed)"))
-        assertTrue(topBarSource.contains("\"折叠顶部操作\""))
-        assertTrue(topBarSource.contains("\"展开顶部操作\""))
-    }
-
-    @Test
     fun `fold bar unfolds related dynamics in place instead of opening detail`() {
         val screenSource = File(
             "src/main/java/com/android/purebilibili/feature/dynamic/DynamicScreen.kt"

@@ -311,9 +311,12 @@ fun DynamicScreen(
     val dynamicTopBarCollapseOnScroll by SettingsManager
         .getDynamicTopBarCollapseOnScroll(context)
         .collectAsStateWithLifecycle(initialValue = false)
+    // Keep the restored inset while DataStore reconnects after returning from a child page.
+    var restoredTopActionsCollapsed by rememberSaveable { mutableStateOf(false) }
     val dynamicTopActionsCollapsed by SettingsManager
         .getDynamicTopActionsCollapsed(context)
-        .collectAsStateWithLifecycle(initialValue = false)
+        .collectAsStateWithLifecycle(initialValue = restoredTopActionsCollapsed)
+    SideEffect { restoredTopActionsCollapsed = dynamicTopActionsCollapsed }
     val visibleTabs = remember(dynamicVisibleTabIds, dynamicTabOrder, authorFeedTabEnabled) {
         // Author selection temporarily reveals the merged feed without changing settings.
         resolveDynamicVisibleTabs(
@@ -870,6 +873,8 @@ fun DynamicScreen(
                                 }
                                 val pageListTopExtra = resolveDynamicListTopPaddingExtraDp(
                                     isHorizontalMode = false,
+                                    actionDockCollapsed = dynamicTopActionsCollapsed,
+                                    fontScale = density.fontScale,
                                 ).dp
                                 // Overlay top bar (not Scaffold-padded) — anchor indicator under chrome.
                                 val dynamicRefreshIndicatorTopInset =
@@ -1061,6 +1066,8 @@ fun DynamicScreen(
                             }
                             val pageListTopExtra = resolveDynamicListTopPaddingExtraDp(
                                 isHorizontalMode = true,
+                                actionDockCollapsed = dynamicTopActionsCollapsed,
+                                fontScale = density.fontScale,
                                 shouldShowHorizontalUserList = shouldShowHorizontalUserList,
                             ).dp
                             val dynamicRefreshIndicatorTopInset =
