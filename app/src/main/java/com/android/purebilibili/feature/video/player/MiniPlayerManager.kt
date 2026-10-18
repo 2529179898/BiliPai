@@ -1391,9 +1391,9 @@ class MiniPlayerManager private constructor(private val context: Context) :
     }
 
     // --- ExoPlayer 实例 ---
-    private var _player: ExoPlayer? = null
+    private var _player by mutableStateOf<ExoPlayer?>(null)
     //  外部播放器引用（来自 VideoDetailScreen 的 VideoPlayerState）
-    private var _externalPlayer: ExoPlayer? = null
+    private var _externalPlayer by mutableStateOf<ExoPlayer?>(null)
     private val pageOwnership = PlaybackPageOwnership()
     //  优先使用外部播放器（如果存在）
     val player: ExoPlayer?
@@ -1829,6 +1829,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
 
     /** Transfer the current detail player before any exit callback can pause or release it. */
     fun prepareAudioNowPlayingForNavigationExit(expectedBvid: String? = null): Boolean {
+        if (!isActive || player == null) return false
         if (!shouldHandleNavigationLeaveForBvid(expectedBvid, currentBvid)) return false
         if (!shouldActivateAudioBarOnVideoExit(
                 barEnabled = SettingsManager.getAudioNowPlayingBarEnabledSync(context),
@@ -1896,6 +1897,8 @@ class MiniPlayerManager private constructor(private val context: Context) :
                 keepForAudioNowPlaying = keepForAudioNowPlaying,
             )
         ) {
+            AudioNowPlayingSession.dismiss()
+            isMiniMode = false
             Logger.d(TAG, "🔇 ${mode.label}：通过导航离开，立即停止播放")
             // 停止所有播放器（外部和内部）
             _externalPlayer?.let { player ->
@@ -2341,6 +2344,8 @@ class MiniPlayerManager private constructor(private val context: Context) :
         replaceExternalPlayer(externalPlayer)
         isActive = true
         isMiniMode = false
+        // A visible detail reclaim ends the previous navigation handoff.
+        isLeavingByNavigation = false
 
         // 🎯 [修复] 统一 MediaSession 管理：将外部播放器关联到全局 Session
         // 这样在 Activity 销毁后，后台服务仍能通过此 Session 控制播放

@@ -2170,8 +2170,16 @@ fun AppNavigation(
                 }
             }
 
-            fun prepareVideoPlaybackForNavigationExit(videoKey: BiliPaiNavKey.VideoDetail) {
+            fun prepareVideoPlaybackForNavigationExit(
+                videoKey: BiliPaiNavKey.VideoDetail,
+                targetKey: BiliPaiNavKey?,
+            ) {
                 val manager = miniPlayerManager ?: return
+                // Returning to a retained detail is a session replacement, not a mini/audio exit.
+                if (targetKey is BiliPaiNavKey.VideoDetail) {
+                    manager.markLeavingByNavigation(expectedBvid = videoKey.bvid, forceStop = true)
+                    return
+                }
                 if (manager.prepareAudioNowPlayingForNavigationExit(videoKey.bvid)) {
                     manager.markLeavingByNavigation(
                         expectedBvid = videoKey.bvid,
@@ -2204,7 +2212,7 @@ fun AppNavigation(
                 popAction: () -> Unit
             ) {
                 markNavigation3VideoReturnBeforeBackAction(targetKey = targetKey)
-                prepareVideoPlaybackForNavigationExit(videoKey)
+                prepareVideoPlaybackForNavigationExit(videoKey, targetKey)
                 popAction()
             }
 
@@ -3644,7 +3652,10 @@ fun AppNavigation(
                                         activity?.isChangingConfigurations != true &&
                                         !isNavigatingToAudioMode
                                     ) {
-                                        prepareVideoPlaybackForNavigationExit(videoKey)
+                                        prepareVideoPlaybackForNavigationExit(
+                                            videoKey,
+                                            navigation3BackStack.lastOrNull(),
+                                        )
                                     }
                                 }
                             }
@@ -4901,6 +4912,7 @@ fun AppNavigation(
                 barEnabled = audioNowPlayingBarEnabled,
                 isInMiniMode = miniPlayerManager?.isMiniMode == true,
                 isLandscape = isLandscapeNowPlaying,
+                isTabletLayout = isTabletLayout,
                 isPlayerDestination = isPlayerNowPlayingDestination
             )
             val isReturningSameAudioVideo = navigation3ReturnSession.isReturningFromDetail &&
@@ -4915,6 +4927,7 @@ fun AppNavigation(
                 isInMiniMode = miniPlayerManager?.isMiniMode == true,
                 isVideoDetailDestination = isVideoDetailDestination,
                 isLandscape = isLandscapeNowPlaying,
+                isTabletLayout = isTabletLayout,
                 isPlayerDestination = isPlayerIndependentDestination
             )
             // 发布“听视频小横条是否悬浮在内容上方”，供首页/动态等悬浮元素避让
