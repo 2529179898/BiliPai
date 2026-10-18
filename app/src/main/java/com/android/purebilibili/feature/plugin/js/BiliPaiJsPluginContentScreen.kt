@@ -400,6 +400,8 @@ private fun PluginContent(
                 val modules = installed.manifest.modules
                 if (modules.isNotEmpty() && selectedModule != null) {
                     AppThemeAdaptiveTabRow(
+                        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                         role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                         options = modules.map { module -> AppSegmentOption(module, module.title) },
                         selectedValue = selectedModule,

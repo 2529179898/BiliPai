@@ -80,6 +80,8 @@ private fun <T> AppSegmentedControlHost(
         if (usesDefaultBottomBarSizing) spec.tapPressRefractionEnabled else tapPressRefractionEnabled
 
     BottomBarLiquidSegmentedControl(
+        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         items = options.map { it.label },
         selectedIndex = selectedIndex,
         onSelected = { index ->

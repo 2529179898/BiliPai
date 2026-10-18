@@ -327,6 +327,8 @@ fun CollectionSheet(
             // （胶囊指示器/拖拽选档/按压折射），关闭时回落主题原生样式
             if (sections.size > 1) {
                 AppThemeAdaptiveTabRow(
+                    // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                    liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                     role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                     centerContent = false,
                     options = sections.mapIndexed { index, section ->

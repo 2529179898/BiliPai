@@ -485,6 +485,8 @@ internal fun WallpaperDeviceTabRow(
         )
     }
     AppThemeAdaptiveTabRow(
+        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
         options = options,
         selectedValue = selectedTab,

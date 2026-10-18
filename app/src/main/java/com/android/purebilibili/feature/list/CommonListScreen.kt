@@ -2091,6 +2091,8 @@ fun CommonListScreen(
                             exit = shrinkVertically() + fadeOut(),
                         ) {
                             AppLiquidAwareTabRow(
+                                // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                                liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                                 options = favoriteSectionOptions,
                                 selectedValue = favoriteSection,
@@ -2186,6 +2188,8 @@ fun CommonListScreen(
                             exit = shrinkVertically() + fadeOut(),
                         ) {
                             AppThemeAdaptiveTabRow(
+                                // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                                liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
                                 options = historyFilterOptions,
                                 selectedValue = historyContentFilter,

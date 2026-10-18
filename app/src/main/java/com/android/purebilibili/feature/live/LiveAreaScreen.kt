@@ -122,6 +122,8 @@ fun LiveAreaScreen(onBack: () -> Unit, onAreaClick: (Int, Int, String) -> Unit) 
                     onMove = { from, to -> favorites = favorites.toMutableList().apply { add(to, removeAt(from)) } },
                 )
                 AppThemeAdaptiveTabRow(
+                    // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                    liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                     role = AppTabRowRole.SECONDARY,
                     options = areas.mapIndexed { index, parent -> AppSegmentOption(index, parent.name) },
                     selectedValue = pager.currentPage,

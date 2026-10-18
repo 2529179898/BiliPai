@@ -172,6 +172,8 @@ fun DynamicTopBarWithTabs(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AppThemeAdaptiveTabRow(
+                // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.PRIMARY,
                 options = tabs.mapIndexed { index, label -> AppSegmentOption(index, label) },
                 selectedValue = selectedTab,

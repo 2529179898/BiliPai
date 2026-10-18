@@ -1047,6 +1047,8 @@ internal fun LiveSortTagChipRow(
         72.dp
     }
     AppThemeAdaptiveTabRow(
+        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
         centerContent = false,
         options = options,

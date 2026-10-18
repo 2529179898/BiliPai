@@ -535,6 +535,8 @@ fun DanmakuSettingsPanel(
                     if (isFullscreenStyle) {
                         // 横屏分区 Tab：基础 / 高级 / 屏蔽，避免窄侧栏长滚动。
                         AppThemeAdaptiveTabRow(
+                            // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                             role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                             options = listOf("基础", "高级", "屏蔽").mapIndexed { index, label ->
                                 AppSegmentOption(index, label)
@@ -1483,6 +1485,8 @@ private fun DanmakuBlockManagerDialog(
                 }
 
                 AppThemeAdaptiveTabRow(
+                    // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                    liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                     role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                     options = listOf("关键词", "正则", "UID(hash)").mapIndexed { index, label ->
                         AppSegmentOption(

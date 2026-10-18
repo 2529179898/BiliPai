@@ -3581,6 +3581,8 @@ private fun SpaceMainTabRow(
             .padding(top = 6.dp, bottom = 2.dp)
     ) {
         AppThemeAdaptiveTabRow(
+            // Glass indicator fills the measured slot; native geometry keeps its defaults.
+            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
             role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
             options = tabs.map { AppSegmentOption(it.tab, it.title) },
             selectedValue = tabs[selectedIndex].tab,

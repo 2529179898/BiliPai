@@ -179,6 +179,8 @@ internal fun TabletSecondaryLiquidTabRow(
 ) {
     val liquidGlassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
     AppThemeAdaptiveTabRow(
+        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
         centerContent = false,
         options = labels.mapIndexed { index, label -> AppSegmentOption(index, label) },

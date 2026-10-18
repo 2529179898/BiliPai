@@ -576,6 +576,8 @@ private fun TodayWatchPluginModeSegmentedControl(
         if (mode == TodayWatchPluginMode.RELAX) "今晚轻松看" else "深度学习看"
     }
     BottomBarLiquidSegmentedControl(
+        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         items = labels,
         selectedIndex = selectedIndex,
         onSelected = { index ->
