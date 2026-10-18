@@ -78,6 +78,12 @@ val openSourceLibraries = listOf(
         description = "Material Design 组件与主题系统"
     ),
     OpenSourceLibrary(
+        name = "Material Symbols",
+        license = "Apache 2.0",
+        url = "https://github.com/google/material-design-icons",
+        description = "设置语义图标使用的 Outlined 矢量字形"
+    ),
+    OpenSourceLibrary(
         name = "Miuix",
         license = "Apache 2.0",
         url = "https://github.com/compose-miuix-ui/miuix",

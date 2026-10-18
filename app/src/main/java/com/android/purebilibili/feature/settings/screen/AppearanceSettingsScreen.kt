@@ -1797,7 +1797,7 @@ fun AppearanceSettingsContent(
                         AppPreferenceDivider(modifier = Modifier.padding(start = 16.dp))
                         SettingsItemAnchor("appearance.home_refresh_tip_visible") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.HOME_UP_BADGES),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.HOME_REFRESH_TIP),
                                 title = settingItemTitle("appearance.home_refresh_tip_visible"),
                                 subtitle = if (homeRefreshTipVisible) {
                                     "推荐流刷新后保留旧内容，并在刷新位置显示提示"
@@ -1817,7 +1817,7 @@ fun AppearanceSettingsContent(
                         AppPreferenceDivider(modifier = Modifier.padding(start = 16.dp))
                         SettingsItemAnchor("appearance.home_refresh_undo_visible") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.HOME_UP_BADGES),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.HOME_REFRESH_UNDO),
                                 title = settingItemTitle("appearance.home_refresh_undo_visible"),
                                 subtitle = "刷新推荐流后显示撤销按钮，可恢复刷新前的内容",
                                 checked = homeRefreshUndoVisible,
@@ -2062,7 +2062,7 @@ fun AppearanceSettingsContent(
                         AppPreferenceDivider(modifier = Modifier.padding(start = 16.dp))
                         SettingsItemAnchor("appearance.home_card_dynamic_tint_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.HOME_INFO_GLASS),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.HOME_CARD_DYNAMIC_TINT),
                                 title = settingItemTitle("appearance.home_card_dynamic_tint_enabled"),
                                 subtitle = if (homeCardDynamicTintEnabled) {
                                     "卡片信息区跟随壁纸或封面颜色"

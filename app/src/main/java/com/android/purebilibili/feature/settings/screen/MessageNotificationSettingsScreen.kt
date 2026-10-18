@@ -280,7 +280,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 AppPreferenceDivider()
                 SettingsItemAnchor("notification.mode") {
                     AppSingleChoicePreference(
-                        icon = rememberSettingsSemanticIcon(SettingsIconRole.MESSAGE_NOTIFICATION),
+                        icon = rememberSettingsSemanticIcon(SettingsIconRole.NOTIFICATION_DELIVERY_MODE),
                         title = settingItemTitle("notification.mode"),
                         subtitle = "省电优先可减少耗电，更及时会增加检查频率",
                         selectedValue = settings.mode,
