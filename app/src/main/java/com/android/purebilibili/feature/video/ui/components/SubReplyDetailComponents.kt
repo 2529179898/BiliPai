@@ -414,6 +414,8 @@ internal fun SubReplyDetailContent(
     remoteReplyCount: Int = 0,
     targetReplyId: Long = 0,
     headerDragModifier: Modifier = Modifier,
+    // 嵌入楼中楼的列表先还原播放器，再将剩余下拉交给刷新和拖拽关闭；窗口弹层保持默认。
+    listModifier: Modifier = Modifier,
     modifier: Modifier = Modifier,
 ) {
     val layoutPolicy = remember {
@@ -693,7 +695,7 @@ internal fun SubReplyDetailContent(
             ) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier
+                    modifier = listModifier
                         .fillMaxSize()
                         .testTag(SUB_REPLY_DETAIL_LIST_TAG),
                     contentPadding = PaddingValues(bottom = layoutPolicy.listBottomPaddingDp.dp)
