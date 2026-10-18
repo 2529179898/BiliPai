@@ -64,7 +64,7 @@ abstract class BaseListViewModel(application: Application, private val pageTitle
     }
 
     // 应当在子类初始化完成后调用
-    fun loadData(showLoading: Boolean = true) {
+    open fun loadData(showLoading: Boolean = true) {
         accountRequests.launch {
             val shouldShowLoading = showLoading || _uiState.value.items.isEmpty()
             if (shouldShowLoading) {
@@ -1031,6 +1031,27 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
     private val _folders = MutableStateFlow<List<com.android.purebilibili.data.model.response.FavFolder>>(emptyList())
     val folders = _folders.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            com.android.purebilibili.core.refresh.FavoriteFolderUpdateBus.changes.collect { update ->
+                val accountMid = TokenManager.midCache
+                if (accountMid == null || accountMid <= 0L || accountMid != update.ownerMid) return@collect
+                val folderIndex = _folders.value.indexOfFirst { folder ->
+                    resolveFavoriteFolderMediaId(folder) == update.mediaId
+                }
+                if (folderIndex < 0) return@collect
+                val updatedFolders = _folders.value.toMutableList()
+                updatedFolders[folderIndex] = updatedFolders[folderIndex].copy(
+                    title = update.info.title,
+                    intro = update.info.intro,
+                    cover = update.info.cover,
+                    attr = update.info.attr,
+                )
+                _folders.value = updatedFolders
+            }
+        }
+    }
+
     // 📁 [新增] 订阅收藏夹列表
     private val _subscribedFolders = MutableStateFlow<List<com.android.purebilibili.data.model.response.FavFolder>>(emptyList())
     val subscribedFolders = _subscribedFolders.asStateFlow()
@@ -1786,46 +1807,6 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         }
     }
 
-    internal suspend fun loadFavoriteFolderForEditing(
-        mediaId: Long,
-    ): Result<com.android.purebilibili.data.model.response.FavoriteInfo> {
-        val identity = accountRequests.identity
-        if (!accountRequests.isCurrent(identity)) throw CancellationException("账号已切换")
-        if (_folders.value.none {
-                resolveFavoriteFolderMediaId(it) == mediaId &&
-                    it.source == com.android.purebilibili.data.model.response.FavFolderSource.OWNED
-            }) {
-            return Result.failure(IllegalArgumentException("无法编辑此收藏夹"))
-        }
-        val result = com.android.purebilibili.data.repository.FavoriteRepository.getFolderInfo(mediaId)
-        if (!accountRequests.isCurrent(identity)) throw CancellationException("账号已切换")
-        return result
-    }
-
-    internal fun editFavoriteFolder(
-        mediaId: Long,
-        title: String,
-        intro: String,
-        isPrivate: Boolean,
-        cover: String,
-    ) {
-        if (_isFavoriteManagingState.value || title.isBlank()) return
-        if (_folders.value.none {
-                resolveFavoriteFolderMediaId(it) == mediaId &&
-                    it.source == com.android.purebilibili.data.model.response.FavFolderSource.OWNED
-            }) return
-        _isFavoriteManagingState.value = true
-        accountRequests.launch {
-            val result = com.android.purebilibili.data.repository.FavoriteRepository.editFolder(
-                mediaId = mediaId,
-                title = title.trim(),
-                intro = intro.trim(),
-                isPrivate = isPrivate,
-                cover = cover,
-            )
-            finishFolderMutation(result, "已更新收藏夹")
-        }
-    }
 
     internal fun deleteSelectedFavoriteFolder() {
         if (_isFavoriteManagingState.value) return
