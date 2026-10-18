@@ -108,20 +108,34 @@ class FullscreenLockButtonUiRegressionTest {
 
         for (style in AppUiStyle.entries) {
             for (dark in listOf(false, true)) {
-                for (video in listOf(Color.Black, Color.White)) {
-                    for (material in 0..2) {
+                for (material in 0..2) {
+                    val mediaBackings = listOf(Color.Black, Color.White).map { video ->
                         val current = Scenario(style, dark, video, material)
                         rule.runOnIdle {
                             scenario.value = current
                             locked.value = false
                         }
-                        assertRenderedContrast(locked = false, scenario = current)
+                        val unlockedBacking = assertRenderedContrast(locked = false, scenario = current)
                         rule.onNodeWithContentDescription("未锁定")
                             .assertIsDisplayed().assertHasClickAction().performClick()
-                        assertRenderedContrast(locked = true, scenario = current)
+                        val lockedBacking = assertRenderedContrast(locked = true, scenario = current)
                         rule.onNodeWithContentDescription("已锁定")
                             .assertIsDisplayed().assertHasClickAction().performClick()
                         rule.runOnIdle { assertTrue(!locked.value) }
+                        listOf(unlockedBacking, lockedBacking)
+                    }
+                    if (material != 0) {
+                        for (state in 0..1) {
+                            val blackBacking = mediaBackings[0][state]
+                            val whiteBacking = mediaBackings[1][state]
+                            // Both fallback and captured glass must transmit the video.
+                            // An opaque dark/light plate could pass contrast but not this.
+                            assertTrue(
+                                "$style dark=$dark material=$material locked=${state == 1} " +
+                                    "must transmit video: black=$blackBacking white=$whiteBacking",
+                                whiteBacking - blackBacking > 0.02f,
+                            )
+                        }
                     }
                 }
             }
@@ -129,20 +143,29 @@ class FullscreenLockButtonUiRegressionTest {
         rule.runOnIdle { assertEquals(AppUiStyle.entries.size * 2 * 2 * 3 * 2, clicks) }
     }
 
-    private fun assertRenderedContrast(locked: Boolean, scenario: Scenario) {
+    private fun assertRenderedContrast(locked: Boolean, scenario: Scenario): Float {
         val pixels = rule.onNodeWithTag("lock_surface").captureToImage().toPixelMap()
         // Sample inside the backing but outside the centered 24dp glyph, not the video.
         val backing = pixels[pixels.width / 8, pixels.height / 2].luminance()
-        var glyph = if (locked) 1f else 0f
+        val darkGlyph = locked && scenario.material == 0
+        var glyph = if (darkGlyph) 1f else 0f
         for (y in pixels.height / 3 until pixels.height * 2 / 3) {
             for (x in pixels.width / 3 until pixels.width * 2 / 3) {
                 val luminance = pixels[x, y].luminance()
-                glyph = if (locked) minOf(glyph, luminance) else maxOf(glyph, luminance)
+                glyph = if (darkGlyph) minOf(glyph, luminance) else maxOf(glyph, luminance)
             }
         }
         val contrast = (maxOf(glyph, backing) + 0.05f) / (minOf(glyph, backing) + 0.05f)
         assertTrue("$scenario locked=$locked glyph contrast=$contrast", contrast >= 4.5f)
-        // The filled light locked surface remains a state cue even on monochrome media.
-        assertTrue("$scenario locked=$locked backing=$backing", if (locked) backing >= 0.9f else backing <= 0.14f)
+        assertTrue(
+            "$scenario locked=$locked glyph=$glyph",
+            if (darkGlyph) glyph <= 0.1f else glyph >= 0.9f,
+        )
+        // Only native locked mode inverts to a light plate; glass stays dark and translucent.
+        assertTrue(
+            "$scenario locked=$locked backing=$backing",
+            if (darkGlyph) backing >= 0.9f else backing <= 0.14f,
+        )
+        return backing
     }
 }

@@ -416,11 +416,20 @@ internal fun FullscreenLockButton(
     iconSizeDp: Int,
     modifier: Modifier = Modifier,
 ) {
-    val foreground = if (visualState.highlighted) Color.Black else Color.White
-    val background = if (visualState.highlighted) Color.White else Color.Black.copy(alpha = 0.6f)
-    PlayerControlGlassDock(enabled = true, shape = CircleShape) {
-        // The backing remains readable over both black bars and bright video, including
-        // when glass has no backdrop. Inversion and the glyph distinguish locked state.
+    val glass = LocalPlayerControlGlassEnabled.current
+    val foreground = if (glass || !visualState.highlighted) Color.White else Color.Black
+    val background = when {
+        glass -> Color.Transparent
+        visualState.highlighted -> Color.White
+        else -> Color.Black.copy(alpha = 0.6f)
+    }
+    PlayerControlGlassDock(
+        enabled = true,
+        shape = CircleShape,
+        minimumReadabilityScrimAlpha = 0.6f,
+    ) {
+        // Glass owns the translucent backing; native mode retains its state inversion.
+        // Both glass states use media white, with the glyph and label conveying lock state.
         CompositionLocalProvider(
             com.android.purebilibili.core.ui.LocalAppButtonSlotColorCorrectionEnabled provides false,
         ) {
