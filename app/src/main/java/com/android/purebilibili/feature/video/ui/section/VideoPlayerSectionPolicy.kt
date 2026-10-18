@@ -2,6 +2,7 @@
 
 package com.android.purebilibili.feature.video.ui.section
 
+import android.os.Build
 import android.view.SurfaceView
 import android.view.TextureView
 import androidx.compose.ui.graphics.Color
@@ -1799,9 +1800,24 @@ internal fun shouldLoadDanmakuForForegroundHost(
 
 internal fun rebindPlayerSurfaceIfNeeded(
     playerView: PlayerView,
-    player: Player
+    player: Player,
+    sdkInt: Int = Build.VERSION.SDK_INT,
 ) {
-    when (val videoSurface = playerView.videoSurfaceView) {
+    val videoSurface = playerView.videoSurfaceView
+    // Android 9/native SurfaceView only: avoid clearing a live decoder output merely to
+    // reassert it. Media3 can synchronously wait when replacing that output with null.
+    // Keep explicit output selection for retained views whose player reference is still
+    // correct but whose surface was taken by another view. TextureView creates an owned
+    // Surface on each assignment, so it and all other API levels retain the recovery path.
+    if (sdkInt == 28 && videoSurface is SurfaceView) {
+        if (playerView.player !== player) {
+            playerView.player = player
+        } else {
+            player.setVideoSurfaceView(videoSurface)
+        }
+        return
+    }
+    when (videoSurface) {
         is TextureView -> {
             player.clearVideoTextureView(videoSurface)
         }
@@ -1813,7 +1829,7 @@ internal fun rebindPlayerSurfaceIfNeeded(
         playerView.player = null
     }
     playerView.player = player
-    when (val videoSurface = playerView.videoSurfaceView) {
+    when (videoSurface) {
         is TextureView -> {
             player.setVideoTextureView(videoSurface)
         }
