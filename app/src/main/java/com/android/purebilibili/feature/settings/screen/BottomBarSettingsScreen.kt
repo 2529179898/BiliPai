@@ -1301,7 +1301,7 @@ private fun BottomBarTabItem(
                 com.android.purebilibili.core.ui.AppDialogAction(
                     onClick = { showColorPicker = false }
                 ) {
-                    AppText("取消", color = AppContentColors.accent())
+                    AppText("取消", color = AppContentColors.link())
                 }
             }
         )

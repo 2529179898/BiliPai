@@ -176,7 +176,7 @@ internal fun <T> AppMaterial3TabRow(
                 modifier = Modifier
                     .then(if (slotWidth != null) Modifier.width(slotWidth).clipToBounds() else Modifier)
                     .then(if (height != null) Modifier.height(height) else Modifier),
-                selectedContentColor = AppContentColors.accent(),
+                selectedContentColor = AppContentColors.link(),
                 unselectedContentColor = AppContentColors.secondaryText(),
                 text = {
                     Text(

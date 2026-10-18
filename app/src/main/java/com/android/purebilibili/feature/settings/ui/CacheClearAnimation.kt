@@ -333,7 +333,7 @@ private fun CacheClearCategoryRow(
         }
         AppText(
             text = formatCacheClearBytes(segment.bytes),
-            color = AppContentColors.accent(),
+            color = AppContentColors.link(),
             fontWeight = FontWeight.Medium
         )
     }

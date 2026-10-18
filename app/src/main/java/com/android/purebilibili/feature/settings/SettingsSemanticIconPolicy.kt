@@ -57,6 +57,7 @@ internal enum class SettingsIconRole {
     ANDROID_LIQUID_GLASS,
     DYNAMIC_COLOR,
     THEME_COLOR_PICKER,
+    SEED_PALETTE,
     COLOR_STYLE,
     COLOR_SPEC,
     APP_LANGUAGE,
@@ -282,6 +283,7 @@ internal fun resolveSettingsMaterialSymbolResource(role: SettingsIconRole): Int 
     SettingsIconRole.ANDROID_LIQUID_GLASS -> R.drawable.ms_water_drop_24
     SettingsIconRole.DYNAMIC_COLOR -> R.drawable.ms_format_color_text_24
     SettingsIconRole.THEME_COLOR_PICKER -> R.drawable.ms_colorize_24
+    SettingsIconRole.SEED_PALETTE -> R.drawable.ic_settings_palette_swatches_24
     SettingsIconRole.COLOR_STYLE -> R.drawable.ms_brush_24
     SettingsIconRole.COLOR_SPEC -> R.drawable.ms_auto_fix_high_24
     SettingsIconRole.APP_LANGUAGE -> R.drawable.ms_language_24

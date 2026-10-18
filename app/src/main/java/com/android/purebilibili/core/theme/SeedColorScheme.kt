@@ -1,6 +1,6 @@
 // Adapted from flex_seed_scheme 5.0.1, Copyright 2022-2025 Mike Rydstrom.
 // BSD-3-Clause; full license: assets/licenses/flex_seed_scheme.LICENSE.
-// MCU uses MaterialKolor 4.1.1 (Apache-2.0); see assets/licenses/material_color_utilities.LICENSE.
+// MCU uses MaterialKolor 6.0.0-beta01 (Apache-2.0); see assets/licenses/material_color_utilities.LICENSE.
 package com.android.purebilibili.core.theme
 
 import androidx.compose.material3.ColorScheme
@@ -8,9 +8,11 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import com.materialkolor.dynamicColorScheme
+import com.materialkolor.material3.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
-import com.materialkolor.dynamiccolor.ColorSpec2021
+import com.materialkolor.dynamiccolor.MaterialDynamicColors
+import com.materialkolor.dynamiccolor.DynamicScheme
+import com.materialkolor.dynamiccolor.Variant
 import com.materialkolor.dynamiccolor.DynamicColor
 import com.materialkolor.hct.Cam16
 import com.materialkolor.hct.Hct
@@ -148,27 +150,32 @@ private fun fixedSeedColorScheme(seed: Color, isDark: Boolean, tones: SeedTones)
     )
 }
 
-/** Legacy on-container tones, equivalent to useExpressiveOnContainerColors=false. */
-private class SeedDynamicRules(private val legacySurface: Boolean) : ColorSpec2021() {
-    override fun surface(): DynamicColor = if (legacySurface) super.surface().toBuilder()
-        .setTone { if (it.isDark) 10.0 else 99.0 }.build() else super.surface()
-
-    private fun classicContainer(role: DynamicColor, preserve: (DynamicScheme) -> Boolean): DynamicColor =
-        role.toBuilder().setTone { scheme ->
-            if (preserve(scheme)) role.tone(scheme) else if (scheme.isDark) 90.0 else 10.0
-        }.build()
-
-    private fun fidelity(scheme: DynamicScheme): Boolean =
-        scheme.variant == Variant.FIDELITY || scheme.variant == Variant.CONTENT
-
-    override fun onPrimaryContainer(): DynamicColor = classicContainer(super.onPrimaryContainer()) {
-        fidelity(it) || it.variant == Variant.MONOCHROME
-    }
-    override fun onSecondaryContainer(): DynamicColor = classicContainer(super.onSecondaryContainer(), ::fidelity)
-    override fun onTertiaryContainer(): DynamicColor = classicContainer(super.onTertiaryContainer()) {
-        fidelity(it) || it.variant == Variant.MONOCHROME
-    }
-    override fun onErrorContainer(): DynamicColor = classicContainer(super.onErrorContainer()) { false }
+/** Preserve the legacy preset tones without depending on internal MCU ColorSpec classes. */
+private fun legacySeedRole(role: DynamicColor, legacySurface: Boolean): DynamicColor {
+    val container = role.name in setOf(
+        "on_primary_container", "on_secondary_container", "on_tertiary_container", "on_error_container",
+    )
+    if (!container && !(legacySurface && role.name == "surface")) return role
+    return DynamicColor(
+        name = role.name,
+        palette = role.palette,
+        isBackground = role.isBackground,
+        chromaMultiplier = role.chromaMultiplier,
+        background = role.background,
+        tone = { scheme ->
+            val fidelity = scheme.variant == Variant.FIDELITY || scheme.variant == Variant.CONTENT
+            when {
+                role.name == "surface" -> if (scheme.isDark) 10.0 else 99.0
+                role.name != "on_error_container" && (fidelity ||
+                    (role.name == "on_primary_container" && scheme.variant == Variant.MONOCHROME)) -> role.tone(scheme)
+                else -> if (scheme.isDark) 90.0 else 10.0
+            }
+        },
+        secondBackground = role.secondBackground,
+        contrastCurve = role.contrastCurve,
+        toneDeltaPair = role.toneDeltaPair,
+        opacity = role.opacity,
+    )
 }
 
 /** Shared role mapping for seeded MCU presets and system core palettes. */
@@ -177,63 +184,64 @@ internal fun seedDynamicColorScheme(
     legacySurface: Boolean = false,
     resolve: ((DynamicColor, Double) -> Color)? = null,
 ): ColorScheme {
-    val rules = SeedDynamicRules(legacySurface)
+    val rules = MaterialDynamicColors()
     val resolver = SeedToneResolver(scheme)
-    fun color(role: DynamicColor): Color {
+    fun color(original: DynamicColor): Color {
+        val role = legacySeedRole(original, legacySurface)
         val tone = resolver.tone(role)
         val palette = role.palette(scheme)
         return resolve?.invoke(role, tone) ?: Color(Hct.from(palette.hue, palette.chroma, tone).toInt())
     }
     val base = if (scheme.isDark) darkColorScheme() else lightColorScheme()
     return base.copy(
-        primary = color(rules.primary()),
-        onPrimary = color(rules.onPrimary()),
-        primaryContainer = color(rules.primaryContainer()),
-        onPrimaryContainer = color(rules.onPrimaryContainer()),
-        primaryFixed = color(rules.primaryFixed()),
-        primaryFixedDim = color(rules.primaryFixedDim()),
-        onPrimaryFixed = color(rules.onPrimaryFixed()),
-        onPrimaryFixedVariant = color(rules.onPrimaryFixedVariant()),
-        secondary = color(rules.secondary()),
-        onSecondary = color(rules.onSecondary()),
-        secondaryContainer = color(rules.secondaryContainer()),
-        onSecondaryContainer = color(rules.onSecondaryContainer()),
-        secondaryFixed = color(rules.secondaryFixed()),
-        secondaryFixedDim = color(rules.secondaryFixedDim()),
-        onSecondaryFixed = color(rules.onSecondaryFixed()),
-        onSecondaryFixedVariant = color(rules.onSecondaryFixedVariant()),
-        tertiary = color(rules.tertiary()),
-        onTertiary = color(rules.onTertiary()),
-        tertiaryContainer = color(rules.tertiaryContainer()),
-        onTertiaryContainer = color(rules.onTertiaryContainer()),
-        tertiaryFixed = color(rules.tertiaryFixed()),
-        tertiaryFixedDim = color(rules.tertiaryFixedDim()),
-        onTertiaryFixed = color(rules.onTertiaryFixed()),
-        onTertiaryFixedVariant = color(rules.onTertiaryFixedVariant()),
-        error = color(rules.error()),
-        onError = color(rules.onError()),
-        errorContainer = color(rules.errorContainer()),
-        onErrorContainer = color(rules.onErrorContainer()),
-        surface = color(rules.surface()),
-        surfaceDim = color(rules.surfaceDim()),
-        surfaceBright = color(rules.surfaceBright()),
-        surfaceContainerLowest = color(rules.surfaceContainerLowest()),
-        surfaceContainerLow = color(rules.surfaceContainerLow()),
-        surfaceContainer = color(rules.surfaceContainer()),
-        surfaceContainerHigh = color(rules.surfaceContainerHigh()),
-        surfaceContainerHighest = color(rules.surfaceContainerHighest()),
-        onSurface = color(rules.onSurface()),
-        onSurfaceVariant = color(rules.onSurfaceVariant()),
-        outline = color(rules.outline()),
-        outlineVariant = color(rules.outlineVariant()),
-        scrim = color(rules.scrim()),
-        inverseSurface = color(rules.inverseSurface()),
-        inverseOnSurface = color(rules.inverseOnSurface()),
-        inversePrimary = color(rules.inversePrimary()),
-        surfaceTint = color(rules.primary()),
-        background = color(rules.surface()),
-        onBackground = color(rules.onSurface()),
-        surfaceVariant = color(rules.surfaceContainerHighest()),
+        primary = color(rules.primary),
+        onPrimary = color(rules.onPrimary),
+        primaryContainer = color(rules.primaryContainer),
+        onPrimaryContainer = color(rules.onPrimaryContainer),
+        primaryFixed = color(rules.primaryFixed),
+        primaryFixedDim = color(rules.primaryFixedDim),
+        onPrimaryFixed = color(rules.onPrimaryFixed),
+        onPrimaryFixedVariant = color(rules.onPrimaryFixedVariant),
+        secondary = color(rules.secondary),
+        onSecondary = color(rules.onSecondary),
+        secondaryContainer = color(rules.secondaryContainer),
+        onSecondaryContainer = color(rules.onSecondaryContainer),
+        secondaryFixed = color(rules.secondaryFixed),
+        secondaryFixedDim = color(rules.secondaryFixedDim),
+        onSecondaryFixed = color(rules.onSecondaryFixed),
+        onSecondaryFixedVariant = color(rules.onSecondaryFixedVariant),
+        tertiary = color(rules.tertiary),
+        onTertiary = color(rules.onTertiary),
+        tertiaryContainer = color(rules.tertiaryContainer),
+        onTertiaryContainer = color(rules.onTertiaryContainer),
+        tertiaryFixed = color(rules.tertiaryFixed),
+        tertiaryFixedDim = color(rules.tertiaryFixedDim),
+        onTertiaryFixed = color(rules.onTertiaryFixed),
+        onTertiaryFixedVariant = color(rules.onTertiaryFixedVariant),
+        error = color(rules.error),
+        onError = color(rules.onError),
+        errorContainer = color(rules.errorContainer),
+        onErrorContainer = color(rules.onErrorContainer),
+        surface = color(rules.surface),
+        surfaceDim = color(rules.surfaceDim),
+        surfaceBright = color(rules.surfaceBright),
+        surfaceContainerLowest = color(rules.surfaceContainerLowest),
+        surfaceContainerLow = color(rules.surfaceContainerLow),
+        surfaceContainer = color(rules.surfaceContainer),
+        surfaceContainerHigh = color(rules.surfaceContainerHigh),
+        surfaceContainerHighest = color(rules.surfaceContainerHighest),
+        onSurface = color(rules.onSurface),
+        onSurfaceVariant = color(rules.onSurfaceVariant),
+        outline = color(rules.outline),
+        outlineVariant = color(rules.outlineVariant),
+        scrim = color(rules.scrim),
+        inverseSurface = color(rules.inverseSurface),
+        inverseOnSurface = color(rules.inverseOnSurface),
+        inversePrimary = color(rules.inversePrimary),
+        surfaceTint = color(rules.primary),
+        background = color(rules.surface),
+        onBackground = color(rules.onSurface),
+        surfaceVariant = color(rules.surfaceContainerHighest),
     )
 }
 

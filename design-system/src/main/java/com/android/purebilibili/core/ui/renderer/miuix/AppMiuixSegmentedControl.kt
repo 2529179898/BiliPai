@@ -50,6 +50,7 @@ import androidx.compose.ui.semantics.collectionItemInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
@@ -278,8 +279,22 @@ private fun <T> AppMiuixNonGlassTabs(
         fontWeight = FontWeight.Bold,
     )
     val labelSizes = remember(labels, style, measurer, density) {
-        labels.map { measurer.measure(AnnotatedString(it), style, maxLines = 1).size }
+        labels.map { label ->
+            // Selected and unselected labels use different weights. Reserve the
+            // larger width so switching selection cannot truncate either variant.
+            val sizes = listOf(FontWeight.Normal, FontWeight.Bold).map { weight ->
+                measurer.measure(
+                    AnnotatedString(label), style.copy(fontWeight = weight),
+                    maxLines = 1, softWrap = false,
+                ).size
+            }
+            // Keep the original bold-label height and native vertical geometry.
+            IntSize(sizes.maxOf { it.width }, sizes.last().height)
+        }
     }
+    // Match the two independently rounded 12dp edges in the native item layout.
+    // This belongs to Miuix's native tabs; the liquid renderer keeps its geometry.
+    val horizontalContentPadding = with(density) { (12.dp.roundToPx() * 2).toDp() }
     val textHeight = with(density) { (labelSizes.maxOfOrNull { it.height } ?: 0).toDp() }
     val geometry = resolveMiuixNonGlassControlGeometry(compact, textHeight)
     if (isMiuixNonGlassEnabled() || fixedItemWidth != null || labelFontSize.isSpecified || containerHorizontalPadding != 0.dp) {
@@ -293,6 +308,7 @@ private fun <T> AppMiuixNonGlassTabs(
                 labelSizes.map { with(density) { it.width.toDp() } },
                 maxOf(minTabWidth, AppChromeSizeTokens.MinimumTouchTarget),
                 contentSizedMaxItemWidth,
+                horizontalContentPadding = horizontalContentPadding,
             ),
             equalizeItemWidths = equalizeScrollableItemWidths,
             colors = colors,
@@ -318,6 +334,7 @@ private fun <T> AppMiuixNonGlassTabs(
                 labelWidths = labelSizes.map { with(density) { it.width.toDp() } },
                 minTabWidth = minTabWidth,
                 maxTabWidth = contentSizedMaxItemWidth,
+                horizontalContentPadding = horizontalContentPadding,
             ),
             colors = colors,
             height = height ?: geometry.height,

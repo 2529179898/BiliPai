@@ -186,3 +186,16 @@ fun enforceDynamicTextContrast(
         )
     )
 }
+
+/** Keep a readable native glyph unchanged; repair only a failed glyph/background pair.
+ * The caller supplies the actual control fill and the surface underneath transparency. */
+fun resolveControlGlyphColor(candidate: Color, container: Color, surface: Color): Color {
+    if (container == Color.Unspecified || candidate == Color.Unspecified) return candidate
+    val background = opaqueCompositeOver(container, surface)
+    if (calculateContrastRatio(opaqueCompositeOver(candidate, background), background) >= ACCESSIBLE_UI_MIN_CONTRAST) {
+        return candidate
+    }
+    return resolveAccessibleContainerColors(
+        container, candidate, surface, listOf(Color.Black, Color.White), ACCESSIBLE_UI_MIN_CONTRAST,
+    ).contentColor
+}

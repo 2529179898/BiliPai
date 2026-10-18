@@ -193,7 +193,7 @@ fun <T> AppSingleChoicePreference(
                                             Icon(
                                                 imageVector = Icons.Default.Check,
                                                 contentDescription = null,
-                                                tint = AppContentColors.accent(),
+                                                tint = AppContentColors.link(),
                                             )
                                         }
                                     }
@@ -205,7 +205,7 @@ fun <T> AppSingleChoicePreference(
                                         Icon(
                                             imageVector = Icons.Default.Check,
                                             contentDescription = null,
-                                            tint = AppContentColors.accent(),
+                                            tint = AppContentColors.link(),
                                         )
                                     }
                                 } else {
@@ -437,7 +437,7 @@ fun AppSliderDialog(
                 AppText(
                     text = valueFormatter(draftValue),
                     style = MaterialTheme.typography.titleMedium,
-                    color = AppContentColors.accent(),
+                    color = AppContentColors.link(),
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
                 Spacer(modifier = Modifier.height(8.dp))

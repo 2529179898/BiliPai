@@ -541,6 +541,16 @@ fun AppearanceSettingsContent(
         userEnabled = state.androidNativeLiquidGlassEnabled,
         sdkInt = Build.VERSION.SDK_INT,
     )
+    val wallpaperPreviewOverrides by SettingsManager.getWallpaperPaletteOverrides(context)
+        .collectAsStateWithLifecycle(initialValue = com.android.purebilibili.core.store.WallpaperPaletteOverrides())
+    val palettePreviewConfiguration = ThemePreviewConfiguration(
+        uiStyle = LocalAppUiStyle.current,
+        source = state.md3ColorSource,
+        liquidGlassEnabled = effectiveLiquidGlassEnabled,
+        amoledDarkTheme = state.darkThemeStyle == DarkThemeStyle.AMOLED,
+        roleOverrides = themeRoleOverrides,
+        wallpaperOverrides = wallpaperPreviewOverrides,
+    )
     val showThemeColorPicker = shouldShowMd3CustomColorControls(state.md3ColorSource)
     var showMd3ColorPickerDialog by rememberSaveable { mutableStateOf(false) }
     var roleColorTarget by remember { mutableStateOf<ThemeRoleColorTarget?>(null) }
@@ -812,7 +822,7 @@ fun AppearanceSettingsContent(
                             },
                             value = state.md3CustomColorHex,
                             onClick = { showMd3ColorPickerDialog = true },
-                            iconTint = selectedCustomThemeColor
+                            iconTint = AppContentColors.accent()
                         )
 
                         AnimatedVisibility(
@@ -855,7 +865,21 @@ fun AppearanceSettingsContent(
                                 ) {
                                     ThemeRoleOverrideEditor(
                                         overrides = themeRoleOverrides,
-                                        onColorClick = { roleColorTarget = it }
+                                        onColorClick = { roleColorTarget = it },
+                                        configuration = palettePreviewConfiguration,
+                                        seed = selectedCustomThemeColor,
+                                        paletteStyle = state.colorStyle,
+                                        colorSpec = state.colorSpec,
+                                        colorContrast = state.colorContrast,
+                                        onRepair = { dark ->
+                                            scope.launch {
+                                                SettingsManager.setThemeRoleOverrides(context, if (dark) {
+                                                    themeRoleOverrides.copy(dark = repairThemeRoleTextContrast(themeRoleOverrides.dark, true))
+                                                } else {
+                                                    themeRoleOverrides.copy(light = repairThemeRoleTextContrast(themeRoleOverrides.light, false))
+                                                })
+                                            }
+                                        },
                                     )
                                 }
                             }
@@ -883,11 +907,14 @@ fun AppearanceSettingsContent(
                                     seedColor = seedPreviewColor,
                                     isDark = resolveColorSchemeIsDark(MaterialTheme.colorScheme),
                                     colorSpec = state.colorSpec,
+                                    configuration = palettePreviewConfiguration,
+                                    paletteStyle = state.colorStyle,
+                                    colorContrast = state.colorContrast,
                                 )
                                 val seedOptions = remember { resolveSeedPaletteStyleOptions() }
                                 AppPreferenceDivider()
                                 ThemePresetChoiceSetting(
-                                    icon = rememberSettingsSemanticIcon(SettingsIconRole.COLOR_STYLE),
+                                    icon = rememberSettingsSemanticIcon(SettingsIconRole.SEED_PALETTE),
                                     title = "调色板",
                                     subtitle = "当前 ${state.seedPaletteStyle.label}：${resolveSeedPaletteStyleDescription(state.seedPaletteStyle)}",
                                     selectedValue = state.seedPaletteStyle,
@@ -901,11 +928,7 @@ fun AppearanceSettingsContent(
 
                                 if (!state.seedPaletteStyle.enabled) {
                                     // 风格小样：用当前生效的种子色与色彩标准，预演每种风格的实际配色。
-                                    val stylePreviewSeed = resolveMd3ThemeSeedColor(
-                                        source = state.md3ColorSource,
-                                        customColorHex = state.md3CustomColorHex,
-                                        themeColorIndex = state.themeColorIndex,
-                                    )
+                                    val stylePreviewSeed = seedPreviewColor
                                     val stylePreviewSwatches = rememberThemeStylePaletteSwatches(
                                         seedColor = stylePreviewSeed,
                                         isDark = resolveColorSchemeIsDark(MaterialTheme.colorScheme),
@@ -913,6 +936,7 @@ fun AppearanceSettingsContent(
                                         colorSpec = state.colorSpec,
                                         colorContrast = state.colorContrast,
                                         seedPaletteStyle = state.seedPaletteStyle,
+                                        configuration = palettePreviewConfiguration,
                                     )
                                     val styleSwatchByStyle = remember(stylePreviewSwatches) {
                                         colorStyleOptions.map { it.value }.zip(stylePreviewSwatches).toMap()
@@ -961,6 +985,15 @@ fun AppearanceSettingsContent(
                                         iconTint = AppContentColors.secondaryText()
                                     )
                                 }
+                                ThemePaletteContrastSummary(
+                                    seed = seedPreviewColor,
+                                    style = state.colorStyle,
+                                    spec = state.colorSpec,
+                                    contrast = state.colorContrast,
+                                    seedStyle = state.seedPaletteStyle,
+                                    configuration = palettePreviewConfiguration,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
                             }
                         }
 
@@ -982,7 +1015,7 @@ fun AppearanceSettingsContent(
                                     },
                                     value = if (themeColorPaletteExpanded) "收起" else "展开",
                                     onClick = { themeColorPaletteExpanded = !themeColorPaletteExpanded },
-                                    iconTint = selectedCustomThemeColor,
+                                    iconTint = AppContentColors.accent(),
                                 )
 
                                 AnimatedVisibility(
@@ -1003,6 +1036,9 @@ fun AppearanceSettingsContent(
                                     colorSpec = state.colorSpec,
                                     colorContrast = state.colorContrast,
                                     seedPaletteStyle = state.seedPaletteStyle,
+                                    configuration = palettePreviewConfiguration.copy(
+                                        source = Md3ColorSource.CUSTOM, syncControlAccentToSeed = true,
+                                    ),
                                 )
 
                                 //  [Redesign] Theme Color Grid - Strict 2 Rows x 5 Columns
@@ -1398,7 +1434,7 @@ fun AppearanceSettingsContent(
                                 AppText(
                                     text = "${splashRandomPoolPreview.totalCount} 张",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = AppContentColors.accent()
+                                    color = AppContentColors.link()
                                 )
                             }
 
@@ -2294,6 +2330,8 @@ fun AppearanceSettingsContent(
             colorSpec = state.colorSpec,
             colorContrast = state.colorContrast,
             seedPaletteStyle = state.seedPaletteStyle,
+            previewConfiguration = palettePreviewConfiguration,
+            themeSeed = selectedCustomThemeColor,
             onDismiss = { showMd3ColorPickerDialog = false },
             onConfirm = { hex ->
                 viewModel.applyMd3CustomColor(hex)
@@ -2310,6 +2348,8 @@ fun AppearanceSettingsContent(
             colorSpec = state.colorSpec,
             colorContrast = state.colorContrast,
             seedPaletteStyle = state.seedPaletteStyle,
+            previewConfiguration = palettePreviewConfiguration,
+            themeSeed = selectedCustomThemeColor,
             onDismiss = { roleColorTarget = null },
             onConfirm = { hex ->
                 scope.launch {
@@ -2373,23 +2413,77 @@ internal fun resolveThemeRoleColorIconRole(
 }
 
 @Composable
+private fun ThemePaletteContrastSummary(
+    seed: Color,
+    style: com.materialkolor.PaletteStyle,
+    spec: com.materialkolor.dynamiccolor.ColorSpec.SpecVersion,
+    contrast: com.materialkolor.Contrast,
+    seedStyle: SeedPaletteStyle,
+    configuration: ThemePreviewConfiguration,
+    modifier: Modifier = Modifier,
+) {
+    val summaries = remember(seed, style, spec, contrast, seedStyle, configuration) {
+        listOf(false, true).map { dark ->
+            val checks = assessThemeContrast(resolveThemePreviewPalette(
+                seed, dark, style, spec, contrast, seedStyle, configuration,
+            ).material)
+            val issues = checks.filterNot { it.passes }
+            val mode = if (dark) "深色" else "浅色"
+            if (issues.isEmpty()) "$mode：文字和控件与背景区分清楚"
+            else "$mode：部分文字或控件不够清楚，可尝试提高对比度或更换配色"
+        }
+    }
+    Column(
+        modifier = modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        AppText("配色可读性", style = MaterialTheme.typography.titleSmall)
+        summaries.forEach { AppText(it, style = MaterialTheme.typography.bodySmall,
+            color = AppContentColors.secondaryText()) }
+        AppText("切换配色后会自动检查。背景图片和屏幕亮度也会影响阅读感受。",
+            style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
+    }
+}
+
+@Composable
 private fun ThemeRoleOverrideEditor(
     overrides: ThemeRoleOverrides,
-    onColorClick: (ThemeRoleColorTarget) -> Unit
+    onColorClick: (ThemeRoleColorTarget) -> Unit,
+    configuration: ThemePreviewConfiguration,
+    seed: Color,
+    paletteStyle: com.materialkolor.PaletteStyle,
+    colorSpec: com.materialkolor.dynamiccolor.ColorSpec.SpecVersion,
+    colorContrast: com.materialkolor.Contrast,
+    onRepair: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(modifier = Modifier.padding(top = 8.dp)) {
+    val lightScheme = remember(seed, paletteStyle, colorSpec, colorContrast, configuration) {
+        resolveThemePreviewPalette(seed, false, paletteStyle, colorSpec, colorContrast,
+            SeedPaletteStyle.Standard, configuration).material
+    }
+    val darkScheme = remember(seed, paletteStyle, colorSpec, colorContrast, configuration) {
+        resolveThemePreviewPalette(seed, true, paletteStyle, colorSpec, colorContrast,
+            SeedPaletteStyle.Standard, configuration).material
+    }
+    Column(modifier = modifier.padding(top = 8.dp)) {
         ThemeRoleModeEditor(
             title = "浅色模式",
             roles = overrides.light,
             targets = ThemeRoleColorTarget.entries.take(4),
-            onColorClick = onColorClick
+            onColorClick = onColorClick,
+            finalScheme = lightScheme,
+            onRepair = { onRepair(false) },
+            repairAvailable = repairThemeRoleTextContrast(overrides.light, false) != overrides.light
         )
         AppPreferenceDivider()
         ThemeRoleModeEditor(
             title = "深色模式",
             roles = overrides.dark,
             targets = ThemeRoleColorTarget.entries.takeLast(4),
-            onColorClick = onColorClick
+            onColorClick = onColorClick,
+            finalScheme = darkScheme,
+            onRepair = { onRepair(true) },
+            repairAvailable = repairThemeRoleTextContrast(overrides.dark, true) != overrides.dark
         )
     }
 }
@@ -2399,8 +2493,14 @@ internal fun ThemeRoleModeEditor(
     title: String,
     roles: ThemeModeRoleOverrides,
     targets: List<ThemeRoleColorTarget>,
-    onColorClick: (ThemeRoleColorTarget) -> Unit
+    onColorClick: (ThemeRoleColorTarget) -> Unit,
+    finalScheme: ColorScheme? = null,
+    onRepair: (() -> Unit)? = null,
+    repairAvailable: Boolean = false,
+    modifier: Modifier = Modifier,
 ) {
+    val finalChecks = remember(finalScheme) { finalScheme?.let(::assessThemeContrast).orEmpty() }
+    val finalIssues = finalChecks.filterNot { it.passes }
     val warning = remember(roles) { hasThemeRoleContrastWarning(roles) }
     val primaryContrast = remember(roles) {
         themeRoleContrastRatio(roles.primaryTextHex, roles.backgroundHex)
@@ -2414,7 +2514,7 @@ internal fun ThemeRoleModeEditor(
         roles.secondaryTextHex,
         roles.controlAccentHex
     )
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+    Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
         AppText(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Row(
             modifier = Modifier
@@ -2444,7 +2544,7 @@ internal fun ThemeRoleModeEditor(
                 subtitle = colors[index],
                 value = colors[index],
                 onClick = { onColorClick(target) },
-                iconTint = parseMd3CustomColorHex(colors[index])
+                iconTint = AppContentColors.secondaryText()
             )
         }
         AppText(
@@ -2456,9 +2556,40 @@ internal fun ThemeRoleModeEditor(
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 8.dp)
         )
+        if (finalScheme != null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+                    .background(finalScheme.surface, AppShapes.container(ContainerLevel.Field))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("实际效果 · 主要文字", color = finalScheme.onSurface)
+                Text("次要说明文字", color = finalScheme.onSurfaceVariant)
+                Text("选中状态", color = finalScheme.onSecondaryContainer,
+                    modifier = Modifier.background(finalScheme.secondaryContainer,
+                        AppShapes.container(ContainerLevel.Field)).padding(8.dp))
+            }
+            AppText(
+                if (finalIssues.isEmpty()) "当前配色下，文字和控件与背景区分清楚"
+                else "还有 ${finalIssues.size} 处文字或控件可能不够清楚：" +
+                    finalIssues.take(3).joinToString("；") { "${it.label} %.2f:1（目标 %.1f:1）".format(it.ratio, it.required) },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (finalIssues.isEmpty()) AppContentColors.secondaryText() else AppContentColors.error(),
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            AppText("数值越高，文字和背景的区别越明显。背景图片可能影响实际效果。",
+                style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
+        }
+        onRepair?.let { repair ->
+            AppTextButton(onClick = repair, enabled = repairAvailable) { AppText("修正可读性") }
+            AppText("仅调整本模式的主要与次要文字，保留背景和强调色；其余不足的配对继续提示。",
+                style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
+        }
         if (warning) {
             AppText(
-                text = "文字与背景过于接近，可能难以阅读；仍可保存。",
+                text = "你选的文字色与背景比较接近，预览已自动调整文字，让它更容易看清；仍可保存。",
                 color = AppContentColors.error(),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 8.dp)

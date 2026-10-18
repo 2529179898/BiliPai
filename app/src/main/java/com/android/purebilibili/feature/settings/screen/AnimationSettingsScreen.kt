@@ -922,7 +922,7 @@ fun AnimationSettingsContent(
                     AppText(
                         text = "预览图片和其他应用设置不会改变。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppContentColors.accent(),
+                        color = AppContentColors.link(),
                     )
                 }
             },

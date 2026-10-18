@@ -1321,6 +1321,7 @@ open class MainActivity : AppCompatActivity() {
             val uriHandler = LocalUriHandler.current
             val scope = rememberCoroutineScope()
             var startupUpdateCheckResult by remember { mutableStateOf<AppUpdateCheckResult?>(null) }
+            var startupUpdateCheckFinished by remember { mutableStateOf(false) }
             // Legacy state remains only for the retired in-place dialog path below.
             var startupUpdateDownloadState by remember { mutableStateOf(AppUpdateDownloadState()) }
             var pendingCrashSnapshotPath by remember {
@@ -1329,19 +1330,23 @@ open class MainActivity : AppCompatActivity() {
             var hasHandledCrashPrompt by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
-                val autoCheckUpdateEnabled = SettingsManager.getAutoCheckAppUpdate(context).first()
-                val updateChannel = SettingsManager.getAppUpdateChannel(context).first()
-                val gateAllowsCheck = AppUpdateAutoCheckGate.tryMarkChecked()
-                if (shouldRunAppEntryAutoCheck(autoCheckUpdateEnabled, gateAllowsCheck)) {
-                    AppUpdateChecker.check(
-                        currentVersion = BuildConfig.VERSION_NAME,
-                        currentVersionCode = BuildConfig.VERSION_CODE,
-                        includePrerelease = updateChannel == SettingsManager.AppUpdateChannel.BETA
-                    ).onSuccess { info ->
-                        if (info.isUpdateAvailable) {
-                            startupUpdateCheckResult = info
+                try {
+                    val autoCheckUpdateEnabled = SettingsManager.getAutoCheckAppUpdate(context).first()
+                    val updateChannel = SettingsManager.getAppUpdateChannel(context).first()
+                    val gateAllowsCheck = AppUpdateAutoCheckGate.tryMarkChecked()
+                    if (shouldRunAppEntryAutoCheck(autoCheckUpdateEnabled, gateAllowsCheck)) {
+                        AppUpdateChecker.check(
+                            currentVersion = BuildConfig.VERSION_NAME,
+                            currentVersionCode = BuildConfig.VERSION_CODE,
+                            includePrerelease = updateChannel == SettingsManager.AppUpdateChannel.BETA
+                        ).onSuccess { info ->
+                            if (info.isUpdateAvailable) {
+                                startupUpdateCheckResult = info
+                            }
                         }
                     }
+                } finally {
+                    startupUpdateCheckFinished = true
                 }
             }
             
@@ -1703,6 +1708,8 @@ open class MainActivity : AppCompatActivity() {
                                 AppNavigation(
                                 miniPlayerManager = miniPlayerManager,
                                 isInPipMode = isPipRenderingActive,
+                                entryDialogsBlocked = !startupUpdateCheckFinished || startupUpdateCheckResult != null ||
+                                    (pendingCrashSnapshotPath != null && !hasHandledCrashPrompt),
                                 pendingVideoId = pendingVideoId,
                                 pendingShortcutRoute = pendingRoute,
                                 pendingNavigationRoute = pendingNavigationRoute,

@@ -2,7 +2,7 @@ package com.android.purebilibili.core.theme
 
 import androidx.compose.ui.graphics.Color
 import com.materialkolor.PaletteStyle
-import com.materialkolor.dynamicColorScheme
+import com.materialkolor.material3.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -11,10 +11,14 @@ class PaletteSpecPolicyTest {
     @Test
     fun materialSpecSupportMatchesThePinnedLibrary() {
         val supported = setOf(PaletteStyle.TonalSpot, PaletteStyle.Neutral, PaletteStyle.Vibrant, PaletteStyle.Expressive)
-        for (style in PaletteStyle.entries) {
+        for (style in PaletteStyle.KnownStyles) {
             assertEquals(style in supported, supportsMaterialSpec2025(style))
             assertEquals(
-                if (style in supported) ColorSpec.SpecVersion.SPEC_2025 else ColorSpec.SpecVersion.SPEC_2021,
+                when {
+                    style is PaletteStyle.Cmf -> ColorSpec.SpecVersion.SPEC_2026
+                    style in supported -> ColorSpec.SpecVersion.SPEC_2025
+                    else -> ColorSpec.SpecVersion.SPEC_2021
+                },
                 resolveMaterialPaletteSpec(style, ColorSpec.SpecVersion.SPEC_2025),
             )
         }

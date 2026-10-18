@@ -123,8 +123,8 @@ android {
         targetSdk = 37
         // 版本名按发行计划确定；versionCode 每次发布单调 +1
         // 规范：docs/wiki/VERSIONING.md · 更新日志：CHANGELOG.md
-        versionCode = 484
-        versionName = "0.4.6"
+        versionCode = 487
+        versionName = "0.4.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -455,7 +455,7 @@ dependencies {
     
     // --- 3.1 Palette (颜色提取 - 动态取色) ---
     implementation("androidx.palette:palette-ktx:1.0.0")
-    implementation("com.materialkolor:material-kolor:4.1.1")
+    implementation("com.materialkolor:material-kolor-material3:6.0.0-beta01")
     implementation("com.github.skydoves:colorpicker-compose:1.1.4")
     
     // --- 3.2 Lottie (动画效果) ---

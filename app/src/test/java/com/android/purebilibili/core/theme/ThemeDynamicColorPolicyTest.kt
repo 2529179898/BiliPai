@@ -32,7 +32,7 @@ class ThemeDynamicColorPolicyTest {
             Triple(true, true, "amoled"),
         )
 
-        PaletteStyle.entries.forEach { style ->
+        PaletteStyle.KnownStyles.forEach { style ->
             ColorSpec.SpecVersion.entries.forEach { spec ->
                 seeds.forEach { seed ->
                     modes.forEach { (dark, amoled, mode) ->

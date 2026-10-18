@@ -11,8 +11,11 @@ package com.android.purebilibili.core.theme
 
 import com.materialkolor.contrast.Contrast
 import com.materialkolor.dynamiccolor.DynamicColor
-import com.materialkolor.dynamiccolor.TonePolarity
-import com.materialkolor.scheme.DynamicScheme
+import com.materialkolor.dynamiccolor.ToneDeltaPair.TonePolarity
+import com.materialkolor.dynamiccolor.ToneDeltaPair.DeltaConstraint
+import com.materialkolor.dynamiccolor.DynamicScheme
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.max
 import kotlin.math.min
 
@@ -28,7 +31,7 @@ internal class SeedToneResolver(private val scheme: DynamicScheme) {
         if (pair != null) {
             val background = requireNotNull(role.background?.invoke(scheme))
             val bgTone = tone(background)
-            val aIsNearer = pair.polarity == TonePolarity.NEARER ||
+            val aIsNearer = pair.constraint == DeltaConstraint.NEARER ||
                 (pair.polarity == TonePolarity.LIGHTER && !scheme.isDark) ||
                 (pair.polarity == TonePolarity.DARKER && scheme.isDark)
             val nearer = if (aIsNearer) pair.roleA else pair.roleB
@@ -39,9 +42,9 @@ internal class SeedToneResolver(private val scheme: DynamicScheme) {
             val nInitial = nearer.tone(scheme)
             val fInitial = farther.tone(scheme)
             var nTone = if (!decreasing && Contrast.ratioOfTones(bgTone, nInitial) >= nContrast) nInitial
-                else DynamicColor.foregroundTone(bgTone, nContrast)
+                else foregroundTone(bgTone, nContrast)
             var fTone = if (!decreasing && Contrast.ratioOfTones(bgTone, fInitial) >= fContrast) fInitial
-                else DynamicColor.foregroundTone(bgTone, fContrast)
+                else foregroundTone(bgTone, fContrast)
             if ((fTone - nTone) * direction < pair.delta) {
                 fTone = (nTone + pair.delta * direction).coerceIn(0.0, 100.0)
                 if ((fTone - nTone) * direction < pair.delta) {
@@ -76,7 +79,7 @@ internal class SeedToneResolver(private val scheme: DynamicScheme) {
         val bgTone = tone(background)
         val ratio = requireNotNull(role.contrastCurve?.invoke(scheme)).get(scheme.contrastLevel)
         if (decreasing || Contrast.ratioOfTones(bgTone, answer) < ratio) {
-            answer = DynamicColor.foregroundTone(bgTone, ratio)
+            answer = foregroundTone(bgTone, ratio)
         }
         if (role.isBackground && answer >= 50.0 && answer < 60.0) {
             answer = if (Contrast.ratioOfTones(49.0, bgTone) >= ratio) 49.0 else 60.0
@@ -88,13 +91,32 @@ internal class SeedToneResolver(private val scheme: DynamicScheme) {
         if (Contrast.ratioOfTones(upper, answer) >= ratio && Contrast.ratioOfTones(lower, answer) >= ratio) {
             return answer
         }
-        val light = Contrast.lighter(upper, ratio)
-        val dark = Contrast.darker(lower, ratio)
-        if (DynamicColor.tonePrefersLightForeground(bgTone) || DynamicColor.tonePrefersLightForeground(secondTone)) {
+        val light = Contrast.lighter(upper, ratio) ?: -1.0
+        val dark = Contrast.darker(lower, ratio) ?: -1.0
+        if (tonePrefersLightForeground(bgTone) || tonePrefersLightForeground(secondTone)) {
             return if (light < 0.0) 100.0 else light
         }
         if (light >= 0.0 && dark < 0.0) return light
         if (dark >= 0.0 && light < 0.0) return dark
         return if (dark < 0.0) 0.0 else dark
     }
+
+    // MCU 6 makes these helpers internal. Keep the legacy preset solver's exact
+    // foreground choice here instead of depending on an unstable internal API.
+    private fun tonePrefersLightForeground(tone: Double): Boolean = tone.roundToInt() < 60
+
+    private fun foregroundTone(backgroundTone: Double, ratio: Double): Double {
+        val lighter = Contrast.lighterUnsafe(backgroundTone, ratio)
+        val darker = Contrast.darkerUnsafe(backgroundTone, ratio)
+        val lighterRatio = Contrast.ratioOfTones(lighter, backgroundTone)
+        val darkerRatio = Contrast.ratioOfTones(darker, backgroundTone)
+        return if (tonePrefersLightForeground(backgroundTone)) {
+            val negligibleDifference = abs(lighterRatio - darkerRatio) < 0.1 &&
+                lighterRatio < ratio && darkerRatio < ratio
+            if (lighterRatio >= ratio || lighterRatio >= darkerRatio || negligibleDifference) lighter else darker
+        } else {
+            if (darkerRatio >= ratio || darkerRatio >= lighterRatio) darker else lighter
+        }
+    }
+
 }

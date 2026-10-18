@@ -10,7 +10,7 @@ import com.android.purebilibili.core.store.ThemeRoleOverrides
 import com.android.purebilibili.feature.settings.Md3ColorSource
 import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
-import com.materialkolor.dynamicColorScheme
+import com.materialkolor.material3.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
 
 internal val LocalBaseThemeRoleOverrides = staticCompositionLocalOf {
@@ -99,7 +99,7 @@ internal fun applyThemeRoleOverrides(
         seedColor = accent,
         isDark = darkTheme,
         style = paletteStyle,
-        specVersion = colorSpec,
+        specVersion = resolveMaterialPaletteSpec(paletteStyle, colorSpec),
         contrastLevel = colorContrast.value,
     )
     val surfaceLow = lerp(background, primaryText, if (darkTheme) 0.08f else 0.035f)
@@ -199,4 +199,30 @@ internal fun resolveLiquidControlAccentColor(
     }
 } else {
     generatedAccent
+}
+
+/** Shared finalization for app endpoints and settings previews. Glass-only accent changes
+ * remain explicitly gated here; native layouts and defaults are not changed. */
+internal fun resolveConfiguredMaterialScheme(
+    base: ColorScheme,
+    overrides: ThemeRoleOverrides,
+    darkTheme: Boolean,
+    paletteStyle: PaletteStyle,
+    colorSpec: ColorSpec.SpecVersion,
+    colorContrast: Contrast,
+    seedPaletteStyle: SeedPaletteStyle,
+    source: Md3ColorSource,
+    customSeed: Color,
+    liquidGlassEnabled: Boolean,
+): ColorScheme {
+    val overridden = applyThemeRoleOverrides(base, overrides, darkTheme, paletteStyle, colorSpec, colorContrast)
+    return if (seedPaletteStyle.enabled) overridden else alignLiquidAccentColorScheme(
+        scheme = overridden,
+        accent = resolveLiquidControlAccentColor(
+            source, customSeed, overridden.primary, overrides.enabled,
+            if (darkTheme) overrides.dark.controlAccentHex else overrides.light.controlAccentHex,
+        ),
+        liquidGlassEnabled = liquidGlassEnabled,
+        source = source,
+    )
 }

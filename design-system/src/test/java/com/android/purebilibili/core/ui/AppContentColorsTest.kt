@@ -62,4 +62,15 @@ class AppContentColorsTest {
             }
         }
     }
+    @Test
+    fun unreadableCustomOnSurfaceCannotRemainTheLastFallback() {
+        val scheme = lightColorScheme().copy(onSurface = Color.White, onSurfaceVariant = Color.White)
+        val actual = resolveReadableNeutralContent(Color.White, scheme)
+        listOf(scheme.background, scheme.surface, scheme.surfaceContainerLowest, scheme.surfaceContainerLow,
+            scheme.surfaceContainer, scheme.surfaceContainerHigh, scheme.surfaceContainerHighest,
+            scheme.surfaceDim, scheme.surfaceBright, scheme.surfaceVariant).forEach { background ->
+            assertTrue(calculateContrastRatio(opaqueCompositeOver(actual, background), background) >= ACCESSIBLE_TEXT_MIN_CONTRAST)
+        }
+    }
+
 }

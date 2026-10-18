@@ -38,28 +38,28 @@ internal fun resolveSeedPaletteStyleOptions(): List<AppSegmentOption<SeedPalette
 }
 
 internal fun resolveSeedPaletteStyleDescription(style: SeedPaletteStyle): String = when (style) {
-    SeedPaletteStyle.Standard -> "沿用已设置的色彩风格、标准与对比度"
-    SeedPaletteStyle.TonalSpot -> "默认风格，柔和低彩度，最贴近 Material 3 观感"
-    SeedPaletteStyle.Neutral -> "接近灰阶，只保留很少彩度"
-    SeedPaletteStyle.Vibrant -> "提高主色彩度，副色与第三色色相按风格变化"
-    SeedPaletteStyle.Expressive -> "主色色相刻意偏离种子色，配色更有表现力"
-    SeedPaletteStyle.Rainbow -> "保留种子色色相，彩度固定，背景接近灰阶"
-    SeedPaletteStyle.FruitSalad -> "主色与副色色相都偏离种子色，第三色保留原色相"
-    SeedPaletteStyle.Monochrome -> "全灰阶，完全不带彩度"
-    SeedPaletteStyle.Fidelity -> "调色板贴近种子色，第三色使用互补色"
-    SeedPaletteStyle.Content -> "主副色贴近种子色，第三色使用相邻色"
-    SeedPaletteStyle.Material -> "固定低彩度与标准色调，柔和的 Material 3 配色"
-    SeedPaletteStyle.Material3Legacy -> "经典 Material 3，主色彩度较高，中性表面染色较少"
-    SeedPaletteStyle.Soft -> "降低主色、副色与第三色彩度，整体更柔和"
-    SeedPaletteStyle.Vivid -> "加深浅色主色并提高彩度，保留鲜明的种子色特征"
-    SeedPaletteStyle.VividSurfaces -> "鲜明主色搭配更明显的表面染色与文字层次"
-    SeedPaletteStyle.HighContrast -> "提高彩度与部分角色对比，强化文字和容器区分"
-    SeedPaletteStyle.UltraContrast -> "更深的浅色主色与更亮的深色文字，进一步强化对比"
-    SeedPaletteStyle.Jolly -> "主副色更鲜艳，明亮副色搭配活泼的第三色"
-    SeedPaletteStyle.VividBackground -> "生动表面配色搭配更明亮的浅色背景和更深的暗色背景"
-    SeedPaletteStyle.OneHue -> "主色、副色与第三色共用一个色相，以彩度和深浅区分"
-    SeedPaletteStyle.CandyPop -> "明亮鲜艳的糖果配色，文字前景自动补足可读对比"
-    SeedPaletteStyle.Chroma -> "主副色彩度跟随种子色，保留原色个性"
+    SeedPaletteStyle.Standard -> "自由搭配下方的色彩风格与对比度"
+    SeedPaletteStyle.TonalSpot -> "柔和自然的默认配色，适合日常使用"
+    SeedPaletteStyle.Neutral -> "以灰色为主，带一点主题色，简洁低调"
+    SeedPaletteStyle.Vibrant -> "让主题色更鲜艳，搭配丰富的辅助颜色"
+    SeedPaletteStyle.Expressive -> "大胆尝试不同颜色，带来更活泼的搭配"
+    SeedPaletteStyle.Rainbow -> "保留你选的颜色，搭配简洁的灰色背景"
+    SeedPaletteStyle.FruitSalad -> "加入清新明亮的配色，保留部分原有颜色"
+    SeedPaletteStyle.Monochrome -> "只使用黑、白、灰，呈现纯粹的简约风格"
+    SeedPaletteStyle.Fidelity -> "尽量保留你选的颜色，搭配反差鲜明的辅助色"
+    SeedPaletteStyle.Content -> "围绕你选的颜色，搭配接近的辅助色"
+    SeedPaletteStyle.Material -> "柔和耐看的经典 Material 配色"
+    SeedPaletteStyle.Material3Legacy -> "经典 Material 配色，主题色鲜明、背景更素净"
+    SeedPaletteStyle.Soft -> "让各处颜色更柔和，减少鲜艳感"
+    SeedPaletteStyle.Vivid -> "让你选的主题色更浓郁、更醒目"
+    SeedPaletteStyle.VividSurfaces -> "主题色更醒目，背景和卡片也带有更多颜色"
+    SeedPaletteStyle.HighContrast -> "让文字、按钮和背景更容易区分"
+    SeedPaletteStyle.UltraContrast -> "进一步拉开明暗差别，让内容更醒目"
+    SeedPaletteStyle.Jolly -> "鲜艳明快的颜色搭配，整体更活泼"
+    SeedPaletteStyle.VividBackground -> "背景也带有主题色，浅色更明亮、深色更深沉"
+    SeedPaletteStyle.OneHue -> "围绕同一种颜色，用深浅变化区分按钮和卡片"
+    SeedPaletteStyle.CandyPop -> "明亮鲜艳的糖果配色，文字会自动调整以便阅读"
+    SeedPaletteStyle.Chroma -> "保留你选的颜色的鲜艳程度，突出原有特色"
 }
 
 internal fun resolveSelectedColorSpec(
@@ -80,14 +80,18 @@ internal fun resolveSelectedColorSpecSubtitle(
     val effective = resolveSelectedColorSpec(requested, style, seedStyle)
     val supported = if (seedStyle.enabled) seedStyle.material2025Style() != null else supportsMaterialSpec2025(style)
     val name = if (seedStyle.enabled) seedStyle.label else style.name
-    return if (!supported) {
+    return if (!seedStyle.enabled && style is PaletteStyle.Cmf) {
+        "当前 SPEC_2026：CMF 的新配色方案，其他风格的设置会保留"
+    } else if (effective != requested && requested == ColorSpec.SpecVersion.SPEC_2026 && supported) {
+        "当前 ${effective.name}：$name 按官方规则使用 2025 标准；SPEC_2026 适用于 CMF"
+    } else if (!supported) {
         "当前 ${effective.name}：$name 仅支持此标准" +
             if (requested != effective) "；已保留 ${requested.name} 偏好，切换至兼容风格后恢复" else ""
     } else resolveColorSpecSubtitle(effective)
 }
 
 internal fun resolveColorStyleOptions(): List<AppSegmentOption<PaletteStyle>> {
-    return (listOf(PaletteStyle.TonalSpot) + PaletteStyle.entries.filterNot { it == PaletteStyle.TonalSpot })
+    return (listOf(PaletteStyle.TonalSpot) + PaletteStyle.KnownStyles.filterNot { it == PaletteStyle.TonalSpot })
         .map { style ->
             AppSegmentOption(
                 value = style,
@@ -99,16 +103,17 @@ internal fun resolveColorStyleOptions(): List<AppSegmentOption<PaletteStyle>> {
 
 /** 色彩风格在下拉里的补充说明，口径与 MaterialKolor / MCU 的语义一致。 */
 internal fun resolveColorStyleDescription(style: PaletteStyle): String = when (style) {
-    PaletteStyle.TonalSpot -> "默认风格，柔和低彩度，最贴近 Material 3 观感"
-    PaletteStyle.Neutral -> "接近灰阶，只保留很少彩度"
-    PaletteStyle.Vibrant -> "提高主色彩度，副色与第三色色相按风格变化"
-    PaletteStyle.Expressive -> "主色色相刻意偏离种子色，配色更有玩味"
-    PaletteStyle.Rainbow -> "保留种子色色相，彩度固定，背景接近灰阶"
-    PaletteStyle.FruitSalad -> "主色与副色色相都偏离种子色"
-    PaletteStyle.Monochrome -> "全灰阶，完全不带彩度"
-    PaletteStyle.Fidelity -> "调色板贴近种子色，高彩度种子也保留"
-    PaletteStyle.Content -> "与 Fidelity 几乎一致，更强调贴合种子色"
-    else -> "使用 ${style.name} 色调映射"
+    PaletteStyle.TonalSpot -> "柔和自然的默认配色，适合日常使用"
+    PaletteStyle.Neutral -> "以灰色为主，带一点主题色，简洁低调"
+    PaletteStyle.Vibrant -> "让主题色更鲜艳，搭配丰富的辅助颜色"
+    PaletteStyle.Expressive -> "大胆尝试不同颜色，带来更活泼的搭配"
+    PaletteStyle.Rainbow -> "保留你选的颜色，搭配简洁的灰色背景"
+    PaletteStyle.FruitSalad -> "加入清新明亮的配色，带来不同的颜色搭配"
+    PaletteStyle.Monochrome -> "只使用黑、白、灰，呈现纯粹的简约风格"
+    PaletteStyle.Fidelity -> "尽量保留你选的颜色，也适合鲜艳的主题色"
+    PaletteStyle.Content -> "围绕你选的颜色，搭配接近的辅助色"
+    is PaletteStyle.Cmf -> "保留你选的颜色，让背景、按钮和文字搭配更协调"
+    else -> "使用 ${style.name} 配色风格"
 }
 
 /** 色彩风格在当前设置项上的显示：枚举名 + 一行含义，不展开也能看明白。 */
@@ -119,6 +124,12 @@ internal fun resolveColorSpecOptions(
     style: PaletteStyle = PaletteStyle.TonalSpot,
     seedStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
 ): List<AppSegmentOption<ColorSpec.SpecVersion>> {
+    if (!seedStyle.enabled && style is PaletteStyle.Cmf) {
+        return listOf(AppSegmentOption(
+            ColorSpec.SpecVersion.SPEC_2026, "SPEC_2026",
+            resolveColorSpecDescription(ColorSpec.SpecVersion.SPEC_2026),
+        ))
+    }
     val supports2025 = if (seedStyle.enabled) seedStyle.material2025Style() != null else supportsMaterialSpec2025(style)
     return listOf(
         ColorSpec.SpecVersion.SPEC_2021,
@@ -134,8 +145,9 @@ internal fun resolveColorSpecOptions(
 
 internal fun resolveColorSpecDescription(spec: ColorSpec.SpecVersion): String = when (spec) {
     ColorSpec.SpecVersion.SPEC_2021 -> "旧版 Material 3 配色规则，兼容传统色彩风格"
-    ColorSpec.SpecVersion.SPEC_2025 -> "新版 Material 3 配色规则，更新色板、容器与对比度映射"
-    else -> "使用 ${spec.name} 色调映射"
+    ColorSpec.SpecVersion.SPEC_2025 -> "较新的 Material 配色规则，让背景、按钮和文字的搭配更协调"
+    ColorSpec.SpecVersion.SPEC_2026 -> "用于 CMF 新配色，让背景、按钮与文字搭配更协调"
+    else -> "使用 ${spec.name} 配色方案"
 }
 
 /** 色彩标准在当前设置项上的显示：枚举名 + 一行含义。 */

@@ -90,7 +90,7 @@ class AppearanceThemeSegmentPolicyTest {
 
         assertEquals(PaletteStyle.TonalSpot, styleOptions.first().value)
         assertEquals("TonalSpot", styleOptions.first().label)
-        assertEquals(PaletteStyle.entries.toSet(), styleOptions.map { it.value }.toSet())
+        assertEquals(PaletteStyle.KnownStyles.toSet(), styleOptions.map { it.value }.toSet())
         // 名称保留枚举名（MaterialKolor 技术术语），说明改由 description 提供。
         assertTrue(styleOptions.all { it.label == it.value.name })
         assertTrue(styleOptions.all { !it.description.isNullOrBlank() })

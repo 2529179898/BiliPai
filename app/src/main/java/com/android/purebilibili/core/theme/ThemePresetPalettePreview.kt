@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
-import com.materialkolor.dynamicColorScheme
+import com.materialkolor.material3.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
 
 /**
@@ -36,8 +36,11 @@ internal fun resolveThemePresetPaletteSwatch(
     colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
     colorContrast: Contrast = Contrast.Default,
     seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
+    configuration: ThemePreviewConfiguration? = null,
 ): ThemePresetPaletteSwatch {
-    val scheme = if (seedPaletteStyle.enabled) createSeedColorScheme(seedColor, isDark, seedPaletteStyle, colorSpec = colorSpec)
+    val scheme = if (configuration != null) resolveThemePreviewPalette(
+        seedColor, isDark, paletteStyle, colorSpec, colorContrast, seedPaletteStyle, configuration,
+    ).material else if (seedPaletteStyle.enabled) createSeedColorScheme(seedColor, isDark, seedPaletteStyle, colorSpec = colorSpec)
     else dynamicColorScheme(
         seedColor = seedColor,
         isDark = isDark,
@@ -66,7 +69,8 @@ internal fun rememberThemePresetPaletteSwatches(
     colorSpec: ColorSpec.SpecVersion,
     colorContrast: Contrast = Contrast.Default,
     seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
-): List<ThemePresetPaletteSwatch> = remember(seedColors, isDark, paletteStyle, colorSpec, colorContrast, seedPaletteStyle) {
+    configuration: ThemePreviewConfiguration? = null,
+): List<ThemePresetPaletteSwatch> = remember(seedColors, isDark, paletteStyle, colorSpec, colorContrast, seedPaletteStyle, configuration) {
     seedColors.map { seedColor ->
         resolveThemePresetPaletteSwatch(
             seedColor = seedColor,
@@ -75,6 +79,7 @@ internal fun rememberThemePresetPaletteSwatches(
             colorSpec = colorSpec,
             colorContrast = colorContrast,
             seedPaletteStyle = seedPaletteStyle,
+            configuration = configuration,
         )
     }
 }
@@ -99,7 +104,8 @@ internal fun rememberThemeStylePaletteSwatches(
     colorSpec: ColorSpec.SpecVersion,
     colorContrast: Contrast = Contrast.Default,
     seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
-): List<ThemePresetPaletteSwatch> = remember(seedColor, isDark, paletteStyles, colorSpec, colorContrast, seedPaletteStyle) {
+    configuration: ThemePreviewConfiguration? = null,
+): List<ThemePresetPaletteSwatch> = remember(seedColor, isDark, paletteStyles, colorSpec, colorContrast, seedPaletteStyle, configuration) {
     paletteStyles.map { paletteStyle ->
         resolveThemePresetPaletteSwatch(
             seedColor = seedColor,
@@ -108,6 +114,7 @@ internal fun rememberThemeStylePaletteSwatches(
             colorSpec = colorSpec,
             colorContrast = colorContrast,
             seedPaletteStyle = seedPaletteStyle,
+            configuration = configuration,
         )
     }
 }
@@ -117,8 +124,22 @@ internal fun rememberSeedStyleSwatches(
     seedColor: Color,
     isDark: Boolean,
     colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2021,
-): Map<SeedPaletteStyle, ThemePresetPaletteSwatch> = remember(seedColor, isDark, colorSpec) {
-    SeedPaletteStyle.entries.filter { it.enabled }.associateWith { style ->
-        resolveThemePresetPaletteSwatch(seedColor, isDark, colorSpec = colorSpec, seedPaletteStyle = style)
+    configuration: ThemePreviewConfiguration? = null,
+    paletteStyle: PaletteStyle = PaletteStyle.TonalSpot,
+    colorContrast: Contrast = Contrast.Default,
+): Map<SeedPaletteStyle, ThemePresetPaletteSwatch> = remember(
+    seedColor, isDark, colorSpec, configuration, paletteStyle, colorContrast,
+) {
+    // Standard previews the saved style/contrast; extended presets keep their own rules.
+    SeedPaletteStyle.entries.associateWith { style ->
+        resolveThemePresetPaletteSwatch(
+            seedColor = seedColor,
+            isDark = isDark,
+            paletteStyle = paletteStyle,
+            colorSpec = colorSpec,
+            colorContrast = colorContrast,
+            seedPaletteStyle = style,
+            configuration = configuration,
+        )
     }
 }

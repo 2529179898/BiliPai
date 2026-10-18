@@ -22,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,7 +51,7 @@ import com.android.purebilibili.core.ui.components.resolveElasticTabIndicatorBou
  * PiliPlus 风格的 tonal 胶囊 Tab 行(MD3 非玻璃次级筛选行专用)。
  *
  * 选中项衬一块 secondaryContainer 圆角胶囊(20dp 圆角),文字切换为 onSecondaryContainer,
- * 未选中为 outline;行内没有分隔线与默认水波纹。动画与 AppElasticTabIndicator 共用同一套
+ * 未选中使用可读的次要文字色;行内没有分隔线与默认水波纹。动画与 AppElasticTabIndicator 共用同一套
  * PiliPlus 缓动插值:[indicatorPositionProvider](Pager 连续驱动)优先,否则按选中索引做
  * 位置动画。
  */
@@ -82,10 +83,13 @@ fun <T> AppTonalPillTabRow(
         resolveTonalPillTabDefaultLabelFontSize()
     }
     val rowScrollState = scrollState ?: rememberScrollState()
-    val textStyle = TextStyle(
-        fontSize = resolvedFontSize,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0f.sp,
+    // Resolve inherited typography before measuring, just as Text does when rendering.
+    val textStyle = LocalTextStyle.current.merge(
+        TextStyle(
+            fontSize = resolvedFontSize,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0f.sp,
+        )
     )
 
     val measuredItemWidths: List<Dp> = if (scrollable && fixedItemWidth == null) {
@@ -93,8 +97,14 @@ fun <T> AppTonalPillTabRow(
         remember(options, textStyle, density, textMeasurer) {
             options.map { option ->
                 with(density) {
-                    textMeasurer.measure(option.label, style = textStyle, maxLines = 1).size.width.toDp()
-                } + resolveTonalPillTabItemHorizontalPadding() * 2
+                    val labelWidthPx = textMeasurer.measure(
+                        option.label, style = textStyle, maxLines = 1, softWrap = false,
+                    ).size.width
+                    // Padding rounds each edge separately. Adding dp first can leave the
+                    // label one pixel short and ellipsize even a two-character title.
+                    val paddingPx = resolveTonalPillTabItemHorizontalPadding().roundToPx()
+                    (labelWidthPx + paddingPx * 2).toDp()
+                }
             }
         }
     } else emptyList()
@@ -176,7 +186,7 @@ fun <T> AppTonalPillTabRow(
                             enabled = enabled,
                             labelColor = if (index == selectedIndex) {
                                 selectedContentColor ?: colorScheme.onSecondaryContainer
-                            } else unselectedContentColor ?: colorScheme.outline,
+                            } else unselectedContentColor ?: com.android.purebilibili.core.ui.AppContentColors.secondaryText(),
                             textStyle = textStyle,
                             onClick = { onSelectionChange(option.value) },
                             modifier = Modifier.width(widths[index]).fillMaxHeight(),

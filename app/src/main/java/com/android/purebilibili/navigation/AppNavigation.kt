@@ -417,7 +417,8 @@ fun AppNavigation(
         onResult(PrivacyAuthenticationResult.Failure("请先设置系统锁屏后再解锁隐私内容"))
     },
     mainHazeState: dev.chrisbanes.haze.HazeState? = null, //  全局 Haze 状态
-    onBrandFeedbackBottomInsetChanged: (androidx.compose.ui.unit.Dp) -> Unit = {}
+    onBrandFeedbackBottomInsetChanged: (androidx.compose.ui.unit.Dp) -> Unit = {},
+    entryDialogsBlocked: Boolean = false,
 ) {
     val homeViewModel: HomeViewModel = viewModel()
     val coroutineScope = rememberCoroutineScope()
@@ -787,6 +788,15 @@ fun AppNavigation(
                 visibleItems = visibleBottomBarItems
             )
         }
+        com.android.purebilibili.feature.settings.highlights.UpdateHighlightsHost(
+            allowAutomatic = !entryDialogsBlocked && !agreementRequired &&
+                currentRoute == ScreenRoutes.Home.route && currentBottomNavItem == BottomNavItem.HOME &&
+                !foregroundSettling && !deferGlobalWallpaperPalette && !mainBottomPagerState.isNavigating &&
+                !isInPipMode && miniPlayerManager?.isPlaying != true &&
+                miniPlayerManager?.isMiniMode != true &&
+                pendingVideoId == null && pendingShortcutRoute == null && pendingNavigationRoute == null &&
+                initialSearchKeyword == null,
+        )
         // A new tab visit is distinct even if the history pager page was uncomposed
         // while away. Playback navigation leaves the selected tab and this identity intact.
         val historyBrowsingSessionKey = remember(currentBottomNavItem) { Any() }
