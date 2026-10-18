@@ -277,7 +277,7 @@ class CommentInputDialogUiRegressionTest {
     }
 
     @Test
-    fun longReplyAndDraft_neverOverlapExpandIcon() {
+    fun longReplyAndDraft_useFullWidthBelowExpandButton() {
         composeRule.setContent {
             MaterialTheme {
                 CommentInputDialog(
@@ -293,9 +293,50 @@ class CommentInputDialogUiRegressionTest {
 
         val input = composeRule.onNodeWithTag("comment_composer_input")
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val expand = composeRule.onNodeWithContentDescription("Expand")
+        val editor = composeRule.onNodeWithTag("comment_composer_editor")
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        assertTrue("正文应在全屏图标左侧结束", input.right < expand.left)
+        val expand = composeRule.onNodeWithTag("comment_composer_expand_toggle")
+            .assertHasClickAction().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("展开按钮应位于正文上方留白", expand.bottom <= input.top)
+        assertTrue(
+            "正文两侧只保留对称内边距，不应为按钮另留右侧槽位",
+            abs((input.left - editor.left) - (editor.right - input.right)) < 1f
+        )
+    }
+
+    @Test
+    fun expandAndCollapse_preserveEditedDraftAndSelection() {
+        composeRule.setContent {
+            MaterialTheme {
+                CommentInputDialog(
+                    visible = true,
+                    draftKey = "expand-editor",
+                    initialText = "原始草稿",
+                    onDismiss = {},
+                    onSend = { _, _, _ -> },
+                )
+            }
+        }
+        val input = composeRule.onNodeWithTag("comment_composer_input")
+        input.performTextReplacement("编辑后的评论草稿")
+        input.performTextInputSelection(TextRange(1, 4))
+        val compact = input.fetchSemanticsNode().boundsInRoot
+
+        composeRule.onNodeWithContentDescription("展开输入区").assertHasClickAction().performClick()
+        composeRule.onNodeWithContentDescription("收起输入区").assertIsDisplayed()
+        input.assertTextEquals("编辑后的评论草稿")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, TextRange(1, 4)))
+        val expanded = input.fetchSemanticsNode().boundsInRoot
+        assertTrue("展开应增加可编辑高度", expanded.height > compact.height)
+        composeRule.onNodeWithText("发布").assertIsDisplayed()
+
+        composeRule.onNodeWithContentDescription("收起输入区").performClick()
+        composeRule.onNodeWithContentDescription("展开输入区").assertIsDisplayed()
+        input.assertTextEquals("编辑后的评论草稿")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, TextRange(1, 4)))
+        val collapsed = input.fetchSemanticsNode().boundsInRoot
+        assertTrue("收起应恢复紧凑高度", abs(collapsed.height - compact.height) < 1f)
+        composeRule.onNodeWithText("发布").assertIsDisplayed()
     }
 
     private fun assertChooserMode(expectKaomojiGrid: Boolean = false) {

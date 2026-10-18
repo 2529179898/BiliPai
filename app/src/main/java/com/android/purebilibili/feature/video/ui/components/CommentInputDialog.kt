@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Image
@@ -56,7 +57,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -93,6 +93,7 @@ import com.android.purebilibili.core.ui.ContainerLevel
 
 private const val COMMENT_INPUT_FOCUS_RETRY_COUNT = 3
 private const val COMMENT_INPUT_FOCUS_RETRY_DELAY_MS = 80L
+private const val COMMENT_INPUT_HEADER_HEIGHT_DP = 48
 
 private val COMMENT_INPUT_KAOMOJIS = listOf(
     "(⌒▽⌒)", "（￣▽￣）", "(=・ω・=)", "(｀・ω・´)",
@@ -287,6 +288,7 @@ fun CommentInputDialog(
     var lastKeyboardHeightDp by remember(configuration.orientation) { mutableIntStateOf(0) }
     var inputWasVisible by rememberSaveable { mutableStateOf(false) }
     var restoredDraftKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var inputExpanded by rememberSaveable { mutableStateOf(false) }
     val text = textFieldValue.text
     val canPublish = canPublishCommentDraft(
         text = text,
@@ -382,6 +384,8 @@ fun CommentInputDialog(
         if (inputWasVisible && restoredDraftKey == draftKey) return@LaunchedEffect
         inputWasVisible = true
         restoredDraftKey = draftKey
+        // 关闭时保留展开高度完成退场，只有新开输入会话才恢复紧凑布局。
+        inputExpanded = false
         // 正文回流不参与 effect key，避免每次输入都重置 IME 选区。
         textFieldValue = commentDraftTextFieldValue(initialText)
         isForwardToDynamic = initialSyncToDynamic
@@ -425,7 +429,7 @@ fun CommentInputDialog(
             val availablePanelHeightDp = configuration.screenHeightDp -
                 layoutPolicy.inputBoxMaxHeightDp -
                 layoutPolicy.toolbarToolButtonSizeDp -
-                layoutPolicy.sheetHorizontalPaddingDp * 2 - 12 -
+                COMMENT_INPUT_HEADER_HEIGHT_DP - layoutPolicy.sheetHorizontalPaddingDp - 12 -
                 with(density) {
                     (navigationBarsBottomPx + WindowInsets.statusBars.getTop(density))
                         .toDp().value.roundToInt()
@@ -461,7 +465,8 @@ fun CommentInputDialog(
             HingeSafeInputOverlayHost(
                 modifier = Modifier
                     .fillMaxSize()
-                    .then(if (showEmojiPanel) Modifier else Modifier.imePadding()),
+                    .then(if (showEmojiPanel) Modifier else Modifier.imePadding())
+                    .then(if (inputExpanded) Modifier.statusBarsPadding() else Modifier),
                 onDismissRequest = dismissDialog,
             ) {
                 AnimatedVisibility(
@@ -475,27 +480,58 @@ fun CommentInputDialog(
                         modifier = modifier
                             .widthIn(max = inputOverlayMaxWidthDp.dp)
                             .fillMaxWidth()
-                            .wrapContentHeight(),
+                            .then(if (inputExpanded) Modifier.fillMaxHeight() else Modifier.wrapContentHeight()),
                         shape = AppShapes.container(ContainerLevel.Sheet),
                         color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 8.dp
                     ) {
                         Column(
                             modifier = Modifier
-                                .padding(layoutPolicy.sheetHorizontalPaddingDp.dp)
+                                .fillMaxWidth()
+                                .then(if (inputExpanded) Modifier.fillMaxHeight() else Modifier)
+                                .padding(
+                                    start = layoutPolicy.sheetHorizontalPaddingDp.dp,
+                                    end = layoutPolicy.sheetHorizontalPaddingDp.dp,
+                                    bottom = layoutPolicy.sheetHorizontalPaddingDp.dp
+                                )
                                 .navigationBarsPadding() // 避让底部导航栏(手势条)
                         ) {
-                            // 1. 顶部：输入框
-                            Row(
+                            // 顶部操作使用原生按钮；各材质共用留白布局，不占用正文右侧宽度。
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .heightIn(
-                                        min = layoutPolicy.inputBoxMinHeightDp.dp,
-                                        max = layoutPolicy.inputBoxMaxHeightDp.dp
+                                    .height(COMMENT_INPUT_HEADER_HEIGHT_DP.dp)
+                            ) {
+                                AppIconButton(
+                                    onClick = { inputExpanded = !inputExpanded },
+                                    enabled = inputActive,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(COMMENT_INPUT_HEADER_HEIGHT_DP.dp)
+                                        .testTag("comment_composer_expand_toggle")
+                                ) {
+                                    AppIcon(
+                                        imageVector = if (inputExpanded) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                                        contentDescription = if (inputExpanded) "收起输入区" else "展开输入区",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = AppContentColors.secondaryText()
+                                    )
+                                }
+                            }
+                            // 紧凑态只取原生输入高度；展开态填满剩余视口，均先给头部与发布栏留空间。
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f, fill = inputExpanded)
+                                    .then(
+                                        if (inputExpanded) Modifier else Modifier.heightIn(
+                                            min = layoutPolicy.inputBoxMinHeightDp.dp,
+                                            max = layoutPolicy.inputBoxMaxHeightDp.dp
+                                        )
                                     )
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), AppShapes.container(ContainerLevel.Chip))
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    .padding(12.dp)
+                                    .testTag("comment_composer_editor")
                             ) {
                                 // 原生编辑器也按会话隔离，旧 TextWatcher 不能回写新回复目标。
                                 key(draftKey) {
@@ -511,9 +547,7 @@ fun CommentInputDialog(
                                         },
                                         hintColor = AppContentColors.secondaryText().copy(alpha = 0.7f),
                                         cursorColor = AppContentColors.accent(),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
+                                        modifier = Modifier.fillMaxSize()
                                             .focusRequester(focusRequester)
                                             .testTag("comment_composer_input"),
                                         textStyle = MaterialTheme.typography.bodyLarge.copy(
@@ -521,16 +555,6 @@ fun CommentInputDialog(
                                         ),
                                     )
                                 }
-
-                                // 独立尾部槽位隔离正文和提示文字；所有材质共用，保留原生尺寸与配色。
-                                AppIcon(
-                                    imageVector = Icons.Filled.Fullscreen,
-                                    contentDescription = "Expand",
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .alpha(0.5f),
-                                    tint = AppContentColors.secondaryText()
-                                )
                             }
 
                             AnimatedVisibility(
