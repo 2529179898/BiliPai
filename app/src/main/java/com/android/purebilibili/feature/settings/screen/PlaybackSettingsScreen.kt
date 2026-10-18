@@ -191,6 +191,8 @@ fun PlaybackSettingsContent(
         .collectAsStateWithLifecycle(initialValue = SettingsManager.MusicLyricsUiStyle.CLASSIC)
     val loudnessNormalizationEnabled by com.android.purebilibili.core.store.SettingsManager
         .getLoudnessNormalizationEnabled(context).collectAsStateWithLifecycle(initialValue = false)
+    val audioSpectrumEnabled by com.android.purebilibili.core.store.SettingsManager
+        .getAudioSpectrumEnabled(context).collectAsStateWithLifecycle(initialValue = false)
     val startupAutoPlayEnabled by com.android.purebilibili.core.store.SettingsManager
         .getStartupAutoPlayEnabled(context).collectAsStateWithLifecycle(initialValue = false)
     val playerDiagnosticLoggingEnabled by com.android.purebilibili.core.store.SettingsManager
@@ -797,6 +799,26 @@ SettingsItemAnchor("playback.mini_player_mode") {
                             )
                         }
                         AppPreferenceDivider()
+                        SettingsItemAnchor("playback.audio_spectrum_enabled") {
+                            AppSwitchPreference(
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.ANIMATION),
+                                title = playbackSettingTitle("playback.audio_spectrum_enabled"),
+                                subtitle = if (audioSpectrumEnabled) {
+                                    "听视频歌曲信息旁的短柱随声音起伏"
+                                } else {
+                                    "用灵动岛式短柱呈现声音变化，不需要录音权限"
+                                },
+                                checked = audioSpectrumEnabled,
+                                onCheckedChange = {
+                                    scope.launch {
+                                        com.android.purebilibili.core.store.SettingsManager
+                                            .setAudioSpectrumEnabled(context, it)
+                                    }
+                                },
+                                iconTint = AppContentColors.secondaryText()
+                            )
+                        }
+                        AppPreferenceDivider()
                         SettingsItemAnchor("playback.startup_auto_play_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.PLAYLIST_AUTO_CONTINUE),
@@ -1337,6 +1359,9 @@ private fun PlaybackInteractionSettingsSection(
     val commentFraudDetectionEnabled by com.android.purebilibili.core.store.SettingsManager
         .getCommentFraudDetectionEnabled(context)
         .collectAsStateWithLifecycle(initialValue = true)
+    val commentAvatarPushEnabled by SettingsManager
+        .getCommentAvatarPushEnabled(context)
+        .collectAsStateWithLifecycle(initialValue = false)
     val commentMemberDecorationsEnabled by com.android.purebilibili.core.store.SettingsManager
         .getCommentMemberDecorationsEnabled(context)
         .collectAsStateWithLifecycle(initialValue = false)
@@ -1842,6 +1867,19 @@ SettingsItemAnchor("playback.comment_collapsed_reply_preview_limit") {
                 },
                 iconTint = AppContentColors.secondaryText()
             )
+            }
+        AppPreferenceDivider()
+            SettingsItemAnchor("playback.comment_avatar_push_enabled") {
+                AppSwitchPreference(
+                    icon = rememberSettingsSemanticIcon(SettingsIconRole.COMMENT_DECORATION),
+                    title = playbackSettingTitle("playback.comment_avatar_push_enabled"),
+                    subtitle = "头像以作者行为原位，滑出顶部后吸附并随评论边界顶替，滑回即恢复；支持评论、回复与搜索结果",
+                    checked = commentAvatarPushEnabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch { SettingsManager.setCommentAvatarPushEnabled(context, enabled) }
+                    },
+                    iconTint = AppContentColors.secondaryText()
+                )
             }
         AppPreferenceDivider()
             SettingsItemAnchor("playback.comment_member_decorations_enabled") {

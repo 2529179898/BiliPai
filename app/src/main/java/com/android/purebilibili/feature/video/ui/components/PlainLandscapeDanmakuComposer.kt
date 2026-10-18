@@ -1,5 +1,12 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import com.android.purebilibili.core.ui.rememberAppBottomSheetMotion
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -101,41 +108,73 @@ fun PlainLandscapeDanmakuComposer(
     onSelectionChange: (color: Int, mode: Int, fontSize: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (!visible) return
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true,
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false,
-        ),
-    ) {
-        Box(
-            modifier = modifier.fillMaxSize().imePadding()
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
-            contentAlignment = Alignment.BottomCenter,
+    val sheetMotion = rememberAppBottomSheetMotion()
+    val visibility = remember { MutableTransitionState(false) }
+    var closeRequested by remember { mutableStateOf(false) }
+    val latestDismiss by rememberUpdatedState(onDismiss)
+    val inputActive = visible && !closeRequested
+    LaunchedEffect(visible) {
+        closeRequested = false
+        visibility.targetState = visible
+    }
+    LaunchedEffect(inputActive) { visibility.targetState = inputActive }
+    LaunchedEffect(visibility.isIdle, visibility.currentState, closeRequested) {
+        if (visibility.isIdle && !visibility.currentState && closeRequested) latestDismiss()
+    }
+    val requestDismiss: () -> Unit = {
+        closeRequested = true
+        visibility.targetState = false
+    }
+    if (visibility.currentState || visibility.targetState) {
+        Dialog(
+            onDismissRequest = requestDismiss,
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true,
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false,
+            ),
         ) {
+            val view = LocalView.current
+            SideEffect {
+                ((view.parent as? DialogWindowProvider) ?: (view as? DialogWindowProvider))
+                    ?.window?.setWindowAnimations(0)
+            }
             Box(
-                Modifier.fillMaxSize().clickable(
-                    interactionSource = null,
-                    indication = null,
-                    onClick = onDismiss,
+                modifier = modifier.fillMaxSize().imePadding()
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                Box(
+                    Modifier.fillMaxSize().clickable(
+                        interactionSource = null,
+                        indication = null,
+                        onClick = requestDismiss,
+                    )
                 )
-            )
-            LandscapeDanmakuComposerContent(
-                visible = visible,
-                onSend = onSend,
-                isSending = isSending,
-                initialColor = initialColor,
-                initialMode = initialMode,
-                initialFontSize = initialFontSize,
-                initialText = initialText,
-                initialAttentionCommand = initialAttentionCommand,
-                onDraftChange = onDraftChange,
-                onSelectionChange = onSelectionChange,
-                modifier = Modifier.fillMaxWidth(),
-            )
+                AnimatedVisibility(
+                    visibleState = visibility,
+                    enter = sheetMotion.contentEnter,
+                    exit = sheetMotion.contentExit,
+                    label = "plainLandscapeDanmakuInput",
+                ) {
+                    LandscapeDanmakuComposerContent(
+                        visible = inputActive,
+                        onSend = { message, color, mode, size, attention ->
+                            if (inputActive) onSend(message, color, mode, size, attention)
+                        },
+                        isSending = isSending,
+                        initialColor = initialColor,
+                        initialMode = initialMode,
+                        initialFontSize = initialFontSize,
+                        initialText = initialText,
+                        initialAttentionCommand = initialAttentionCommand,
+                        onDraftChange = onDraftChange,
+                        onSelectionChange = onSelectionChange,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
         }
     }
 }
@@ -237,7 +276,7 @@ private fun LandscapeDanmakuComposerContent(
     }
     val secondaryText = Color.White.copy(alpha = 0.62f)
     val sendMessage = {
-        if (text.isNotBlank() && !isSending) {
+        if (visible && text.isNotBlank() && !isSending) {
             onSend(text.trim(), selectedColor, selectedMode, selectedFontSize, attentionCommandChecked)
         }
     }
@@ -307,7 +346,7 @@ private fun LandscapeDanmakuComposerContent(
                             }
                         }
                     },
-                enabled = !isSending,
+                enabled = visible && !isSending,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFF242424)),
                 cursorBrush = inputCursor,
                 singleLine = true,
@@ -335,7 +374,7 @@ private fun LandscapeDanmakuComposerContent(
 
             AppIconButton(
                 onClick = sendMessage,
-                enabled = text.isNotBlank() && !isSending,
+                enabled = visible && text.isNotBlank() && !isSending,
                 modifier = Modifier.size(48.dp),
             ) {
                 if (isSending) {
@@ -477,7 +516,7 @@ private fun LandscapeDanmakuComposerContent(
     }
     }
 
-    if (showCustomColorPicker) {
+    if (visible && showCustomColorPicker) {
         DanmakuCustomColorPickerDialog(
             initialColor = lastCustomColor,
             onConfirm = { picked ->

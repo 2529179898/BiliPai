@@ -3011,18 +3011,45 @@ class DanmakuManager private constructor(
         isPlaying = false
     }
 
+    /** 先捕获手指触及的弹幕，等 Compose 确认单击后打开菜单，避免双击等待期间弹幕移走。 */
+    fun captureTap(
+        source: androidx.compose.ui.layout.LayoutCoordinates?,
+        position: androidx.compose.ui.geometry.Offset
+    ): (() -> Unit)? {
+        val view = danmakuView ?: return null
+        val listener = danmakuClickListener ?: return null
+        if (source == null || !source.isAttached || !view.isShown || !isRenderingEnabled) return null
+        val windowPosition = source.localToWindow(position)
+        val location = IntArray(2)
+        view.getLocationInWindow(location)
+        val x = windowPosition.x - location[0]
+        val y = windowPosition.y - location[1]
+        if (x < 0f || y < 0f || x >= view.width || y >= view.height) return null
+        val click = controller?.captureClick(x, y) ?: return null
+        val generation = loadGeneration
+        return {
+            if (danmakuView === view && danmakuClickListener === listener &&
+                loadGeneration == generation && isRenderingEnabled
+            ) click()
+        }
+    }
+
     /**
      * 设置弹幕点击监听器
      *
      * @param listener 回调函数，参数为 (text, dmid, userHash, isSelf)
      */
-    fun setOnDanmakuClickListener(listener: (String, Long, String, Boolean) -> Unit) {
+    fun setOnDanmakuClickListener(listener: ((String, Long, String, Boolean) -> Unit)?) {
         danmakuClickListener = listener
         applyDanmakuClickListener()
     }
 
     private fun applyDanmakuClickListener() {
-        val callback = danmakuClickListener ?: return
+        val callback = danmakuClickListener
+        if (callback == null) {
+            controller?.setOnItemClickListener(null)
+            return
+        }
         controller?.let { ctrl ->
             try {
                 ctrl.setOnItemClickListener { danmaku, _, _ ->

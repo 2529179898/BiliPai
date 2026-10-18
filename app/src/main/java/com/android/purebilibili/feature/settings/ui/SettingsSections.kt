@@ -175,7 +175,6 @@ internal data class SettingsRootCategoryActions(
     val onDynamicImagePreviewTextVisibleChange: (Boolean) -> Unit,
     val onDynamicCommentPreviewVisibleChange: (Boolean) -> Unit,
     val onDynamicDetailImageLayoutChange: (com.android.purebilibili.core.store.SettingsManager.DynamicDetailImageLayout) -> Unit,
-    val onDynamicAllTabHorizontalUserListVisibleChange: (Boolean) -> Unit,
     val onDynamicTopBarCollapseOnScrollChange: (Boolean) -> Unit,
     val onDynamicFeedLayoutModeChange: (com.android.purebilibili.core.store.SettingsManager.DynamicFeedLayoutMode) -> Unit,
     val onDynamicTabVisibilityChange: (String) -> Unit,
@@ -217,7 +216,6 @@ internal data class SettingsRootCategoryState(
     val dynamicImagePreviewTextVisible: Boolean,
     val dynamicCommentPreviewVisible: Boolean,
     val dynamicDetailImageLayout: com.android.purebilibili.core.store.SettingsManager.DynamicDetailImageLayout,
-    val dynamicAllTabHorizontalUserListVisible: Boolean,
     val dynamicTopBarCollapseOnScroll: Boolean,
     val dynamicFeedLayoutMode: com.android.purebilibili.core.store.SettingsManager.DynamicFeedLayoutMode,
     val dynamicVisibleTabIds: Set<String>,
@@ -494,9 +492,6 @@ internal fun SettingsRootCategoryContent(
                             onDynamicCommentPreviewVisibleChange = actions.onDynamicCommentPreviewVisibleChange,
                             dynamicDetailImageLayout = state.dynamicDetailImageLayout,
                             onDynamicDetailImageLayoutChange = actions.onDynamicDetailImageLayoutChange,
-                            dynamicAllTabHorizontalUserListVisible = state.dynamicAllTabHorizontalUserListVisible,
-                            onDynamicAllTabHorizontalUserListVisibleChange =
-                                actions.onDynamicAllTabHorizontalUserListVisibleChange,
                             dynamicTopBarCollapseOnScroll = state.dynamicTopBarCollapseOnScroll,
                             onDynamicTopBarCollapseOnScrollChange =
                                 actions.onDynamicTopBarCollapseOnScrollChange,
@@ -704,9 +699,6 @@ internal fun SettingsRootCategoryContent(
                             onDynamicCommentPreviewVisibleChange = actions.onDynamicCommentPreviewVisibleChange,
                             dynamicDetailImageLayout = state.dynamicDetailImageLayout,
                             onDynamicDetailImageLayoutChange = actions.onDynamicDetailImageLayoutChange,
-                            dynamicAllTabHorizontalUserListVisible = state.dynamicAllTabHorizontalUserListVisible,
-                            onDynamicAllTabHorizontalUserListVisibleChange =
-                                actions.onDynamicAllTabHorizontalUserListVisibleChange,
                             dynamicTopBarCollapseOnScroll = state.dynamicTopBarCollapseOnScroll,
                             onDynamicTopBarCollapseOnScrollChange =
                                 actions.onDynamicTopBarCollapseOnScrollChange,
@@ -1037,8 +1029,6 @@ fun FeedApiSection(
     onDynamicCommentPreviewVisibleChange: (Boolean) -> Unit,
     dynamicDetailImageLayout: com.android.purebilibili.core.store.SettingsManager.DynamicDetailImageLayout,
     onDynamicDetailImageLayoutChange: (com.android.purebilibili.core.store.SettingsManager.DynamicDetailImageLayout) -> Unit,
-    dynamicAllTabHorizontalUserListVisible: Boolean,
-    onDynamicAllTabHorizontalUserListVisibleChange: (Boolean) -> Unit,
     dynamicTopBarCollapseOnScroll: Boolean,
     onDynamicTopBarCollapseOnScrollChange: (Boolean) -> Unit,
     dynamicFeedLayoutMode: com.android.purebilibili.core.store.SettingsManager.DynamicFeedLayoutMode,
@@ -1116,17 +1106,6 @@ fun FeedApiSection(
             iconTint = siblingTints[3],
             onSelectionChange = onDynamicDetailImageLayoutChange,
         )
-        SettingsAdaptiveDivider()
-        SettingsItemAnchor("home.dynamic_all_tab_horizontal_user_list_visible") {
-            SettingSwitchItem(
-                icon = visibilityIcon,
-                title = settingItemTitle("home.dynamic_all_tab_horizontal_user_list_visible"),
-                subtitle = "关闭后隐藏顶部横向用户列表，“UP主”页仍可选择关注用户",
-                checked = dynamicAllTabHorizontalUserListVisible,
-                onCheckedChange = onDynamicAllTabHorizontalUserListVisibleChange,
-                iconTint = siblingTints[4]
-            )
-        }
         SettingsAdaptiveDivider()
         SettingsItemAnchor("home.dynamic_top_bar_collapse_on_scroll") {
             SettingSwitchItem(
@@ -1229,7 +1208,7 @@ private fun FeedDynamicTabVisibilityItem(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 AppText(
-                    text = "选择动态分类和顺序，至少保留一个。隐藏 UP 分类后，点侧栏用户直接打开主页。",
+                    text = "选择动态分类和顺序，至少保留一个；点关注用户可在“全部”中查看其动态。",
                     style = MaterialTheme.typography.bodySmall,
                     color = AppContentColors.secondaryText()
                 )
@@ -2131,7 +2110,7 @@ fun AboutSection(
     }
 }
 
-internal data class AboutContributor(
+internal data class AboutDeveloper(
     val name: String,
     val githubLogin: String,
     val avatarResId: Int? = null,
@@ -2140,39 +2119,75 @@ internal data class AboutContributor(
     val profileUrl: String get() = "https://github.com/$githubLogin"
 }
 
-// 默认使用本地头像以避免进入关于页时请求 GitHub；个别新贡献者可使用其公开头像链接。
-internal val AboutContributors = listOf(
-    AboutContributor("jay3-yy", "jay3-yy", R.drawable.avatar_jay3_yy),
-    AboutContributor(
+// 名单依据仓库的 GitHub 贡献记录维护，合并同一开发者的别名，不收录自动化账号。
+// 已有本地头像继续复用；新增开发者使用公开头像链接，不在关于页请求贡献者 API。
+internal val AboutDevelopers = listOf(
+    AboutDeveloper("jay3-yy", "jay3-yy", R.drawable.avatar_jay3_yy),
+    AboutDeveloper(
         name = "Piracola",
         githubLogin = "Piracola",
         avatarUrl = "https://avatars.githubusercontent.com/u/116626041?v=4"
     ),
-    AboutContributor("Chenx Dust", "chenx-dust", R.drawable.avatar_chenx_dust),
-    AboutContributor("usontong", "usontong", R.drawable.avatar_usontong),
-    AboutContributor("Leko", "lekoOwO", R.drawable.avatar_lekoowo),
-    AboutContributor("TanakaLun", "TanakaLun", R.drawable.avatar_tanakalun),
-    AboutContributor("Matt Van Horn", "mvanhorn", R.drawable.avatar_mvanhorn),
-    AboutContributor("qyo123oyq", "qyo123oyq", R.drawable.avatar_qyo123oyq),
-    AboutContributor(
+    AboutDeveloper(
+        name = "CoderTCY",
+        githubLogin = "CoderTCY",
+        avatarUrl = "https://avatars.githubusercontent.com/u/73740771?v=4"
+    ),
+    AboutDeveloper(
+        name = "1290000",
+        githubLogin = "1290000",
+        avatarUrl = "https://avatars.githubusercontent.com/u/223883074?v=4"
+    ),
+    AboutDeveloper("Chenx Dust", "chenx-dust", R.drawable.avatar_chenx_dust),
+    AboutDeveloper("usontong", "usontong", R.drawable.avatar_usontong),
+    AboutDeveloper("Leko", "lekoOwO", R.drawable.avatar_lekoowo),
+    AboutDeveloper("TanakaLun", "TanakaLun", R.drawable.avatar_tanakalun),
+    AboutDeveloper("Matt Van Horn", "mvanhorn", R.drawable.avatar_mvanhorn),
+    AboutDeveloper("qyo123oyq", "qyo123oyq", R.drawable.avatar_qyo123oyq),
+    AboutDeveloper(
         name = "maxzrb",
         githubLogin = "maxzrb",
         avatarUrl = "https://avatars.githubusercontent.com/u/114979598?v=4"
     ),
-    AboutContributor(
+    AboutDeveloper(
         name = "xiaoniao427",
         githubLogin = "xiaoniao427",
         avatarUrl = "https://avatars.githubusercontent.com/u/115906803?v=4"
     ),
-    AboutContributor(
+    AboutDeveloper(
         name = "zensu357",
         githubLogin = "zensu357",
         avatarUrl = "https://avatars.githubusercontent.com/u/109052061?v=4"
     ),
-    AboutContributor(
+    AboutDeveloper(
         name = "Kurarion",
         githubLogin = "Kurarion",
         avatarUrl = "https://avatars.githubusercontent.com/u/29721634?v=4"
+    ),
+    AboutDeveloper(
+        name = "MuonChaser",
+        githubLogin = "MuonChaser",
+        avatarUrl = "https://avatars.githubusercontent.com/u/140365375?v=4"
+    ),
+    AboutDeveloper(
+        name = "tom613951",
+        githubLogin = "tom613951",
+        avatarUrl = "https://avatars.githubusercontent.com/u/111942871?v=4"
+    ),
+    AboutDeveloper(
+        name = "Cornfy",
+        githubLogin = "Cornfy",
+        avatarUrl = "https://avatars.githubusercontent.com/u/97228122?v=4"
+    ),
+    AboutDeveloper(
+        name = "cunminF",
+        githubLogin = "cunminF",
+        avatarUrl = "https://avatars.githubusercontent.com/u/326400924?v=4"
+    ),
+    AboutDeveloper(
+        name = "converk",
+        githubLogin = "converk",
+        avatarUrl = "https://avatars.githubusercontent.com/u/34793421?v=4"
     )
 )
 
@@ -2202,7 +2217,7 @@ private val AboutSlogans = listOf(
 private fun AboutProjectOverviewCard(
     versionName: String,
     appIconRes: Int,
-    contributors: List<AboutContributor> = AboutContributors
+    developers: List<AboutDeveloper> = AboutDevelopers
 ) {
     val slogan = remember { AboutSlogans.random() }
     AppCard(
@@ -2257,7 +2272,7 @@ private fun AboutProjectOverviewCard(
             }
             Spacer(modifier = Modifier.height(22.dp))
             AppText(
-                text = "贡献者",
+                text = "开发者",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = AppContentColors.secondaryText()
@@ -2268,8 +2283,8 @@ private fun AboutProjectOverviewCard(
                 horizontalArrangement = Arrangement.spacedBy(18.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                contributors.forEach { contributor ->
-                    AboutContributorItem(contributor = contributor)
+                developers.forEach { developer ->
+                    AboutDeveloperItem(developer = developer)
                 }
             }
         }
@@ -2277,15 +2292,15 @@ private fun AboutProjectOverviewCard(
 }
 
 @Composable
-private fun AboutContributorItem(
-    contributor: AboutContributor
+private fun AboutDeveloperItem(
+    developer: AboutDeveloper
 ) {
     val uriHandler = LocalUriHandler.current
     Column(
         modifier = Modifier
             .width(76.dp)
             .clip(AppShapes.container(ContainerLevel.Chip))
-            .clickable { uriHandler.openUri(contributor.profileUrl) }
+            .clickable { uriHandler.openUri(developer.profileUrl) }
             .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -2296,17 +2311,17 @@ private fun AboutContributorItem(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
-            contributor.avatarUrl?.let { avatarUrl ->
+            developer.avatarUrl?.let { avatarUrl ->
                 AsyncImage(
                     model = avatarUrl,
-                    contentDescription = "${contributor.name} 头像",
+                    contentDescription = "${developer.name} 头像",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.matchParentSize()
                 )
-            } ?: contributor.avatarResId?.let { avatarResId ->
+            } ?: developer.avatarResId?.let { avatarResId ->
                 Image(
                     painter = painterResource(id = avatarResId),
-                    contentDescription = "${contributor.name} 头像",
+                    contentDescription = "${developer.name} 头像",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.matchParentSize()
                 )
@@ -2314,7 +2329,7 @@ private fun AboutContributorItem(
         }
         Spacer(modifier = Modifier.height(8.dp))
         AppText(
-            text = contributor.name,
+            text = developer.name,
             style = MaterialTheme.typography.bodySmall,
             color = AppContentColors.primaryText(),
             textAlign = TextAlign.Center,

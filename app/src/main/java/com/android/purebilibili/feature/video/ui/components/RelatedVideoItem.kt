@@ -231,7 +231,10 @@ fun RelatedVideoItem(
     )
     val cardCoordinatesRef = remember { object { var value: LayoutCoordinates? = null } }
     val coverCoordinatesRef = remember { object { var value: LayoutCoordinates? = null } }
-    val nativeCardSnapshot = rememberNativeVideoCardSnapshotController(video.bvid)
+    val infoCoordinatesRef = remember { object { var value: LayoutCoordinates? = null } }
+    val nativeCardSnapshot = rememberNativeVideoCardSnapshotController(
+        video.bvid, enabled = sharedTransitionEnabled,
+    )
     val cardShape = AppShapes.container(ContainerLevel.Card)
     val cardCornerRadiusDp = AppShapes.containerCornerDp(ContainerLevel.Card).value.roundToInt()
     val context = LocalContext.current
@@ -269,6 +272,9 @@ fun RelatedVideoItem(
                     } else {
                         VideoCardSourceLayout.SIDE_BY_SIDE
                     },
+                    infoBounds = infoCoordinatesRef.value
+                        ?.takeIf { it.isAttached }
+                        ?.boundsInRoot(),
                     sourceChromeSnapshot = VideoCardSourceChromeSnapshot(
                         title = video.title,
                         ownerName = video.owner.name,
@@ -317,8 +323,8 @@ fun RelatedVideoItem(
                 clipShape = cardShape,
                 crossfadeSourceContent = true,
             )
-            .clip(cardShape)
             .then(nativeCardSnapshot.modifier)
+            .clip(cardShape)
             .background(AppSurfaceTokens.cardContainer())
             .clickable(onClick = triggerRelatedVideoClick)
     ) {
@@ -327,6 +333,9 @@ fun RelatedVideoItem(
             stacked = stacked,
             coverModifier = Modifier.onGloballyPositioned { coordinates ->
                 coverCoordinatesRef.value = coordinates
+            },
+            infoModifier = Modifier.onGloballyPositioned { coordinates ->
+                infoCoordinatesRef.value = coordinates
             },
             coverOverlayModifier = nativeCardSnapshot.coverOverlayModifier,
             coverContent = {

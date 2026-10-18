@@ -101,6 +101,7 @@ internal data class VideoDetailReturnSourceCardChromeModel(
     val danmakuText: String = "",
     val durationText: String = "",
     val followed: Boolean = false,
+    val recommendationReason: String = "",
     val infoPresentation: VideoCardSourceInfoPresentation = VideoCardSourceInfoPresentation(),
     val coverPresentation: VideoCardSourceCoverPresentation =
         VideoCardSourceCoverPresentation(),
@@ -118,6 +119,7 @@ internal fun resolveVideoDetailReturnSourceCardChromeModel(
             danmakuText = snapshot.danmakuText,
             durationText = snapshot.durationText,
             followed = snapshot.followed,
+            recommendationReason = snapshot.recommendationReason,
             infoPresentation = snapshot.infoPresentation,
             coverPresentation = snapshot.coverPresentation,
         ).takeIf { it.title.isNotBlank() || it.ownerName.isNotBlank() }
@@ -221,6 +223,7 @@ internal fun resolveVideoDetailFlyingSourceChromeAlpha(
         morphDepthProgress = morphDepthProgress,
         phase = phase,
         isReturnGestureInProgress = isReturnGestureInProgress,
+        sourceLayout = sourceLayout,
     )
     if (!detailContentLoading || !isVideoCardReturnContentYieldActive(
             phase = phase,
@@ -310,13 +313,14 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
     val frozenCardAnchorXPx = layout.cardAnchorXInViewportPx * layout.sourceScale
     val frozenCardAnchorYPx = layout.cardAnchorYInViewportPx * layout.sourceScale
 
-    fun currentInverseScale(): MiuixVideoCardInverseScale {
-        return resolveMiuixVideoCardInverseScaleForDepth(
-            sourceScaleX = layout.sourceScale,
-            sourceScaleY = sourceScaleY,
-            depth = morphDepthProgressProvider(),
-        )
-    }
+    // FillWidthTop compensation cancels the outer scale on both axes. Source-pixel
+    // reconstruction is therefore constant (1 / sourceScale), even while depth changes.
+    // Do not subscribe the native info slot's measure pass to a frame-rate value.
+    val sourcePixelInverseScale = resolveMiuixVideoCardInverseScaleForDepth(
+        sourceScaleX = layout.sourceScale,
+        sourceScaleY = sourceScaleY,
+        depth = 0f,
+    )
 
     fun horizontalInfoClipLeftPx(localScaleX: Float = 1f): Float {
         if (!horizontalMediaHandoffEnabled ||
@@ -335,7 +339,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
             viewportWidthPx = viewportWidthPx,
             coverRightPx = layout.coverOffsetXPx + layout.coverWidthPx,
             infoLeftPx = frozenInfoAnchorXPx,
-            inverseScaleX = currentInverseScale().scaleX,
+            inverseScaleX = sourcePixelInverseScale.scaleX,
             handoffProgress = sourceAlpha,
             localScaleX = localScaleX,
         )
@@ -349,7 +353,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
         }
 
     fun Modifier.landingOffset(anchorXPx: Float, anchorYPx: Float): Modifier = offset {
-        val inverse = currentInverseScale()
+        val inverse = sourcePixelInverseScale
         IntOffset(
             x = (anchorXPx * inverse.scaleX).roundToInt(),
             y = if (layout.layout == VideoCardSourceLayout.STACKED) {
@@ -400,13 +404,13 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
             cropXPx: Float,
             cropYPx: Float,
         ): Modifier = offset {
-            val inverse = currentInverseScale()
+            val inverse = sourcePixelInverseScale
             IntOffset(
                 x = (frozenInfoAnchorXPx * inverse.scaleX).roundToInt(),
                 y = infoTopPx(inverse),
             )
         }.layout { measurable, _ ->
-            val inverse = currentInverseScale()
+            val inverse = sourcePixelInverseScale
             val w = (widthPx * inverse.scaleX).roundToInt().coerceAtLeast(1)
             val h = (heightPx * inverse.scaleY).roundToInt().coerceAtLeast(1)
             val placeable = measurable.measure(Constraints.fixed(w, h))
@@ -425,7 +429,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
                 isCommittedCardReturn = isCommittedCardReturn,
             )
         }.drawWithContent {
-            val inverse = currentInverseScale()
+            val inverse = sourcePixelInverseScale
             clipRect(left = horizontalInfoClipLeftPx().coerceAtMost(size.width)) {
                 scale(
                     scaleX = inverse.scaleX,
@@ -554,7 +558,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
                     .height(cardHeight)
                     .landingLayer()
                     .drawWithContent {
-                        val left = horizontalInfoClipLeftPx(currentInverseScale().scaleX)
+                        val left = horizontalInfoClipLeftPx(sourcePixelInverseScale.scaleX)
                             .coerceAtMost(size.width)
                         clipRect(left = left) { this@drawWithContent.drawContent() }
                     }
@@ -1022,7 +1026,7 @@ private fun LandingInfoTexts(
 @Composable
 private fun LandingSideBySideMetadata(model: VideoDetailReturnSourceCardChromeModel) {
     val publishTime = model.infoPresentation.publishTimeText
-    val hasOwner = model.ownerName.isNotBlank() || model.followed
+    val hasOwner = model.ownerName.isNotBlank() || model.followed || model.recommendationReason.isNotBlank()
     if (publishTime.isBlank() && !hasOwner) return
 
     if (model.infoPresentation.ownerBeforePublish) {
@@ -1069,13 +1073,14 @@ private fun LandingOwnerMetadata(
     model: VideoDetailReturnSourceCardChromeModel,
     modifier: Modifier = Modifier,
 ) {
-    if (model.ownerName.isBlank() && !model.followed) return
+    if (model.ownerName.isBlank() && !model.followed && model.recommendationReason.isBlank()) return
     val contentTypography = feedContentTypography()
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.ExtraSmall),
     ) {
+        com.android.purebilibili.feature.home.components.cards.VideoRecommendationBadge(model.recommendationReason)
         if (model.followed) {
             AppText(
                 text = "已关注",

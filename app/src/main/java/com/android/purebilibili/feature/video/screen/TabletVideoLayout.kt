@@ -5,6 +5,7 @@ import com.android.purebilibili.core.ui.AppContentColors
 
 import com.android.purebilibili.feature.video.ambient.PlayerAmbientLayout
 import com.android.purebilibili.navigation.animatePagerSelection
+import kotlinx.coroutines.flow.collect
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppIconButton
 import com.android.purebilibili.core.ui.components.AppText
@@ -861,10 +862,12 @@ internal fun TabletSecondaryContent(
             )
         )
     }
-    val pagerState = rememberPagerState(
-        initialPage = selectedTab,
-        pageCount = { tabs.size }
-    )
+    val pagerState = key(success.info.bvid, fixedTab, relatedTabFirst) {
+        rememberPagerState(
+            initialPage = selectedTab.coerceIn(0, tabs.lastIndex),
+            pageCount = { tabs.size },
+        )
+    }
 
     // 评论图片预览状态
     var showImagePreview by remember { mutableStateOf(false) }
@@ -873,18 +876,19 @@ internal fun TabletSecondaryContent(
     var sourceRect by remember { mutableStateOf<ImagePreviewSourceAnchor?>(null) }
     var previewTextContent by remember { mutableStateOf<ImagePreviewTextContent?>(null) }
 
+    val avatarPushEnabled = com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled()
     val context = androidx.compose.ui.platform.LocalContext.current
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
     val latestOnRequestedTabConsumed by rememberUpdatedState(onRequestedTabConsumed)
-    LaunchedEffect(selectedTab) {
-        if (pagerState.currentPage != selectedTab) {
-            animatePagerSelection(pagerState, selectedTab)
-        }
+    // All material modes share this synchronization: requests drive the pager once;
+    // only its settled page is persisted. Intermediate pages never become new requests.
+    fun selectSecondaryTab(index: Int) {
+        scope.launch { animatePagerSelection(pagerState, index) }
     }
-    LaunchedEffect(pagerState.currentPage) {
-        if (selectedTab != pagerState.currentPage) {
-            selectedTab = pagerState.currentPage
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect { settledPage ->
+            selectedTab = settledPage
         }
     }
     LaunchedEffect(requestedTabName, tabs) {
@@ -894,7 +898,7 @@ internal fun TabletSecondaryContent(
         }
         if (requestedTab != null) {
             val index = tabs.indexOf(requestedTab)
-            if (index >= 0) selectedTab = index
+            if (index >= 0) selectSecondaryTab(index)
             latestOnRequestedTabConsumed()
         }
     }
@@ -902,7 +906,7 @@ internal fun TabletSecondaryContent(
         if (subReplyState.visible && fixedTab != TabletSecondaryTab.RELATED) {
             resolveTabletCommentTabIndex(tabs)
                 .takeIf { it >= 0 }
-                ?.let { selectedTab = it }
+                ?.let { selectSecondaryTab(it) }
             if (paneMode == TabletSecondaryPaneMode.COLLAPSED) {
                 onPaneModeChange(TabletSecondaryPaneMode.COMPACT)
             }
@@ -972,7 +976,7 @@ internal fun TabletSecondaryContent(
             Spacer(modifier = Modifier.height(8.dp))
             tabs.forEachIndexed { index, tab ->
                 AppTextButton(onClick = {
-                    selectedTab = index
+                    selectSecondaryTab(index)
                     onPaneModeChange(TabletSecondaryPaneMode.COMPACT)
                 }) {
                     AppText(tab.label)
@@ -1006,9 +1010,7 @@ internal fun TabletSecondaryContent(
                 TabletSecondaryLiquidTabRow(
                     labels = tabs.map { it.label },
                     selectedIndex = pagerState.currentPage,
-                    onSelected = { index ->
-                        scope.launch { animatePagerSelection(pagerState, index) }
-                    },
+                    onSelected = ::selectSecondaryTab,
                     indicatorPositionProvider = {
                         pagerState.currentPage + pagerState.currentPageOffsetFraction
                     },
@@ -1147,6 +1149,7 @@ internal fun TabletSecondaryContent(
                                     }
                                 },
                                 onSearchClick = { showCommentSearchSheet = true },
+                                compactTypography = true,
                             )
                             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             AdaptivePullToRefreshBox(
@@ -1207,6 +1210,8 @@ internal fun TabletSecondaryContent(
                                     modifier = videoCommentItemModifier().padding(bottom = 1.dp)
                                 ) {
                                     ReplyItemView(
+                                        avatarListState = listState.takeIf { avatarPushEnabled },
+                                        avatarItemKey = "reply_${reply.rpid}",
                                         item = reply,
                                         emoteMap = success.emoteMap,
                                         upMid = success.info.owner.mid,

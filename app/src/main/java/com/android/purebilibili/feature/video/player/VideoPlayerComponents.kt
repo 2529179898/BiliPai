@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.video.player
 
+import com.android.purebilibili.core.ui.components.rememberFollowActionWithConfirmation
 import com.android.purebilibili.core.ui.AppContentColors
 
 import coil3.request.crossfade
@@ -215,7 +216,12 @@ fun UpInfoSection(
 
         // 关注按钮
         AppSurface(
-            onClick = onFollowClick,
+            onClick = rememberFollowActionWithConfirmation(
+                targetKey = info.owner.mid,
+                userName = info.owner.name,
+                isFollowing = isFollowing,
+                onFollowClick = onFollowClick,
+            ),
             color = if (isFollowing) MaterialTheme.colorScheme.surfaceVariant else AppContentColors.accent(),
             shape = AppShapes.container(ContainerLevel.Card),
             modifier = Modifier.height(32.dp)

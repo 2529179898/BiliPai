@@ -93,8 +93,17 @@ private fun StringBuilder.appendNativeCrashSummary(summary: NativeCrashSummary) 
         )
     }
     if (summary.frames.isNotEmpty()) {
-        appendLine("Crashing thread backtrace:")
-        summary.frames.take(24).forEachIndexed { index, frame ->
+        if (summary.threadName == "RenderThread") {
+            appendLine("排查方向: 界面原生渲染崩溃；仅凭渲染栈不能确定具体组件或根因。")
+            val repeatedFrames = summary.frames.mapNotNull { it.functionName }
+                .groupingBy { it }.eachCount().filterValues { it >= 8 }
+            if (repeatedFrames.isNotEmpty()) {
+                appendLine("重复栈帧: ${repeatedFrames.entries.joinToString { "${it.key} ×${it.value}" }}")
+                appendLine("提示: 检查渲染层级递归或背景自采样；重复帧不等同于已确认根因。")
+            }
+        }
+        appendLine("Crashing thread backtrace: ${summary.frames.size} frames (all decoded frames)")
+        summary.frames.forEachIndexed { index, frame ->
             append("  #")
             append(index.toString().padStart(2, '0'))
             frame.relativePc?.let { append(" pc 0x").append(it.toString(16)) }

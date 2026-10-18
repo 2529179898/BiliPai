@@ -18,6 +18,52 @@ class BottomPagerPreloadSchedulerTest {
     private val tabs = listOf(BottomNavItem.HOME, BottomNavItem.DYNAMIC, BottomNavItem.STORY, BottomNavItem.PROFILE)
 
     @Test
+    fun inputArrivingBeforeIdleCommitPreventsMountWithoutWaitingForEffectCancellation() = runTest {
+        var allowed = true
+        val idleRequested = CompletableDeferred<Unit>()
+        val idle = CompletableDeferred<Unit>()
+        val additions = mutableListOf<BottomNavItem>()
+        val job = launch {
+            preloadBottomPagerPages(
+                visibleItems = tabs,
+                preloadedItems = { setOf(BottomNavItem.HOME) },
+                awaitFrame = {},
+                awaitIdle = { idleRequested.complete(Unit); idle.await() },
+                isPreloadAllowed = { allowed },
+                onPreload = { additions += it },
+            )
+        }
+        idleRequested.await()
+        assertTrue(additions.isEmpty())
+        allowed = false
+        idle.complete(Unit)
+        job.join()
+        assertTrue(additions.isEmpty())
+    }
+
+    @Test
+    fun cancellationWhileWaitingForIdleDoesNotMountOrDropRetainedPages() = runTest {
+        val retained = setOf(BottomNavItem.HOME)
+        var loaded = retained
+        val idleRequested = CompletableDeferred<Unit>()
+        val idle = CompletableDeferred<Unit>()
+        val job = launch {
+            preloadBottomPagerPages(
+                visibleItems = tabs,
+                preloadedItems = { loaded },
+                awaitFrame = {},
+                awaitIdle = { idleRequested.complete(Unit); idle.await() },
+                onPreload = { loaded = loaded + it },
+            )
+        }
+        idleRequested.await()
+        job.cancelAndJoin()
+        idle.complete(Unit)
+        runCurrent()
+        assertEquals(retained, loaded)
+    }
+
+    @Test
     fun quietWindowThenOnePagePerIntervalWithoutStoryPlayer() = runTest {
         var loaded = setOf(BottomNavItem.HOME)
         val additions = mutableListOf<BottomNavItem>()

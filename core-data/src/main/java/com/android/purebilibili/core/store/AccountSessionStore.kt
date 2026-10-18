@@ -241,6 +241,15 @@ object AccountSessionStore {
         return updated
     }
 
+    /** Refreshes only the avatar; session credentials and account selection remain untouched. */
+    fun updateAccountAvatar(context: Context, mid: Long, face: String) {
+        if (mid <= 0L || face.isBlank()) return
+        val accounts = getAccounts(context)
+        val previous = accounts.firstOrNull { it.mid == mid } ?: return
+        if (previous.face == face) return
+        persistAccounts(context, accounts.map { if (it.mid == mid) it.copy(face = face) else it })
+    }
+
     suspend fun activateAccount(context: Context, mid: Long): Boolean {
         val target = getAccounts(context).firstOrNull { it.mid == mid } ?: return false
         if (target.sessData.isBlank()) return false

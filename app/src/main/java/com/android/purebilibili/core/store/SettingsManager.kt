@@ -75,6 +75,7 @@ import com.android.purebilibili.feature.video.ui.gesture.applyVerticalTwoFingerS
 import com.android.purebilibili.core.util.ENHANCED_DIAGNOSTIC_LOG_PREF_KEY
 import com.android.purebilibili.core.util.ENHANCED_DIAGNOSTIC_LOG_PREFS_NAME
 import com.android.purebilibili.core.util.isLargeScreenOrFoldableConfiguration
+import com.android.purebilibili.core.theme.SeedPaletteStyle
 import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
@@ -729,6 +730,7 @@ data class AppThemeSettings(
     val md3CustomColorHex: String = "#007AFF",
     val themeRoleOverrides: ThemeRoleOverrides = ThemeRoleOverrides(),
     val wallpaperPaletteOverrides: WallpaperPaletteOverrides = WallpaperPaletteOverrides(),
+    val seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
     val colorStyle: PaletteStyle = PaletteStyle.TonalSpot,
     val colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
     val colorContrast: Contrast = Contrast.Default,
@@ -1388,6 +1390,7 @@ object SettingsManager {
     private val KEY_THEME_DARK_PRIMARY_TEXT = stringPreferencesKey("theme_dark_primary_text")
     private val KEY_THEME_DARK_SECONDARY_TEXT = stringPreferencesKey("theme_dark_secondary_text")
     private val KEY_THEME_DARK_CONTROL_ACCENT = stringPreferencesKey("theme_dark_control_accent")
+    private val KEY_SEED_PALETTE_STYLE = stringPreferencesKey("seed_palette_style")
     private val KEY_THEME_COLOR_STYLE = stringPreferencesKey("theme_color_style")
     private val KEY_THEME_COLOR_SPEC = stringPreferencesKey("theme_color_spec")
     private val KEY_THEME_COLOR_CONTRAST = stringPreferencesKey("theme_color_contrast")
@@ -1474,12 +1477,11 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private val KEY_DYNAMIC_TAB_VISIBLE_TABS = stringPreferencesKey("dynamic_tab_visible_tabs")
     private val KEY_DYNAMIC_TAB_ORDER = stringPreferencesKey("dynamic_tab_order")
     private val KEY_LOUDNESS_NORMALIZATION_ENABLED = booleanPreferencesKey("loudness_normalization_enabled")
+    private val KEY_AUDIO_SPECTRUM_ENABLED = booleanPreferencesKey("audio_spectrum_enabled")
     private val KEY_STARTUP_AUTO_PLAY_ENABLED = booleanPreferencesKey("startup_auto_play_enabled")
     private val KEY_DYNAMIC_IMAGE_PREVIEW_TEXT_VISIBLE =
         booleanPreferencesKey("dynamic_image_preview_text_visible")
     private val KEY_DYNAMIC_DETAIL_IMAGE_LAYOUT = intPreferencesKey("dynamic_detail_image_layout")
-    private val KEY_DYNAMIC_ALL_TAB_HORIZONTAL_USER_LIST_VISIBLE =
-        booleanPreferencesKey("dynamic_all_tab_horizontal_user_list_visible")
     private val KEY_DYNAMIC_TOP_BAR_COLLAPSE_ON_SCROLL =
         booleanPreferencesKey("dynamic_top_bar_collapse_on_scroll")
     private val KEY_DYNAMIC_TOP_ACTIONS_COLLAPSED =
@@ -1531,8 +1533,8 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private const val DEFAULT_TOP_TAB_VISIBLE = "RECOMMEND,FOLLOW,POPULAR,LIVE,GAME"
     /** 首页顶部 dock 标签数量上限。 */
     const val MAX_TOP_TABS = 5
-    private const val DEFAULT_DYNAMIC_TAB_VISIBLE = "all,video,pgc,article,up"
-    private const val DEFAULT_DYNAMIC_TAB_ORDER = "all,video,pgc,article,up"
+    private const val DEFAULT_DYNAMIC_TAB_VISIBLE = "all,video,pgc,article"
+    private const val DEFAULT_DYNAMIC_TAB_ORDER = "all,video,pgc,article"
     //  [新增] 模糊效果开关
     private val KEY_HEADER_BLUR_ENABLED = booleanPreferencesKey("header_blur_enabled")
     private val KEY_HOME_HEADER_BLUR_MODE = intPreferencesKey("home_header_blur_mode")
@@ -1701,6 +1703,8 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private val KEY_AUTO_CACHE_CLEAR_INTERVAL = intPreferencesKey("auto_cache_clear_interval_days")
     private val KEY_AUTO_CACHE_CLEAR_THRESHOLD_GB = intPreferencesKey("auto_cache_clear_threshold_gb")
     private val KEY_LAST_AUTO_CACHE_CLEAR_AT = longPreferencesKey("last_auto_cache_clear_at")
+    private val KEY_COMMENT_AVATAR_PUSH_ENABLED =
+        booleanPreferencesKey("comment_avatar_push_enabled")
     private val KEY_COMMENT_MEMBER_DECORATIONS_ENABLED =
         booleanPreferencesKey("comment_member_decorations_enabled")
     private val KEY_DETAILED_COMMENT_TIME_ENABLED =
@@ -2331,6 +2335,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                     )
                 )
             ),
+            seedPaletteStyle = SeedPaletteStyle.fromStored(preferences[KEY_SEED_PALETTE_STYLE]),
             colorStyle = resolvePaletteStylePreference(preferences[KEY_THEME_COLOR_STYLE]),
             colorSpec = resolveColorSpecPreference(preferences[KEY_THEME_COLOR_SPEC]),
             colorContrast = resolveColorContrastPreference(preferences[KEY_THEME_COLOR_CONTRAST]),
@@ -2686,6 +2691,14 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 defaults.dark.controlAccentHex
             )
         }
+    }
+
+    fun getSeedPaletteStyle(context: Context): Flow<SeedPaletteStyle> = context.settingsDataStore.data
+        .map { preferences -> SeedPaletteStyle.fromStored(preferences[KEY_SEED_PALETTE_STYLE]) }
+        .distinctUntilChanged()
+
+    suspend fun setSeedPaletteStyle(context: Context, style: SeedPaletteStyle) {
+        context.settingsDataStore.edit { preferences -> preferences[KEY_SEED_PALETTE_STYLE] = style.name }
     }
 
     fun getThemeColorStyle(context: Context): Flow<PaletteStyle> = context.settingsDataStore.data
@@ -4124,7 +4137,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
 
     fun getDynamicTabVisibleTabs(context: Context): Flow<Set<String>> = context.settingsDataStore.data.map { prefs ->
         val tabsString = prefs[KEY_DYNAMIC_TAB_VISIBLE_TABS] ?: DEFAULT_DYNAMIC_TAB_VISIBLE
-        tabsString.split(",").filter { it.isNotBlank() }.toSet()
+        tabsString.split(",").filter { it.isNotBlank() }.map { if (it == "up") "all" else it }.toSet()
     }
 
     suspend fun setDynamicTabVisibleTabs(context: Context, tabs: Set<String>) {
@@ -4136,7 +4149,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     /** 动态栏位顺序：id 用逗号连接，缺失的 id 按默认顺序排在后面。 */
     fun getDynamicTabOrder(context: Context): Flow<List<String>> = context.settingsDataStore.data.map { prefs ->
         val orderString = prefs[KEY_DYNAMIC_TAB_ORDER] ?: DEFAULT_DYNAMIC_TAB_ORDER
-        orderString.split(",").filter { it.isNotBlank() }
+        orderString.split(",").filter { it.isNotBlank() }.map { if (it == "up") "all" else it }.distinct()
     }
 
     suspend fun setDynamicTabOrder(context: Context, order: List<String>) {
@@ -4213,17 +4226,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         cacheDynamicDetailImageLayout(context, layout)
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_DYNAMIC_DETAIL_IMAGE_LAYOUT] = layout.value
-        }
-    }
-
-    fun getDynamicAllTabHorizontalUserListVisible(context: Context): Flow<Boolean> =
-        context.settingsDataStore.data.map { prefs ->
-            prefs[KEY_DYNAMIC_ALL_TAB_HORIZONTAL_USER_LIST_VISIBLE] ?: false
-        }
-
-    suspend fun setDynamicAllTabHorizontalUserListVisible(context: Context, visible: Boolean) {
-        context.settingsDataStore.edit { prefs ->
-            prefs[KEY_DYNAMIC_ALL_TAB_HORIZONTAL_USER_LIST_VISIBLE] = visible
         }
     }
 
@@ -6466,6 +6468,16 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         }
     }
 
+    fun getCommentAvatarPushEnabled(context: Context): Flow<Boolean> =
+        context.settingsDataStore.data
+            .map { preferences -> preferences[KEY_COMMENT_AVATAR_PUSH_ENABLED] ?: false }
+
+    suspend fun setCommentAvatarPushEnabled(context: Context, enabled: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[KEY_COMMENT_AVATAR_PUSH_ENABLED] = enabled
+        }
+    }
+
     fun getCommentMemberDecorationsEnabled(context: Context): Flow<Boolean> =
         context.settingsDataStore.data
             .map { preferences -> preferences[KEY_COMMENT_MEMBER_DECORATIONS_ENABLED] ?: false }
@@ -6649,6 +6661,22 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             .edit().putBoolean("enabled", value).apply()
     }
     
+    // Search-only recording preference. Global privacy still overrides this choice.
+    private val KEY_SEARCH_HISTORY_RECORDING_ENABLED = booleanPreferencesKey("search_history_recording_enabled")
+
+    fun getSearchHistoryRecordingEnabled(context: Context): Flow<Boolean> = context.settingsDataStore.data
+        .map { it[KEY_SEARCH_HISTORY_RECORDING_ENABLED] ?: true }
+
+    suspend fun setSearchHistoryRecordingEnabled(context: Context, enabled: Boolean) {
+        context.settingsDataStore.edit { it[KEY_SEARCH_HISTORY_RECORDING_ENABLED] = enabled }
+        context.getSharedPreferences("privacy_mode", Context.MODE_PRIVATE)
+            .edit().putBoolean("search_history_recording_enabled", enabled).apply()
+    }
+
+    fun isSearchHistoryRecordingEnabledSync(context: Context): Boolean =
+        context.getSharedPreferences("privacy_mode", Context.MODE_PRIVATE)
+            .getBoolean("search_history_recording_enabled", true)
+
     //  同步读取隐私模式状态（用于非协程环境）
     fun isPrivacyModeEnabledSync(context: Context): Boolean {
         return context.getSharedPreferences("privacy_mode", Context.MODE_PRIVATE)
@@ -6784,11 +6812,38 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         context.settingsDataStore.edit { preferences ->
             preferences[KEY_LOUDNESS_NORMALIZATION_ENABLED] = value
         }
+        // 同步到 SharedPreferences，供 MiniPlayerManager 同步读取（此前缺少这一步，
+        // 导致 Sync 读取恒为 false、响度均衡从未真正注入音频链路）
+        context.getSharedPreferences("mini_player", Context.MODE_PRIVATE)
+            .edit().putBoolean("loudness_normalization_enabled", value).apply()
     }
 
     fun getLoudnessNormalizationEnabledSync(context: Context): Boolean {
         return context.getSharedPreferences("mini_player", Context.MODE_PRIVATE)
             .getBoolean("loudness_normalization_enabled", false)
+    }
+
+    /**
+     * 「听视频」音乐氛围。数据取自音频输出链路的 PCM（无录音权限），
+     * 默认关闭；公共 AudioSink 按缓冲读取开关，已有 PCM 播放会话内即可生效。
+     */
+    fun getAudioSpectrumEnabled(context: Context): Flow<Boolean> =
+        context.settingsDataStore.data.map { preferences ->
+            preferences[KEY_AUDIO_SPECTRUM_ENABLED] ?: false
+        }
+
+    suspend fun setAudioSpectrumEnabled(context: Context, value: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[KEY_AUDIO_SPECTRUM_ENABLED] = value
+        }
+        // 同步到 SharedPreferences，供 MiniPlayerManager 同步读取
+        context.getSharedPreferences("mini_player", Context.MODE_PRIVATE)
+            .edit().putBoolean("audio_spectrum_enabled", value).apply()
+    }
+
+    fun getAudioSpectrumEnabledSync(context: Context): Boolean {
+        return context.getSharedPreferences("mini_player", Context.MODE_PRIVATE)
+            .getBoolean("audio_spectrum_enabled", false)
     }
 
     /** 冷启动后进入播放场景时自动续播上一次会话。 */
@@ -8283,6 +8338,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             StringShareablePreferenceDefinition(KEY_THEME_DARK_PRIMARY_TEXT, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_DARK_SECONDARY_TEXT, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_DARK_CONTROL_ACCENT, SettingsShareSection.APPEARANCE),
+            StringShareablePreferenceDefinition(KEY_SEED_PALETTE_STYLE, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_COLOR_STYLE, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_COLOR_SPEC, SettingsShareSection.APPEARANCE),
             StringShareablePreferenceDefinition(KEY_THEME_COLOR_CONTRAST, SettingsShareSection.APPEARANCE),
@@ -8387,6 +8443,11 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             BooleanShareablePreferenceDefinition(KEY_UI_ENTRANCE_ANIMATION_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_GLOBAL_DRAG_FEEDBACK_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_CARD_TRANSITION_ENABLED, SettingsShareSection.APPEARANCE),
+            BooleanShareablePreferenceDefinition(KEY_RELATED_VIDEO_TRANSITION_ENABLED, SettingsShareSection.APPEARANCE),
+            BooleanShareablePreferenceDefinition(
+                booleanPreferencesKey("video_return_content_follow_progress_enabled"),
+                SettingsShareSection.APPEARANCE,
+            ),
             BooleanShareablePreferenceDefinition(
                 KEY_LIVE_SURFACE_CARD_TRANSITION_ENABLED,
                 SettingsShareSection.APPEARANCE
@@ -8447,6 +8508,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             BooleanShareablePreferenceDefinition(KEY_REMEMBER_LAST_PLAYBACK_SPEED, SettingsShareSection.PLAYBACK),
             IntShareablePreferenceDefinition(KEY_COMMENT_DEFAULT_SORT_MODE, SettingsShareSection.PLAYBACK),
             BooleanShareablePreferenceDefinition(KEY_COMMENT_FRAUD_DETECTION_ENABLED, SettingsShareSection.PLAYBACK),
+            BooleanShareablePreferenceDefinition(KEY_COMMENT_AVATAR_PUSH_ENABLED, SettingsShareSection.PLAYBACK),
             BooleanShareablePreferenceDefinition(KEY_COMMENT_MEMBER_DECORATIONS_ENABLED, SettingsShareSection.PLAYBACK),
             BooleanShareablePreferenceDefinition(KEY_DETAILED_COMMENT_TIME_ENABLED, SettingsShareSection.PLAYBACK),
             BooleanShareablePreferenceDefinition(KEY_IMAGE_PREVIEW_LONG_PRESS_SAVE_ENABLED, SettingsShareSection.PLAYBACK),
@@ -8620,10 +8682,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             ),
             BooleanShareablePreferenceDefinition(
                 dynamicCommentPreviewVisiblePreferencesKey,
-                SettingsShareSection.NAVIGATION
-            ),
-            BooleanShareablePreferenceDefinition(
-                KEY_DYNAMIC_ALL_TAB_HORIZONTAL_USER_LIST_VISIBLE,
                 SettingsShareSection.NAVIGATION
             ),
             BooleanShareablePreferenceDefinition(

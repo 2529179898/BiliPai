@@ -12,6 +12,10 @@ import com.android.purebilibili.core.network.DynamicDeleteRequest
 import com.android.purebilibili.core.store.AccountSessionStore
 import com.android.purebilibili.core.store.StoredAccountSession
 import com.android.purebilibili.core.store.TokenManager
+import com.android.purebilibili.core.coroutines.AccountScopedRequests
+import com.android.purebilibili.core.store.AccountSessionIdentity
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import com.android.purebilibili.data.model.response.FavFolder
 import com.android.purebilibili.data.model.response.NavData
 import com.android.purebilibili.data.model.response.SpaceUserInfo
@@ -94,9 +98,32 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     private var isProfileLoadInFlight = false
     private var profileLoadGeneration = 0L
     private var currentProfileWbiImg: WbiImg? = null
+    private val accountRequests = AccountScopedRequests(viewModelScope)
+    private var profileLoadJob: Job? = null
+    private var isProfilePageActive = false
+
+    fun setProfilePageActive(active: Boolean) {
+        isProfilePageActive = active
+    }
+
+    private fun isCurrentProfileLoad(generation: Long): Boolean =
+        generation == profileLoadGeneration && accountRequests.isCurrent()
 
     init {
         refreshSavedAccounts()
+        accountRequests.observe {
+            profileLoadGeneration += 1L
+            hasLoadedProfileOnce = false
+            isProfileLoadInFlight = false
+            currentProfileWbiImg = null
+            _uiState.value = if (TokenManager.sessDataCache.isNullOrEmpty()) {
+                ProfileUiState.LoggedOut()
+            } else {
+                ProfileUiState.Loading
+            }
+            refreshSavedAccounts()
+            if (isProfilePageActive) loadProfile()
+        }
     }
 
     fun refreshSavedAccounts() {
@@ -129,6 +156,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun loadProfile(force: Boolean = false) {
+        if (!accountRequests.isCurrent()) return
         if (!shouldStartProfileLoad(
                 hasLoadedOnce = hasLoadedProfileOnce,
                 isLoadInFlight = isProfileLoadInFlight,
@@ -138,6 +166,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             return
         }
         hasLoadedProfileOnce = true
+        profileLoadJob?.cancel()
         isProfileLoadInFlight = true
         val generation = ++profileLoadGeneration
         val requestedMid = TokenManager.midCache
@@ -147,17 +176,22 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         } else {
             ProfileUiState.Loading
         }
-        viewModelScope.launch {
-            performProfileLoad(generation = generation, requestedMid = requestedMid)
+        val requestedIdentity = accountRequests.identity
+        profileLoadJob = accountRequests.launch {
+            performProfileLoad(generation, requestedMid, requestedIdentity)
         }
     }
 
-    private suspend fun performProfileLoad(generation: Long, requestedMid: Long?) {
+    private suspend fun performProfileLoad(
+        generation: Long,
+        requestedMid: Long?,
+        requestedIdentity: AccountSessionIdentity
+    ) {
         var customBgUri = ""
         try {
             customBgUri = readProfileBackgroundUri()
             if (TokenManager.sessDataCache.isNullOrEmpty()) {
-                if (generation == profileLoadGeneration) {
+                if (isCurrentProfileLoad(generation)) {
                     _uiState.value = ProfileUiState.LoggedOut(
                         topPhoto = resolveProfileTopPhoto(customBgUri, "")
                     )
@@ -165,21 +199,25 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                 return
             }
             val data = NetworkModule.api.getNavInfo().data
-            if (generation != profileLoadGeneration) return
+            currentCoroutineContext().ensureActive()
+            if (!isCurrentProfileLoad(generation)) return
+            if (requestedMid != null && data?.isLogin == true && data.mid != requestedMid) return
             if (data == null || !data.isLogin) {
-                clearInvalidProfileSession(generation, customBgUri)
+                clearInvalidProfileSession(generation, requestedIdentity, customBgUri)
                 return
             }
             showProfileIdentity(generation, data, customBgUri)
             currentProfileWbiImg = data.wbi_img
-            profileRequestOrNull { persistProfileSession(data) }
+            profileRequestOrNull { persistProfileSession(generation, data) }
+            currentCoroutineContext().ensureActive()
+            if (!isCurrentProfileLoad(generation)) return
             loadProfileEnrichment(generation, data.mid, data.wbi_img)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             handleProfileLoadFailure(generation, requestedMid, customBgUri, e)
         } finally {
-            if (generation == profileLoadGeneration) {
+            if (isCurrentProfileLoad(generation)) {
                 isProfileLoadInFlight = false
             }
         }
@@ -190,7 +228,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         data: NavData,
         customBgUri: String
     ) {
-        if (generation != profileLoadGeneration) return
+        if (!isCurrentProfileLoad(generation)) return
         val cached = (_uiState.value as? ProfileUiState.Success)
             ?.takeIf { it.user.mid == data.mid }
         val user = UserState(
@@ -227,8 +265,12 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
-    private suspend fun persistProfileSession(data: NavData) {
-        TokenManager.saveMid(getApplication(), data.mid)
+    private suspend fun persistProfileSession(generation: Long, data: NavData) {
+        if (!isCurrentProfileLoad(generation)) return
+        if (TokenManager.midCache != data.mid) {
+            TokenManager.saveMid(getApplication(), data.mid)
+            return
+        }
         TokenManager.saveVipStatus(data.vip.status == 1)
         AccountSessionStore.upsertCurrentAccount(getApplication(), data)
         refreshSavedAccounts()
@@ -359,7 +401,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     fun retryProfileContributions() {
         val current = _uiState.value as? ProfileUiState.Success ?: return
         val generation = profileLoadGeneration
-        viewModelScope.launch {
+        accountRequests.launch {
             loadProfileContributions(
                 generation = generation,
                 mid = current.user.mid,
@@ -395,6 +437,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     private suspend fun loadProfileFavoriteFolders(generation: Long, mid: Long) {
         val folders = FavoriteRepository.getFavFolders(mid).getOrNull() ?: return
+        currentCoroutineContext().ensureActive()
+        if (!isCurrentProfileLoad(generation)) return
         var mergedFolders = emptyList<FavFolder>()
         updateProfileSuccess(generation, mid) { current ->
             val nextSpace = mergeProfileFavoriteFolderState(current.space, folders)
@@ -477,18 +521,37 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         transform: (ProfileUiState.Success) -> ProfileUiState.Success
     ) {
         val current = _uiState.value as? ProfileUiState.Success ?: return
-        if (!shouldApplyProfileLoadResult(generation, profileLoadGeneration, mid, current.user.mid)) {
+        if (!isCurrentProfileLoad(generation) ||
+            !shouldApplyProfileLoadResult(generation, profileLoadGeneration, mid, current.user.mid)
+        ) {
             return
         }
         _uiState.value = transform(current)
     }
 
-    private suspend fun clearInvalidProfileSession(generation: Long, customBgUri: String) {
-        if (generation != profileLoadGeneration) return
-        TokenManager.clear(getApplication())
-        AccountSessionStore.clearActiveAccount(getApplication())
-        refreshSavedAccounts()
-        _uiState.value = ProfileUiState.LoggedOut(topPhoto = resolveProfileTopPhoto(customBgUri, ""))
+    private suspend fun clearInvalidProfileSession(
+        generation: Long,
+        requestedIdentity: AccountSessionIdentity,
+        customBgUri: String
+    ) {
+        if (!isCurrentProfileLoad(generation)) return
+        // Session mutation must outlive the account event it publishes.
+        viewModelScope.launch {
+            if (!isCurrentProfileLoad(generation) ||
+                !accountRequests.isCurrent(requestedIdentity)
+            ) return@launch
+            TokenManager.clear(getApplication())
+            val clearedIdentity = AccountSessionIdentity(
+                mid = null,
+                generation = requestedIdentity.generation + if (requestedIdentity.mid != null) 1L else 0L
+            )
+            if (TokenManager.accountIdentity.value != clearedIdentity) return@launch
+            AccountSessionStore.clearActiveAccount(getApplication())
+            refreshSavedAccounts()
+            _uiState.value = ProfileUiState.LoggedOut(
+                topPhoto = resolveProfileTopPhoto(customBgUri, "")
+            )
+        }
     }
 
     private fun handleProfileLoadFailure(
@@ -497,7 +560,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         customBgUri: String,
         error: Exception
     ) {
-        if (generation != profileLoadGeneration) return
+        if (!isCurrentProfileLoad(generation)) return
         val cached = (_uiState.value as? ProfileUiState.Success)
             ?.takeIf { it.user.mid == requestedMid }
         if (cached != null) {
@@ -534,7 +597,10 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     private suspend fun <T> profileRequestOrNull(request: suspend () -> T): T? {
         return try {
-            request()
+            currentCoroutineContext().ensureActive()
+            val result = request()
+            currentCoroutineContext().ensureActive()
+            result
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -574,7 +640,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun deleteProfileDynamic(action: DynamicDeleteAction, onResult: (Boolean, String) -> Unit) {
-        viewModelScope.launch {
+        val identity = accountRequests.identity
+        accountRequests.launch {
             try {
                 if (action.dynamicId.isBlank()) {
                     onResult(false, "无法删除该动态")
@@ -594,13 +661,18 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
                         rid_str = action.rid
                     )
                 )
+                currentCoroutineContext().ensureActive()
+                if (!accountRequests.isCurrent(identity)) return@launch
                 if (response.code == 0) {
                     removeProfileDynamic(action.dynamicId)
                     onResult(true, "已删除动态")
                 } else {
                     onResult(false, response.message.ifBlank { "删除失败" })
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                if (!accountRequests.isCurrent(identity)) return@launch
                 onResult(false, e.message ?: "网络错误")
             }
         }
@@ -637,16 +709,18 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             return
         }
 
-        viewModelScope.launch {
+        val identity = accountRequests.identity
+        accountRequests.launch {
             val beforeSave = _uiState.value as? ProfileUiState.Success ?: return@launch
             _uiState.value = beforeSave.copy(
                 space = beforeSave.space.copy(isSavingSign = true, signSaveMessage = null)
             )
-            val result = runCatching {
+            val response = profileRequestOrNull {
                 NetworkModule.api.updateMemberSign(userSign = sign.trim(), csrf = csrf)
             }
+            currentCoroutineContext().ensureActive()
+            if (!accountRequests.isCurrent(identity)) return@launch
             val latest = _uiState.value as? ProfileUiState.Success ?: return@launch
-            val response = result.getOrNull()
             if (response?.code == 0) {
                 _uiState.value = latest.copy(
                     editableAccount = latest.editableAccount.copy(sign = sign.trim()),
@@ -706,12 +780,20 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
 
     fun logout() {
         viewModelScope.launch {
+            val identity = TokenManager.accountIdentity.value
             profileLoadGeneration += 1L
             isProfileLoadInFlight = false
             // retain background
             val customBgUri = SettingsManager.getProfileBgUri(getApplication()).first() ?: ""
+            if (TokenManager.accountIdentity.value != identity) return@launch
             AccountSessionStore.upsertCurrentAccount(getApplication())
+            if (TokenManager.accountIdentity.value != identity) return@launch
             TokenManager.clear(getApplication())
+            val clearedIdentity = AccountSessionIdentity(
+                mid = null,
+                generation = identity.generation + if (identity.mid != null) 1L else 0L
+            )
+            if (TokenManager.accountIdentity.value != clearedIdentity) return@launch
             AccountSessionStore.clearActiveAccount(getApplication())
             refreshSavedAccounts()
             _uiState.value = ProfileUiState.LoggedOut(topPhoto = customBgUri)
@@ -743,7 +825,6 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             }
 
             refreshSavedAccounts()
-            loadProfile(force = true)
             onSuccess()
         }
     }

@@ -29,6 +29,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -682,6 +683,12 @@ internal fun resolveReplyContentUrlNavigationUrl(
     // 动态/图文链接的 app_url_schema 偶尔会被服务端下发成 bilibili://video/{动态ID}。
     // 先保留可解析为动态的 Web URL，避免把动态 ID 当视频 aid 打开。
     listOf(url.url, rawToken).firstOrNull(::isReplyDynamicNavigationUrl)?.let { return it }
+    // 服务端给商业链接附带的视频 schema 可能指向来源视频；有明确网页目标时优先保留。
+    val webUrl = url.url.trim()
+    val webUri = runCatching { java.net.URI(webUrl) }.getOrNull()
+    if (webUri?.scheme?.lowercase() in listOf("http", "https") &&
+        !com.android.purebilibili.core.util.isBilibiliShortHost(webUri?.host)
+    ) return webUrl
     // 商业富链接可能提供宿主不支持的 app schema；不能让它覆盖可用的网页地址。
     val appSchema = url.appUrlSchema.trim()
     if (appSchema.isNotEmpty() &&
@@ -1235,6 +1242,7 @@ fun ReplyHeader(count: Int) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ReplyItemView(
     modifier: Modifier = Modifier,
@@ -1264,6 +1272,10 @@ fun ReplyItemView(
     onUrlClick: ((String) -> Unit)? = null,
     maxTimestampMs: Long? = null,
     hideSubPreview: Boolean = false,
+    // Independent opt-in for comment lists, in every material style.
+    // Null preserves the native MD3/Miuix layout and all other comment callers.
+    avatarListState: LazyListState? = null,
+    avatarItemKey: Any = item.rpid,
     onAvatarClick: (String) -> Unit
 ) {
     val appearance = rememberVideoCommentAppearance()
@@ -1564,7 +1576,11 @@ fun ReplyItemView(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(appearance.panelColor)
+            .commentAvatarRowBackground(
+                color = appearance.panelColor,
+                pushEnabled = avatarListState != null,
+                gutterWidth = layoutPolicy.horizontalPaddingDp.dp + NAGRAM_CHAT_AVATAR_SIZE_DP.dp,
+            )
             .combinedClickable(
                 onClick = {
                     if (openThreadFromRootClick) {
@@ -1589,25 +1605,35 @@ fun ReplyItemView(
                     end = layoutPolicy.horizontalPaddingDp.dp
                 )
         ) {
+            // Avatar push owns avatar placement only. Keep author metadata, badges and
+            // the trailing decoration in the same header slots as the native comment row.
             val headerEndPadding = resolveReplyItemHeaderEndPaddingDp(
                 hasBiliPaiDecoration = biliPaiDecoration != null,
-                policy = layoutPolicy
+                policy = layoutPolicy,
             ).dp
-            val startPadding = resolveReplyItemContentStartPaddingDp(
-                containerWidth = maxWidth,
-                policy = layoutPolicy
-            ).dp
-
+            // The Nagram geometry is explicitly opt-in in every material style.
+            // Disabled retains native avatar dimensions and narrow-window defaults.
+            val pushAvatar = avatarListState != null
+            val avatarSize = if (pushAvatar) NAGRAM_CHAT_AVATAR_SIZE_DP.dp else layoutPolicy.avatarSizeDp.dp
+            val startPadding = if (pushAvatar) {
+                avatarSize + layoutPolicy.avatarContentSpacingDp.dp
+            } else {
+                resolveReplyItemContentStartPaddingDp(maxWidth, layoutPolicy).dp
+            }
             Column(modifier = Modifier.fillMaxWidth()) {
                 // User Info Header
                 Row() {
-                    ReplyMemberAvatar(
-                        member = item.member,
-                        placeholderColor = appearance.placeholderColor,
-                        lightweightMode = lightweightMode,
-                        modifier = Modifier.size(layoutPolicy.avatarSizeDp.dp),
-                        onClick = { onAvatarClick(item.member.mid) }
-                    )
+                    if (pushAvatar) {
+                        Spacer(modifier = Modifier.size(avatarSize))
+                    } else {
+                        ReplyMemberAvatar(
+                            member = item.member,
+                            placeholderColor = appearance.placeholderColor,
+                            lightweightMode = lightweightMode,
+                            modifier = Modifier.size(layoutPolicy.avatarSizeDp.dp),
+                            onClick = { onAvatarClick(item.member.mid) }
+                        )
+                    }
 
                     Spacer(modifier = Modifier.width(layoutPolicy.avatarContentSpacingDp.dp))
 
@@ -1895,128 +1921,132 @@ fun ReplyItemView(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .animateContentSize(animationSpec = tween(durationMillis = 180))
+                            // This preview is already inside the indented body column.
                             .clip(AppShapes.container(ContainerLevel.Chip))
                             .background(appearance.composerHintBackgroundColor)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        visibleSubReplies.forEach { subReply ->
-                            val subEmoteMap = remember(subReply.content.emote, emoteMap) {
-                                val inlineEmotes = subReply.content.emote.orEmpty()
-                                if (inlineEmotes.isEmpty()) {
-                                    emoteMap
-                                } else {
-                                    buildMap(emoteMap.size + inlineEmotes.size) {
-                                        putAll(emoteMap)
-                                        inlineEmotes.forEach { (key, value) -> put(key, value.url) }
-                                    }
-                                }
-                            }
-
-                            val subReplyOfficialBadge = remember(subReply.member.officialVerify) {
-                                resolveOfficialVerifyBadge(
-                                    type = subReply.member.officialVerify.type,
-                                    desc = subReply.member.officialVerify.desc,
-                                    compact = true
-                                )
-                            }
-                            val prefixTokens = remember(
-                                subReply.member.uname,
-                                upMid,
-                                subReply.mid,
-                                subReplyOfficialBadge?.tone
-                            ) {
-                                buildSubReplyPreviewPrefix(
-                                    userName = subReply.member.uname,
-                                    isUpComment = upMid > 0 && subReply.mid == upMid,
-                                    officialVerifyTone = subReplyOfficialBadge?.tone
-                                )
-                            }
-                            val prefixTextColor = resolveUpNameColor(
-                                vipStatus = subReply.member.vip?.vipStatus ?: 0,
-                                vipType = subReply.member.vip?.vipType ?: 0,
-                                onSurface = appearance.primaryTextColor.copy(alpha = 0.8f),
-                                secondary = com.android.purebilibili.core.ui.components.userVipPink(),
-                            )
-                            val prefixSeparatorColor = appearance.secondaryTextColor
-                            val upTagColor = appearance.accentColor
-                            val prefix = remember(prefixTokens, prefixTextColor, prefixSeparatorColor, upTagColor) {
-                                buildAnnotatedString {
-                                    prefixTokens.forEach { token ->
-                                        when (token) {
-                                            "[VERIFY_PERSONAL]" -> appendInlineContent(
-                                                COMMENT_INLINE_VERIFY_PERSONAL_BADGE_ID,
-                                                "个人"
-                                            )
-                                            "[VERIFY_ORGANIZATION]" -> appendInlineContent(
-                                                COMMENT_INLINE_VERIFY_ORGANIZATION_BADGE_ID,
-                                                "机构"
-                                            )
-                                            "[UP]" -> withStyle(
-                                                SpanStyle(color = upTagColor)
-                                            ) {
-                                                appendInlineContent(COMMENT_INLINE_UP_BADGE_ID, "UP")
-                                            }
-                                            ": " -> withStyle(
-                                                SpanStyle(color = prefixSeparatorColor)
-                                            ) {
-                                                append(token)
-                                            }
-                                            else -> withStyle(
-                                                SpanStyle(
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = prefixTextColor
-                                                )
-                                            ) {
-                                                append(token)
+                        item.replies.orEmpty().forEachIndexed { index, subReply ->
+                            key(subReply.rpid) {
+                                CommentContentReveal(visible = index < visibleSubReplies.size) {
+                                    val subEmoteMap = remember(subReply.content.emote, emoteMap) {
+                                        val inlineEmotes = subReply.content.emote.orEmpty()
+                                        if (inlineEmotes.isEmpty()) {
+                                            emoteMap
+                                        } else {
+                                            buildMap(emoteMap.size + inlineEmotes.size) {
+                                                putAll(emoteMap)
+                                                inlineEmotes.forEach { (key, value) -> put(key, value.url) }
                                             }
                                         }
                                     }
-                                }
-                            }
 
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("$COMMENT_SUB_REPLY_PREVIEW_TAG_PREFIX${subReply.rpid}")
-                                    .combinedClickable(
-                                        onClick = {
-                                            onSubClick(
-                                                item,
-                                                resolveSubReplyOpenTargetId(item.rpid, subReply.rpid)
-                                            )
-                                        },
-                                        onLongClick = {
-                                            copyToClipboard(
-                                                subReply.content.message,
-                                                "回复内容"
-                                            )
-                                        }
-                                    )
-                            ) {
-                                ReplyMessageText(
-                                    text = subReply.content.message,
-                                    fontSize = VideoCommentTypographyTokens.subReply,
-                                    color = appearance.primaryTextColor.copy(alpha = 0.8f),
-                                    emoteMap = subEmoteMap,
-                                    content = subReply.content,
-                                    maxLines = 2,
-                                    onTimestampClick = onTimestampClick,
-                                    maxTimestampMs = maxTimestampMs,
-                                    onUrlClick = onUrlClick,
-                                    onUserClick = { mid -> onAvatarClick(mid.toString()) },
-                                    onTopicClick = { topic -> onUrlClick?.invoke(resolveReplyTopicNavigationUrl(topic)) },
-                                    onVoteClick = { voteId -> onUrlClick?.invoke("bilibili://vote?id=$voteId") },
-                                    noteCvidStr = subReply.noteCvidStr,
-                                    prefix = prefix,
-                                    onPlainTextClick = {
-                                        onSubClick(
-                                            item,
-                                            resolveSubReplyOpenTargetId(item.rpid, subReply.rpid)
+                                    val subReplyOfficialBadge = remember(subReply.member.officialVerify) {
+                                        resolveOfficialVerifyBadge(
+                                            type = subReply.member.officialVerify.type,
+                                            desc = subReply.member.officialVerify.desc,
+                                            compact = true
                                         )
                                     }
-                                )
+                                    val prefixTokens = remember(
+                                        subReply.member.uname,
+                                        upMid,
+                                        subReply.mid,
+                                        subReplyOfficialBadge?.tone
+                                    ) {
+                                        buildSubReplyPreviewPrefix(
+                                            userName = subReply.member.uname,
+                                            isUpComment = upMid > 0 && subReply.mid == upMid,
+                                            officialVerifyTone = subReplyOfficialBadge?.tone
+                                        )
+                                    }
+                                    val prefixTextColor = resolveUpNameColor(
+                                        vipStatus = subReply.member.vip?.vipStatus ?: 0,
+                                        vipType = subReply.member.vip?.vipType ?: 0,
+                                        onSurface = appearance.primaryTextColor.copy(alpha = 0.8f),
+                                        secondary = com.android.purebilibili.core.ui.components.userVipPink(),
+                                    )
+                                    val prefixSeparatorColor = appearance.secondaryTextColor
+                                    val upTagColor = appearance.accentColor
+                                    val prefix = remember(prefixTokens, prefixTextColor, prefixSeparatorColor, upTagColor) {
+                                        buildAnnotatedString {
+                                            prefixTokens.forEach { token ->
+                                                when (token) {
+                                                    "[VERIFY_PERSONAL]" -> appendInlineContent(
+                                                        COMMENT_INLINE_VERIFY_PERSONAL_BADGE_ID,
+                                                        "个人"
+                                                    )
+                                                    "[VERIFY_ORGANIZATION]" -> appendInlineContent(
+                                                        COMMENT_INLINE_VERIFY_ORGANIZATION_BADGE_ID,
+                                                        "机构"
+                                                    )
+                                                    "[UP]" -> withStyle(
+                                                        SpanStyle(color = upTagColor)
+                                                    ) {
+                                                        appendInlineContent(COMMENT_INLINE_UP_BADGE_ID, "UP")
+                                                    }
+                                                    ": " -> withStyle(
+                                                        SpanStyle(color = prefixSeparatorColor)
+                                                    ) {
+                                                        append(token)
+                                                    }
+                                                    else -> withStyle(
+                                                        SpanStyle(
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = prefixTextColor
+                                                        )
+                                                    ) {
+                                                        append(token)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("$COMMENT_SUB_REPLY_PREVIEW_TAG_PREFIX${subReply.rpid}")
+                                            .combinedClickable(
+                                                onClick = {
+                                                    onSubClick(
+                                                        item,
+                                                        resolveSubReplyOpenTargetId(item.rpid, subReply.rpid)
+                                                    )
+                                                },
+                                                onLongClick = {
+                                                    copyToClipboard(
+                                                        subReply.content.message,
+                                                        "回复内容"
+                                                    )
+                                                }
+                                            )
+                                    ) {
+                                        ReplyMessageText(
+                                            text = subReply.content.message,
+                                            fontSize = VideoCommentTypographyTokens.subReply,
+                                            color = appearance.primaryTextColor.copy(alpha = 0.8f),
+                                            emoteMap = subEmoteMap,
+                                            content = subReply.content,
+                                            maxLines = 2,
+                                            onTimestampClick = onTimestampClick,
+                                            maxTimestampMs = maxTimestampMs,
+                                            onUrlClick = onUrlClick,
+                                            onUserClick = { mid -> onAvatarClick(mid.toString()) },
+                                            onTopicClick = { topic -> onUrlClick?.invoke(resolveReplyTopicNavigationUrl(topic)) },
+                                            onVoteClick = { voteId -> onUrlClick?.invoke("bilibili://vote?id=$voteId") },
+                                            noteCvidStr = subReply.noteCvidStr,
+                                            prefix = prefix,
+                                            onPlainTextClick = {
+                                                onSubClick(
+                                                    item,
+                                                    resolveSubReplyOpenTargetId(item.rpid, subReply.rpid)
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -2052,6 +2082,17 @@ fun ReplyItemView(
                     }
                 }
             }
+            if (pushAvatar && avatarListState != null) {
+                PushingReplyMemberAvatar(
+                    member = item.member,
+                    placeholderColor = appearance.placeholderColor,
+                    lightweightMode = lightweightMode,
+                    listState = avatarListState,
+                    itemKey = avatarItemKey,
+                    modifier = Modifier.size(avatarSize),
+                    onClick = { onAvatarClick(item.member.mid) }
+                )
+            }
         }
 
         if (biliPaiDecoration != null) {
@@ -2082,7 +2123,12 @@ fun ReplyItemView(
         }
 
         AppHorizontalDivider(
-            modifier = Modifier.padding(start = layoutPolicy.dividerStartPaddingDp.dp),
+            modifier = Modifier.padding(
+                start = if (avatarListState != null) {
+                    layoutPolicy.horizontalPaddingDp.dp + NAGRAM_CHAT_AVATAR_SIZE_DP.dp +
+                        layoutPolicy.avatarContentSpacingDp.dp
+                } else layoutPolicy.dividerStartPaddingDp.dp
+            ),
             thickness = 0.5.dp,
             color = appearance.dividerColor.copy(alpha = 0.25f)
         )

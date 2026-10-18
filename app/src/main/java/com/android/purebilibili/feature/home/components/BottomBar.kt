@@ -2465,7 +2465,15 @@ private fun MaterialBottomBar(
                         showIcon = showIcon,
                         showText = showText,
                         haptic = haptic,
-                        modifier = Modifier.fillMaxSize(),
+                        // Native MD3 wraps its content inside LinkedBottomDock's wider slot.
+                        // Align the capsule to the search edge so unused slot width does not
+                        // add to the 8dp gap. Glass and Miuix use their own layout paths.
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (searchEnabled) Modifier.wrapContentWidth(Alignment.End)
+                                else Modifier
+                            ),
                         blurEnabled = blurEnabled,
                         hazeState = hazeState,
                         backdrop = miuixBackdrop,

@@ -980,6 +980,8 @@ private fun LiveAreaHomeChipRow(
             scrollable = true,
             minTabWidth = categoryMinWidth,
             liquidGlassLabelHorizontalPadding = if (liquidGlassEnabled) 4.dp else null,
+            // Keep the first/last capsule inset equal to the rail inset, even for 推荐.
+            liquidGlassAdaptIndicatorToLabel = false,
             modifier = Modifier.weight(1f),
         )
         AppIconButton(

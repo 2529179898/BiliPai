@@ -161,7 +161,8 @@ internal fun readProcessExitTrace(exitInfo: ApplicationExitInfo, maxLines: Int =
  */
 class AbnormalProcessExitException(
     message: String,
-    val nativeTrace: String? = null
+    val nativeTrace: String? = null,
+    val exitTimestampMillis: Long? = null
 ) : RuntimeException(message) {
     init {
         // 清空由当前进程启动合成异常时产生的虚假 Java 堆栈，避免排查时误导用户
@@ -377,7 +378,8 @@ internal object Android17Diagnostics {
             Logger.persistCrashSnapshot(
                 AbnormalProcessExitException(
                     message = details,
-                    nativeTrace = trace
+                    nativeTrace = trace,
+                    exitTimestampMillis = exitInfo.timestamp
                 )
             )
         }.onFailure { error ->

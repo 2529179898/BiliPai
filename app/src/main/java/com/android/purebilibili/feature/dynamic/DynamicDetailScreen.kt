@@ -47,7 +47,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -75,7 +74,6 @@ import com.android.purebilibili.core.ui.rememberAppBackIcon
 import com.android.purebilibili.core.ui.rememberAppGridLayoutIcon
 import com.android.purebilibili.core.ui.rememberAppListLayoutIcon
 import com.android.purebilibili.data.model.response.DynamicItem
-import com.android.purebilibili.data.repository.DynamicRepository
 import com.android.purebilibili.feature.dynamic.components.DynamicCardV2
 import com.android.purebilibili.feature.dynamic.components.DynamicCardActions
 import com.android.purebilibili.feature.dynamic.components.DynamicCardInteractionActions
@@ -113,12 +111,6 @@ internal fun resolveDynamicDetailBottomBarColor(
     AppUiStyle.MATERIAL3 -> colorScheme.surface
 }
 
-private sealed interface DynamicDetailUiState {
-    data object Loading : DynamicDetailUiState
-    data class Success(val item: DynamicItem) : DynamicDetailUiState
-    data class Error(val message: String) : DynamicDetailUiState
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DynamicDetailScreen(
@@ -136,32 +128,28 @@ fun DynamicDetailScreen(
     onMusicClick: ((Long) -> Unit)? = null,
     onCollectionClick: ((Long, Long, String, String) -> Unit)? = null,
     onCourseClick: ((String, String) -> Unit)? = null,
+    onOpenLink: ((String) -> Unit)? = null,
     onDynamicDetailClick: (String) -> Unit = {},
     onShareToMessageClick: ((DynamicItem) -> Unit)? = null,
+    contentTransitionReady: Boolean = true,
 ) {
     val interactionViewModel: DynamicViewModel = viewModel()
-    var retryToken by rememberSaveable { mutableIntStateOf(0) }
+    val detailViewModel: DynamicDetailViewModel = viewModel(key = "dynamic-detail:$dynamicId")
     val screenTitle = stringResource(R.string.dynamic_detail_title)
     val backLabel = stringResource(R.string.common_back)
     val retryLabel = stringResource(R.string.common_retry)
     val loadFailedMessage = stringResource(R.string.dynamic_detail_load_failed)
-    val seedItem = remember(dynamicId) { DynamicRepository.peekDynamicDetailSeed(dynamicId) }
-    val uiState by produceState<DynamicDetailUiState>(
-        initialValue = seedItem?.let { DynamicDetailUiState.Success(it) } ?: DynamicDetailUiState.Loading,
-        key1 = dynamicId,
-        key2 = retryToken
-    ) {
-        if (seedItem == null) {
-            value = DynamicDetailUiState.Loading
-        }
-        value = DynamicRepository.getDynamicDetail(dynamicId).fold(
-            onSuccess = { item -> DynamicDetailUiState.Success(item) },
-            onFailure = { error ->
-                DynamicDetailUiState.Error(error.message ?: loadFailedMessage)
-            }
-        )
+    val loadedUiState by detailViewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(detailViewModel, dynamicId) {
+        detailViewModel.load(dynamicId, loadFailedMessage)
     }
 
+    val uiState = if (contentTransitionReady) loadedUiState else DynamicDetailUiState.Loading
+    val contentRevealAlpha = com.android.purebilibili.core.ui.transition.rememberSharedCardDetailRevealAlpha(
+        entryKey = dynamicId,
+        contentTransitionReady = contentTransitionReady,
+        contentLoaded = uiState !is DynamicDetailUiState.Loading,
+    )
     val context = LocalContext.current
     val homeSettings by SettingsManager.getHomeSettings(context)
         .collectAsStateWithLifecycle(initialValue = HomeSettings())
@@ -214,6 +202,7 @@ fun DynamicDetailScreen(
     }
     var forwardCountDelta by remember(dynamicId) { mutableIntStateOf(0) }
     var subReplyCoveredBlurProgress by remember { mutableFloatStateOf(0f) }
+    val avatarPushEnabled = com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled()
     val detailListState = rememberLazyListState()
     //  [新增] 大屏/横屏分栏：右栏评论列表
     val commentListState = rememberLazyListState()
@@ -230,6 +219,9 @@ fun DynamicDetailScreen(
         }
     }
     AppScaffold(
+        modifier = Modifier.graphicsLayer {
+            alpha = if (uiState is DynamicDetailUiState.Loading) 1f else contentRevealAlpha.value
+        },
         blurContentReady = uiState !is DynamicDetailUiState.Loading,
         topBar = {
             val canToggleImageLayout = (uiState as? DynamicDetailUiState.Success)
@@ -292,7 +284,7 @@ fun DynamicDetailScreen(
                             text = state.message,
                             color = AppContentColors.secondaryText()
                         )
-                        AppButton(onClick = { retryToken++ }) {
+                        AppButton(onClick = { detailViewModel.load(dynamicId, loadFailedMessage, force = true) }) {
                             AppText(retryLabel)
                         }
                     }
@@ -309,11 +301,17 @@ fun DynamicDetailScreen(
                     openCommentRootRpid,
                     openCommentTargetRpid
                 ) {
-                    interactionViewModel.openCommentSheet(
-                        item = state.item,
+                    detailViewModel.initializeCommentsOnce(
+                        targetKey = commentTargetKey,
                         rootReplyId = openCommentRootRpid,
-                        targetReplyId = openCommentTargetRpid
-                    )
+                        targetReplyId = openCommentTargetRpid,
+                    ) {
+                        interactionViewModel.openCommentSheet(
+                            item = state.item,
+                            rootReplyId = openCommentRootRpid,
+                            targetReplyId = openCommentTargetRpid
+                        )
+                    }
                 }
 
                 LaunchedEffect(detailListState, commentListState, useSplitLayout) {
@@ -358,6 +356,7 @@ fun DynamicDetailScreen(
                                     onMusicClick = onMusicClick,
                                     onCollectionClick = onCollectionClick,
                                     onCourseClick = onCourseClick,
+                                    onOpenLink = onOpenLink,
                                     onDynamicDetailClick = onDynamicDetailClick,
                                 ),
                                 interaction = DynamicCardInteractionActions(
@@ -452,6 +451,8 @@ fun DynamicDetailScreen(
                         )
                     }
                     dynamicInlineCommentItems(
+                        avatarListState = (if (useSplitLayout) commentListState else detailListState)
+                            .takeIf { avatarPushEnabled },
                         comments = comments,
                         isLoading = commentsLoading,
                         isLoadingMore = commentsLoadingMore,
@@ -795,7 +796,7 @@ fun DynamicDetailScreen(
                                 android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
                                 if (success) {
                                     editingAction = null
-                                    retryToken++
+                                    detailViewModel.load(dynamicId, loadFailedMessage, force = true)
                                 } else {
                                     errorMessage = msg
                                 }

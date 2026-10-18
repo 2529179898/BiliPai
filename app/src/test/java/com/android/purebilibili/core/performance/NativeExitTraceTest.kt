@@ -59,6 +59,29 @@ class NativeExitTraceTest {
         assertContentEquals(tombstone, decodeRawTombstone(trace))
     }
 
+    @Test
+    fun renderCrashKeepsDeepFramesAndReportsRecursionAsAHint() {
+        val frames = (0 until 80).map { index ->
+            bytesField(4, message(
+                varintField(1, index),
+                bytesField(4, text(if (index < 79) "RenderNode::prepareTreeImpl" else "deep_origin")),
+                bytesField(6, text("/system/lib64/libhwui.so"))
+            ))
+        }
+        val thread = message(bytesField(2, text("RenderThread")), *frames.toTypedArray())
+        val tombstone = message(
+            varintField(6, 42),
+            bytesField(16, message(varintField(1, 42), bytesField(2, thread)))
+        )
+        val trace = requireNotNull(encodeNativeExitTrace(tombstone.inputStream()))
+        val summary = nativeExitTraceSummary(trace)
+        assertTrue(summary.contains("80 frames (all decoded frames)"))
+        assertTrue(summary.contains("#79 pc 0x4f deep_origin"))
+        assertTrue(summary.contains("RenderNode::prepareTreeImpl ×79"))
+        assertTrue(summary.contains("重复帧不等同于已确认根因"))
+        assertContentEquals(tombstone, decodeNativeExitTrace(trace))
+    }
+
     private fun decodeRawTombstone(trace: String): ByteArray {
         val payload = trace.substringAfter("----- BEGIN TOMBSTONE PROTOBUF BASE64 -----\n")
             .substringBefore("\n----- END TOMBSTONE PROTOBUF BASE64 -----")

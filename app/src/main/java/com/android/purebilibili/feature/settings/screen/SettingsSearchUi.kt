@@ -1,9 +1,19 @@
 package com.android.purebilibili.feature.settings
 
 import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -12,7 +22,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -102,12 +111,32 @@ internal fun SettingsHomeSearchEntry(
         elasticFeedbackEnabled = true,
         elasticFeedbackStrength = com.android.purebilibili.core.ui.components.APP_SEARCH_ELASTIC_FEEDBACK_STRENGTH,
         useNeutralLiquidContainer = true,
-    ) { liquidChromeActive ->
-        AppSearchEntry(
-            onClick = onClick,
-            placeholder = placeholder,
-            containerColor = if (liquidChromeActive) Color.Transparent else Color.Unspecified,
-        )
+    ) {
+        // Glass entry is a compact click target, independent of native input-field metrics.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = AppChromeSizeTokens.LiquidSearchFieldHeightDp.dp)
+                .clip(CircleShape)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AppIcon(
+                Icons.Default.Search,
+                contentDescription = null,
+                tint = AppContentColors.secondaryText(),
+                modifier = Modifier.size(24.dp),
+            )
+            AppText(
+                text = placeholder,
+                color = AppContentColors.secondaryText(),
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 

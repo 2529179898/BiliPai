@@ -1,11 +1,17 @@
 package com.android.purebilibili.feature.dynamic.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationState
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.animateDecay
+import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculateCentroidSize
 import androidx.compose.foundation.gestures.calculatePan
-import androidx.compose.foundation.gestures.calculateRotation
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -17,20 +23,21 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.toSize
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
 import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
+import com.android.purebilibili.core.ui.LocalSystemReduceMotion
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 internal const val ZOOMABLE_IMAGE_TAG = "zoomable_image"
 
@@ -89,77 +96,107 @@ fun ZoomableImage(
         }
     }
     
-    // 外部触发的缩放复位(放大态退出预回弹):把 scale/offset 动画回 fit。
-    // 逐帧写状态,宿主可经 onZoomChange 观察 activeZoomScale 到达 1。
-    LaunchedEffect(resetZoomTrigger) {
-        if (resetZoomTrigger <= 0 || scale <= 1f) return@LaunchedEffect
-        val startScale = scale
-        val startOffsetX = offsetX
-        val startOffsetY = offsetY
-        val resetAnim = androidx.compose.animation.core.Animatable(0f)
-        resetAnim.animateTo(
-            targetValue = 1f,
-            animationSpec = androidx.compose.animation.core.tween(
-                durationMillis = 180,
-                easing = androidx.compose.animation.core.CubicBezierEasing(0f, 0f, 0.58f, 1f)
-            )
-        ) {
-            // 本项目 Compose 版本的 animateTo block 是 Animatable 接收者 lambda,
-            // value 即 this.value(当前动画值 0f..1f)。
-            val progress = value
-            scale = startScale + (1f - startScale) * progress
-            offsetX = startOffsetX * (1f - progress)
-            offsetY = startOffsetY * (1f - progress)
-            latestOnZoomChange(scale)
-        }
-        scale = 1f
-        offsetX = 0f
-        offsetY = 0f
-        latestOnZoomChange(1f)
+    val motionScope = rememberCoroutineScope()
+    var motionJob by remember { mutableStateOf<Job?>(null) }
+    val reduceMotion by rememberUpdatedState(LocalSystemReduceMotion.current)
+    val density by rememberUpdatedState(LocalDensity.current.density)
+
+    fun stopMotion() {
+        motionJob?.cancel()
+        motionJob = null
     }
 
-    // 双击放大逻辑
-    fun onDoubleTap(tapOffset: Offset) {
-        if (scale > 1f) {
-            // 恢复原大小
-            scale = 1f
-            offsetX = 0f
-            offsetY = 0f
-            latestOnZoomChange(1f)
-        } else {
-            val scaleLimits = resolveZoomableImageScaleLimits(
-                imageWidth = imageSize.width,
-                imageHeight = imageSize.height,
-                containerWidth = containerSize.width,
-                containerHeight = containerSize.height
-            )
-            // 普通图片保持 2.5 倍；长条图片直接放到短边铺满视口，避免双击后仍然看不清。
-            scale = scaleLimits.doubleTapScale
-            
-            // 计算偏移量，使点击点居中
-            if (containerSize != IntSize.Zero) {
-                val centerX = containerSize.width / 2f
-                val centerY = containerSize.height / 2f
-                
-                offsetX = (centerX - tapOffset.x) * (scale - 1)
-                offsetY = (centerY - tapOffset.y) * (scale - 1)
-                
-                // 边界限制
-                val fitScale = min(
-                    containerSize.width.toFloat() / imageSize.width,
-                    containerSize.height.toFloat() / imageSize.height
+    fun animateTransform(targetScale: Float, targetOffset: Offset, durationMillis: Int) {
+        stopMotion()
+        val startScale = scale
+        val startOffset = Offset(offsetX, offsetY)
+        motionJob = motionScope.launch {
+            // A single progress drives geometry so zoom and pan cannot finish separately.
+            Animatable(0f).animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = if (reduceMotion) 0 else durationMillis,
+                    easing = CubicBezierEasing(0f, 0f, 0.58f, 1f),
+                ),
+            ) {
+                scale = startScale + (targetScale - startScale) * value
+                val bounds = resolveZoomableImagePanBounds(imageSize, containerSize, scale)
+                val offset = clampZoomableImageOffset(
+                    startOffset + (targetOffset - startOffset) * value,
+                    bounds,
                 )
-                val displayWidth = imageSize.width * fitScale * scale
-                val displayHeight = imageSize.height * fitScale * scale
-                
-                val maxOffsetX = max(0f, (displayWidth - containerSize.width) / 2f)
-                val maxOffsetY = max(0f, (displayHeight - containerSize.height) / 2f)
-                
-                offsetX = offsetX.coerceIn(-maxOffsetX, maxOffsetX)
-                offsetY = offsetY.coerceIn(-maxOffsetY, maxOffsetY)
+                offsetX = offset.x
+                offsetY = offset.y
+                latestOnZoomChange(scale)
             }
-            latestOnZoomChange(scale)
         }
+    }
+
+    fun flingImage(velocity: Offset) {
+        stopMotion()
+        if (reduceMotion || scale <= 1.01f) return
+        val bounds = resolveZoomableImagePanBounds(imageSize, containerSize, scale)
+        val initialVelocity = resolveZoomableImageFlingVelocity(
+            velocity, Offset(offsetX, offsetY), bounds, density,
+        )
+        if (initialVelocity == Offset.Zero) return
+        motionJob = motionScope.launch {
+            AnimationState(
+                initialValue = Offset(offsetX, offsetY),
+                typeConverter = Offset.VectorConverter,
+                initialVelocity = initialVelocity,
+            ).animateDecay(
+                animationSpec = exponentialDecay(
+                    frictionMultiplier = 3f,
+                    absVelocityThreshold = 10f * density,
+                ),
+            ) {
+                val offset = clampZoomableImageOffset(value, bounds)
+                val stoppedAtBoundary = offset == Offset(offsetX, offsetY) && offset != value
+                offsetX = offset.x
+                offsetY = offset.y
+                if (stoppedAtBoundary) cancelAnimation()
+            }
+        }
+    }
+
+    // Offscreen pages and a closing preview must not keep moving behind the Hero flight.
+    LaunchedEffect(gesturesEnabled, displayRectTrackingEnabled, reduceMotion) {
+        if (!gesturesEnabled || !displayRectTrackingEnabled || reduceMotion) stopMotion()
+    }
+    LaunchedEffect(containerSize, imageSize) {
+        stopMotion()
+        val offset = clampZoomableImageOffset(
+            Offset(offsetX, offsetY),
+            resolveZoomableImagePanBounds(imageSize, containerSize, scale),
+        )
+        offsetX = offset.x
+        offsetY = offset.y
+    }
+
+    // External exit preparation shares ownership with double-tap and fling animations.
+    LaunchedEffect(resetZoomTrigger) {
+        if (resetZoomTrigger > 0 && scale > 1f) {
+            animateTransform(1f, Offset.Zero, 180)
+        }
+    }
+
+    fun onDoubleTap(tapOffset: Offset) {
+        if (imageSize.width <= 0 || imageSize.height <= 0 ||
+            containerSize.width <= 0 || containerSize.height <= 0
+        ) return
+        val targetScale = if (scale > 1.01f) 1f else resolveZoomableImageScaleLimits(
+            imageWidth = imageSize.width,
+            imageHeight = imageSize.height,
+            containerWidth = containerSize.width,
+            containerHeight = containerSize.height,
+        ).doubleTapScale
+        val center = Offset(containerSize.width / 2f, containerSize.height / 2f)
+        val targetOffset = if (targetScale == 1f) Offset.Zero else clampZoomableImageOffset(
+            (center - tapOffset) * (targetScale - 1f),
+            resolveZoomableImagePanBounds(imageSize, containerSize, targetScale),
+        )
+        animateTransform(targetScale, targetOffset, 250)
     }
 
     Box(
@@ -192,8 +229,11 @@ fun ZoomableImage(
                     var verticalDragVelocityY = 0f
                     
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    stopMotion()
+                    val panVelocityTracker = VelocityTracker()
                     fun rootPosition(position: Offset): Offset = inputCoordinates[0]
                         ?.takeIf { it.isAttached }?.localToRoot(position) ?: position
+                    panVelocityTracker.addPosition(down.uptimeMillis, rootPosition(down.position))
                     val rootPositions = mutableMapOf(down.id to rootPosition(down.position))
                     
                     try {
@@ -201,6 +241,10 @@ fun ZoomableImage(
                             // Decide the image gesture before Pager/tap handlers process movement.
                             // Horizontal/undecided movement remains unconsumed for the Pager.
                             val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (!isMultiTouch && event.changes.size == 1) {
+                                val change = event.changes.first()
+                                panVelocityTracker.addPosition(change.uptimeMillis, rootPosition(change.position))
+                            }
                             if (event.changes.none { it.pressed }) {
                                 if (verticalDismissStarted) event.changes.forEach { it.consume() }
                                 break
@@ -306,21 +350,12 @@ fun ZoomableImage(
                                             offsetX += panChange.x
                                             offsetY += panChange.y
 
-                                            if (containerSize != IntSize.Zero && imageSize != IntSize.Zero) {
-                                                val fitScale = min(
-                                                    containerSize.width.toFloat() / imageSize.width,
-                                                    containerSize.height.toFloat() / imageSize.height
-                                                )
-
-                                                val displayWidth = imageSize.width * fitScale * scale
-                                                val displayHeight = imageSize.height * fitScale * scale
-
-                                                val maxOffsetX = max(0f, (displayWidth - containerSize.width) / 2f)
-                                                val maxOffsetY = max(0f, (displayHeight - containerSize.height) / 2f)
-
-                                                offsetX = offsetX.coerceIn(-maxOffsetX, maxOffsetX)
-                                                offsetY = offsetY.coerceIn(-maxOffsetY, maxOffsetY)
-                                            }
+                                            val offset = clampZoomableImageOffset(
+                                                Offset(offsetX, offsetY),
+                                                resolveZoomableImagePanBounds(imageSize, containerSize, scale),
+                                            )
+                                            offsetX = offset.x
+                                            offsetY = offset.y
 
                                             latestOnZoomChange(scale)
                                         }
@@ -349,6 +384,12 @@ fun ZoomableImage(
                             }
                         } while (!gestureCanceled && event.changes.any { it.pressed })
 
+                        if (!gestureCanceled && !isMultiTouch &&
+                            gestureMode == ZoomableImageGestureMode.IMAGE_INTERACTION
+                        ) {
+                            val velocity = panVelocityTracker.calculateVelocity()
+                            flingImage(Offset(velocity.x, velocity.y))
+                        }
                         if (verticalDismissStarted) {
                             verticalDismissStarted = false
                             if (gestureCanceled) {

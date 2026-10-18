@@ -314,9 +314,10 @@ internal val Md3TopTabIndicatorAccelerate = com.android.purebilibili.core.ui.mot
 
 internal fun shouldAnimateMd3TopTabUnderline(
     pagerIsDragging: Boolean,
-    topTabIndicatorOwnsPosition: Boolean
+    topTabIndicatorOwnsPosition: Boolean,
+    pagerDrivesIndicator: Boolean = false,
 ): Boolean {
-    return !pagerIsDragging && !topTabIndicatorOwnsPosition
+    return !pagerDrivesIndicator && !pagerIsDragging && !topTabIndicatorOwnsPosition
 }
 
 internal data class Md3TopTabTargetBounds(

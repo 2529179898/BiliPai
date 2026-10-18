@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -44,6 +45,9 @@ import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.core.util.iOSCardTapEffect
 import com.android.purebilibili.core.util.animateEnter
 import com.android.purebilibili.core.util.CardPositionManager
+import com.android.purebilibili.core.util.HomeCoverReturnPrefetchEntry
+import com.android.purebilibili.core.util.HomeCoverReturnPrefetchRegistry
+import com.android.purebilibili.core.ui.components.LocalPageImageLoadingAllowed
 import com.android.purebilibili.data.model.response.VideoItem
 import com.android.purebilibili.core.util.rememberHapticFeedback
 import com.android.purebilibili.core.util.HapticType
@@ -194,11 +198,11 @@ internal fun StoryVideoCard(
     }
 
     //  记录卡片位置
-    var cardBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-    var coverBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    val cardCoordinates = remember { object { var value: LayoutCoordinates? = null } }
+    val coverCoordinates = remember { object { var value: LayoutCoordinates? = null } }
     val nativeCardSnapshot = rememberNativeVideoCardSnapshotController(video.bvid)
     val triggerCardClick = {
-        cardBounds?.let { bounds ->
+        cardCoordinates.value?.takeIf { it.isAttached }?.boundsInRoot()?.let { bounds ->
             CardPositionManager.recordVideoCardPosition(
                 bvid = video.bvid,
                 sourceRoute = effectiveSharedElementSourceRoute,
@@ -207,12 +211,14 @@ internal fun StoryVideoCard(
                 screenHeight = screenHeightPx,
                 isSingleColumn = !transitionEnabled,
                 sourceCornerDp = cardCornerRadius.value.roundToInt(),
-                coverBounds = coverBounds,
+                coverBounds = coverCoordinates.value?.takeIf { it.isAttached }?.boundsInRoot(),
                 sourceLayout = com.android.purebilibili.core.ui.transition.VideoCardSourceLayout.STACKED,
                 sourceChromeSnapshot = com.android.purebilibili.core.ui.transition.VideoCardSourceChromeSnapshot(
                     title = video.title,
                     ownerName = video.owner.name,
                     ownerFaceUrl = video.owner.face,
+                    recommendationReason = video.recommendationReason,
+                    followed = video.isFollowed,
                     viewText = FormatUtils.formatStat(video.stat.view.toLong()),
                     danmakuText = FormatUtils.formatStat(video.stat.danmaku.toLong()),
                     durationText = FormatUtils.formatDuration(video.duration),
@@ -265,6 +271,29 @@ internal fun StoryVideoCard(
             (LocalMiuixVideoCardTransitionState.current.enabled && isSharedReturnTarget),
         isSharedReturnTarget = isSharedReturnTarget,
     )
+    val context = LocalContext.current
+    val coverImageRequest = remember(context, coverUrl, coverCacheKey, coverRequestSpec, coverCrossfadeEnabled) {
+        ImageRequest.Builder(context)
+            .data(coverUrl)
+            .apply { coverRequestSpec?.let { size(it.widthPx, it.heightPx) } }
+            .crossfade(coverCrossfadeEnabled)
+            .memoryCacheKey(coverCacheKey)
+            .diskCacheKey(coverCacheKey)
+            .build()
+    }
+    val coverWorkAllowed = LocalPageImageLoadingAllowed.current
+    LaunchedEffect(video.bvid, coverUrl, coverCacheKey, coverRequestSpec, coverWorkAllowed) {
+        if (!coverWorkAllowed) return@LaunchedEffect
+        HomeCoverReturnPrefetchRegistry.onCardVisible(
+            HomeCoverReturnPrefetchEntry(
+                bvid = video.bvid.trim(),
+                url = coverUrl,
+                cacheKey = coverCacheKey,
+                decodeWidthPx = coverRequestSpec?.widthPx ?: 0,
+                decodeHeightPx = coverRequestSpec?.heightPx ?: 0,
+            ),
+        )
+    }
     val transitionAdaptiveInfo = com.android.purebilibili.core.ui.transition
         .LocalVideoTransitionAdaptiveInfo.current
     val cardSharedTransitionMotionSpec = remember(
@@ -318,7 +347,7 @@ internal fun StoryVideoCard(
             //  [新增] 记录卡片位置
             .then(nativeCardSnapshot.modifier)
             .onGloballyPositioned { coordinates ->
-                cardBounds = coordinates.boundsInRoot()
+                cardCoordinates.value = coordinates
             }
             .pointerInput(isLongPressEnabled, onDismiss, onLongClick) {
                  val hasLongPressAction = isLongPressEnabled && (onDismiss != null || onLongClick != null)
@@ -364,22 +393,14 @@ internal fun StoryVideoCard(
                 .testTag("home_story_video_cover")
                 .aspectRatio(coverAspectRatio)
                 .onGloballyPositioned { coordinates ->
-                    coverBounds = coordinates.boundsInRoot()
+                    coverCoordinates.value = coordinates
                 }
                 .clip(coverShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant) // 封面占位色
         ) {
             // 封面比例由首页卡片样式统一配置。
             PageAwareAsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(coverUrl)
-                    .apply {
-                        coverRequestSpec?.let { size(it.widthPx, it.heightPx) }
-                    }
-                    .crossfade(coverCrossfadeEnabled)
-                    .memoryCacheKey(coverCacheKey)
-                    .diskCacheKey(coverCacheKey)
-                    .build(),
+                model = coverImageRequest,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize(),
@@ -391,25 +412,10 @@ internal fun StoryVideoCard(
                     .fillMaxSize()
                     .then(nativeCardSnapshot.coverOverlayModifier),
             ) {
-            if (premiumBadgeLabel != null) {
-                HomeVideoBadgePill(
-                    style = badgeStylePolicy.coverStyle,
-                    shape = AppShapes.container(ContainerLevel.Chip),
-                    containerColor = BiliPink.copy(alpha = 0.82f),
-                    borderColor = MediaContrastPalette.Foreground.copy(alpha = 0.24f),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(AppSpacingTokens.Small)
-                ) {
-                    AppText(
-                        text = premiumBadgeLabel,
-                        color = MediaContrastPalette.Foreground,
-                        style = contentTypography.coverBadge.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 1
-                    )
-                }
-            }
-
+            com.android.purebilibili.core.ui.components.VideoStatusBadges(
+                labels = video.statusLabels.ifEmpty { listOfNotNull(premiumBadgeLabel) },
+                modifier = Modifier.align(Alignment.TopEnd).padding(AppSpacingTokens.Small),
+            )
             //  时长标签 (保留在封面上)
             if (showDurationOnCover) {
                 AppText(
@@ -509,6 +515,14 @@ internal fun StoryVideoCard(
                                 .clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
+                    }
+                } else null,
+                nameLeadingContent = if (video.recommendationReason.isNotBlank() || video.isFollowed) {
+                    {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            VideoRecommendationBadge(video.recommendationReason)
+                            if (video.isFollowed) VideoRecommendationBadge("已关注")
+                        }
                     }
                 } else null,
                 nameStyle = contentTypography.author.copy(fontWeight = FontWeight.Medium),

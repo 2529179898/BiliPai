@@ -64,7 +64,6 @@ import com.android.purebilibili.core.ui.components.AppFilterChip
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppTextButton
-import com.android.purebilibili.core.ui.components.VideoListLayoutToggle
 import com.android.purebilibili.data.repository.SearchDuration
 import com.android.purebilibili.data.repository.SearchOrder
 import java.text.SimpleDateFormat
@@ -139,9 +138,6 @@ fun SearchVideoFilterActions(
     onVideoTidChange: (Int) -> Unit,
     onPubTimeTypeChange: (SearchVideoPubTimeType) -> Unit,
     onCustomPubTimeRange: (Long, Long) -> Unit,
-    singleColumn: Boolean,
-    onLayoutToggle: () -> Unit,
-    showLayoutToggle: Boolean = true,
     modifier: Modifier = Modifier,
     miuixBackdrop: MiuixBackdrop? = null,
 ) {
@@ -197,24 +193,6 @@ fun SearchVideoFilterActions(
                         AppContentColors.primaryText()
                     },
                     modifier = Modifier.size(iconSize)
-                )
-            }
-        }
-        if (showLayoutToggle) {
-            BottomBarMatchedReusableLiquidDock(
-                shape = CircleShape,
-                backdrop = miuixBackdrop,
-                reuseEnabled = true,
-                elasticFeedbackEnabled = true,
-                useNeutralLiquidContainer = true,
-                shellLensIntensity = resolveFloatingDockGeometryScale(chromeSpec.clearActionSizeDp.toFloat()),
-                modifier = Modifier.size(actionSize),
-            ) { _ ->
-                VideoListLayoutToggle(
-                    singleColumn = singleColumn,
-                    onClick = onLayoutToggle,
-                    modifier = Modifier.size(actionSize),
-                    iconModifier = Modifier.size(iconSize),
                 )
             }
         }
@@ -443,6 +421,9 @@ private fun SearchFilterSelectableChip(
         label = {
             AppText(
                 text = label,
+                // Miuix owns its native chip fill and ignores Material chip colors.
+                // Set the selection accent on the label for both renderers.
+                color = if (selected) AppContentColors.accent() else AppContentColors.secondaryText(),
                 style = MaterialTheme.typography.labelMedium,
                 maxLines = 1,
                 textAlign = if (center) TextAlign.Center else TextAlign.Start,
@@ -450,8 +431,8 @@ private fun SearchFilterSelectableChip(
             )
         },
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-            selectedLabelColor = AppContentColors.primaryText(),
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = AppContentColors.accent(),
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(
                 alpha = if (glassEnabled) 0.88f else 0.55f
             ),

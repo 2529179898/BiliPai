@@ -7,6 +7,7 @@ import com.android.purebilibili.core.network.AppSignUtils
 import com.android.purebilibili.core.network.NetworkModule
 import com.android.purebilibili.core.network.WbiKeyManager
 import com.android.purebilibili.core.network.WbiUtils
+import com.android.purebilibili.core.store.AccountSessionIdentity
 import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.core.util.NetworkUtils
@@ -20,10 +21,13 @@ import com.android.purebilibili.feature.video.subtitle.parseBiliSubtitleBody
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.android.purebilibili.feature.video.ui.pager.PORTRAIT_PLAYBACK_TARGET_QUALITY
@@ -64,6 +68,138 @@ internal fun shouldReportHomeDataReadyForSplash(
     hasPreloadedData: Boolean
 ): Boolean {
     return hasCompletedPreload || hasPreloadedData
+}
+
+internal data class HomePreloadSession(
+    val identity: AccountSessionIdentity,
+    val cachedMid: Long? = identity.mid,
+    val sessData: String? = null,
+    val accessToken: String? = null,
+    val accessTokenPlatform: String = TokenManager.ACCESS_TOKEN_PLATFORM_TV,
+) {
+    val isConsistent: Boolean
+        get() = identity.mid == cachedMid?.takeIf { it > 0L }
+}
+
+/** A single, single-consumption preload for the current account generation and credentials. */
+internal class HomePreloadState(
+    private val currentSession: () -> HomePreloadSession,
+) {
+    private class Entry(val session: HomePreloadSession) {
+        lateinit var deferred: Deferred<Result<List<VideoItem>>>
+        var cached: Result<List<VideoItem>>? = null
+        var completed = false
+    }
+
+    private val lock = Any()
+    private var entry: Entry? = null
+
+    private fun currentEntryLocked(session: HomePreloadSession): Entry? {
+        val previous = entry ?: return null
+        if (previous.session != session || !session.isConsistent) {
+            entry = null
+            previous.deferred.cancel(CancellationException("Home preload account changed"))
+            return null
+        }
+        return previous
+    }
+
+    private fun requestedEntryLocked(session: HomePreloadSession): Entry? {
+        val current = currentSession()
+        val currentEntry = currentEntryLocked(current)
+        if (!current.isConsistent || session != current) {
+            throw CancellationException("Home request account changed")
+        }
+        return currentEntry
+    }
+
+    fun captureSession(): HomePreloadSession = synchronized(lock) {
+        val session = currentSession()
+        currentEntryLocked(session)
+        if (!session.isConsistent) throw CancellationException("Home account credentials are changing")
+        session
+    }
+
+    fun ensureCurrent(session: HomePreloadSession) {
+        synchronized(lock) { requestedEntryLocked(session) }
+    }
+
+    fun isReady(): Boolean = synchronized(lock) {
+        val current = currentEntryLocked(currentSession())
+        shouldReportHomeDataReadyForSplash(
+            hasCompletedPreload = current?.completed == true,
+            hasPreloadedData = current?.cached != null,
+        )
+    }
+
+    fun start(
+        scope: CoroutineScope,
+        load: suspend () -> Result<List<VideoItem>>,
+    ): Boolean {
+        val deferred = synchronized(lock) {
+            val session = currentSession()
+            val previous = currentEntryLocked(session)
+            if (!session.isConsistent || previous?.completed == true ||
+                !shouldStartHomePreload(
+                    hasPreloadedData = previous?.cached != null,
+                    hasActivePreloadTask = previous?.deferred?.isCompleted == false,
+                )
+            ) return false
+
+            val next = Entry(session)
+            next.deferred = scope.async(start = CoroutineStart.LAZY) {
+                currentCoroutineContext().ensureActive()
+                ensureCurrent(session)
+                val result = load()
+                (result.exceptionOrNull() as? CancellationException)?.let { throw it }
+                currentCoroutineContext().ensureActive()
+                synchronized(lock) {
+                    if (requestedEntryLocked(session) !== next) {
+                        throw CancellationException("Home preload was replaced")
+                    }
+                    next.cached = result
+                    next.completed = true
+                }
+                result
+            }
+            entry = next
+            next.deferred.invokeOnCompletion { cause ->
+                if (cause != null) {
+                    synchronized(lock) {
+                        if (entry === next) entry = null
+                    }
+                }
+            }
+            next.deferred
+        }
+        deferred.start()
+        return true
+    }
+
+    suspend fun consumeOrAwait(session: HomePreloadSession): Result<List<VideoItem>>? {
+        currentCoroutineContext().ensureActive()
+        val deferred = synchronized(lock) {
+            val current = requestedEntryLocked(session) ?: return null
+            current.cached?.let {
+                current.cached = null
+                return it
+            }
+            if (!shouldReuseInFlightPreloadForHomeRequest(
+                    idx = 0,
+                    isPreloading = !current.deferred.isCompleted,
+                    hasPreloadedData = false,
+                )
+            ) return null
+            current.deferred
+        }
+        deferred.await()
+        currentCoroutineContext().ensureActive()
+        return synchronized(lock) {
+            val current = requestedEntryLocked(session)
+            if (current == null || current.deferred !== deferred) return null
+            current.cached.also { current.cached = null }
+        }
+    }
 }
 
 internal fun resolveHomeFeedWbiKeys(
@@ -249,52 +385,49 @@ object VideoRepository {
         ensureBuvid3FromSpi()
     }
 
-    // [新增] 预加载缓存
-    @Volatile private var preloadedHomeVideos: Result<List<VideoItem>>? = null
-    @Volatile private var homePreloadDeferred: Deferred<Result<List<VideoItem>>>? = null
-    @Volatile private var hasCompletedHomePreload = false
-    
-    // [新增] 检查首页数据是否就绪
-    fun isHomeDataReady(): Boolean {
-        return shouldReportHomeDataReadyForSplash(
-            hasCompletedPreload = hasCompletedHomePreload,
-            hasPreloadedData = preloadedHomeVideos != null
-        )
-    }
+    private fun currentHomePreloadSession() = HomePreloadSession(
+        identity = TokenManager.accountIdentity.value,
+        cachedMid = TokenManager.midCache,
+        sessData = TokenManager.sessDataCache,
+        accessToken = TokenManager.accessTokenCache,
+        accessTokenPlatform = TokenManager.accessTokenPlatformCache,
+    )
 
-    // [新增] 预加载首页数据 (在 MainActivity onCreate 调用)
+    private val homePreloadState = HomePreloadState(::currentHomePreloadSession)
+
+    fun isHomeDataReady(): Boolean = homePreloadState.isReady()
+
+    // 等待冷启动凭据恢复后再绑定身份，不将已登录账号的预加载误绑定为匿名会话。
     fun preloadHomeData(scope: CoroutineScope = AppScope.ioScope) {
-        val activePreloadTask = homePreloadDeferred?.takeIf { it.isActive } != null
-        if (!shouldStartHomePreload(preloadedHomeVideos != null, activePreloadTask)) return
-        hasCompletedHomePreload = false
-
-        com.android.purebilibili.core.util.Logger.d("VideoRepo", "🚀 Starting home data preload...")
-
-        homePreloadDeferred = scope.async {
-            try {
-                val feedApiType = NetworkModule.appContext
-                    ?.let { SettingsManager.getFeedApiTypeSync(it) }
-                    ?: SettingsManager.FeedApiType.WEB
-                if (shouldPrimeBuvidForHomePreload(feedApiType)) {
-                    // 移动端推荐流可能依赖 buvid 会话，保留预热。
-                    ensureBuvid3FromSpi()
-                } else {
-                    com.android.purebilibili.core.util.Logger.d(
-                        "VideoRepo",
-                        "🚀 Skip buvid warmup for WEB home preload"
-                    )
+        scope.launch(Dispatchers.IO) {
+            TokenManager.awaitRestore()
+            homePreloadState.start(this) {
+                com.android.purebilibili.core.util.Logger.d("VideoRepo", "🚀 Starting home data preload...")
+                try {
+                    val feedApiType = NetworkModule.appContext
+                        ?.let { SettingsManager.getFeedApiTypeSync(it) }
+                        ?: SettingsManager.FeedApiType.WEB
+                    if (shouldPrimeBuvidForHomePreload(feedApiType)) {
+                        // 移动端推荐流可能依赖 buvid 会话，保留预热。
+                        ensureBuvid3FromSpi()
+                    } else {
+                        com.android.purebilibili.core.util.Logger.d(
+                            "VideoRepo",
+                            "🚀 Skip buvid warmup for WEB home preload"
+                        )
+                    }
+                    getHomeVideosInternal(idx = 0).also { result ->
+                        com.android.purebilibili.core.util.Logger.d(
+                            "VideoRepo",
+                            "🚀 Home data preload finished. Success=${result.isSuccess}"
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    com.android.purebilibili.core.util.Logger.e("VideoRepo", "🚀 Home data preload failed", e)
+                    Result.failure(e)
                 }
-
-                val result = getHomeVideosInternal(idx = 0)
-                preloadedHomeVideos = result
-
-                com.android.purebilibili.core.util.Logger.d("VideoRepo", "🚀 Home data preload finished. Success=${result.isSuccess}")
-                result
-            } catch (e: Exception) {
-                com.android.purebilibili.core.util.Logger.e("VideoRepo", "🚀 Home data preload failed", e)
-                Result.failure<List<VideoItem>>(e).also { preloadedHomeVideos = it }
-            } finally {
-                hasCompletedHomePreload = true
             }
         }
     }
@@ -486,43 +619,22 @@ object VideoRepository {
         }
     }
 
-    private suspend fun awaitHomePreloadResult(): Result<List<VideoItem>>? {
-        val deferred = homePreloadDeferred ?: return null
-        return runCatching { deferred.await() }.getOrNull()
-    }
-
-    private fun consumePreloadedHomeVideos(): Result<List<VideoItem>>? {
-        val cached = preloadedHomeVideos ?: return null
-        preloadedHomeVideos = null
-        homePreloadDeferred = null
-        return cached
-    }
-
-    // 1. 首页推荐 (修改为优先使用预加载数据)
+    // 首页仅首次请求可消费同一账号会话的预加载，等待期间切号也必须拒绝旧结果。
     suspend fun getHomeVideos(idx: Int = 0): Result<List<VideoItem>> = withContext(Dispatchers.IO) {
-        // 如果是首次加载 (idx=0) 且有预加载数据，直接使用
+        TokenManager.awaitRestore()
+        val session = homePreloadState.captureSession()
         if (idx == 0) {
-            val cached = consumePreloadedHomeVideos()
-            if (cached != null) {
+            val preloaded = homePreloadState.consumeOrAwait(session)
+            if (preloaded != null) {
+                homePreloadState.ensureCurrent(session)
                 com.android.purebilibili.core.util.Logger.d("VideoRepo", "✅ Using preloaded home data!")
-                return@withContext cached
-            }
-
-            val hasActivePreloadTask = homePreloadDeferred?.isActive == true
-            if (shouldReuseInFlightPreloadForHomeRequest(idx, hasActivePreloadTask, hasPreloadedData = false)) {
-                val awaited = awaitHomePreloadResult()
-                if (awaited != null) {
-                    com.android.purebilibili.core.util.Logger.d(
-                        "VideoRepo",
-                        "✅ Reused in-flight home preload result"
-                    )
-                    consumePreloadedHomeVideos()
-                    return@withContext awaited
-                }
+                return@withContext preloaded
             }
         }
-        
-        getHomeVideosInternal(idx)
+        getHomeVideosInternal(idx).also {
+            currentCoroutineContext().ensureActive()
+            homePreloadState.ensureCurrent(session)
+        }
     }
 
     // [重构] 内部加载逻辑
@@ -621,7 +733,7 @@ object VideoRepository {
                     " 视频[$index]: ${item.title?.take(15)}... dimension=${item.dimension} isVertical=${item.dimension?.isVertical}")
             }
             
-            val list = feedResp.data?.item?.map { it.toVideoItem() }?.filter { it.bvid.isNotEmpty() } ?: emptyList()
+            val list = feedResp.data?.item?.filter { it.adInfo == null }?.map { it.toVideoItem() }?.filter { it.bvid.isNotEmpty() } ?: emptyList()
             
             //  [调试] 检查转换后的 VideoItem
             val verticalCount = list.count { it.isVertical }
@@ -671,7 +783,7 @@ object VideoRepository {
             }
             
             val list = feedResp.data?.items
-                ?.filter { it.goto == "av" }  // 只保留视频类型
+                ?.filter { it.isSupportedRecommendation }
                 ?.map { it.toVideoItem() }
                 ?.filter { it.bvid.isNotEmpty() }
                 ?: emptyList()
@@ -712,7 +824,7 @@ object VideoRepository {
             val signedParams = WbiUtils.sign(params, imgKey, subKey)
             val feedResp = SharedContentRepository.recommendationResponse(signedParams)
 
-            val list = feedResp.data?.item?.map { it.toVideoItem() }?.filter { it.bvid.isNotEmpty() } ?: emptyList()
+            val list = feedResp.data?.item?.filter { it.adInfo == null }?.map { it.toVideoItem() }?.filter { it.bvid.isNotEmpty() } ?: emptyList()
 
             com.android.purebilibili.core.util.Logger.d("VideoRepo", " Merged Web推荐: total=${list.size}")
 
@@ -785,7 +897,7 @@ object VideoRepository {
             }
 
             val list = feedResp.data?.items
-                ?.filter { it.goto == "av" }  // 只保留视频类型
+                ?.filter { it.isSupportedRecommendation }
                 ?.map { it.toVideoItem() }
                 ?.filter { it.bvid.isNotEmpty() }
                 ?: emptyList()
@@ -1482,22 +1594,31 @@ object VideoRepository {
      * 用于首页长按预览播放，优先尝试获取低画质 MP4
      */
     suspend fun getPreviewVideoUrl(bvid: String, cid: Long): String? {
-        // 复用 fetchAsGuestFallback 逻辑获取简单 MP4
-        val data = fetchAsGuestFallback(bvid, cid)
-        // 返回第一个 durl 的 url
-        return data?.durl?.firstOrNull()?.url
+        if (bvid.isBlank()) return null
+        // Recommendation cards may omit cid. Resolve it without entering the
+        // full player or creating a playback/history session.
+        val resolvedCid = if (cid > 0L) cid else getVideoInfoOnly(bvid).getOrThrow().cid
+        if (resolvedCid <= 0L) return null
+        val data = fetchAsGuestFallback(bvid, resolvedCid, qualities = listOf(16, 32))
+        return data?.durl?.firstOrNull()?.let { segment ->
+            (listOf(segment.url) + segment.backupUrl.orEmpty()).firstOrNull { it.isNotBlank() }
+        }
     }
     
     //  [新增] 以游客身份获取视频（忽略登录凭证）
     //  [修复] 使用 guestApi 确保不携带 SESSDATA/bili_jct
-    private suspend fun fetchAsGuestFallback(bvid: String, cid: Long): PlayUrlData? {
+    private suspend fun fetchAsGuestFallback(
+        bvid: String,
+        cid: Long,
+        qualities: List<Int> = buildGuestFallbackQualities(),
+    ): PlayUrlData? {
         try {
             com.android.purebilibili.core.util.Logger.d("VideoRepo", " fetchAsGuestFallback: bvid=$bvid, cid=$cid (using guestApi)")
             
             // ✅ 使用 guestApi - 不携带登录凭证
             val guestApi = NetworkModule.guestApi
 
-            for (guestQn in buildGuestFallbackQualities()) {
+            for (guestQn in qualities) {
                 val legacyResult = guestApi.getPlayUrlLegacy(
                     bvid = bvid,
                     cid = cid,
@@ -1525,6 +1646,8 @@ object VideoRepository {
                 }
             }
             
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             android.util.Log.w("VideoRepo", "Guest fallback failed: ${e.message}")
         }

@@ -264,6 +264,8 @@ internal fun ListenVideoScreen(
                     .padding(horizontal = 20.dp),
                 height = AppChromeSizeTokens.BottomBarMatchedSegmentedControlHeightDp.dp,
                 indicatorHeight = AppChromeSizeTokens.BottomBarMatchedSegmentedIndicatorHeightDp.dp,
+                // Center only the compact glass rail; native tabs retain their layout.
+                centerGlassContent = true,
                 preferInlineContentStyle = false,
                 miuixBackdrop = listenBackdrop,
                 liquidGlassEffectsEnabled = true,

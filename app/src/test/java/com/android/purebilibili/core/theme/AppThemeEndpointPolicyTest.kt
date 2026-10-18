@@ -9,9 +9,54 @@ import com.android.purebilibili.feature.video.player.resolvePlaybackNotification
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.test.assertEquals
 
 class AppThemeEndpointPolicyTest {
+    @Test
+    fun nativeSelectionUsesThePickedAccentAcrossBothRenderersAndModes() {
+        for (style in AppUiStyle.entries) for (dark in listOf(false, true)) {
+            for (accent in listOf(Color(0xFF007AFF), Color(0xFF34C759), Color.White, Color.Black)) {
+                val base = createBiliPaiStyleColorScheme(
+                    accent, dark, false, PaletteStyle.Expressive, ColorSpec.SpecVersion.SPEC_2025,
+                )
+                val endpoint = resolveAppThemeEndpointPalette(
+                    base, style, Md3ColorSource.CUSTOM, dark,
+                    customSeed = accent, liquidGlassEnabled = false,
+                )
+                assertEquals(accent, endpoint.material.primary)
+                assertEquals(accent, endpoint.miuix.primary)
+                // A bright custom accent legitimately needs dark text. Fixing
+                // Miuix handles must not force the shared foreground to white;
+                // MD3's native SwitchDefaults also consumes this semantic role.
+                assertEquals(resolveReadableForeground(accent), endpoint.material.onPrimary)
+                assertTrue(calculateContrastRatio(
+                    endpoint.material.onPrimary, endpoint.material.primary,
+                ) >= ACCESSIBLE_TEXT_MIN_CONTRAST)
+                val expectedContainer = opaqueCompositeOver(accent.copy(alpha = 0.14f), endpoint.material.surface)
+                assertEquals(expectedContainer, endpoint.material.secondaryContainer)
+                assertEquals(expectedContainer, endpoint.miuix.secondaryContainer)
+                assertEquals(endpoint.material.onSecondaryContainer, endpoint.miuix.onSecondaryContainer)
+                assertTrue(calculateContrastRatio(
+                    endpoint.material.onSecondaryContainer, expectedContainer,
+                ) >= ACCESSIBLE_TEXT_MIN_CONTRAST)
+                // Native canvas and error roles must not inherit the selection fill.
+                val glassEndpoint = resolveAppThemeEndpointPalette(
+                    base, style, Md3ColorSource.CUSTOM, dark,
+                    customSeed = accent, liquidGlassEnabled = true,
+                )
+                assertEquals(glassEndpoint.material.surface, endpoint.material.surface)
+                assertEquals(glassEndpoint.material.error, endpoint.material.error)
+                if (style == AppUiStyle.MATERIAL3) {
+                    assertEquals(base.secondaryContainer, glassEndpoint.material.secondaryContainer)
+                } else {
+                    val native = resolveNativeMiuixColors(base, dark)
+                    assertEquals(native.secondaryContainer, glassEndpoint.miuix.secondaryContainer)
+                }
+            }
+        }
+    }
+
     @Test
     fun editedWallpaperRolesAgreeAcrossMaterialMiuixGlassAndNotifications() {
         val seed = Color(0xFF8054A8)

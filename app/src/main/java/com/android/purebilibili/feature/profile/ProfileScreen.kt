@@ -73,6 +73,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -184,6 +185,11 @@ import com.android.purebilibili.data.model.response.SpaceDynamicItem
 import com.android.purebilibili.data.model.response.SpaceVideoItem
 import com.android.purebilibili.feature.dynamic.DynamicDeleteAction
 import com.android.purebilibili.feature.space.resolveSpaceAggregateVideoId
+import com.android.purebilibili.core.ui.common.contentTabPagerGestures
+import com.android.purebilibili.core.ui.common.rememberContentTabPager
+import com.android.purebilibili.core.ui.common.stationaryPagerHeader
+import com.android.purebilibili.core.ui.components.AppHorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import com.android.purebilibili.feature.settings.AppThemeMode
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 
@@ -380,11 +386,13 @@ fun ProfileScreen(
         .collectAsStateWithLifecycle(initialValue = SettingsManager.isPrivacyModeEnabledSync(context))
     val profileActionScope = androidx.compose.runtime.rememberCoroutineScope()
     val togglePrivacyMode: () -> Unit = {
+        // 固定本次切换目标，避免保存期间状态更新导致提示反转。
+        val targetPrivacyModeEnabled = !privacyModeEnabled
         profileActionScope.launch {
-            SettingsManager.setPrivacyModeEnabled(context, !privacyModeEnabled)
+            SettingsManager.setPrivacyModeEnabled(context, targetPrivacyModeEnabled)
             Toast.makeText(
                 context,
-                if (privacyModeEnabled) "已关闭无痕模式" else "已开启无痕模式",
+                if (targetPrivacyModeEnabled) "已开启无痕模式" else "已关闭无痕模式",
                 Toast.LENGTH_SHORT,
             ).show()
         }
@@ -461,6 +469,11 @@ fun ProfileScreen(
                 insetsController.isAppearanceLightNavigationBars = originalLightNavigationBars
             }
         }
+    }
+
+    DisposableEffect(viewModel, isCurrentPage) {
+        viewModel.setProfilePageActive(isCurrentPage)
+        onDispose { viewModel.setProfilePageActive(false) }
     }
 
     LaunchedEffect(viewModel, isCurrentPage, accountSessionRefreshGeneration) {
@@ -1228,8 +1241,31 @@ private fun ProfileSpaceContent(
         )
     }
     val tabletRailScrollState = rememberScrollState()
-    val tabletFeedListState = rememberLazyListState()
-    val mobileListState = rememberLazyListState()
+    val profileTabs = remember { defaultProfileSpaceTabs() }
+    val mobilePageListStates = profileTabs.associate { it.tab to rememberLazyListState() }
+    val tabletPageListStates = profileTabs.associate { it.tab to rememberLazyListState() }
+    val tabletFeedListState = tabletPageListStates.getValue(space.selectedTab)
+    val mobileListState = mobilePageListStates.getValue(space.selectedTab)
+    val selectedPage = profileTabs.indexOfFirst { it.tab == space.selectedTab }.coerceAtLeast(0)
+    val pagerState = rememberContentTabPager(
+        pageCount = profileTabs.size,
+        selectedPage = selectedPage,
+        onPageSelected = { onTabSelected(profileTabs[it].tab) },
+        prepareNeighbors = { sourcePage ->
+            val states = if (isTablet) tabletPageListStates else mobilePageListStates
+            val source = states.getValue(profileTabs[sourcePage].tab)
+            profileTabs.forEachIndexed { index, tab ->
+                if (index != sourcePage) {
+                    // Phone content is one existing sheet item after the hero. Its pixel
+                    // offset must match across pages so the dashboard/rail stay stationary.
+                    states.getValue(tab.tab).requestScrollToItem(
+                        source.firstVisibleItemIndex,
+                        source.firstVisibleItemScrollOffset,
+                    )
+                }
+            }
+        },
+    )
     val density = LocalDensity.current
     // Keep this anchor independent of the expanding details height. Details grow downward.
     val profileStatsTopProvider: () -> Float = {
@@ -1248,7 +1284,7 @@ private fun ProfileSpaceContent(
         )
     }
     val profileHeaderFling = rememberProfileHeaderFlingBehavior(mobileListState, profileCollapseRangeProvider)
-    val isMobileScrolling by remember {
+    val isMobileScrolling by remember(mobileListState) {
         derivedStateOf { mobileListState.isScrollInProgress }
     }
     ObserveProfileScrollToTop(
@@ -1257,6 +1293,8 @@ private fun ProfileSpaceContent(
         scrollState = if (isTablet) tabletRailScrollState else null
     )
 
+    var mobileFeedRootTopPx by remember { mutableStateOf(0f) }
+    var mobileTabsRootBottomPx by remember { mutableStateOf(Float.POSITIVE_INFINITY) }
     Box(modifier = Modifier.fillMaxSize()) {
         if (isTablet) {
             // 悬浮底栏会盖在双栏内容上，列表尾部需要与手机分支同等的让位。
@@ -1328,6 +1366,8 @@ private fun ProfileSpaceContent(
                         bottom = maxOf(48.dp, bottomDockClearance)
                     ),
                     listState = tabletFeedListState,
+                    pageListStates = tabletPageListStates,
+                    pagerState = pagerState,
                 )
             }
         } else {
@@ -1351,13 +1391,31 @@ private fun ProfileSpaceContent(
                 ) {
                     captureBackground()
                 }
+                AppHorizontalPager(
+                    state = pagerState,
+                    userScrollEnabled = false,
+                    key = { profileTabs[it].tab },
+                    modifier = Modifier.fillMaxSize().contentTabPagerGestures(
+                        pager = pagerState,
+                        enabled = true,
+                        contentTopPx = { mobileTabsRootBottomPx - mobileFeedRootTopPx },
+                    ),
+                ) { page ->
+                val mobileListState = mobilePageListStates.getValue(profileTabs[page].tab)
+                val space = space.copy(selectedTab = profileTabs[page].tab)
+                val profileHeaderFling = rememberProfileHeaderFlingBehavior(mobileListState, profileCollapseRangeProvider)
                 LazyColumn(
                     state = mobileListState,
                     flingBehavior = profileHeaderFling,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .onGloballyPositioned {
+                            if (page == selectedPage) mobileFeedRootTopPx = it.boundsInRoot().top
+                        },
                     contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding() + 120.dp)
                 ) {
                 item {
+                    Box(Modifier.stationaryPagerHeader(pagerState, page)) {
                     ProfileSpaceHeroHeader(
                         user = user,
                         editableAccount = editableAccount,
@@ -1377,11 +1435,13 @@ private fun ProfileSpaceContent(
                         },
                     )
                 }
+                }
                 item {
                     ProfileContentSheet(
                         contentChrome = contentChrome,
                         layoutTokens = layoutTokens
                     ) {
+                        Box(Modifier.stationaryPagerHeader(pagerState, page)) {
                         ProfileQuickAccessDashboard(
                             favoriteFolderShortcuts = favoriteFolderShortcuts,
                             onDownloadClick = onDownloadClick,
@@ -1392,9 +1452,14 @@ private fun ProfileSpaceContent(
                             onFavoriteFolderClick = onFavoriteFolderClick,
                             contentColor = contentChrome.onSurfaceColor,
                         )
+                        }
                         ProfileSpaceTabs(
                             selectedTab = space.selectedTab,
                             onTabSelected = onTabSelected,
+                            modifier = Modifier.stationaryPagerHeader(pagerState, page).onGloballyPositioned {
+                                if (page == selectedPage) mobileTabsRootBottomPx = it.boundsInRoot().bottom
+                            },
+                            pagerState = pagerState,
                         )
                         ProfileSpaceTabBody(
                             user = user,
@@ -1421,6 +1486,8 @@ private fun ProfileSpaceContent(
                     }
                 }
                 }
+                } // AppHorizontalPager
+
             }
             ProfilePinnedSpaceTopBarBackground(
                 progressiveTopChrome = progressiveTopChrome,
@@ -1557,13 +1624,23 @@ private fun ProfilePinnedSpaceTopBar(
                 listOf(
                     AppWindowAction(label = "搜索", onClick = onSearchClick),
                     AppWindowAction(label = "消息", onClick = onInboxClick),
-                    AppWindowAction(label = "编辑资料", onClick = onEditClick),
-                    AppWindowAction(label = "切换账号", onClick = onAccountManageClick),
+                    AppWindowAction(
+                        label = "账号与资料",
+                        children = listOf(
+                            AppWindowAction(label = "编辑资料", onClick = onEditClick),
+                            AppWindowAction(label = "切换账号", onClick = onAccountManageClick),
+                        ),
+                    ),
                 ),
                 listOf(
                     AppWindowAction(label = if (privacyModeEnabled) "关闭无痕模式" else "开启无痕模式", onClick = onPrivacyClick),
-                    AppWindowAction(label = "切换主题", onClick = onThemeClick),
-                    AppWindowAction(label = "更换背景", onClick = onWallpaperClick),
+                    AppWindowAction(
+                        label = "主题与背景",
+                        children = listOf(
+                            AppWindowAction(label = "切换主题", onClick = onThemeClick),
+                            AppWindowAction(label = "更换背景", onClick = onWallpaperClick),
+                        ),
+                    ),
                     AppWindowAction(label = "设置", onClick = onSettingsClick),
                     AppWindowAction(label = "返回", onClick = onBack),
                 ),
@@ -1599,16 +1676,42 @@ private fun ProfileSpaceFeedColumn(
     modifier: Modifier,
     contentPadding: PaddingValues,
     listState: LazyListState,
+    pageListStates: Map<ProfileSpaceMainTab, LazyListState>,
+    pagerState: PagerState,
 ) {
+    var feedRootTopPx by remember { mutableStateOf(0f) }
+    var tabsRootBottomPx by remember { mutableStateOf(Float.POSITIVE_INFINITY) }
+    val tabs = remember { defaultProfileSpaceTabs() }
+    AppHorizontalPager(
+        state = pagerState,
+        userScrollEnabled = false,
+        key = { tabs[it].tab },
+        modifier = modifier.fillMaxHeight().contentTabPagerGestures(
+            pager = pagerState,
+            enabled = true,
+            contentTopPx = {
+                if (listState.firstVisibleItemIndex > 0) 0f else tabsRootBottomPx - feedRootTopPx
+            },
+        ),
+    ) { page ->
+    val isPageActive = tabs[page].tab == space.selectedTab
+    val space = space.copy(selectedTab = tabs[page].tab)
+    val listState = pageListStates.getValue(space.selectedTab)
     LazyColumn(
         state = listState,
-        modifier = modifier.fillMaxHeight(),
+        modifier = Modifier
+            .fillMaxSize()
+            .onGloballyPositioned { if (isPageActive) feedRootTopPx = it.boundsInRoot().top },
         contentPadding = contentPadding
     ) {
         item {
             ProfileSpaceTabs(
                 selectedTab = space.selectedTab,
                 onTabSelected = onTabSelected,
+                modifier = Modifier.stationaryPagerHeader(pagerState, page).onGloballyPositioned {
+                    if (isPageActive) tabsRootBottomPx = it.boundsInRoot().bottom
+                },
+                pagerState = pagerState,
             )
         }
         item {
@@ -1635,6 +1738,7 @@ private fun ProfileSpaceFeedColumn(
             )
         }
     }
+    } // AppHorizontalPager
 }
 
 @Composable
@@ -2139,6 +2243,8 @@ private fun ProfileSpaceStat(label: String, value: Int, color: Color, onClick: (
 private fun ProfileSpaceTabs(
     selectedTab: ProfileSpaceMainTab,
     onTabSelected: (ProfileSpaceMainTab) -> Unit,
+    modifier: Modifier = Modifier,
+    pagerState: PagerState,
 ) {
     val tabs = remember { defaultProfileSpaceTabs() }
     val chromeSpec = remember { resolveProfileSpaceTabChromeSpec() }
@@ -2148,10 +2254,12 @@ private fun ProfileSpaceTabs(
         options = tabs.map { AppSegmentOption(it.tab, it.title) },
         selectedValue = tabs[selectedIndex].tab,
         onSelectionChange = onTabSelected,
+        indicatorPositionProvider = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
+        isScrollInProgressProvider = { pagerState.isScrollInProgress },
         scrollable = false,
         dragSelectionEnabled = tabs.size > 1,
         tapPressRefractionEnabled = true,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = chromeSpec.rowHorizontalInsetDp.dp, vertical = 6.dp),
     )

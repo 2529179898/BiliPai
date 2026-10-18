@@ -580,10 +580,23 @@ class AppTopLevelNavigationPolicyTest {
 
     @Test
     fun bottomPagerPreloadedItemsSaver_dropsUnknownTabNames() {
+        val saver = bottomPagerPreloadedItemsSaver("same-process")
         assertEquals(
             setOf(BottomNavItem.HOME),
-            BottomPagerPreloadedItemsSaver.restore(listOf("HOME", "NOT_A_TAB"))
+            saver.restore(listOf("same-process", "HOME", "NOT_A_TAB"))
         )
+    }
+
+    @Test
+    fun bottomPagerPreloadedItemsSaver_dropsWarmthAfterProcessDeathAndLegacyRestore() {
+        val saver = bottomPagerPreloadedItemsSaver("old-process")
+        val saved = with(saver) {
+            androidx.compose.runtime.saveable.SaverScope { true }.save(
+                setOf(BottomNavItem.HOME, BottomNavItem.DYNAMIC, BottomNavItem.PROFILE)
+            )
+        }
+        assertEquals(emptySet(), saved?.let { bottomPagerPreloadedItemsSaver("new-process").restore(it) })
+        assertEquals(emptySet(), saver.restore(listOf("HOME", "DYNAMIC", "PROFILE")))
     }
 
     @Test

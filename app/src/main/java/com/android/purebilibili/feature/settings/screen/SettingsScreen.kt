@@ -166,9 +166,6 @@ fun SettingsScreen(
         .collectAsStateWithLifecycle(initialValue = false)
     val dynamicDetailImageLayout by SettingsManager.getDynamicDetailImageLayout(context)
         .collectAsStateWithLifecycle(initialValue = SettingsManager.peekDynamicDetailImageLayout(context))
-    val dynamicAllTabHorizontalUserListVisible by SettingsManager
-        .getDynamicAllTabHorizontalUserListVisible(context)
-        .collectAsStateWithLifecycle(initialValue = false)
     val dynamicTopBarCollapseOnScroll by SettingsManager
         .getDynamicTopBarCollapseOnScroll(context)
         .collectAsStateWithLifecycle(initialValue = false)
@@ -891,12 +888,6 @@ fun SettingsScreen(
                             SettingsManager.setDynamicDetailImageLayout(context, layout)
                         }
                     },
-                    dynamicAllTabHorizontalUserListVisible = dynamicAllTabHorizontalUserListVisible,
-                    onDynamicAllTabHorizontalUserListVisibleChange = { visible ->
-                        scope.launch {
-                            SettingsManager.setDynamicAllTabHorizontalUserListVisible(context, visible)
-                        }
-                    },
                     dynamicTopBarCollapseOnScroll = dynamicTopBarCollapseOnScroll,
                     onDynamicTopBarCollapseOnScrollChange = { enabled ->
                         scope.launch {
@@ -1058,8 +1049,6 @@ private fun MobileSettingsNavLayout(
     onDynamicCommentPreviewVisibleChange: (Boolean) -> Unit,
     dynamicDetailImageLayout: SettingsManager.DynamicDetailImageLayout,
     onDynamicDetailImageLayoutChange: (SettingsManager.DynamicDetailImageLayout) -> Unit,
-    dynamicAllTabHorizontalUserListVisible: Boolean,
-    onDynamicAllTabHorizontalUserListVisibleChange: (Boolean) -> Unit,
     dynamicTopBarCollapseOnScroll: Boolean,
     onDynamicTopBarCollapseOnScrollChange: (Boolean) -> Unit,
     dynamicFeedLayoutMode: com.android.purebilibili.core.store.SettingsManager.DynamicFeedLayoutMode,
@@ -1132,7 +1121,6 @@ private fun MobileSettingsNavLayout(
         onDynamicImagePreviewTextVisibleChange = onDynamicImagePreviewTextVisibleChange,
         onDynamicCommentPreviewVisibleChange = onDynamicCommentPreviewVisibleChange,
         onDynamicDetailImageLayoutChange = onDynamicDetailImageLayoutChange,
-        onDynamicAllTabHorizontalUserListVisibleChange = onDynamicAllTabHorizontalUserListVisibleChange,
         onDynamicTopBarCollapseOnScrollChange = onDynamicTopBarCollapseOnScrollChange,
         onDynamicFeedLayoutModeChange = onDynamicFeedLayoutModeChange,
         onDynamicTabVisibilityChange = onDynamicTabVisibilityChange,
@@ -1173,7 +1161,6 @@ private fun MobileSettingsNavLayout(
         dynamicImagePreviewTextVisible = dynamicImagePreviewTextVisible,
         dynamicCommentPreviewVisible = dynamicCommentPreviewVisible,
         dynamicDetailImageLayout = dynamicDetailImageLayout,
-        dynamicAllTabHorizontalUserListVisible = dynamicAllTabHorizontalUserListVisible,
         dynamicTopBarCollapseOnScroll = dynamicTopBarCollapseOnScroll,
         dynamicFeedLayoutMode = dynamicFeedLayoutMode,
         dynamicVisibleTabIds = dynamicVisibleTabIds,

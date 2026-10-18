@@ -278,7 +278,8 @@ fun GestureIndicator(
  */
 suspend fun PointerInputScope.detectPlayerTapGestures(
     onTap: (Offset) -> Unit,
-    onDoubleTap: (Offset) -> Unit
+    onDoubleTap: (Offset) -> Unit,
+    captureSingleTap: (Offset) -> (() -> Unit)? = { null }
 ) {
     val doubleTapSlopSquared = viewConfiguration.touchSlop * viewConfiguration.touchSlop
     awaitEachGesture {
@@ -289,6 +290,8 @@ suspend fun PointerInputScope.detectPlayerTapGestures(
                 waitForUpOrCancellation()
             } ?: return@awaitEachGesture
             up.consume()
+            // Snapshot moving targets now; only invoke if this remains a single tap.
+            val capturedTap = captureSingleTap(up.position)
 
             val secondDown = withTimeoutOrNull(viewConfiguration.doubleTapTimeoutMillis) {
                 val minUptime = up.uptimeMillis + viewConfiguration.doubleTapMinTimeMillis
@@ -299,13 +302,13 @@ suspend fun PointerInputScope.detectPlayerTapGestures(
                 candidate
             }
             if (secondDown == null) {
-                onTap(up.position)
+                capturedTap?.invoke() ?: onTap(up.position)
                 return@awaitEachGesture
             }
 
             val distanceSquared = (secondDown.position - down.position).getDistanceSquared()
             if (distanceSquared > doubleTapSlopSquared) {
-                onTap(up.position)
+                capturedTap?.invoke() ?: onTap(up.position)
                 down = secondDown
                 continue
             }
@@ -315,7 +318,7 @@ suspend fun PointerInputScope.detectPlayerTapGestures(
                 waitForUpOrCancellation()
             }
             if (secondUp == null) {
-                onTap(up.position)
+                capturedTap?.invoke() ?: onTap(up.position)
             } else {
                 secondUp.consume()
                 onDoubleTap(secondUp.position)

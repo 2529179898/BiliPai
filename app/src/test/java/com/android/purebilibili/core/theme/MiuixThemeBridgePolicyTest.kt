@@ -127,6 +127,8 @@ class MiuixThemeBridgePolicyTest {
             assertEquals(if (dark) Color(0xFF121212) else expected.surface, colors.surface)
             assertEquals(expected.surfaceContainer, colors.surfaceContainer)
             assertEquals(expected.secondary, colors.secondary)
+            // SwitchDefaults uses onSecondary for the unchecked thumb, not text.
+            assertEquals(expected.onSecondary, colors.onSecondary)
             assertEquals(expected.secondaryVariant, colors.secondaryVariant)
             assertEquals(expected.disabledPrimary, colors.disabledPrimary)
             assertEquals(expected.disabledOnPrimary, colors.disabledOnPrimary)
@@ -134,6 +136,7 @@ class MiuixThemeBridgePolicyTest {
             assertEquals(expected.disabledOnPrimaryButton, colors.disabledOnPrimaryButton)
             assertEquals(expected.disabledPrimarySlider, colors.disabledPrimarySlider)
             assertEquals(expected.disabledSecondary, colors.disabledSecondary)
+            assertEquals(expected.disabledOnSecondary, colors.disabledOnSecondary)
             assertEquals(expected.disabledOnSurface, colors.disabledOnSurface)
             assertEquals(expected.sliderBackground, colors.sliderBackground)
             assertEquals(scheme.error, colors.error)

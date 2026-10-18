@@ -149,6 +149,9 @@ fun SearchLandingContent(
     discoverListError: String? = null,
     isRefreshingDiscoverList: Boolean = false,
     historyList: List<SearchHistory>,
+    recordSearchHistory: Boolean,
+    globalPrivacyMode: Boolean,
+    onToggleHistoryRecording: () -> Unit,
     hotSearchEnabled: Boolean,
     discoverSectionEnabled: Boolean,
     onToggleHotSearch: () -> Unit,
@@ -200,6 +203,9 @@ fun SearchLandingContent(
     fun HistorySection() {
         SearchHistorySectionModern(
             historyList = historyList,
+            recordSearchHistory = recordSearchHistory,
+            globalPrivacyMode = globalPrivacyMode,
+            onToggleHistoryRecording = onToggleHistoryRecording,
             columns = layoutPolicy.hotSearchColumns,
             onItemClick = onKeywordClick,
             onClear = onClearHistory,
@@ -710,13 +716,14 @@ internal fun SearchKeywordBadge(
 @Composable
 private fun SearchHistorySectionModern(
     historyList: List<SearchHistory>,
+    recordSearchHistory: Boolean,
+    globalPrivacyMode: Boolean,
+    onToggleHistoryRecording: () -> Unit,
     columns: Int,
     onItemClick: (String) -> Unit,
     onClear: () -> Unit,
     onDelete: (SearchHistory) -> Unit
 ) {
-    if (historyList.isEmpty()) return
-    val secondary = MaterialTheme.colorScheme.secondary
     val safeColumns = resolveSearchKeywordSectionColumns(columns, showTrendingAction = false)
 
     Column {
@@ -731,20 +738,48 @@ private fun SearchHistorySectionModern(
                     fontWeight = FontWeight.SemiBold
                 )
             )
-            AppTextButton(onClick = onClear) {
-                AppIcon(
-                    imageVector = Icons.Outlined.ClearAll,
-                    contentDescription = "清空",
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(2.dp))
-                AppText(
-                    text = "清空",
-                    style = MaterialTheme.typography.labelLarge
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AppTextButton(
+                    onClick = onToggleHistoryRecording,
+                    enabled = !globalPrivacyMode,
+                ) {
+                    val recording = shouldRecordSearchHistory(recordSearchHistory, globalPrivacyMode)
+                    AppIcon(
+                        imageVector = if (recording) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                        contentDescription = if (recording) "关闭搜索历史记录" else "开启搜索历史记录",
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    AppText(
+                        text = when {
+                            globalPrivacyMode -> "全局无痕"
+                            recording -> "记录中"
+                            else -> "无痕搜索"
+                        },
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+                if (historyList.isNotEmpty()) {
+                    AppTextButton(onClick = onClear) {
+                        AppIcon(
+                            imageVector = Icons.Outlined.ClearAll,
+                            contentDescription = "清空",
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        AppText(text = "清空", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
             }
         }
         Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
+        if (historyList.isEmpty()) {
+            AppText(
+                text = if (recordSearchHistory && !globalPrivacyMode) "暂无搜索历史" else "新搜索不会记录到历史，已有记录会保留",
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppContentColors.secondaryText(),
+            )
+        }
         // 与「搜索发现」同构的两列网格，正文使用 bodyMedium，保留删除入口。
         historyList.chunked(safeColumns).forEach { rowItems ->
             Row(

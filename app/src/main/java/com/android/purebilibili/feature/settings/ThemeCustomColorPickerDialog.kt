@@ -57,6 +57,7 @@ internal fun ThemeCustomColorPickerDialog(
     paletteStyle: PaletteStyle = PaletteStyle.TonalSpot,
     colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
     colorContrast: Contrast = Contrast.Default,
+    seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
     exactRoleTitle: String? = null,
     onReset: (() -> Unit)? = null,
 ) {
@@ -82,15 +83,17 @@ internal fun ThemeCustomColorPickerDialog(
         else -> AppSurfaceTokens.background().luminance() < 0.5f
     }
     val previewUiStyle = LocalAppUiStyle.current
-    val previewScheme = remember(color, previewDark, paletteStyle, colorSpec, colorContrast, previewUiStyle) {
+    val previewScheme = remember(color, previewDark, paletteStyle, colorSpec, colorContrast, previewUiStyle, seedPaletteStyle) {
         resolveAppThemeEndpointPalette(
             base = createBiliPaiStyleColorScheme(
                 color, previewDark, false, paletteStyle, colorSpec, colorContrast = colorContrast,
+                seedPaletteStyle = seedPaletteStyle,
             ),
             uiStyle = previewUiStyle,
             source = Md3ColorSource.CUSTOM,
             darkTheme = previewDark,
             customSeed = color,
+            preserveGeneratedPalette = seedPaletteStyle.enabled,
         ).material
     }
     val previewMiuixController = remember(previewScheme, previewDark) {

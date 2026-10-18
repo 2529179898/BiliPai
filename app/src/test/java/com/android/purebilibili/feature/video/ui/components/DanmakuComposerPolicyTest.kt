@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -22,7 +23,7 @@ class DanmakuComposerPolicyTest {
     }
 
     @Test
-    fun inlineSend_retainsRoomyCinemaVisibility() {
+    fun compactDanmakuSend_requiresRoomyTabletInlinePlayer() {
         assertFalse(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 411))
         assertFalse(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 600))
         assertFalse(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 719))
@@ -30,5 +31,16 @@ class DanmakuComposerPolicyTest {
         assertTrue(shouldShowCompactDanmakuSendAction(isFullscreen = false, widthDp = 800))
     }
 
+    @Test
+    fun placeholder_reflectsLoginState() {
+        assertTrue(resolveDanmakuInputPlaceholder(isLoggedIn = true).contains("友善"))
+        assertTrue(resolveDanmakuInputPlaceholder(isLoggedIn = false).contains("登录"))
+    }
 
+    @Test
+    fun sendOptions_includeExpectedDefaults() {
+        assertEquals(9, danmakuSendColorOptions().size)
+        assertEquals(3, danmakuSendModeOptions().size)
+        assertEquals(3, danmakuSendFontSizeOptions().size)
+    }
 }

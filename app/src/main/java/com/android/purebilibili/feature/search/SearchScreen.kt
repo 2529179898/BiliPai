@@ -527,7 +527,7 @@ internal fun resolveSearchResultPageState(
     return if (state.searchType == searchType) {
         state.toCurrentSearchResultPage()
     } else {
-        state.resultPages[searchType] ?: SearchResultPageUiState(query = state.query.trim())
+        state.resultPages[searchType] ?: SearchResultPageUiState(query = state.submittedQuery)
     }
 }
 
@@ -673,6 +673,7 @@ fun SearchScreen(
     onVideoDetailReturnAnimationConsumed: () -> Unit = {},
     onUpResultClick: ((Long, String) -> Unit)? = null,
     onBangumiResultClick: ((Long, String) -> Unit)? = null,
+    onArticleResultClick: ((Long, String, String) -> Unit)? = null,
     backEnabled: Boolean = true,
 ) {
     val topChromePolicy = rememberAppTopChromePolicy()
@@ -691,9 +692,11 @@ fun SearchScreen(
     var searchFieldFocused by remember { mutableStateOf(false) }
     var retainSearchImeAfterClear by remember { mutableStateOf(false) }
     var searchQueryClearedAtElapsedMs by remember { mutableLongStateOf(-1L) }
-    // One-shot autofocus for empty landing only; never re-open keyboard after results.
+    // Startup autofocus is one-shot; returning from results owns its explicit edit-context restore.
     var autoFocusConsumed by rememberSaveable { mutableStateOf(false) }
     var previousShowResults by rememberSaveable { mutableStateOf(false) }
+    var restoreLandingFocusOnBack by rememberSaveable { mutableStateOf(false) }
+    var pendingLandingFocusRestore by remember { mutableStateOf(false) }
     val searchLayoutPolicy = remember(configuration.screenWidthDp) {
         resolveSearchLayoutPolicy(
             widthDp = configuration.screenWidthDp
@@ -727,7 +730,7 @@ fun SearchScreen(
         derivedStateOf {
             state.showResults &&
                 !state.isSearching &&
-                if (state.searchType == SearchType.VIDEO) {
+                if (state.searchType == SearchType.VIDEO || state.searchType == SearchType.ALL) {
                     shouldShowSearchBackToTop(
                         firstVisibleItemIndex = resultGridState.firstVisibleItemIndex,
                         firstVisibleItemScrollOffset = resultGridState.firstVisibleItemScrollOffset
@@ -915,7 +918,7 @@ fun SearchScreen(
         derivedStateOf {
             if (!state.showResults) {
                 true
-            } else if (state.searchType == SearchType.VIDEO) {
+            } else if (state.searchType == SearchType.VIDEO || state.searchType == SearchType.ALL) {
                 resultGridState.firstVisibleItemIndex == 0 && resultGridState.firstVisibleItemScrollOffset == 0
             } else {
                 resultListState.firstVisibleItemIndex == 0 && resultListState.firstVisibleItemScrollOffset == 0
@@ -957,12 +960,12 @@ fun SearchScreen(
         resultGridState, resultListState,
     ) {
         snapshotFlow {
-            val index = if (state.searchType == SearchType.VIDEO) {
+            val index = if (state.searchType == SearchType.VIDEO || state.searchType == SearchType.ALL) {
                 resultGridState.firstVisibleItemIndex
             } else {
                 resultListState.firstVisibleItemIndex
             }
-            val offset = if (state.searchType == SearchType.VIDEO) {
+            val offset = if (state.searchType == SearchType.VIDEO || state.searchType == SearchType.ALL) {
                 resultGridState.firstVisibleItemScrollOffset
             } else {
                 resultListState.firstVisibleItemScrollOffset
@@ -1112,10 +1115,9 @@ fun SearchScreen(
         }
         viewModel.onQueryChange(query)
     }
-    // No in-field clear icon. Leaving results through this path must not reopen the IME.
+    // Clearing by button and deleting by keyboard share one edit path; neither navigates.
     val clearSearchQuery = {
-        viewModel.onQueryChange("")
-        viewModel.exitResultsToLanding()
+        updateSearchQuery("")
     }
     LaunchedEffect(retainSearchImeAfterClear) {
         if (!retainSearchImeAfterClear) return@LaunchedEffect
@@ -1124,13 +1126,19 @@ fun SearchScreen(
         keyboardController?.show()
         retainSearchImeAfterClear = false
     }
-    val submitSearch: (String) -> Unit = { keyword ->
+    val submitSearch: (String) -> Unit = submitSearch@{ keyword ->
         when (val action = resolveSearchSubmitAction(keyword)) {
-            SearchSubmitAction.Ignore -> Unit
-            is SearchSubmitAction.OpenSearch -> viewModel.search(action.keyword)
+            SearchSubmitAction.Ignore -> return@submitSearch
+            is SearchSubmitAction.OpenSearch -> {
+                if (!state.showResults) restoreLandingFocusOnBack = searchFieldFocused
+                viewModel.search(action.keyword)
+            }
             is SearchSubmitAction.OpenNativeTarget -> {
                 viewModel.dismissSuggestions()
-                if (!onNavigateSearchTarget(action.target)) viewModel.search(keyword)
+                if (!onNavigateSearchTarget(action.target)) {
+                    if (!state.showResults) restoreLandingFocusOnBack = searchFieldFocused
+                    viewModel.search(keyword)
+                }
             }
         }
         dismissSearchKeyboardAndFocus()
@@ -1144,6 +1152,12 @@ fun SearchScreen(
                 searchFieldFocused = searchFieldFocused
             )
         ) {
+            SearchBackAction.RETURN_TO_LANDING -> {
+                pendingLandingFocusRestore = restoreLandingFocusOnBack || searchFieldFocused
+                viewModel.exitResultsToLanding()
+                if (pendingLandingFocusRestore) viewModel.onQueryChange(state.query)
+                else dismissSearchKeyboardAndFocus()
+            }
             SearchBackAction.LEAVE_SEARCH -> {
                 dismissSearchKeyboardAndFocus()
                 if (exitMotionSpec != null && !exitMotionInProgress) {
@@ -1168,6 +1182,16 @@ fun SearchScreen(
             dismissSearchKeyboardAndFocus()
         }
         previousShowResults = state.showResults
+    }
+
+    LaunchedEffect(state.showResults, pendingLandingFocusRestore) {
+        if (state.showResults || !pendingLandingFocusRestore) return@LaunchedEffect
+        // The same movable input keeps selection; wait until it is placed on the landing surface.
+        androidx.compose.runtime.withFrameNanos { }
+        if (runCatching { searchFocusRequester.requestFocus() }.isSuccess) {
+            keyboardController?.show()
+        }
+        pendingLandingFocusRestore = false
     }
 
     //  [埋点] 页面浏览追踪
@@ -1417,9 +1441,6 @@ fun SearchScreen(
                                                 if (state.searchType == SearchType.VIDEO || state.searchType == SearchType.ALL) {
                                                     val videoFilters: @Composable RowScope.() -> Unit = {
                                                         SearchVideoFilterActions(
-                                                            singleColumn = listLayout.singleColumn,
-                                                            onLayoutToggle = listLayout.toggle,
-                                                            showLayoutToggle = state.searchType == SearchType.VIDEO,
                                                             currentDurations = state.searchDurations,
                                                             currentVideoTid = state.videoTid,
                                                             currentPubTimeType = state.pubTimeType,
@@ -1648,12 +1669,17 @@ fun SearchScreen(
                         // Observe the viewport, not a specific card's composition. This also
                         // continues after a page is entirely removed by local search filters.
                         val latestVideoPage by rememberUpdatedState(pageResultState)
-                        if (targetSearchType == SearchType.VIDEO && targetSearchType == state.searchType) {
+                        if ((targetSearchType == SearchType.VIDEO || targetSearchType == SearchType.ALL) &&
+                            targetSearchType == state.searchType
+                        ) {
                             LaunchedEffect(activePageGridState, state.searchSessionId) {
                                 snapshotFlow {
                                     val current = latestVideoPage
+                                    val itemCount = current.searchResults.size + if (targetSearchType == SearchType.ALL) {
+                                        current.upResults.size + current.bangumiResults.size
+                                    } else 0
                                     current.currentPage to shouldLoadMoreSearchVideos(
-                                        itemCount = current.searchResults.size,
+                                        itemCount = itemCount,
                                         lastVisibleItemIndex = activePageGridState.layoutInfo
                                             .visibleItemsInfo.lastOrNull()?.index ?: -1,
                                         hasMoreResults = current.hasMoreResults,
@@ -1666,27 +1692,9 @@ fun SearchScreen(
                                 }
                             }
                         }
-                        if (targetSearchType == SearchType.ALL && targetSearchType == state.searchType) {
-                            LaunchedEffect(activePageListState, state.searchSessionId) {
-                                snapshotFlow {
-                                    val current = latestVideoPage
-                                    val itemCount = current.searchResults.size + current.upResults.size + current.bangumiResults.size
-                                    current.currentPage to shouldLoadMoreSearchVideos(
-                                        itemCount = itemCount,
-                                        lastVisibleItemIndex = activePageListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1,
-                                        hasMoreResults = current.hasMoreResults,
-                                        isSearching = current.isSearching,
-                                        isLoadingMore = current.isLoadingMore,
-                                        hasError = current.error != null || current.loadMoreError != null,
-                                    )
-                                }.collect { (_, shouldLoad) ->
-                                    if (shouldLoad) viewModel.loadMoreResults()
-                                }
-                            }
-                        }
                         LaunchedEffect(scrollToTopRequestId, scrollToTopSearchType, targetSearchType) {
                             if (scrollToTopSearchType == targetSearchType && scrollToTopRequestId > 0) {
-                                if (targetSearchType == SearchType.VIDEO) {
+                                if (targetSearchType == SearchType.VIDEO || targetSearchType == SearchType.ALL) {
                                     activePageGridState.animateScrollToItem(0)
                                 } else {
                                     activePageListState.animateScrollToItem(0)
@@ -1696,12 +1704,7 @@ fun SearchScreen(
                         if (pagePresentation.body == SearchResultBodyMode.LOADING) {
                             // 结果形态已知：用骨架占位，不用主题 Loading 动画。
                             when (targetSearchType) {
-                                SearchType.ALL -> ContentMediaListSkeleton(
-                                    useUserRow = false,
-                                    contentPadding = PaddingValues(top = resultTopPadding, bottom = resultBottomPadding),
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                                SearchType.VIDEO -> {
+                                SearchType.ALL, SearchType.VIDEO -> {
                                     val skeletonModifier = Modifier
                                         .then(
                                             if (videoGridColumns == 1) {
@@ -1754,7 +1757,7 @@ fun SearchScreen(
                                     if (isEmptyVideoPage && pageResultState.loadMoreError != null) {
                                         viewModel.loadMoreResults()
                                     } else {
-                                        viewModel.search(pageResultState.query)
+                                        viewModel.search(pageResultState.query, updateDraft = false)
                                     }
                                 },
                                 modifier = Modifier
@@ -1777,7 +1780,7 @@ fun SearchScreen(
                                         subtitle = copy.subtitle,
                                         animation = com.android.purebilibili.core.ui.MaidAnimation.SEARCH_EMPTY,
                                         actionText = "重新搜索",
-                                        onAction = { viewModel.search(pageResultState.query) },
+                                        onAction = { viewModel.search(pageResultState.query, updateDraft = false) },
                                         enableEasterEgg = false,
                                         isVisible = searchPagerState.currentPage == page
                                     )
@@ -1785,86 +1788,8 @@ fun SearchScreen(
                             }
                         } else {
                         when (targetSearchType) {
-                            com.android.purebilibili.data.model.response.SearchType.ALL -> {
-                                LazyColumn(
-                                    contentPadding = PaddingValues(top = resultTopPadding, bottom = resultBottomPadding, start = 16.dp, end = 16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                                    state = activePageListState,
-                                    modifier = Modifier
-                                        .responsiveContentWidth(maxWidth = resolveSearchSingleColumnResultMaxWidth())
-                                        .fillMaxSize()
-                                        .then(if (searchHazeEnabled) Modifier.hazeSourceCompat(state = hazeState) else Modifier)
-                                ) {
-                                    if (pageResultState.upResults.isNotEmpty()) {
-                                        itemsIndexed(pageResultState.upResults, key = { _, up -> "all_up_${up.mid}" }) { _, up ->
-                                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                UpSearchResultCard(
-                                                    upItem = up,
-                                                    appearance = genericResultCardAppearance,
-                                                    onClick = { onUpClick(up.mid) },
-                                                )
-                                                val relatedVideos = up.res.orEmpty().take(6).map { it.toVideoItem() }
-                                                if (relatedVideos.isNotEmpty()) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .horizontalScroll(rememberScrollState()),
-                                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                                    ) {
-                                                        relatedVideos.forEach { video ->
-                                                            SearchAllRelatedVideoCard(video = video) {
-                                                                when (
-                                                                    val target = resolveVideoSearchNavigationTarget(
-                                                                        bvid = video.bvid,
-                                                                        contentType = video.contentType,
-                                                                        navigationUrl = video.navigationUrl,
-                                                                        title = video.title,
-                                                                    )
-                                                                ) {
-                                                                    is SearchResultNavigationTarget.Video -> onVideoClick(target.bvid, 0L, video.pic)
-                                                                    is SearchResultNavigationTarget.Course -> onCheeseClick?.invoke(target.seasonId, target.epId)
-                                                                        ?: onBangumiClick(target.seasonId)
-                                                                    is SearchResultNavigationTarget.Web -> onWebClick(target.url, target.title)
-                                                                    else -> Unit
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if (pageResultState.bangumiResults.isNotEmpty()) {
-                                        itemsIndexed(pageResultState.bangumiResults, key = { _, item -> "all_bangumi_${item.seasonId}" }) { _, item ->
-                                            BangumiSearchResultCard(
-                                                item = item,
-                                                appearance = genericResultCardAppearance,
-                                                onClick = { onBangumiClick(item.seasonId) },
-                                                categoryLabel = item.seasonTypeName.ifBlank { "番剧 / 影视" },
-                                            )
-                                        }
-                                    }
-                                    itemsIndexed(pageResultState.searchResults, key = { index, video -> "all_video_${resolveSearchResultLazyItemKey(SearchType.VIDEO, index, video.bvid, video.id)}" }) { _, video ->
-                                        SearchAllVideoResultCard(video = video) {
-                                            when (
-                                                val target = resolveVideoSearchNavigationTarget(
-                                                    bvid = video.bvid,
-                                                    contentType = video.contentType,
-                                                    navigationUrl = video.navigationUrl,
-                                                    title = video.title,
-                                                )
-                                            ) {
-                                                is SearchResultNavigationTarget.Video -> onVideoClick(target.bvid, 0L, video.pic)
-                                                is SearchResultNavigationTarget.Course -> onCheeseClick?.invoke(target.seasonId, target.epId)
-                                                    ?: onBangumiClick(target.seasonId)
-                                                is SearchResultNavigationTarget.Web -> onWebClick(target.url, target.title)
-                                                else -> Unit
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            com.android.purebilibili.data.model.response.SearchType.VIDEO -> {
+                            // 综合与视频共用卡片交互；材质差异仍由原卡片的玻璃开关隔离。
+                            SearchType.ALL, SearchType.VIDEO -> {
                                 // Size cover requests against the actual result pane, including split windows.
                                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                                     val actualGridColumns = resolveSearchVideoGridColumns(
@@ -1976,11 +1901,87 @@ fun SearchScreen(
                                     verticalArrangement = Arrangement.spacedBy(searchGridCardLayout.itemSpacingDp.dp),
                                     modifier = videoGridModifier
                         ) {
+                                if (targetSearchType == SearchType.ALL) {
+                                    if (pageResultState.upResults.isNotEmpty()) {
+                                        itemsIndexed(pageResultState.upResults, key = { _, up -> "all_up_${up.mid}" }, span = { _, _ -> GridItemSpan(maxLineSpan) }) { _, up ->
+                                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                UpSearchResultCard(
+                                                    upItem = up,
+                                                    appearance = genericResultCardAppearance,
+                                                    onClick = { onUpClick(up.mid) },
+                                                    onTransitionClick = onUpResultClick?.let { openResult ->
+                                                        { key -> openResult(up.mid, key) }
+                                                    },
+                                                )
+                                                val relatedVideos = up.res.orEmpty().take(6).map { it.toVideoItem() }
+                                                if (relatedVideos.isNotEmpty()) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .horizontalScroll(rememberScrollState()),
+                                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                    ) {
+                                                        relatedVideos.forEachIndexed { relatedIndex, video ->
+                                                            ElegantVideoCard(
+                                                                video = video,
+                                                                index = relatedIndex,
+                                                                modifier = Modifier.width(160.dp),
+                                                                animationEnabled = false,
+                                                                motionTier = cardMotionTier,
+                                                                transitionEnabled = effectiveCardTransitionEnabled,
+                                                                isReturningFromVideoDetail = isReturningFromVideoDetail,
+                                                                isQuickReturningFromVideoDetail = isQuickReturningFromVideoDetail,
+                                                                showPublishTime = true,
+                                                                glassEnabled = videoCardAppearance.glassEnabled,
+                                                                blurEnabled = videoCardAppearance.blurEnabled,
+                                                                showCoverGlassBadges = videoCardAppearance.showCoverGlassBadges,
+                                                                showInfoGlassBadges = videoCardAppearance.showInfoGlassBadges,
+                                                                homeDurationStyle = homeDurationStyle,
+                                                                coverAspectRatio = 16f / 9f,
+                                                                highlightedTitle = rememberSearchHighlightedTitle(video),
+                                                            ) { _, _ ->
+                                                                when (
+                                                                    val target = resolveVideoSearchNavigationTarget(
+                                                                        bvid = video.bvid,
+                                                                        contentType = video.contentType,
+                                                                        navigationUrl = video.navigationUrl,
+                                                                        title = video.title,
+                                                                    )
+                                                                ) {
+                                                                    is SearchResultNavigationTarget.Video -> onVideoClick(target.bvid, 0L, video.pic)
+                                                                    is SearchResultNavigationTarget.Course -> onCheeseClick?.invoke(target.seasonId, target.epId)
+                                                                        ?: onBangumiClick(target.seasonId)
+                                                                    is SearchResultNavigationTarget.Web -> onWebClick(target.url, target.title)
+                                                                    else -> Unit
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (pageResultState.bangumiResults.isNotEmpty()) {
+                                        itemsIndexed(pageResultState.bangumiResults, key = { _, item -> "all_bangumi_${item.seasonId}" }, span = { _, _ -> GridItemSpan(maxLineSpan) }) { _, item ->
+                                            BangumiSearchResultCard(
+                                                item = item,
+                                                appearance = genericResultCardAppearance,
+                                                onClick = { onBangumiClick(item.seasonId) },
+                                                categoryLabel = item.seasonTypeName.ifBlank { "番剧 / 影视" },
+                                                onTransitionClick = onBangumiResultClick?.let { openResult ->
+                                                    { key ->
+                                                        if (item.seasonId > 0L) openResult(item.seasonId, key)
+                                                    }
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
                                 itemsIndexed(
                                     pageResultState.searchResults,
                                     key = { index, video ->
                                         resolveSearchResultLazyItemKey(
-                                            searchType = SearchType.VIDEO,
+                                            searchType = targetSearchType,
                                             index = index,
                                             textKey = video.bvid,
                                             numericKey = video.id
@@ -2048,7 +2049,7 @@ fun SearchScreen(
                                     }
 
                                     // [新增] 空状态提示 (提示可能被屏蔽)
-                                    if (!pageResultState.isSearching && pageResultState.searchResults.isEmpty() && pageResultState.error == null && pageEmptyStateCopy != null) {
+                                    if (!pageResultState.isSearching && pageResultState.totalCount == 0 && pageResultState.error == null && pageEmptyStateCopy != null) {
                                         item(span = { GridItemSpan(maxLineSpan) }) {
                                             Box(
                                                 modifier = Modifier
@@ -2092,7 +2093,7 @@ fun SearchScreen(
                                     if (pagePresentation.footer == SearchResultFooterMode.END) {
                                         item(span = { GridItemSpan(maxLineSpan) }) {
                                             AppText(
-                                                text = "已加载全部 ${pageResultState.searchResults.size} 条结果",
+                                                text = "已加载全部 ${pageResultState.totalCount} 条结果",
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .padding(16.dp),
@@ -2430,7 +2431,10 @@ fun SearchScreen(
                                         ArticleSearchResultCard(
                                             item = articleItem,
                                             appearance = genericResultCardAppearance,
-                                            onClick = { onArticleClick(articleItem.id, articleItem.title) }
+                                            onClick = { onArticleClick(articleItem.id, articleItem.title) },
+                                            onTransitionClick = onArticleResultClick?.let { openResult ->
+                                                { key -> openResult(articleItem.id, articleItem.title, key) }
+                                            },
                                         )
                                         if (targetSearchType == state.searchType && index == pageResultState.articleResults.size - 3 && pageResultState.hasMoreResults && !pageResultState.isLoadingMore) {
                                             LaunchedEffect(pageResultState.currentPage, targetSearchType) {
@@ -2588,6 +2592,9 @@ fun SearchScreen(
                     discoverListError = state.discoverListError,
                     isRefreshingDiscoverList = state.isRefreshingDiscoverList,
                     historyList = state.historyList,
+                    recordSearchHistory = state.recordSearchHistory,
+                    globalPrivacyMode = state.globalPrivacyMode,
+                    onToggleHistoryRecording = viewModel::toggleSearchHistoryRecording,
                     hotSearchEnabled = hotSearchEnabled,
                     discoverSectionEnabled = discoverSectionEnabled,
                     onToggleHotSearch = {
@@ -2691,7 +2698,7 @@ fun SearchScreen(
                 onClick = {
                     scope.launch {
                         animateSearchHeaderOffsetTo(0f)
-                        if (state.searchType == SearchType.VIDEO) {
+                        if (state.searchType == SearchType.VIDEO || state.searchType == SearchType.ALL) {
                             resultGridState.animateScrollToTop(fast = true)
                         } else {
                             resultListState.animateScrollToTop(fast = true)
@@ -2837,7 +2844,9 @@ fun SearchTopBar(
     // Preserve caret/selection while typing; only resync when external text changes
     // (clear, keyword click, initial keyword). Using TextFieldValue avoids String-field
     // cursor jumps on every parent recomposition.
-    var textFieldValue by remember {
+    var textFieldValue by rememberSaveable(
+        stateSaver = androidx.compose.ui.text.input.TextFieldValue.Saver,
+    ) {
         mutableStateOf(
             androidx.compose.ui.text.input.TextFieldValue(
                 text = query,
@@ -3418,6 +3427,12 @@ internal fun resolveSearchTypeTabLabel(displayName: String, count: Int?): String
     return "$displayName ${if (count > 99) "99+" else count}"
 }
 
+internal fun resolveSearchTypeTabMeasurementLabel(type: SearchType, count: Int?): String =
+    if (type == SearchType.ALL) {
+        // 综合 is the initial result tab. Reserve its capped count before the API responds.
+        resolveSearchTypeTabLabel(type.displayName, 100)
+    } else resolveSearchTypeTabLabel(type.displayName, count)
+
 @Composable
 private fun SearchResultTypeTabRow(
     tabs: List<SearchType>,
@@ -3433,6 +3448,9 @@ private fun SearchResultTypeTabRow(
     val selectedIndex = pagerState.currentPage.coerceIn(0, tabs.lastIndex)
     val tabLabels = tabs.map { type ->
         resolveSearchTypeTabLabel(type.displayName, counts[type])
+    }
+    val glassMeasurementLabels = tabs.map { type ->
+        resolveSearchTypeTabMeasurementLabel(type, counts[type])
     }
 
     BoxWithConstraints(
@@ -3478,6 +3496,8 @@ private fun SearchResultTypeTabRow(
 
         BottomBarLiquidSegmentedControl(
             items = tabLabels,
+            liquidGlassMeasurementLabels = glassMeasurementLabels,
+            liquidGlassAnimateLabelWidthChanges = true,
             selectedIndex = selectedIndex,
             onSelected = { index ->
                 tabs.getOrNull(index)?.let { onTabClick(index, it) }
@@ -4211,141 +4231,6 @@ fun SearchResultCard(
  *  UP主搜索结果卡片
  */
 @Composable
-private fun SearchAllSectionHeader(title: String, count: Int) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        AppText(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        AppText(text = "$count", style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
-    }
-}
-
-@Composable
-private fun SearchAllVideoResultCard(
-    video: VideoItem,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .width(160.dp)
-                .aspectRatio(16f / 9f)
-                .clip(AppShapes.mediaCover())
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(FormatUtils.fixImageUrl(video.pic))
-                    .crossfade(true)
-                    .size(480, 270)
-                    .build(),
-                contentDescription = video.title,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-            VideoCardCoverDurationText(
-                text = FormatUtils.formatDuration(video.duration),
-                modifier = Modifier.align(Alignment.BottomEnd).padding(5.dp),
-            )
-        }
-        Column(
-            modifier = Modifier.weight(1f).heightIn(min = 90.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            AppText(
-                text = HtmlEntityUtils.unescape(video.title),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.titleSmall,
-                color = AppContentColors.primaryText(),
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                AppText(
-                    text = listOf(
-                        video.pubdate.takeIf { it > 0 }?.let(FormatUtils::formatPublishTime),
-                        video.owner.name,
-                    ).filterNotNull().filter(String::isNotBlank).joinToString("  "),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppContentColors.secondaryText(),
-                )
-                AppText(
-                    text = "▶ ${FormatUtils.formatStat(video.stat.view.toLong())}   ▤ ${FormatUtils.formatStat(video.stat.danmaku.toLong())}",
-                    maxLines = 1,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppContentColors.secondaryText(),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SearchAllRelatedVideoCard(
-    video: VideoItem,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier.width(160.dp).clickable(onClick = onClick),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(16f / 9f)
-                .clip(AppShapes.mediaCover())
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(FormatUtils.fixImageUrl(video.pic))
-                    .crossfade(true)
-                    .size(480, 270)
-                    .build(),
-                contentDescription = video.title,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(34.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)))),
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(horizontal = 7.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AppText("▶ ${FormatUtils.formatStat(video.stat.view.toLong())}", color = Color.White, style = MaterialTheme.typography.labelSmall)
-                AppText(FormatUtils.formatDuration(video.duration), color = Color.White, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-        AppText(
-            text = HtmlEntityUtils.unescape(video.title),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-            color = AppContentColors.primaryText(),
-        )
-        AppText(
-            text = FormatUtils.formatPublishTime(video.pubdate),
-            maxLines = 1,
-            style = MaterialTheme.typography.bodySmall,
-            color = AppContentColors.secondaryText(),
-        )
-    }
-}
-
-@Composable
 internal fun UpSearchResultCard(
     upItem: com.android.purebilibili.data.model.response.SearchUpItem,
     appearance: SearchResultCardAppearance,
@@ -5031,12 +4916,17 @@ internal fun PhotoSearchResultCard(
 internal fun ArticleSearchResultCard(
     item: SearchArticleItem,
     appearance: SearchResultCardAppearance,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onTransitionClick: ((String) -> Unit)? = null,
 ) {
+    val transitionKey = rememberSaveable(item.id) {
+        "${searchArticleContainerKey(item.id)}:${java.util.UUID.randomUUID()}"
+    }
     val useMiuixPresentation = LocalAppUiStyle.current == AppUiStyle.MIUIX
     SearchResultCardSurface(
         appearance = appearance,
-        onClick = onClick
+        onClick = { onTransitionClick?.invoke(transitionKey) ?: onClick() },
+        modifier = Modifier.searchResultContainerBounds(transitionKey),
     ) {
         Row(
             modifier = Modifier

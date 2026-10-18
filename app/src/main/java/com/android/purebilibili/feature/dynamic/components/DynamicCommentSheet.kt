@@ -25,10 +25,6 @@ import android.os.Build
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import com.android.purebilibili.core.ui.transition.resolvePredictiveBackBlurFrame
 import com.android.purebilibili.core.ui.transition.BlurRenderEffectCache
 import com.android.purebilibili.feature.video.ui.components.resolveCommentThreadCoveredBlurProgress
@@ -42,6 +38,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -91,6 +88,7 @@ import com.android.purebilibili.feature.home.components.resolveFloatingDockGeome
 import com.android.purebilibili.feature.home.components.resolveSharedBottomBarCapsuleShape
 import com.android.purebilibili.feature.video.ui.components.CommentPictures
 import com.android.purebilibili.feature.video.ui.components.RichCommentText
+import com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled
 import com.android.purebilibili.feature.video.ui.components.ReplyMemberAvatar
 import com.android.purebilibili.feature.video.ui.components.ReplyItemView
 import com.android.purebilibili.feature.video.ui.components.VideoCommentTypographyTokens
@@ -311,6 +309,7 @@ fun DynamicCommentSheet(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val listState = rememberLazyListState()
+    val avatarPushEnabled = rememberCommentAvatarPushEnabled()
     // 骨架槽位数按可视高度估算：铺满首屏，数据到达时列表不会被撑长或缩短。
     val commentSkeletonSlotCount = resolveDynamicCommentSkeletonSlotCount(
         viewportHeightDp = LocalConfiguration.current.screenHeightDp,
@@ -387,6 +386,7 @@ fun DynamicCommentSheet(
     ) {
         CommentWindowNavigation {
             val commentBackState = rememberNavigationEventState(NavigationEventInfo.None)
+            val threadSheetMotion = com.android.purebilibili.core.ui.rememberAppBottomSheetMotion()
             var threadBackCompleted by remember { mutableStateOf(false) }
             val rawThreadBackProgress = resolveVideoCommentPredictiveBackProgress(
                 inProgress = commentBackState.transitionState is NavigationEventTransitionState.InProgress &&
@@ -594,6 +594,7 @@ fun DynamicCommentSheet(
                                     ) { reply ->
                                         ReplyItemView(
                                             modifier = dynamicCommentItemModifier(),
+                                            avatarListState = listState.takeIf { avatarPushEnabled },
                                             item = reply,
                                             upMid = dynamicAuthorMid,
                                             onClick = { onViewReplies(reply) },
@@ -638,10 +639,8 @@ fun DynamicCommentSheet(
                 androidx.compose.animation.AnimatedVisibility(
                     visible = hostContent == DynamicCommentSheetHostContent.THREAD_DETAIL &&
                         subReplyState.rootReply != null,
-                    enter = fadeIn(animationSpec = tween(220)) +
-                        slideInVertically(animationSpec = tween(260)) { height -> height },
-                    exit = if (threadBackCompleted) androidx.compose.animation.ExitTransition.None else fadeOut(animationSpec = tween(200)) +
-                        slideOutVertically(animationSpec = tween(240)) { height -> height },
+                    enter = threadSheetMotion.contentEnter,
+                    exit = if (threadBackCompleted) androidx.compose.animation.ExitTransition.None else threadSheetMotion.contentExit,
                 ) {
                     val rootReply = subReplyState.rootReply
                     if (rootReply != null) {
@@ -914,6 +913,7 @@ fun LazyListScope.dynamicInlineCommentItems(
     onReport: (ReplyItem, Int) -> Unit = { _, _ -> },
     onUserClick: (Long) -> Unit,
     onImagePreview: (List<String>, Int, ImagePreviewSourceAnchor?, ImagePreviewTextContent?) -> Unit,
+    avatarListState: LazyListState? = null,
     skeletonSlotCount: Int = DYNAMIC_COMMENT_SKELETON_MIN_SLOTS,
 ) {
     when {
@@ -943,6 +943,7 @@ fun LazyListScope.dynamicInlineCommentItems(
         ) { reply ->
             ReplyItemView(
                 modifier = dynamicCommentItemModifier(),
+                avatarListState = avatarListState,
                 item = reply,
                 upMid = dynamicAuthorMid,
                 onClick = { onViewReplies(reply) },

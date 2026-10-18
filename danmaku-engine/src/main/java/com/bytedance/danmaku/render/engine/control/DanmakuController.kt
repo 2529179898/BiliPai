@@ -282,6 +282,35 @@ class DanmakuController(private var mDanmakuView: View): ConfigChangeListener, I
         }
     }
 
+    /** Capture the touched item before Compose waits to distinguish single and double taps. */
+    fun captureDanmakuClick(x: Float, y: Float): (() -> Unit)? {
+        val listener = itemClickListener ?: return null
+        var click: (() -> Unit)? = null
+        itemClickListener = object : IItemClickListener {
+            override fun onDanmakuClick(
+                data: com.bytedance.danmaku.render.engine.data.DanmakuData,
+                itemRect: android.graphics.RectF,
+                clickPoint: android.graphics.PointF
+            ) {
+                // Renderer reuses these geometry objects between frames.
+                val rect = android.graphics.RectF(itemRect)
+                val point = android.graphics.PointF(clickPoint.x, clickPoint.y)
+                click = { listener.onDanmakuClick(data, rect, point) }
+            }
+        }
+        val now = android.os.SystemClock.uptimeMillis()
+        val event = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, x, y, 0)
+        try {
+            val target = mRenderEngine.findTouchTarget(event) ?: return null
+            event.action = MotionEvent.ACTION_UP
+            target.onTouchEvent(event)
+            return click
+        } finally {
+            event.recycle()
+            itemClickListener = listener
+        }
+    }
+
     internal fun onTouchEvent(event: MotionEvent): Boolean {
         if (!mIsTouchable) {
             return false

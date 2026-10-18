@@ -2,6 +2,7 @@ package com.android.purebilibili.feature.audio.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.android.purebilibili.core.coroutines.AccountScopedRequests
 import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.data.model.response.FavFolder
 import com.android.purebilibili.data.model.response.FavoriteData
@@ -24,7 +25,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 internal data class ListenVideoUiState(
     val generation: Long = 0L,
@@ -66,8 +66,20 @@ internal class ListenVideoViewModel(
     private var indexCompleted = false
     private var lastDetailTitle = ""
     private var lastDetailRequest: (suspend () -> Result<List<FavoriteData>>)? = null
+    private val accountRequests = AccountScopedRequests(viewModelScope)
+    private var isPageActive = false
+    private var needsAccountReload = false
 
-    fun refresh() {
+    init {
+        accountRequests.observe {
+            refresh(load = isPageActive)
+        }
+    }
+
+    fun refresh() = refresh(load = true)
+
+    private fun refresh(load: Boolean) {
+        needsAccountReload = !load
         refreshJob?.cancel()
         previewJob?.cancel()
         indexJob?.cancel()
@@ -104,10 +116,16 @@ internal class ListenVideoViewModel(
             isLoggedIn = true,
             isLoading = true
         )
-        refreshJob = viewModelScope.launch {
+        if (!load) {
+            isFoldersLoading = false
+            _uiState.update { it.copy(isLoading = false) }
+            return
+        }
+        val identity = accountRequests.identity
+        refreshJob = accountRequests.launch {
             try {
                 val foldersResult = dataSource.ownedFolders(mid)
-                if (_uiState.value.generation != generation) return@launch
+                if (!accountRequests.isCurrent(identity) || _uiState.value.generation != generation) return@launch
                 val folders = foldersResult.getOrElse { error ->
                     isFoldersLoading = false
                     _uiState.update {
@@ -124,7 +142,7 @@ internal class ListenVideoViewModel(
                     )
                 }
                 val collectedResult = loader.loadCollectedFolders(mid)
-                if (_uiState.value.generation != generation) return@launch
+                if (!accountRequests.isCurrent(identity) || _uiState.value.generation != generation) return@launch
                 ownedFolders = folders
                 collectedFolders = collectedResult.getOrDefault(emptyList())
                 isFoldersLoading = false
@@ -142,9 +160,9 @@ internal class ListenVideoViewModel(
                 }
                 if (_uiState.value.section != ListenVideoSection.PLAYLISTS) indexLibrary()
                 if (!backgroundPaused) {
-                    previewJob = viewModelScope.launch {
+                    previewJob = accountRequests.launch {
                         val previewCovers = loader.loadPlaylistPreviewCovers(ownedFolders)
-                        if (_uiState.value.generation != generation) return@launch
+                        if (!accountRequests.isCurrent(identity) || _uiState.value.generation != generation) return@launch
                         if (previewCovers.isNotEmpty()) {
                             _uiState.update { state ->
                                 state.copy(
@@ -161,7 +179,7 @@ internal class ListenVideoViewModel(
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {
-                if (_uiState.value.generation == generation) {
+                if (accountRequests.isCurrent(identity) && _uiState.value.generation == generation) {
                     isFoldersLoading = false
                     _uiState.update { it.copy(isLoading = false, error = error.userMessage("收藏夹加载失败")) }
                 }
@@ -170,6 +188,11 @@ internal class ListenVideoViewModel(
     }
 
     fun pauseBackgroundLoading() {
+        isPageActive = false
+        pauseIndexing()
+    }
+
+    private fun pauseIndexing() {
         backgroundPaused = true
         previewJob?.cancel()
         indexJob?.cancel()
@@ -177,8 +200,11 @@ internal class ListenVideoViewModel(
     }
 
     fun resumeBackgroundLoading() {
+        isPageActive = true
         backgroundPaused = false
-        if (_uiState.value.generation == 0L || loadedMid != currentMid()) {
+        if (needsAccountReload || !accountRequests.isCurrent() ||
+            _uiState.value.generation == 0L || loadedMid != currentMid()
+        ) {
             refresh()
         } else if (_uiState.value.section != ListenVideoSection.PLAYLISTS && !indexCompleted) {
             indexLibrary()
@@ -195,7 +221,7 @@ internal class ListenVideoViewModel(
     fun openPlaylist(playlist: ListenVideoPlaylist) {
         // Playlist covers are best-effort. Stop their background requests before loading
         // the user-selected folder so the favorite endpoint does not trip HTTP 412.
-        pauseBackgroundLoading()
+        pauseIndexing()
         loadDetail(playlist.title) { loader.loadFolder(playlist.mediaId) }
     }
 
@@ -240,6 +266,7 @@ internal class ListenVideoViewModel(
     private fun indexLibrary(onlyFailed: Boolean = false) {
         if (backgroundPaused || isFoldersLoading || indexJob?.isActive == true || _uiState.value.isLoading) return
         val generation = _uiState.value.generation
+        val identity = accountRequests.identity
         val targets = if (onlyFailed) {
             ownedFolders.filter { it.id in _uiState.value.failedFolderIds }
         } else {
@@ -256,12 +283,12 @@ internal class ListenVideoViewModel(
                 totalFolderCount = targets.size
             )
         }
-        indexJob = viewModelScope.launch {
+        indexJob = accountRequests.launch {
             val previousResources = indexedResources
             val result = loader.indexFolders(
                 folders = targets,
                 onFolderIndexed = { completed, total ->
-                    if (_uiState.value.generation == generation) {
+                    if (accountRequests.isCurrent(identity) && _uiState.value.generation == generation) {
                         _uiState.update {
                             it.copy(indexedFolderCount = completed, totalFolderCount = total)
                         }
@@ -276,21 +303,23 @@ internal class ListenVideoViewModel(
                     }
                     val artists = withContext(Dispatchers.Default) { mapListenVideoArtists(allResources) }
                     val albums = withContext(Dispatchers.Default) { mapListenVideoAlbums(collectedFolders, allResources) }
-                    if (_uiState.value.generation == generation) {
+                    if (accountRequests.isCurrent(identity) && _uiState.value.generation == generation) {
                         indexedResources = allResources
                         _uiState.update { it.copy(artists = artists, albums = albums) }
                     }
                 },
             )
-            if (_uiState.value.generation != generation) return@launch
-            indexedResources = withContext(Dispatchers.Default) {
+            if (!accountRequests.isCurrent(identity) || _uiState.value.generation != generation) return@launch
+            val resources = withContext(Dispatchers.Default) {
                 (indexedResources + result.resources).distinctBy { resource ->
                     if (resource.type == 21) "album:${resource.season_id.takeIf { it > 0L } ?: resource.id}"
                     else "track:${resource.bvid.ifBlank { resource.bv_id }}"
                 }
             }
-            val albums = withContext(Dispatchers.Default) { mapListenVideoAlbums(collectedFolders, indexedResources) }
-            val artists = withContext(Dispatchers.Default) { mapListenVideoArtists(indexedResources) }
+            val albums = withContext(Dispatchers.Default) { mapListenVideoAlbums(collectedFolders, resources) }
+            val artists = withContext(Dispatchers.Default) { mapListenVideoArtists(resources) }
+            if (!accountRequests.isCurrent(identity) || _uiState.value.generation != generation) return@launch
+            indexedResources = resources
             indexCompleted = result.failedFolderIds.isEmpty()
             _uiState.update {
                 it.copy(
@@ -318,6 +347,7 @@ internal class ListenVideoViewModel(
         lastDetailRequest = request
         detailJob?.cancel()
         val generation = _uiState.value.generation
+        val identity = accountRequests.identity
         _uiState.update {
             it.copy(
                 selectedTitle = title,
@@ -326,9 +356,9 @@ internal class ListenVideoViewModel(
                 detailError = null
             )
         }
-        detailJob = viewModelScope.launch {
+        detailJob = accountRequests.launch {
             val result = request()
-            if (_uiState.value.generation != generation) return@launch
+            if (!accountRequests.isCurrent(identity) || _uiState.value.generation != generation) return@launch
             val resources = result.getOrNull().orEmpty()
             indexedResources = (indexedResources + resources).distinctBy { resource ->
                 "${resource.type}:${resource.bvid.ifBlank { resource.bv_id }}:${resource.season_id}:${resource.id}"

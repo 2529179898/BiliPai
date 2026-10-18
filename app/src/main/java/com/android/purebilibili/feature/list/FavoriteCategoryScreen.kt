@@ -66,10 +66,13 @@ import com.android.purebilibili.data.repository.FavoriteCategoryItem
 import com.android.purebilibili.data.repository.PersonalFavoriteRepository
 import com.android.purebilibili.feature.personal.PERSONAL_LIST_POSTER_ASPECT_RATIO
 import com.android.purebilibili.feature.personal.PersonalMediaCardFrame
+import com.android.purebilibili.core.coroutines.AccountScopedRequests
+import com.android.purebilibili.core.store.TokenManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 data class FavoriteCategoryUiState(
     val section: FavoriteSection = FavoriteSection.BANGUMI,
@@ -87,8 +90,21 @@ data class FavoriteCategoryUiState(
 class FavoriteCategoryViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(FavoriteCategoryUiState())
     val uiState = _uiState.asStateFlow()
+    private val accountRequests = AccountScopedRequests(viewModelScope)
+    private var hasSelectedSection = false
+    private var loadGeneration = 0L
+    private var loadJob: Job? = null
+
+    init {
+        accountRequests.observe {
+            loadGeneration += 1L
+            _uiState.value = FavoriteCategoryUiState(section = _uiState.value.section)
+            if (hasSelectedSection) load(reset = true)
+        }
+    }
 
     fun selectSection(section: FavoriteSection) {
+        hasSelectedSection = true
         if (_uiState.value.section == section && _uiState.value.items.isNotEmpty()) return
         _uiState.value = FavoriteCategoryUiState(
             section = section,
@@ -131,13 +147,17 @@ class FavoriteCategoryViewModel(application: Application) : AndroidViewModel(app
     }
 
     fun remove(item: FavoriteCategoryItem) {
-        viewModelScope.launch {
+        val generation = loadGeneration
+        val identity = accountRequests.identity
+        accountRequests.launch {
             val state = _uiState.value
             val result = when (item.section) {
                 FavoriteSection.BANGUMI, FavoriteSection.CINEMA ->
                     BangumiRepository.unfollowBangumi(item.id).map { Unit }
                 else -> PersonalFavoriteRepository.remove(item, state.publishedNotes)
             }
+            ensureActive()
+            if (!accountRequests.isCurrent(identity) || generation != loadGeneration) return@launch
             if (result.isSuccess) {
                 _uiState.update { it.copy(items = it.items.filterNot { candidate -> candidate.id == item.id }) }
             } else {
@@ -149,15 +169,21 @@ class FavoriteCategoryViewModel(application: Application) : AndroidViewModel(app
     fun removeSelected() {
         val state = _uiState.value
         if (state.selectedIds.isEmpty()) return
-        viewModelScope.launch {
+        val generation = loadGeneration
+        val identity = accountRequests.identity
+        accountRequests.launch {
             val selected = state.items.filter { it.id in state.selectedIds }
             val failures = selected.map { item ->
+                ensureActive()
+                if (!accountRequests.isCurrent(identity)) return@launch
                 when (item.section) {
                     FavoriteSection.BANGUMI, FavoriteSection.CINEMA ->
                         BangumiRepository.unfollowBangumi(item.id).map { Unit }
                     else -> PersonalFavoriteRepository.remove(item, state.publishedNotes)
                 }
             }.count { it.isFailure }
+            ensureActive()
+            if (!accountRequests.isCurrent(identity) || generation != loadGeneration) return@launch
             if (failures == 0) {
                 _uiState.update {
                     it.copy(
@@ -177,10 +203,16 @@ class FavoriteCategoryViewModel(application: Application) : AndroidViewModel(app
             state.section !in setOf(FavoriteSection.BANGUMI, FavoriteSection.CINEMA) ||
             state.selectedIds.isEmpty()
         ) return
-        viewModelScope.launch {
+        val generation = loadGeneration
+        val identity = accountRequests.identity
+        accountRequests.launch {
             val results = state.selectedIds.map { seasonId ->
+                ensureActive()
+                if (!accountRequests.isCurrent(identity)) return@launch
                 BangumiRepository.updateBangumiFollowStatus(seasonId, status.value)
             }
+            ensureActive()
+            if (!accountRequests.isCurrent(identity) || generation != loadGeneration) return@launch
             if (results.all { it.isSuccess }) {
                 _uiState.update { it.copy(selectedIds = emptySet()) }
                 load(reset = true)
@@ -191,21 +223,32 @@ class FavoriteCategoryViewModel(application: Application) : AndroidViewModel(app
     }
 
     fun updatePgcStatus(item: FavoriteCategoryItem, status: FavoritePgcStatus) {
-        viewModelScope.launch {
+        val generation = loadGeneration
+        val identity = accountRequests.identity
+        accountRequests.launch {
             val result = BangumiRepository.updateBangumiFollowStatus(item.id, status.value)
+            ensureActive()
+            if (!accountRequests.isCurrent(identity) || generation != loadGeneration) return@launch
             if (result.isSuccess) load(reset = true)
             else _uiState.update { it.copy(error = result.exceptionOrNull()?.message ?: "更新状态失败") }
         }
     }
 
     private fun load(reset: Boolean) {
+        if (TokenManager.sessDataCache.isNullOrEmpty()) {
+            _uiState.value = FavoriteCategoryUiState(section = _uiState.value.section)
+            return
+        }
+        loadJob?.cancel()
+        val generation = ++loadGeneration
+        val identity = accountRequests.identity
         val requestState = _uiState.value
         val requestPage = if (reset) 1 else requestState.page + 1
         _uiState.update {
-            if (reset) it.copy(isLoading = true, error = null, page = 1, hasMore = false)
+            if (reset) it.copy(items = emptyList(), selectedIds = emptySet(), isLoading = true, isLoadingMore = false, error = null, page = 1, hasMore = false)
             else it.copy(isLoadingMore = true, error = null)
         }
-        viewModelScope.launch {
+        loadJob = accountRequests.launch {
             val result = when (requestState.section) {
                 FavoriteSection.BANGUMI, FavoriteSection.CINEMA -> loadPgc(
                     section = requestState.section,
@@ -220,7 +263,8 @@ class FavoriteCategoryViewModel(application: Application) : AndroidViewModel(app
                     com.android.purebilibili.data.repository.FavoriteCategoryPage(emptyList(), false)
                 )
             }
-            if (_uiState.value.section != requestState.section) return@launch
+            ensureActive()
+            if (!accountRequests.isCurrent(identity) || generation != loadGeneration) return@launch
             result.fold(
                 onSuccess = { page ->
                     _uiState.update { current ->
@@ -446,10 +490,13 @@ private fun FavoriteCategoryFilterRow(
         labels.mapIndexed { index, label -> AppSegmentOption(index, label) }
     }
     val uiStyle = LocalAppUiStyle.current
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val isScrollable = labels.size > 4
     val horizontalPadding = if (uiStyle == AppUiStyle.MATERIAL3 && isScrollable) 0.dp else AppSpacingTokens.Medium
     val minTabWidth = if (labels.size <= 3) {
-        84.dp
+        // Only tighten the glass PGC status dock. Native MD3/Miuix and the two-option
+        // notes filter retain their original slots; measured text still supports large fonts.
+        if (liquidGlassEnabled && labels.size == 3) 64.dp else 84.dp
     } else if (uiStyle == AppUiStyle.MATERIAL3) {
         AppChromeSizeTokens.MinimumTouchTarget
     } else {

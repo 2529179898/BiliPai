@@ -3,14 +3,18 @@ package com.android.purebilibili.feature.home.components.cards
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.purebilibili.core.network.NetworkModule
+import com.android.purebilibili.core.ui.components.LocalPageImageLoadingAllowed
 import com.android.purebilibili.data.model.response.VideoItem
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.CancellationException
 
 private const val VIDEO_CARD_ONLINE_COUNT_TTL_MS = 60_000L
 
@@ -92,6 +96,8 @@ internal class VideoCardOnlineCountStore(
                 cache.remove(key)
             }
             state.value = text
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: Exception) {
             state.value = ""
         } finally {
@@ -159,10 +165,9 @@ internal fun rememberVideoCardOnlineCount(
     if (!shouldLoadVideoCardOnlineCount(showOnlineCount, video.bvid, video.cid)) {
         return ""
     }
-    return rememberActiveVideoCardOnlineCount(
-        bvid = video.bvid,
-        cid = video.cid
-    )
+    return key(video.bvid, video.cid) {
+        rememberActiveVideoCardOnlineCount(bvid = video.bvid, cid = video.cid)
+    }
 }
 
 @Composable
@@ -176,9 +181,16 @@ private fun rememberActiveVideoCardOnlineCount(
             cid = cid
         )
     }
-    val onlineCount by onlineCountFlow.collectAsStateWithLifecycle()
+    val workAllowed = LocalPageImageLoadingAllowed.current
+    // Keep the last displayed text while home is covered or morphing. Dropping only the
+    // subscription avoids applying another visible card's shared request result mid-flight.
+    val updates = remember(onlineCountFlow, workAllowed) {
+        if (workAllowed) onlineCountFlow else emptyFlow()
+    }
+    val onlineCount by updates.collectAsStateWithLifecycle(initialValue = onlineCountFlow.value)
 
-    LaunchedEffect(bvid, cid) {
+    LaunchedEffect(bvid, cid, workAllowed) {
+        if (!workAllowed) return@LaunchedEffect
         defaultVideoCardOnlineCountStore.refreshIfNeeded(
             bvid = bvid,
             cid = cid

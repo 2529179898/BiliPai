@@ -3,10 +3,6 @@ package com.android.purebilibili.feature.video.ui.overlay
 import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -28,14 +24,11 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.material3.MaterialTheme
-import com.android.purebilibili.core.ui.components.AppText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -55,7 +48,9 @@ import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.core.util.HapticType
 import com.android.purebilibili.core.util.rememberHapticFeedback
 
-private const val PortraitTripleProgressDurationMillis = 900
+import com.android.purebilibili.feature.video.ui.feedback.VideoActionCountRequests
+import com.android.purebilibili.feature.video.ui.feedback.VideoActionCountText
+import com.android.purebilibili.feature.video.ui.feedback.rememberVideoTriplePressState
 
 internal fun shouldStartPortraitTriplePress(longPressConfirmed: Boolean): Boolean {
     return longPressConfirmed
@@ -101,43 +96,15 @@ fun PortraitInteractionBar(
     }
     val coinIcon = rememberAppCoinIcon()
     val haptic = rememberHapticFeedback()
-    var isTriplePressing by remember { mutableStateOf(false) }
-    var tripleCompleted by remember { mutableStateOf(false) }
-    var tripleProgress by remember { mutableFloatStateOf(0f) }
-    val animatedTripleProgress by animateFloatAsState(
-        targetValue = if (isTriplePressing) 1f else 0f,
-        animationSpec = if (isTriplePressing) {
-            tween(durationMillis = PortraitTripleProgressDurationMillis, easing = LinearEasing)
-        } else {
-            tween(durationMillis = 180, easing = FastOutSlowInEasing)
-        },
-        label = "portraitTripleProgress",
-        finishedListener = { progress ->
-            tripleProgress = progress
-            if (likeStatusKnown && progress >= 1f && isTriplePressing && !tripleCompleted) {
-                tripleCompleted = true
-                haptic(HapticType.MEDIUM)
-                onLikeLongClick()
-                isTriplePressing = false
-            }
-        }
-    )
-
-    LaunchedEffect(likeStatusKnown) {
-        if (!likeStatusKnown) {
-            isTriplePressing = false
-            tripleProgress = 0f
-        }
+    val countRequests = remember { VideoActionCountRequests() }
+    val triplePress = rememberVideoTriplePressState(Unit, likeStatusKnown) {
+        countRequests.requestTriple()
+        haptic(HapticType.MEDIUM)
+        onLikeLongClick()
     }
-
-    LaunchedEffect(animatedTripleProgress) {
-        tripleProgress = animatedTripleProgress
-    }
-
-    LaunchedEffect(isTriplePressing) {
-        if (isTriplePressing) {
-            haptic(HapticType.LIGHT)
-        }
+    val tripleProgress = triplePress.progress
+    LaunchedEffect(triplePress.isPressing) {
+        if (triplePress.isPressing) haptic(HapticType.LIGHT)
     }
 
     Column(
@@ -159,24 +126,21 @@ fun PortraitInteractionBar(
             activeColor = AppContentColors.accent(),
             layoutPolicy = layoutPolicy,
             progress = tripleProgress,
-            onClick = onLikeClick,
+            countAnimationRequest = countRequests.like,
+            countValue = likeCount,
+            onClick = {
+                countRequests.requestLike()
+                onLikeClick()
+            },
             onLongClick = {
-                if (!likeStatusKnown) return@InteractionButton
-                tripleCompleted = false
-                isTriplePressing = shouldStartPortraitTriplePress(
-                    longPressConfirmed = true
-                )
+                if (likeStatusKnown) triplePress.start()
             },
             onPressRelease = {
-                if (
-                    shouldCancelPortraitTriplePressOnRelease(
-                        isTriplePressing = isTriplePressing,
-                        tripleCompleted = tripleCompleted
-                    )
-                ) {
-                    isTriplePressing = false
-                }
-            }
+                if (shouldCancelPortraitTriplePressOnRelease(
+                        isTriplePressing = triplePress.isPressing,
+                        tripleCompleted = triplePress.completed,
+                    )) triplePress.release()
+            },
         )
 
         // 投币
@@ -191,7 +155,12 @@ fun PortraitInteractionBar(
             isActive = isCoined,
             activeColor = AppContentColors.accent(),
             layoutPolicy = layoutPolicy,
-            onClick = onCoinClick
+            countAnimationRequest = countRequests.coin,
+            countValue = coinCount,
+            onClick = {
+                countRequests.requestCoin()
+                onCoinClick()
+            }
         )
 
         // 评论
@@ -210,8 +179,16 @@ fun PortraitInteractionBar(
             isActive = isFavorited,
             activeColor = AppContentColors.accent(),
             layoutPolicy = layoutPolicy,
-            onClick = onFavoriteClick,
-            onLongClick = onFavoriteLongClick,
+            countAnimationRequest = countRequests.favorite,
+            countValue = favoriteCount,
+            onClick = {
+                countRequests.requestFavorite()
+                onFavoriteClick()
+            },
+            onLongClick = {
+                countRequests.requestFavorite()
+                onFavoriteLongClick()
+            },
         )
 
         // 分享
@@ -238,24 +215,32 @@ private fun InteractionButton(
     activeColor: Color = AppContentColors.accent(),
     layoutPolicy: PortraitInteractionBarLayoutPolicy,
     progress: Float = 0f,
+    countAnimationRequest: Int = 0,
+    countValue: Int? = null,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     onPressRelease: (() -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val latestOnClick by rememberUpdatedState(onClick)
+    val latestOnLongClick by rememberUpdatedState(onLongClick)
+    val latestOnPressRelease by rememberUpdatedState(onPressRelease)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .then(if (enabled) Modifier.appElasticPress(dragEnabled = onLongClick == null) else Modifier)
             .then(
                 if (enabled && onLongClick != null) {
-                    Modifier.pointerInput(onClick, onLongClick, onPressRelease) {
+                    Modifier.pointerInput(enabled, onLongClick != null) {
                         detectTapGestures(
-                            onTap = { onClick() },
-                            onLongPress = { onLongClick() },
+                            onTap = { latestOnClick() },
+                            onLongPress = { latestOnLongClick?.invoke() },
                             onPress = {
-                                tryAwaitRelease()
-                                onPressRelease?.invoke()
+                                try {
+                                    tryAwaitRelease()
+                                } finally {
+                                    latestOnPressRelease?.invoke()
+                                }
                             }
                         )
                     }
@@ -310,12 +295,13 @@ private fun InteractionButton(
             )
         }
         Spacer(modifier = Modifier.height(layoutPolicy.labelTopSpacingDp.dp))
-        AppText(
+        VideoActionCountText(
             text = countText,
+            request = countAnimationRequest,
+            countValue = countValue,
             color = Color.White,
-            fontSize = layoutPolicy.labelFontSp.sp,
             fontWeight = FontWeight.Medium,
-            style = MaterialTheme.typography.labelSmall
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = layoutPolicy.labelFontSp.sp),
         )
     }
 }

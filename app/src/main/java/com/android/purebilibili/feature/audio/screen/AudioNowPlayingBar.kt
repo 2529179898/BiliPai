@@ -119,6 +119,7 @@ internal fun AudioNowPlayingBar(
     onExpand: () -> Unit,
     onCompactClick: (() -> Unit)? = null,
     isLayoutStable: Boolean = true,
+    pauseArtworkRotation: Boolean = false,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
@@ -338,10 +339,10 @@ internal fun AudioNowPlayingBar(
         } else {
             null
         }
-        // 迷你条封面旋转：播放时逐帧失效是预期开销（封面独占 graphicsLayer，
-        // 不会连带模糊外壳层重绘）；暂停后 while 循环退出，帧率自然回落。
+        // 各材质共用的旋转调度：卡片过渡时停止请求旋转帧，保留角度供结束后续转。
+        // 只暂停装饰动画，不改变播放状态，也不改变液态玻璃 / MD3 / Miuix 的布局与样式。
         val coverRotationDegrees = rememberMusicArtworkRotationDegrees(
-            active = shouldRotateMusicArtwork(
+            active = !pauseArtworkRotation && shouldRotateMusicArtwork(
                 isPlaying = state.isPlaying,
                 reduceMotion = reduceMotion
             ),

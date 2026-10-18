@@ -12,6 +12,62 @@ import kotlin.test.assertTrue
 
 class VideoCardTransitionBackgroundPolicyTest {
     @Test
+    fun hiddenFrozenLayerIsSkippedUntilAnInterruptedReturnRevealsItAgain() {
+        for (exposure in listOf(
+            VideoCardTransitionExposure.BackPreview,
+            VideoCardTransitionExposure.Returning,
+            VideoCardTransitionExposure.Restoring,
+        )) {
+            val depths = listOf(1f, 0.6f, 0.315f, 0.1f, 0f, 0.1f, 0.315f, 0.6f, 1f)
+            val visibility = depths.map {
+                shouldDrawVideoCardTransitionFrozenLayer(
+                    resolveVideoCardTransitionFrozenLayerAlpha(exposure, it),
+                )
+            }
+            assertEquals(listOf(true, true, true, false, false, false, true, true, true), visibility)
+        }
+        // Opening must still capture a frame even when its initial depth is zero.
+        assertTrue(shouldDrawVideoCardTransitionFrozenLayer(
+            resolveVideoCardTransitionFrozenLayerAlpha(VideoCardTransitionExposure.Opening, 0f),
+        ))
+        assertFalse(shouldDrawVideoCardTransitionFrozenLayer(0.001f))
+        assertTrue(shouldDrawVideoCardTransitionFrozenLayer(0.0011f))
+    }
+
+    @Test
+    fun scrimOnlyPathRetainsThemeOpacityAndIdleEndpoint() {
+        for (phase in VideoCardTransitionBackgroundPhase.entries) {
+            for (tier in MotionTier.entries) {
+                for (light in listOf(false, true)) {
+                    for (progress in listOf(0f, .25f, .5f, 1f)) {
+                        val expected = if (phase == VideoCardTransitionBackgroundPhase.IDLE) {
+                            0f
+                        } else {
+                            progress * (if (light || tier == MotionTier.Reduced) .08f else .14f)
+                        }
+                        assertEquals(
+                            expected,
+                            resolveVideoCardTransitionBackgroundScrimAlpha(progress, phase, tier, light),
+                            .0001f,
+                        )
+                        assertEquals(
+                            expected,
+                            resolveVideoCardTransitionBackgroundFrame(
+                                progress = progress,
+                                phase = phase,
+                                motionTier = tier,
+                                isLightBackground = light,
+                                sdkInt = 35,
+                            ).scrimAlpha,
+                            .0001f,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     fun backgroundScalesSmoothlyWithCornerRadiiDuringTransition() {
         for (phase in VideoCardTransitionBackgroundPhase.entries) {
             for (progress in listOf(0f, 0.25f, 0.5f, 1f)) {

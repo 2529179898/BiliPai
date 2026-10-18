@@ -10,6 +10,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.structuralEqualityPolicy
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -448,6 +449,13 @@ internal fun BiliPaiNavDisplayHost(
     ) {
         if (!cardMorphAvailable) return@LaunchedEffect
         fun finishCardReturn() {
+            // Publish before Idle: cards recreated on the landing frame need not have
+            // observed Returning locally. Opening and cancelled gestures cannot publish.
+            videoCardClock.landingFeedback.publish(
+                sourceKey = sourceMetadata.sourceKey,
+                sourceLayout = sourceMetadata.sourceLayout,
+                committedReturn = videoCardClock.phase == VideoCardTransitionBackgroundPhase.RETURNING,
+            )
             videoCardClock.followNavigationDriver(VideoCardTransitionSettleState.Idle)
             videoCardTransitionProgress.clear()
         }
@@ -517,7 +525,7 @@ internal fun BiliPaiNavDisplayHost(
     ) {
         {
             if (cardMorphAvailable) {
-                videoCardTransitionProgress.depthOr(videoCardClock.depthProgress())
+                videoCardTransitionProgress.depthOrNull() ?: videoCardClock.depthProgress()
             } else {
                 videoCardClock.depthProgress()
             }
@@ -526,12 +534,13 @@ internal fun BiliPaiNavDisplayHost(
     val videoCardGestureProvider = remember(cardMorphAvailable, videoCardTransitionProgress) {
         { cardMorphAvailable && videoCardTransitionProgress.isGestureInProgress() }
     }
-    val videoCardExposureProvider = remember(
+    val videoCardExposure = remember(
         videoCardClock,
         videoCardGestureProvider,
         videoCardTransitionProgress,
     ) {
-        {
+        // Readable from composition or draw: only exposure boundaries propagate, never frames.
+        derivedStateOf(structuralEqualityPolicy()) {
             val settleState = videoCardTransitionProgress.settleStateOrNull()
             val effectivePhase = when (settleState) {
                 // Reveal the list slot on the same endpoint frame that removes the flying
@@ -549,6 +558,7 @@ internal fun BiliPaiNavDisplayHost(
             )
         }
     }
+    val videoCardExposureProvider = remember(videoCardExposure) { { videoCardExposure.value } }
     val effectiveVideoCardExposure = videoCardExposureProvider()
     // Ordinary related-video slides have no card clock. Read their actual navigation settle
     // instead of restoring the parent's morph while the child is still moving off screen.

@@ -138,6 +138,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.layout
 import com.android.purebilibili.feature.video.ui.components.landscapeEndDrawerPadding
 import androidx.compose.ui.Modifier
@@ -1697,6 +1699,11 @@ private fun VideoPlayerSectionContent(
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     //  共享弹幕管理器（用于所有 seek 路径的一致同步）
     val danmakuManager = rememberDanmakuManager(bvid)
+    val danmakuTapCoordinates = remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val danmakuTapEnabled by rememberUpdatedState(
+        danmakuHostActive && !isInPipMode && !suppressTransientOverlaysForTransition &&
+            !forceCoverDuringReturnAnimation
+    )
     val overlayDrawerHazeState = com.android.purebilibili.core.ui.blur.rememberRecoverableHazeState()
     var showDanmakuPoolSheet by remember { mutableStateOf(false) }
     // 关联视频命令弹幕：点击后先确认再跳转
@@ -2181,6 +2188,7 @@ private fun VideoPlayerSectionContent(
 
     Box(
         modifier = rootModifier
+            .onGloballyPositioned { danmakuTapCoordinates.value = it }
             .videoInputDiagnostics("player") {
                 "fullscreen=$isFullscreen portraitFs=$isPortraitFullscreen pip=$isInPipMode " +
                     "locked=$isScreenLocked controls=$showControls playing=${playerState.player.isPlaying} " +
@@ -2893,6 +2901,11 @@ private fun VideoPlayerSectionContent(
                     return@pointerInput
                 }
                 detectPlayerTapGestures(
+                    captureSingleTap = { offset ->
+                        if (!isScreenLocked && danmakuTapEnabled) {
+                            danmakuManager.captureTap(danmakuTapCoordinates.value, offset)
+                        } else null
+                    },
                     onTap = {
                         com.android.purebilibili.core.util.Logger.d("VideoInputTrace") {
                             "player_tap fullscreen=$isFullscreen locked=$isScreenLocked controls=$showControls"

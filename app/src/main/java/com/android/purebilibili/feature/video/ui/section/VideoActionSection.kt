@@ -57,6 +57,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
+import com.android.purebilibili.feature.video.ui.feedback.VideoActionCountRequests
+import com.android.purebilibili.feature.video.ui.feedback.VideoActionCountText
+import com.android.purebilibili.feature.video.ui.feedback.rememberVideoTriplePressState
 import com.android.purebilibili.feature.video.ui.feedback.downloadActionAnchor
 import com.android.purebilibili.feature.video.ui.feedback.favoriteActionAnchor
 import com.android.purebilibili.feature.video.ui.feedback.likeBurstAnchor
@@ -144,36 +147,16 @@ fun ActionButtonsRow(
         )
     }
     val haptic = rememberHapticFeedback()
-    var isTriplePressing by remember { mutableStateOf(false) }
-    var tripleCompleted by remember { mutableStateOf(false) }
-    var tripleProgress by remember { mutableFloatStateOf(0f) }
-    val animatedTripleProgress by animateFloatAsState(
-        targetValue = if (isTriplePressing) 1f else 0f,
-        animationSpec = if (isTriplePressing) {
-            tween(durationMillis = 900, easing = LinearEasing)
-        } else {
-            tween(durationMillis = 180, easing = FastOutSlowInEasing)
-        },
-        label = "detailTripleProgress",
-        finishedListener = { progress ->
-            tripleProgress = progress
-            if (progress >= 1f && isTriplePressing && !tripleCompleted) {
-                tripleCompleted = true
-                haptic(HapticType.MEDIUM)
-                onTripleClick()
-                isTriplePressing = false
-            }
-        }
-    )
-
-    LaunchedEffect(animatedTripleProgress) {
-        tripleProgress = animatedTripleProgress
+    val countRequests = remember(info.bvid) { VideoActionCountRequests() }
+    val latestOnLikeClick by rememberUpdatedState(onLikeClick)
+    val triplePress = rememberVideoTriplePressState(info.bvid, likeStatusKnown) {
+        countRequests.requestTriple()
+        haptic(HapticType.MEDIUM)
+        onTripleClick()
     }
-
-    LaunchedEffect(isTriplePressing) {
-        if (isTriplePressing) {
-            haptic(HapticType.LIGHT)
-        }
+    val tripleProgress = triplePress.progress
+    LaunchedEffect(triplePress.isPressing) {
+        if (triplePress.isPressing) haptic(HapticType.LIGHT)
     }
 
     val shareIcon = rememberAppShareIcon()
@@ -208,41 +191,37 @@ fun ActionButtonsRow(
                     isActive = isLiked,
                     activeColor = activeColors.primaryAction,
                     progress = tripleProgress,
-                    onClick = { if (likeStatusKnown) onLikeClick() },
+                    countAnimationRequest = countRequests.like,
+                    countValue = info.stat.like,
+                    countIdentity = info.bvid,
+                    onClick = {
+                        if (likeStatusKnown) {
+                            countRequests.requestLike()
+                            latestOnLikeClick()
+                        }
+                    },
                     horizontalPadding = buttonHorizontalPadding,
                     modifier = Modifier
                         .likeBurstAnchor()
-                        .pointerInput(
-                        likeStatusKnown,
-                        isLiked,
-                        tripleCompleted,
-                        tripleProgress
-                    ) {
-                        // 状态未知时只保留默认外观，不接管手势，避免误触发出错的操作。
-                        if (!likeStatusKnown) return@pointerInput
-                        detectTapGestures(
-                            onTap = {
-                                onLikeClick()
-                            },
-                            onLongPress = {
-                                tripleCompleted = false
-                                isTriplePressing = shouldStartTriplePress(
-                                    longPressConfirmed = true
-                                )
-                            },
-                            onPress = {
-                                tryAwaitRelease()
-                                if (
-                                    shouldCancelTriplePressOnRelease(
-                                        isTriplePressing = isTriplePressing,
-                                        tripleCompleted = tripleCompleted
-                                    )
-                                ) {
-                                    isTriplePressing = false
-                                }
-                            }
-                        )
-                    },
+                        .pointerInput(info.bvid, likeStatusKnown) {
+                            if (!likeStatusKnown) return@pointerInput
+                            // Progress must not be a pointerInput key: its frame updates would
+                            // cancel the very long press that is filling the progress rings.
+                            detectTapGestures(
+                                onTap = {
+                                    countRequests.requestLike()
+                                    latestOnLikeClick()
+                                },
+                                onLongPress = { triplePress.start() },
+                                onPress = {
+                                    try {
+                                        tryAwaitRelease()
+                                    } finally {
+                                        triplePress.release()
+                                    }
+                                },
+                            )
+                        },
                     disableInternalClick = true
                 )
             }
@@ -278,7 +257,13 @@ fun ActionButtonsRow(
                     isActive = coinCount > 0,
                     activeColor = activeColors.primaryAction,
                     progress = tripleProgress,
-                    onClick = onCoinClick,
+                    countAnimationRequest = countRequests.coin,
+                    countValue = info.stat.coin,
+                    countIdentity = info.bvid,
+                    onClick = {
+                        countRequests.requestCoin()
+                        onCoinClick()
+                    },
                     horizontalPadding = buttonHorizontalPadding
                 )
             }
@@ -314,8 +299,17 @@ fun ActionButtonsRow(
                     isActive = isFavorited,
                     activeColor = activeColors.primaryAction,
                     progress = tripleProgress,
-                    onClick = onFavoriteClick,
-                    onLongClick = onFavoriteLongClick,
+                    countAnimationRequest = countRequests.favorite,
+                    countValue = info.stat.favorite,
+                    countIdentity = info.bvid,
+                    onClick = {
+                        countRequests.requestFavorite()
+                        onFavoriteClick()
+                    },
+                    onLongClick = {
+                        countRequests.requestFavorite()
+                        onFavoriteLongClick()
+                    },
                     horizontalPadding = buttonHorizontalPadding,
                     modifier = Modifier.favoriteActionAnchor()
                 )
@@ -401,6 +395,9 @@ private fun TripleProgressActionButton(
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
     disableInternalClick: Boolean = false,
+    countAnimationRequest: Int = 0,
+    countIdentity: Any? = Unit,
+    countValue: Int? = null,
     horizontalPadding: Dp = 4.dp
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -487,14 +484,13 @@ private fun TripleProgressActionButton(
             }
         }
         Spacer(modifier = Modifier.height(2.dp))
-        AppText(
+        VideoActionCountText(
             text = text,
-            style = MaterialTheme.typography.labelSmall,
+            request = countAnimationRequest,
+            identity = countIdentity,
+            countValue = countValue,
             color = textTint,
             fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            softWrap = false
         )
     }
 }

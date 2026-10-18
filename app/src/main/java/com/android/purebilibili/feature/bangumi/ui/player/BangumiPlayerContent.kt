@@ -17,12 +17,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import com.android.purebilibili.core.ui.components.AppLazyColumn as LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import com.android.purebilibili.core.ui.components.AppHorizontalPager as HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import com.android.purebilibili.core.ui.AppShapes
-import com.android.purebilibili.core.ui.components.AppSegmentOption
-import com.android.purebilibili.core.ui.components.AppThemeAdaptiveTabRow
 import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.AppAlertDialog
 import com.android.purebilibili.core.ui.rememberAppCheckCircleIcon
@@ -39,8 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.android.purebilibili.core.theme.resolveAdaptivePrimaryAccentColors
-import com.android.purebilibili.core.theme.AppUiStyle
-import com.android.purebilibili.core.theme.LocalAppUiStyle
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
 import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.data.model.response.BangumiDetail
@@ -50,7 +47,8 @@ import com.android.purebilibili.feature.bangumi.BANGUMI_FOLLOW_STATUS_UNFOLLOW
 import com.android.purebilibili.feature.bangumi.BANGUMI_FOLLOW_STATUS_WATCHING
 import com.android.purebilibili.feature.bangumi.isBangumiFollowed
 import com.android.purebilibili.feature.bangumi.resolveBangumiFollowStatusLabel
-import com.android.purebilibili.feature.video.ui.components.VideoCommentMainList
+import com.android.purebilibili.feature.video.ui.components.CommentFraudFeedbackHost
+import com.android.purebilibili.feature.video.screen.VideoContentTabBar
 import com.android.purebilibili.feature.video.ui.components.SubReplySheet
 import com.android.purebilibili.feature.video.ui.components.commentThreadNavigationBlur
 import com.android.purebilibili.feature.video.ui.components.CommentInputDialog
@@ -64,6 +62,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextOverflow
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -85,10 +85,13 @@ fun BangumiPlayerContent(
     onDownloadClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
     commentsOnly: Boolean = false,
+    isVideoPlaying: Boolean = false,
+    handleCommentFeedback: Boolean = true,
     onTimestampClick: ((Long) -> Unit)? = null,
     currentVideoPositionMsProvider: () -> Long = { 0L }
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    CommentFraudFeedbackHost(commentViewModel = commentViewModel, enabled = handleCommentFeedback)
     val showIdentityDecorations by com.android.purebilibili.core.store.SettingsManager
         .getCommentMemberDecorationsEnabled(context).collectAsStateWithLifecycle(initialValue = false)
     val isCourse = detail.seasonType == 10
@@ -96,10 +99,8 @@ fun BangumiPlayerContent(
     val followedIcon = rememberAppCheckCircleIcon()
     val followIcon = rememberAppProfileAddIcon()
     var showFollowStatusDialog by remember { mutableStateOf(false) }
-    val tabs = if (commentsOnly) listOf("评论") else listOf("简介", "评论")
-    val useCapsuleTabs = LocalAppUiStyle.current == AppUiStyle.MIUIX
     val liquidGlassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
-    val pagerState = rememberPagerState(pageCount = { tabs.size })
+    val pagerState = rememberPagerState(pageCount = { if (commentsOnly) 1 else 2 })
     val scope = rememberCoroutineScope()
     val selectionBackdrop = rememberLayerBackdrop()
     val indicatorPositionProvider = remember(pagerState) {
@@ -108,6 +109,16 @@ fun BangumiPlayerContent(
     val subReplyState by commentViewModel.subReplyState.collectAsStateWithLifecycle()
     val subReplyCoveredBlurProgress = remember(currentEpisode.id) { mutableFloatStateOf(0f) }
     val commentState by commentViewModel.commentState.collectAsStateWithLifecycle()
+    val showCommentCount by com.android.purebilibili.core.store.SettingsManager
+        .getShowVideoDetailCommentCount(context).collectAsStateWithLifecycle(initialValue = true)
+    val commentTabTitle = if (showCommentCount) {
+        "评论 ${FormatUtils.formatStat(commentState.replyCount.coerceAtLeast(0).toLong())}"
+    } else {
+        "评论"
+    }
+    val tabs = if (commentsOnly) listOf(commentTabTitle) else listOf("简介", commentTabTitle)
+    val commentListState = key(currentEpisode.id) { rememberLazyListState() }
+
     var commentInputVisible by rememberSaveable(currentEpisode.id) { mutableStateOf(false) }
     var sendPending by remember(currentEpisode.id) { mutableStateOf(false) }
     var previewImages by remember(currentEpisode.id) { mutableStateOf<List<String>>(emptyList()) }
@@ -132,50 +143,68 @@ fun BangumiPlayerContent(
         commentInputVisible = true
     }
 
+    val tabBarHeightPx = remember { mutableIntStateOf(0) }
+    val tabBarContent: @Composable (Modifier) -> Unit = { tabModifier ->
+        VideoContentTabBar(
+            tabs = tabs,
+            replyCount = commentState.replyCount,
+            selectedTabIndex = pagerState.currentPage,
+            onTabSelected = { index ->
+                scope.launch { animatePagerSelection(pagerState, index) }
+            },
+            sortMode = commentState.sortMode,
+            onSortModeChange = commentViewModel::setSortMode,
+            onDanmakuSendClick = {},
+            danmakuEnabled = false,
+            onDanmakuToggle = {},
+            showDanmakuActions = false,
+            modifier = tabModifier,
+            miuixBackdrop = if (liquidGlassEnabled) selectionBackdrop else null,
+            indicatorPositionProvider = indicatorPositionProvider,
+            isScrollInProgressProvider = { pagerState.isScrollInProgress },
+        )
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .layerBackdrop(selectionBackdrop)
                 .background(MaterialTheme.colorScheme.background),
         )
         Column(
-            modifier = Modifier.fillMaxSize().commentThreadNavigationBlur {
-                if (subReplyState.visible) subReplyCoveredBlurProgress.floatValue else 0f
-            }
-        ) {
-        if (!commentsOnly) Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                // 玻璃采样必须覆盖标签坐标并包含实色背景，且不能录入玻璃控件自身。
+                // 原生 MD3/Miuix 不增加采样层，仍按 Column 顺序放置标签与分页内容。
+                .then(
+                    if (liquidGlassEnabled) {
+                        Modifier
+                            .layerBackdrop(selectionBackdrop)
+                            .background(MaterialTheme.colorScheme.background)
+                    } else Modifier
+                )
+                .commentThreadNavigationBlur {
+                    if (subReplyState.visible) subReplyCoveredBlurProgress.floatValue else 0f
+                }
         ) {
-            AppThemeAdaptiveTabRow(
-                role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
-                options = tabs.mapIndexed { index, label -> AppSegmentOption(index, label) },
-                selectedValue = pagerState.currentPage,
-                onSelectionChange = { index ->
-                    scope.launch { animatePagerSelection(pagerState, index) }
-                },
-                modifier = Modifier.fillMaxWidth(0.4f),
-                height = 44.dp,
-                indicatorHeight = com.android.purebilibili.core.ui
-                    .roundMatchedLiquidIndicatorHeightDp(44f).dp,
-                labelFontSize = MaterialTheme.typography.titleSmall.fontSize,
-                compactMiuixWhenTwoOptions = useCapsuleTabs,
-                dragSelectionEnabled = tabs.size > 1,
-                tapPressRefractionEnabled = false,
-                miuixBackdrop = if (liquidGlassEnabled) selectionBackdrop else null,
-                indicatorPositionProvider = indicatorPositionProvider,
-                isScrollInProgressProvider = { pagerState.isScrollInProgress },
-            )
+        if (!commentsOnly) {
+            if (liquidGlassEnabled) {
+                // 只保留布局占位；玻璃标签在采样层外作为兄弟覆盖层绘制。
+                Spacer(Modifier.layout { _, constraints ->
+                    layout(
+                        constraints.maxWidth,
+                        tabBarHeightPx.intValue.coerceIn(constraints.minHeight, constraints.maxHeight),
+                    ) {}
+                })
+            } else {
+                tabBarContent(Modifier.fillMaxWidth())
+            }
         }
 
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = !commentsOnly,
             modifier = Modifier.weight(1f)
-
         ) { page ->
             when (if (commentsOnly) 1 else page) {
                 0 -> LazyColumn(
@@ -624,23 +653,28 @@ fun BangumiPlayerContent(
                 1 -> {
                     val hasComments = if (isCourse) (currentEpisode.id > 0L || currentEpisode.aid > 0L) else currentEpisode.aid > 0L
                     if (hasComments) {
-                        VideoCommentMainList(
-                            viewModel = commentViewModel,
-                            showIdentityDecorations = showIdentityDecorations,
-                            onRootCommentClick = ::openRootCommentComposer,
-                            onReplyClick = ::openReplyComposer,
-                            onUserClick = onUserClick ?: {},
-                            onCommentUrlClick = { url -> onCommentUrlClick?.invoke(url) },
-                            onTimestampClick = onTimestampClick,
-                            maxTimestampMs = currentEpisode.duration.takeIf { it > 0L },
-                            onImagePreview = { images, index, rect, textContent ->
-                                previewImages = images
-                                previewIndex = index
-                                previewSourceRect = rect
-                                previewTextContent = textContent
-                            },
-                            onRefresh = commentViewModel::refreshComments,
-                        )
+                        // 剧集切换后重建列表和搜索状态，不沿用上一集的滚动位置。
+                        key(currentEpisode.id) {
+                            BangumiCommentPanel(
+                                viewModel = commentViewModel,
+                                listState = commentListState,
+                                modifier = Modifier.fillMaxSize(),
+                                isVideoPlaying = isVideoPlaying,
+                                showIdentityDecorations = showIdentityDecorations,
+                                onRootCommentClick = ::openRootCommentComposer,
+                                onReplyClick = ::openReplyComposer,
+                                onUserClick = onUserClick ?: {},
+                                onCommentUrlClick = { url -> onCommentUrlClick?.invoke(url) },
+                                onTimestampClick = onTimestampClick,
+                                maxTimestampMs = currentEpisode.duration.takeIf { it > 0L },
+                                onImagePreview = { images, index, rect, textContent ->
+                                    previewImages = images
+                                    previewIndex = index
+                                    previewSourceRect = rect
+                                    previewTextContent = textContent
+                                },
+                            )
+                        }
                     } else {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -654,6 +688,19 @@ fun BangumiPlayerContent(
                     }
                 }
             }
+        }
+        }
+        // 玻璃标签不能录入自己的采样层，必须作为 Column 的兄弟节点绘制。
+        if (liquidGlassEnabled && !commentsOnly) {
+            tabBarContent(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .onSizeChanged { tabBarHeightPx.intValue = it.height }
+                    .commentThreadNavigationBlur {
+                        if (subReplyState.visible) subReplyCoveredBlurProgress.floatValue else 0f
+                    }
+            )
         }
     }
 
@@ -760,7 +807,6 @@ fun BangumiPlayerContent(
         canInputComment = commentState.canInputComment,
         currentVideoPositionMsProvider = currentVideoPositionMsProvider
     )
-}
 }
 
 /**

@@ -12,6 +12,8 @@ import com.android.purebilibili.core.ui.OpticalContrastPalette
 
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -433,7 +435,12 @@ fun BottomBarLiquidSegmentedControl(
     liquidGlassTuningOverride: LiquidGlassTuning? = null,
     geometryMode: FloatingBottomBarGeometryMode = FloatingBottomBarGeometryMode.Segmented,
     centerGlassContent: Boolean = false,
+    // Applied below the native renderer returns; native indicator geometry stays unchanged.
+    liquidGlassAdaptIndicatorToLabel: Boolean = true,
     liquidGlassLabelHorizontalPadding: Dp? = null,
+    // Geometry-only labels for asynchronous badges. Native renderers and visible text ignore them.
+    liquidGlassMeasurementLabels: List<String>? = null,
+    liquidGlassAnimateLabelWidthChanges: Boolean = false,
 ): Unit = AppExactTouchTargets {
     if (items.isEmpty()) return@AppExactTouchTargets
     val effectiveLabelFontSize = com.android.purebilibili.core.ui.appTabLabelFontSize(labelFontSize)
@@ -571,12 +578,14 @@ fun BottomBarLiquidSegmentedControl(
         // Material boundary: only tune glass sizing below the native-renderer returns above.
         // Direct consumers (search, listen-video, settings and page filters) bypass
         // AppLiquidAwareTabRow. Give them the same measured compact slots here.
-        val liquidItemWidth = renderedItemWidth ?: if (
+        val glassMeasurementLabels = liquidGlassMeasurementLabels
+            ?.takeIf { it.size == items.size } ?: items
+        val measuredLiquidItemWidth = renderedItemWidth ?: if (
             !forceEqualWidth && geometryMode == FloatingBottomBarGeometryMode.Segmented
         ) {
             rememberMeasuredTabMinWidth(
                 requestedMinWidth = AppChromeSizeTokens.MinimumTouchTarget,
-                labels = items,
+                labels = glassMeasurementLabels,
                 textStyle = MaterialTheme.typography.labelLarge.copy(
                     fontSize = effectiveLabelFontSize,
                     fontWeight = FontWeight.SemiBold,
@@ -584,8 +593,22 @@ fun BottomBarLiquidSegmentedControl(
                 horizontalPadding = liquidGlassLabelHorizontalPadding ?: resolveLiquidGlassTabSlotHorizontalPadding(items.size),
             )
         } else null
+        val animateLabelWidths = liquidGlassAnimateLabelWidthChanges &&
+            com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current &&
+            !com.android.purebilibili.core.ui.LocalSystemReduceMotion.current
+        // Native paths have already returned. Retarget only data-driven glass geometry.
+        val liquidItemWidth = if (animateLabelWidths && renderedItemWidth == null && measuredLiquidItemWidth != null) {
+            animateDpAsState(
+                targetValue = measuredLiquidItemWidth,
+                animationSpec = tween(180, easing = FastOutSlowInEasing),
+                label = "glassAsyncBadgeSlotWidth",
+            ).value
+        } else measuredLiquidItemWidth
         BottomBarFloatingSegmentedControl(
+            adaptIndicatorToLabel = liquidGlassAdaptIndicatorToLabel,
             items = items,
+            liquidGlassMeasurementLabels = glassMeasurementLabels,
+            liquidGlassAnimateLabelWidthChanges = liquidGlassAnimateLabelWidthChanges,
             liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
             selectedIndex = selectedIndex,
             onSelected = onSelected,

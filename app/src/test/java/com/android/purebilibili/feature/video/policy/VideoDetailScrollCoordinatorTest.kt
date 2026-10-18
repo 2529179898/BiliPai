@@ -148,6 +148,31 @@ class VideoDetailScrollCoordinatorTest {
     }
 
     @Test
+    fun restoredCompactCommentsAllowTheNextCollapseGesture() {
+        assertTrue(
+            shouldSkipGesturePlayerCollapseForLayout(
+                compactForIntroScroll = false,
+                compactForCommentTab = true,
+            )
+        )
+        val skipCollapse = shouldSkipGesturePlayerCollapseForLayout(
+            compactForIntroScroll = false,
+            compactForCommentTab = true,
+            restoreRequested = true,
+        )
+        assertFalse(skipCollapse)
+        val update = reduceVideoDetailPreScroll(
+            currentOffsetPx = 0f,
+            deltaPx = -40f,
+            minOffsetPx = -320f,
+            inlinePortraitScrollEnabled = true,
+            isPortraitFullscreen = false,
+            layoutAlreadyCollapsed = skipCollapse,
+        )
+        assertEquals(-40f, update?.nextOffsetPx)
+    }
+
+    @Test
     fun pausedCommentHide_continuesPastCompactFoldableLayoutAndRestoresAtTop() {
         val skipCollapse = shouldSkipGesturePlayerCollapseForLayout(
             compactForIntroScroll = false,

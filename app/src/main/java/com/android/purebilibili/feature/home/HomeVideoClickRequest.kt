@@ -13,7 +13,8 @@ data class HomeVideoClickRequest(
     val coverUrl: String = "",
     val isVerticalVideo: Boolean = false,
     val source: HomeVideoClickSource = HomeVideoClickSource.GRID,
-    val sourceRoute: String? = null
+    val sourceRoute: String? = null,
+    val episodeId: Long = 0L
 )
 
 fun resolveHomeCategoryVideoSourceRoute(category: HomeCategory): String {

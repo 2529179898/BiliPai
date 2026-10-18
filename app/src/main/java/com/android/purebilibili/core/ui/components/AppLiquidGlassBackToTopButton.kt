@@ -24,7 +24,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
@@ -40,17 +39,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.purebilibili.core.store.BackToTopSettingsStore
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
-import com.android.purebilibili.core.ui.blur.LocalFloatingChromeBackdrop
 import com.android.purebilibili.core.ui.motion.AppMotionTokens
 import com.android.purebilibili.core.ui.performance.isLowBlurBudgetForced
 import com.android.purebilibili.core.ui.rememberAppChevronUpIcon
 import com.android.purebilibili.feature.home.components.biliPaiFloatingDockShell
+import com.android.purebilibili.feature.home.components.LocalLiquidGlassRenderConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.Backdrop
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import kotlin.math.roundToInt
 
 /**
@@ -62,7 +59,7 @@ fun AppLiquidGlassBackToTopButton(
     visible: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    backdrop: Backdrop? = LocalFloatingChromeBackdrop.current,
+    backdrop: Backdrop? = null,
     contentDescription: String = "回到顶部",
     draggable: Boolean = true,
 ) {
@@ -73,10 +70,13 @@ fun AppLiquidGlassBackToTopButton(
     val haptic = LocalHapticFeedback.current
 
     val glassActive = LocalAppThemeConfig.current.liquidGlassEnabled && !isLowBlurBudgetForced()
-    val localBackdrop = if (glassActive && backdrop == null) rememberLayerBackdrop() else null
-    val effectiveBackdrop = backdrop ?: localBackdrop
+    // Glass may only sample a caller-owned source outside this button's subtree. The app
+    // shell's backdrop records the whole page, including this button: falling back to it
+    // creates a RenderNode cycle. Missing/unready sources use the existing solid branch;
+    // glass-off sizing, placement, color and interaction stay unchanged.
+    val glassTuning = LocalLiquidGlassRenderConfig.current.tuning
     val elasticState = rememberAppElasticPressState(visualSize = 48.dp)
-    val glassMotion = glassActive && effectiveBackdrop != null
+    val glassMotion = glassActive && backdrop != null
     val elasticEnabled = com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current
     val dockColor = AppSurfaceTokens.surfaceContainerHigh()
 
@@ -146,15 +146,6 @@ fun AppLiquidGlassBackToTopButton(
                 .size(48.dp),
             contentAlignment = Alignment.Center,
         ) {
-            if (glassActive && backdrop == null && localBackdrop != null) {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .alpha(0f)
-                        .layerBackdrop(localBackdrop)
-                        .background(AppSurfaceTokens.background())
-                )
-            }
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -166,14 +157,15 @@ fun AppLiquidGlassBackToTopButton(
                         transformInBackdrop = glassMotion,
                     )
                     .then(
-                        if (glassActive && effectiveBackdrop != null) {
+                        if (glassActive && backdrop != null) {
                             Modifier.biliPaiFloatingDockShell(
-                                backdrop = effectiveBackdrop,
+                                backdrop = backdrop,
                                 interactionLayerBlock = elasticState.layerBlock,
                                 interactionState = elasticState,
                                 containerColor = dockColor,
                                 pressProgress = if (isDragging) 0.15f else 0f,
                                 shape = CircleShape,
+                                liquidGlassTuning = glassTuning,
                             )
                         } else {
                             Modifier.background(dockColor, CircleShape)

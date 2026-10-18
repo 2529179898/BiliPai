@@ -1,6 +1,7 @@
 // 文件路径: feature/video/VideoPlayerOverlay.kt
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.components.rememberFollowActionWithConfirmation
 import com.android.purebilibili.core.ui.MediaContrastPalette
 
 import com.android.purebilibili.core.ui.AppContentColors
@@ -3004,7 +3005,12 @@ fun LandscapeEndDrawer(
 
                             // 关注按钮 (放在右上角)
                             AppButton(
-                                onClick = onToggleFollow,
+                                onClick = rememberFollowActionWithConfirmation(
+                                    targetKey = currentBvid,
+                                    userName = ownerName,
+                                    isFollowing = isFollowed,
+                                    onFollowClick = onToggleFollow,
+                                ),
                                 enabled = followStatusKnown,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (isFollowed) AppContentColors.primaryText().copy(0.2f) else AppContentColors.accent(),

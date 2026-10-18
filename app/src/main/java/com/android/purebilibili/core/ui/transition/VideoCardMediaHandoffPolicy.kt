@@ -23,6 +23,7 @@ internal fun resolveVideoDetailMediaLayoutHandoffProgress(
             morphDepthProgress = depth,
             phase = phase,
             isReturnGestureInProgress = false,
+            sourceLayout = sourceLayout,
         ))
     }
     // Chrome accepts depth-driven predictive seek even while the clock is HELD.

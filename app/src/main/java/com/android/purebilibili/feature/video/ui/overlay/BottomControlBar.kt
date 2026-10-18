@@ -2,6 +2,9 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
 import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.theme.AppUiStyle
+import com.android.purebilibili.core.theme.LocalAppUiStyle
+import com.android.purebilibili.core.ui.LocalAppThemeConfig
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
@@ -938,7 +941,9 @@ fun BottomControlBar(
                             }
 
                             if (showDanmakuToggle) {
-                                val danmakuActiveColor = Color.White.copy(alpha = 0.96f)
+                                val danmakuActiveColor = AppContentColors.selectionAccent(
+                                    LocalAppThemeConfig.current.liquidGlassEnabled,
+                                )
                                 val danmakuInactiveColor = Color.White.copy(alpha = 0.74f)
                                 NativeDanmakuToggleButton(
                                     enabled = danmakuEnabled,
@@ -987,11 +992,12 @@ fun BottomControlBar(
                         modifier = if (isFullscreen) Modifier.height(48.dp) else Modifier,
                     ) {
                         PlainLandscapeDockActionRow(
+                            maxSpacing = actionSpacing * PlainFullscreenDockActionMaxSpacingFactor,
+                            minSpacing = PlainFullscreenDockActionMinSpacing,
                             modifier = if (isFullscreen) Modifier
                                 .fillMaxHeight()
                                 .padding(horizontal = 10.dp)
                             else Modifier,
-                            spacing = if (isFullscreen) actionSpacing else layoutPolicy.rightActionSpacingDp.dp,
                         ) {
                             if (showAspectRatioButton) {
                                 Box(
@@ -1162,6 +1168,13 @@ fun BottomControlBar(
 
                             if (showMoreActionsButton || sponsorContributionAvailable || isFullscreen) {
                                 AppWindowActionMenu(
+                                    // 其它文字项与右侧退全屏按钮都紧贴内容，而 IconButton 的默认
+                                    // 最小槽位 40dp 会给“更多”两侧各留约 8dp，看起来比相邻项宽。
+                                    // 这里把它收到文字宽（两个字 ≈ 2×字号）再加一点余量：
+                                    // 视觉间距与相邻项一致，也不额外占用这一排的可用宽度。
+                                    modifier = Modifier.width(
+                                        (layoutPolicy.actionTextFontSp * 2 + 2).dp,
+                                    ),
                                     groups = listOf(
                                         listOfNotNull(
                                             if (sponsorContributionAvailable) {
@@ -1342,7 +1355,11 @@ fun BottomControlBar(
                             }
 
                             if (showDanmakuToggle) {
-                                val danmakuActiveColor = Color.White.copy(alpha = 0.96f)
+                                // 弹幕开启态跟随选中主题色：玻璃模式取玻璃强调色、原生模式取主题主色，
+                                // 与竖屏底部栏的弹幕开关共用 selectionAccent 入口。
+                                val danmakuActiveColor = AppContentColors.selectionAccent(
+                                    LocalAppThemeConfig.current.liquidGlassEnabled,
+                                )
                                 val danmakuInactiveColor = Color.White.copy(alpha = 0.74f)
                                 NativeDanmakuToggleButton(
                                     enabled = danmakuEnabled,
@@ -1475,19 +1492,27 @@ fun BottomControlBar(
                             modifier = if (isFullscreen) Modifier
                                 .fillMaxHeight()
                                 // Keep the scroll viewport away from the dock's rounded ends.
-                                .padding(horizontal = 10.dp)
+                                // 液态玻璃全屏这一排最多同时出现 10 个入口，端头内边距收到 8dp。
+                                .padding(horizontal = 8.dp)
                             else if (expandInlineActionDock) Modifier
                                 .heightIn(min = 40.dp)
                                 .padding(horizontal = 8.dp)
                             else Modifier,
-                            minimumSpacing = if (isFullscreen || expandInlineActionDock) {
-                                4.dp
-                            } else layoutPolicy.rightActionSpacingDp.dp,
+                            contentHorizontalPadding = if (isFullscreen) 0.dp else 2.dp,
+                            minimumSpacing = when {
+                                // 液态玻璃全屏：间距由 4dp 收到 2dp，避免末端入口被胶囊圆角裁切。
+                                isFullscreen -> 2.dp
+                                expandInlineActionDock -> 4.dp
+                                else -> layoutPolicy.rightActionSpacingDp.dp
+                            },
                         ) {
                             if (showAspectRatioButton) {
                                 Box(
                                     modifier = Modifier
-                                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                        .sizeIn(
+                                            minWidth = FullscreenDockActionMinWidth,
+                                            minHeight = 48.dp,
+                                        )
                                         .clickable(onClick = onRatioClick),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -1538,7 +1563,14 @@ fun BottomControlBar(
                                     softWrap = false,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier
-                                        .then(if (isFullscreen) Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp) else Modifier)
+                                        .then(
+                                            if (isFullscreen) {
+                                                Modifier.sizeIn(
+                                                    minWidth = FullscreenDockActionMinWidth,
+                                                    minHeight = 48.dp,
+                                                )
+                                            } else Modifier,
+                                        )
                                         .clickable(onClick = onQualityClick)
                                         .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                                 )
@@ -1554,7 +1586,14 @@ fun BottomControlBar(
                                     maxLines = 1,
                                     softWrap = false,
                                     modifier = Modifier
-                                        .then(if (isFullscreen) Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp) else Modifier)
+                                        .then(
+                                            if (isFullscreen) {
+                                                Modifier.sizeIn(
+                                                    minWidth = FullscreenDockActionMinWidth,
+                                                    minHeight = 48.dp,
+                                                )
+                                            } else Modifier,
+                                        )
                                         .clickable(onClick = onEpisodeClick)
                                         .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                                 )
@@ -1570,7 +1609,14 @@ fun BottomControlBar(
                                 maxLines = 1,
                                 softWrap = false,
                                 modifier = Modifier
-                                    .then(if (isFullscreen) Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp) else Modifier)
+                                    .then(
+                                        if (isFullscreen) {
+                                            Modifier.sizeIn(
+                                                minWidth = FullscreenDockActionMinWidth,
+                                                minHeight = 48.dp,
+                                            )
+                                        } else Modifier,
+                                    )
                                     .clickable(onClick = onSpeedClick)
                                     .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                             )
@@ -1584,7 +1630,10 @@ fun BottomControlBar(
                                     maxLines = 1,
                                     softWrap = false,
                                     modifier = Modifier
-                                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                        .sizeIn(
+                                            minWidth = FullscreenDockActionMinWidth,
+                                            minHeight = 48.dp,
+                                        )
                                         .clickable(onClick = onPlaybackOrderClick)
                                         .wrapContentSize(Alignment.Center)
                                         .padding(horizontal = 2.dp),
@@ -1601,7 +1650,10 @@ fun BottomControlBar(
                                     maxLines = 1,
                                     softWrap = false,
                                     modifier = Modifier
-                                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                        .sizeIn(
+                                            minWidth = FullscreenDockActionMinWidth,
+                                            minHeight = 48.dp,
+                                        )
                                         .clickable {
                                             val nextShowSubtitlePanel = !showSubtitlePanel
                                             com.android.purebilibili.core.util.Logger.d(
@@ -1834,6 +1886,7 @@ fun BottomControlBar(
                 Column(
                     modifier = Modifier
                         .widthIn(min = 140.dp, max = 220.dp)
+                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -1993,23 +2046,101 @@ private fun PlayerControlMiddleRow(
 
 @Composable
 private fun PlainLandscapeDockActionRow(
-    spacing: Dp,
+    maxSpacing: Dp,
+    minSpacing: Dp,
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(spacing),
-        content = content,
-    )
+    // 该行只出现在原生（关闭液态玻璃）的全屏横屏里，这一排没有胶囊底色：
+    // 把行宽撑到视口，间距完全交给自适应策略，避免测量宽度把右侧按钮推远。
+    BoxWithConstraints(modifier = modifier) {
+        val viewportWidthPx = with(LocalDensity.current) { maxWidth.roundToPx() }
+        val arrangement = remember(maxSpacing, minSpacing, viewportWidthPx) {
+            adaptivePlainDockActionSpacing(
+                viewportWidthPx = viewportWidthPx,
+                maxSpacing = maxSpacing,
+                minSpacing = minSpacing,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxHeight()
+                .horizontalScroll(rememberScrollState())
+                // 滚动会移除子项的最大宽度约束：只恢复视口最小宽度，
+                // 让测量宽度等于视口，实际位置仍由自适应间距决定。
+                .widthIn(min = maxWidth),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = arrangement,
+            content = content,
+        )
+    }
 }
+
+/**
+ * 原生全屏横屏这一排的间距策略：按可用宽度 [viewportWidthPx] 分配，
+ * 宽裕时最多拉到 [maxSpacing] 铺开整排，空间不足时逐项收窄但不少于 [minSpacing]，
+ * 让末端的“更多”留在胶囊内；极端窄屏仍保留 horizontalScroll 可拖动查看。
+ */
+private fun adaptivePlainDockActionSpacing(
+    viewportWidthPx: Int,
+    maxSpacing: Dp,
+    minSpacing: Dp,
+): Arrangement.Horizontal = object : Arrangement.Horizontal {
+    // 测量按最小间距预留：实际位置在 arrange 里按视口分配，多出来的宽度留给行尾，
+    // 不能再按上限预留，否则测量宽度大于布局宽度会把右侧的退全屏按钮推远。
+    override val spacing: Dp = minSpacing
+
+    override fun Density.arrange(
+        totalSize: Int,
+        sizes: IntArray,
+        layoutDirection: LayoutDirection,
+        outPositions: IntArray,
+    ) {
+        val gaps = sizes.size - 1
+        if (gaps <= 0) {
+            if (sizes.isNotEmpty()) outPositions[0] = 0
+            return
+        }
+        val spacingPx = ((viewportWidthPx - sizes.sum()) / gaps)
+            .coerceIn(minSpacing.roundToPx(), maxSpacing.roundToPx())
+        var position = 0
+        sizes.forEachIndexed { index, size ->
+            outPositions[index] = position
+            position += size + spacingPx
+        }
+        if (layoutDirection == LayoutDirection.Rtl) {
+            for (index in sizes.indices) {
+                outPositions[index] = totalSize - outPositions[index] - sizes[index]
+            }
+        }
+    }
+}
+
+/**
+ * 原生全屏横屏这一排的最小项间距：文字项已各自贴合文字宽，
+ * 空间不足时可以把间距压到 0，避免整排被额外留白顶出可视区。
+ */
+private val PlainFullscreenDockActionMinSpacing = 0.dp
+
+/**
+ * 原生全屏横屏这一排的间距上限倍数：在原间距（字号的 2 倍）基础上再放宽一半，
+ * 宽裕时把整排拉到接近胶囊末端，而不是全部靠左。
+ */
+private val PlainFullscreenDockActionMaxSpacingFactor = 1.5f
+
+/**
+ * 液态玻璃全屏这一排最多同时出现 10 个文字入口，胶囊宽度只够把它们均分：
+ * 文字槽位收到 40dp（与左侧弹幕图标槽位一致），让末端的“更多”也能完整落在胶囊内；
+ * 关闭液态玻璃后走原生布局，仍沿用 48dp 槽位。
+ */
+private val FullscreenDockActionMinWidth = 40.dp
 
 @Composable
 private fun PlayerDockActionRow(
     fillAvailableWidth: Boolean,
     minimumSpacing: Dp,
     modifier: Modifier = Modifier,
+    contentHorizontalPadding: Dp = 2.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
     val arrangement = remember(fillAvailableWidth, minimumSpacing) {
@@ -2032,10 +2163,22 @@ private fun PlayerDockActionRow(
             }
         } else Arrangement.spacedBy(minimumSpacing)
     }
+    // 只修正 Miuix 液态玻璃胶囊：外层的最小高度可能高于文字行，
+    // 让整行在胶囊内居中；关闭玻璃后的原生布局与 MD3 默认行为保持不变。
+    val centerGlassActions = LocalAppUiStyle.current == AppUiStyle.MIUIX &&
+        LocalAppThemeConfig.current.liquidGlassEnabled
     BoxWithConstraints(
+        contentAlignment = if (centerGlassActions) Alignment.CenterStart else Alignment.TopStart,
         modifier = modifier
             .then(if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier)
-            .then(if (fillAvailableWidth) Modifier.padding(horizontal = 2.dp) else Modifier),
+            .then(
+                // 液态玻璃全屏把这项内边距一并让给入口宽度，关闭玻璃后仍保留原有 2dp。
+                if (fillAvailableWidth && contentHorizontalPadding > 0.dp) {
+                    Modifier.padding(horizontal = contentHorizontalPadding)
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         Row(
             modifier = if (fillAvailableWidth) Modifier
@@ -2091,10 +2234,9 @@ private fun FullscreenDockTextAction(
         maxLines = 1,
         softWrap = false,
         modifier = modifier
-            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+            .sizeIn(minWidth = FullscreenDockActionMinWidth, minHeight = 48.dp)
             .clickable(onClick = onClick)
-            .wrapContentSize(Alignment.Center)
-            .padding(horizontal = 2.dp),
+            .wrapContentSize(Alignment.Center),
     )
 }
 
@@ -2410,7 +2552,8 @@ fun VideoProgressBar(
     val progressColors = progressSkin?.manifest?.colors
     val primaryColor = parseUiSkinColor(
         progressColors?.playerProgressActiveTint,
-        AppContentColors.accent(),
+        // 与详情页选中态共用颜色入口，保留皮肤显式覆盖及原生主色。
+        AppContentColors.selectionAccent(LocalAppThemeConfig.current.liquidGlassEnabled),
     )
     val bufferedTrackColor = if (neutralGlassTrack) Color.White.copy(alpha = 0.34f) else parseUiSkinColor(
         progressColors?.playerProgressBufferedTint,

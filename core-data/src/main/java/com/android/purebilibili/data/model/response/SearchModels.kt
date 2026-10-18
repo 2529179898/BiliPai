@@ -451,10 +451,18 @@ data class SearchUpItem(
     val res: List<SearchVideoItem>? = null
 ) {
     fun cleanupFields(): SearchUpItem {
+        val cleanedName = cleanSearchText(uname)
         return this.copy(
-            uname = cleanSearchText(uname),
+            uname = cleanedName,
             usign = cleanSearchText(usign),
-            upic = normalizeSearchImageUrl(upic)
+            upic = normalizeSearchImageUrl(upic),
+            // UP 主搜索附带的视频可能省略作者信息，沿用所属 UP 主补齐。
+            res = res?.map { video ->
+                video.copy(
+                    author = video.author.ifBlank { cleanedName },
+                    mid = video.mid.takeIf { it > 0 } ?: mid
+                )
+            }
         )
     }
 }

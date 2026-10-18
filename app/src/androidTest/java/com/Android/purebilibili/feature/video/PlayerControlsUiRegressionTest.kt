@@ -2,6 +2,7 @@ package com.android.purebilibili.feature.video
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -9,21 +10,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.android.purebilibili.core.store.PlayerProgressPlacement
 import com.android.purebilibili.core.ui.AppThemeConfig
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
-import com.android.purebilibili.core.store.PlayerProgressPlacement
 import com.android.purebilibili.feature.video.ui.overlay.BottomControlBar
 import com.android.purebilibili.feature.video.ui.overlay.PlayerProgress
 import com.android.purebilibili.feature.video.ui.overlay.TopControlBar
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -222,17 +223,20 @@ class PlayerControlsUiRegressionTest {
     }
 
     @Test
-    fun fullscreenControls_keepPrimaryActionsPinnedAndSpacingStableWhenWidthChanges() {
+    fun nativeFullscreen_resizeAndLargeFontsKeepPrimaryActionsUsableAndToolsReachable() {
         val widthFraction = mutableStateOf(1f)
         val fontScale = mutableStateOf(1f)
+        val calls = IntArray(6)
         composeTestRule.setContent {
-            val density = LocalDensity.current.density
-            CompositionLocalProvider(
-                LocalDensity provides Density(density, fontScale.value),
-                LocalAppThemeConfig provides AppThemeConfig(liquidGlassEnabled = false),
-            ) {
-                MaterialTheme {
-                    Box(Modifier.fillMaxSize().background(Color.Black)) {
+            // Keep a 960dp test viewport on any host display; shrink its content to
+            // 624dp and 384dp without depending on the device's orientation or size.
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val density = LocalDensity.current.density * maxWidth.value / 960f
+                CompositionLocalProvider(
+                    LocalDensity provides Density(density, fontScale.value),
+                    LocalAppThemeConfig provides AppThemeConfig(liquidGlassEnabled = false),
+                ) {
+                    MaterialTheme {
                         BottomControlBar(
                             isPlaying = false,
                             progress = PlayerProgress(current = 30_000, duration = 120_000),
@@ -240,61 +244,50 @@ class PlayerControlsUiRegressionTest {
                             viewportWidthDpOverride = 960,
                             currentQualityLabel = "1080P",
                             hasEpisodeEntry = true,
-                            onPlayPauseClick = {},
+                            onPlayPauseClick = { calls[0]++ },
+                            onDanmakuToggle = { calls[1]++ },
+                            onDanmakuSettingsClick = { calls[2]++ },
+                            onDanmakuInputClick = { calls[3]++ },
+                            onToggleFullscreen = { calls[4]++ },
+                            onQualityClick = { calls[5]++ },
                             onSeek = {},
-                            onToggleFullscreen = {},
-                            modifier = Modifier.align(Alignment.BottomStart)
-                                .fillMaxWidth(widthFraction.value).height(180.dp),
+                            modifier = Modifier.fillMaxWidth(widthFraction.value).height(180.dp),
                         )
                     }
                 }
             }
         }
-        fun assertPinnedControls() {
-            val row = composeTestRule.onNodeWithTag("player_control_row").fetchSemanticsNode().boundsInRoot
-            val play = composeTestRule.onNodeWithTag("player_play_pause").assertIsDisplayed()
-                .fetchSemanticsNode().boundsInRoot
-            val toggle = composeTestRule.onNodeWithTag("player_danmaku_toggle").assertIsDisplayed()
-                .fetchSemanticsNode()
-            val settings = composeTestRule.onNodeWithTag("player_danmaku_settings").assertIsDisplayed()
-                .fetchSemanticsNode()
-            val send = composeTestRule.onNodeWithTag("player_danmaku_send").assertIsDisplayed()
-                .fetchSemanticsNode()
-            val exit = composeTestRule.onNodeWithTag("player_fullscreen_toggle").assertIsDisplayed()
-                .fetchSemanticsNode().boundsInRoot
-            assertTrue(play.left >= row.left)
-            assertTrue(toggle.boundsInRoot.left >= play.right)
-            assertTrue(settings.boundsInRoot.left >= toggle.boundsInRoot.right)
-            assertTrue(send.boundsInRoot.left >= settings.boundsInRoot.right)
-            assertTrue(send.boundsInRoot.right <= exit.left)
-            listOf(toggle, settings, send).forEach { node ->
-                assertTrue(node.boundsInRoot.width + 1f >= node.layoutInfo.width)
+        // The native action row adapts spacing, then scrolls when necessary.
+        // Assert access and callback routing rather than the superseded fixed gap.
+        listOf(1f to 1f, 0.65f to 1f, 0.65f to 1.5f, 0.4f to 1.5f).forEachIndexed { index, (width, scale) ->
+            composeTestRule.runOnIdle {
+                widthFraction.value = width
+                fontScale.value = scale
             }
-            assertTrue(exit.right <= row.right)
+            listOf(
+                "player_play_pause", "player_danmaku_toggle", "player_danmaku_settings",
+                "player_danmaku_send", "player_fullscreen_toggle",
+            ).forEach { tag ->
+                val action = composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
+                if (tag == "player_fullscreen_toggle") {
+                    // This control consumes pointer gestures rather than exposing OnClick semantics.
+                    action.performTouchInput { click() }
+                } else {
+                    action.performClick()
+                }
+            }
+            composeTestRule.onNodeWithText("1080P").performScrollTo().assertIsDisplayed().performClick()
+            composeTestRule.onNodeWithText("分集").performScrollTo().assertIsDisplayed()
+            composeTestRule.onNodeWithText("更多").performScrollTo().assertIsDisplayed()
+            // Scrolling tools must not displace the primary actions.
+            listOf(
+                "player_play_pause", "player_danmaku_toggle", "player_danmaku_settings",
+                "player_danmaku_send", "player_fullscreen_toggle",
+            ).forEach { tag -> composeTestRule.onNodeWithTag(tag).assertIsDisplayed() }
+            composeTestRule.runOnIdle {
+                calls.forEach { count -> assertEquals(index + 1, count) }
+            }
         }
-        fun actionGap(): Float {
-            val ratio = composeTestRule.onNodeWithText("适应").getUnclippedBoundsInRoot()
-            val quality = composeTestRule.onNodeWithText("1080P").getUnclippedBoundsInRoot()
-            val episode = composeTestRule.onNodeWithText("分集").getUnclippedBoundsInRoot()
-            org.junit.Assert.assertEquals(
-                (quality.left - ratio.right).value,
-                (episode.left - quality.right).value,
-                0.5f,
-            )
-            return (quality.left - ratio.right).value
-        }
-        assertPinnedControls()
-        val wideGap = actionGap()
-        composeTestRule.runOnIdle { widthFraction.value = 0.65f }
-        assertPinnedControls()
-        org.junit.Assert.assertEquals(wideGap, actionGap(), 0.5f)
-        composeTestRule.onNodeWithText("更多").performScrollTo().assertIsDisplayed()
-        assertPinnedControls()
-        composeTestRule.runOnIdle { fontScale.value = 1.5f }
-        assertPinnedControls()
-        assertTrue(actionGap() > wideGap)
-        composeTestRule.runOnIdle { widthFraction.value = 0.4f }
-        assertPinnedControls()
     }
 
     private fun assertProgressIsAboveControls() {

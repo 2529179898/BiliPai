@@ -33,10 +33,9 @@ internal const val BOTTOM_TAB_RENDER_BUDGET_HOLD_MILLIS = 220L
 internal const val BOTTOM_BAR_MAX_VISIBLE_ITEMS = 5
 // 底栏最多有 5 个栏目；保留其余页的轻量布局槽，内容按各页预加载许可创建。
 internal const val BOTTOM_PAGER_MAX_PRELOAD_DISTANCE = BOTTOM_BAR_MAX_VISIBLE_ITEMS - 1
-// 预热只是「挂载组合树」，各页真正的数据与图片加载仍由 isBottomPagerPageActive /
-// LocalPageImageLoadingAllowed 门控。因此可以尽早开始：原来的 500ms 起步 + 240ms 间隔
-// 让 5 个栏目要约 1.5~2s 才全热，正好和用户「一回到前台就连点底栏」的窗口完全重叠。
-// 真正的节流器是调度器里的 awaitFrame()（每帧最多一页），这里的间隔只是一帧的安全余量。
+// 预热会创建真实组合树、状态收集与 ViewModel，并非没有成本的占位。
+// 数据与图片另有页面活跃门控；后台挂载还必须等待帧完成后的消息队列空闲机会，
+// 并在提交前重新检查交互状态。时间间隔本身不能证明这一帧有足够预算。
 internal const val BOTTOM_PAGER_PRELOAD_IDLE_MILLIS = 120L
 internal const val BOTTOM_PAGER_PRELOAD_INTERVAL_MILLIS = 16L
 
@@ -52,18 +51,23 @@ internal const val BOTTOM_PAGER_TARGET_PREWARM_FRAMES = 1
 /**
  * 已预热栏目集合的跨重建保留策略。
  *
- * 进程被系统回收后是冷启动，此时没有可恢复的集合，轻量首帧策略照旧生效；
- * 而配置变更 / Activity 重建属于「进程仍然是热的」，数据与 ViewModel 都还在内存里，
- * 重新挂载这些页既便宜又必要——否则重建后第一次点底栏又要冷组合整页 Feed。
+ * rememberSaveable 也会在进程死亡后恢复，不能把保存过的栏目当成仍在内存中的热页面。
+ * 只保留同一进程中的挂载记录；跨进程恢复仍优先挂载当前页，再逐页预热。
  */
-internal val BottomPagerPreloadedItemsSaver: Saver<Set<BottomNavItem>, Any> =
+private val bottomPagerProcessSession = "${System.currentTimeMillis()}:${System.nanoTime()}"
+
+internal fun bottomPagerPreloadedItemsSaver(processSession: String): Saver<Set<BottomNavItem>, Any> =
     listSaver(
-        save = { items -> items.map { it.name } },
+        save = { items -> listOf(processSession) + items.map { it.name } },
         restore = { names ->
-            names.mapNotNull { name -> BottomNavItem.entries.firstOrNull { it.name == name } }
-                .toSet()
+            if (names.firstOrNull() != processSession) emptySet() else {
+                names.drop(1).mapNotNull { name -> BottomNavItem.entries.firstOrNull { it.name == name } }
+                    .toSet()
+            }
         }
     )
+
+internal val BottomPagerPreloadedItemsSaver = bottomPagerPreloadedItemsSaver(bottomPagerProcessSession)
 
 internal fun shouldAllowBottomPagerBackgroundWork(
     isMainHostTop: Boolean,

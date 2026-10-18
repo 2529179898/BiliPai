@@ -182,39 +182,19 @@ class SearchMotionBudgetPolicyTest {
     }
 
     @Test
-    fun searchBackAction_alwaysLeavesSearchDestination() {
-        assertEquals(
-            SearchBackAction.LEAVE_SEARCH,
-            resolveSearchBackAction(
-                showResults = true,
-                suggestionsVisible = true,
-                searchFieldFocused = false
-            )
-        )
-        assertEquals(
-            SearchBackAction.LEAVE_SEARCH,
-            resolveSearchBackAction(
-                showResults = true,
-                suggestionsVisible = false,
-                searchFieldFocused = true
-            )
-        )
-        assertEquals(
-            SearchBackAction.LEAVE_SEARCH,
-            resolveSearchBackAction(
-                showResults = true,
-                suggestionsVisible = false,
-                searchFieldFocused = false
-            )
-        )
-        assertEquals(
-            SearchBackAction.LEAVE_SEARCH,
-            resolveSearchBackAction(
-                showResults = false,
-                suggestionsVisible = false,
-                searchFieldFocused = false
-            )
-        )
+    fun searchBack_returnsFromResultsToLandingAndThenLeavesSearch() {
+        for (focused in listOf(false, true)) {
+            for (suggestions in listOf(false, true)) {
+                assertEquals(
+                    SearchBackAction.RETURN_TO_LANDING,
+                    resolveSearchBackAction(true, suggestions, focused),
+                )
+                assertEquals(
+                    SearchBackAction.LEAVE_SEARCH,
+                    resolveSearchBackAction(false, suggestions, focused),
+                )
+            }
+        }
     }
 
     @Test
@@ -242,28 +222,16 @@ class SearchMotionBudgetPolicyTest {
     @Test
     fun queryEdit_onResultsKeepsResultsChrome() {
         assertTrue(
-            shouldKeepResultsOnQueryChange(
-                showResults = true,
-                newQuery = "129x"
-            )
+            SearchUiState(showResults = true).withEditedSearchQuery("129x").showResults
         )
         assertTrue(
-            shouldKeepResultsOnQueryChange(
-                showResults = true,
-                newQuery = "12"
-            )
+            SearchUiState(showResults = true).withEditedSearchQuery("12").showResults
+        )
+        assertTrue(
+            SearchUiState(showResults = true).withEditedSearchQuery("").showResults
         )
         assertFalse(
-            shouldKeepResultsOnQueryChange(
-                showResults = true,
-                newQuery = ""
-            )
-        )
-        assertFalse(
-            shouldKeepResultsOnQueryChange(
-                showResults = false,
-                newQuery = "129"
-            )
+            SearchUiState(showResults = false).withEditedSearchQuery("129").showResults
         )
     }
 
@@ -277,11 +245,8 @@ class SearchMotionBudgetPolicyTest {
                 newQuery = ""
             )
         )
-        assertFalse(
-            shouldKeepResultsOnQueryChange(
-                showResults = true,
-                newQuery = ""
-            )
+        assertTrue(
+            SearchUiState(showResults = true).withEditedSearchQuery("").showResults
         )
         val clearedAtElapsedMs = 1_000L
         assertFalse(
@@ -324,10 +289,7 @@ class SearchMotionBudgetPolicyTest {
             )
         )
         assertTrue(
-            shouldKeepResultsOnQueryChange(
-                showResults = true,
-                newQuery = "动"
-            )
+            SearchUiState(showResults = true).withEditedSearchQuery("动").showResults
         )
     }
 

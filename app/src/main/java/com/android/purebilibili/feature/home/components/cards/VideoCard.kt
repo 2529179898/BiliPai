@@ -291,34 +291,42 @@ private fun VideoCardOwnerMetadata(
             followerCount = upFollowerCount,
             videoCount = upVideoCount
         ),
-        nameLeadingContent = if (isFollowing) {
+        nameLeadingContent = if (isFollowing || video.isFollowed || video.recommendationReason.isNotBlank()) {
             {
-                if (infoBadgeStyle == HomeVideoBadgeStyle.GLASS) {
-                    AppSurface(
-                        modifier = Modifier.wrapContentSize(),
-                        shape = AppShapes.container(ContainerLevel.Pill),
-                        color = inlinePillColors.containerColor,
-                        border = BorderStroke(
-                            AppSpacingTokens.Micro * 0.4f,
-                            inlinePillColors.borderColor
-                        )
-                    ) {
-                        AppText(
-                            text = "已关注",
-                            style = contentTypography.coverBadge,
-                            color = AppContentColors.accent(),
-                            modifier = Modifier.padding(
-                                horizontal = AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro,
-                                vertical = AppSpacingTokens.Micro
+                Row(
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    VideoRecommendationBadge(video.recommendationReason)
+                    if (isFollowing || video.isFollowed) {
+                        if (infoBadgeStyle == HomeVideoBadgeStyle.GLASS) {
+                            AppSurface(
+                                modifier = Modifier.wrapContentSize(),
+                                shape = AppShapes.container(ContainerLevel.Pill),
+                                color = inlinePillColors.containerColor,
+                                border = BorderStroke(
+                                    AppSpacingTokens.Micro * 0.4f,
+                                    inlinePillColors.borderColor,
+                                ),
+                            ) {
+                                AppText(
+                                    text = "已关注",
+                                    style = contentTypography.coverBadge,
+                                    color = AppContentColors.accent(),
+                                    modifier = Modifier.padding(
+                                        horizontal = AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro,
+                                        vertical = AppSpacingTokens.Micro,
+                                    ),
+                                )
+                            }
+                        } else {
+                            AppText(
+                                text = "已关注",
+                                style = contentTypography.coverBadge,
+                                color = AppContentColors.accent(),
                             )
-                        )
+                        }
                     }
-                } else {
-                    AppText(
-                        text = "已关注",
-                        style = contentTypography.coverBadge,
-                        color = AppContentColors.accent()
-                    )
                 }
             }
         } else {
@@ -803,14 +811,16 @@ internal fun ElegantVideoCard(
             )
         )
     }
-    // 返回预热：组合即可见，上报 (bvid, url, cacheKey)，供详情返回时按同一 cacheKey
-    // prefetch，避免首页 scene 重建后封面重新解码造成落位闪变。
-    SideEffect {
+    val coverReturnPrefetchAllowed = LocalPageImageLoadingAllowed.current
+    LaunchedEffect(video.bvid, coverUrl, coverCacheKey, coverRequestSpec, coverReturnPrefetchAllowed) {
+        if (!coverReturnPrefetchAllowed) return@LaunchedEffect
         HomeCoverReturnPrefetchRegistry.onCardVisible(
             HomeCoverReturnPrefetchEntry(
                 bvid = video.bvid.trim(),
                 url = coverUrl,
                 cacheKey = coverCacheKey,
+                decodeWidthPx = coverRequestSpec?.widthPx ?: 0,
+                decodeHeightPx = coverRequestSpec?.heightPx ?: 0,
             )
         )
     }
@@ -961,6 +971,7 @@ internal fun ElegantVideoCard(
                     title = video.title,
                     ownerName = video.owner.name,
                     ownerFaceUrl = video.owner.face,
+                    recommendationReason = video.recommendationReason,
                     viewText = if (video.stat.view > 0) {
                         FormatUtils.formatStat(video.stat.view.toLong())
                     } else {
@@ -969,7 +980,7 @@ internal fun ElegantVideoCard(
                     danmakuText = secondaryStatText
                         ?: FormatUtils.formatStat(video.stat.danmaku.toLong()),
                     durationText = durationText,
-                    followed = video.isFollowed,
+                    followed = isFollowing || video.isFollowed,
                     // Remember what the list info column actually paints (not cover badges).
                     infoPresentation = com.android.purebilibili.core.ui.transition
                         .resolveVideoCardSourceInfoPresentation(
@@ -1152,6 +1163,7 @@ internal fun ElegantVideoCard(
                     bvid = video.bvid,
                     sourceRoute = effectiveSharedElementSourceRoute,
                     enabled = effectiveTransitionEnabled,
+                    landingFeedbackEnabled = true,
                 ),
         ) {
             val cardShellBaseColor = if (useCardEffectSurface) {

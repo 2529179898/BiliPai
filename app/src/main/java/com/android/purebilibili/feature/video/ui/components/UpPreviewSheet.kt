@@ -1,6 +1,8 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.components.rememberFollowActionWithConfirmation
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -36,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -73,6 +76,8 @@ import com.android.purebilibili.data.model.response.Owner
 import com.android.purebilibili.data.model.response.RelatedVideo
 import com.android.purebilibili.data.model.response.SpaceVideoItem
 import com.android.purebilibili.feature.common.resolveIndexedVideoLazyKey
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -197,10 +202,18 @@ fun UpPreviewSheet(
     val dismissThresholdPx = with(density) { 96.dp.toPx() }
     val maxSheetDragPx = with(density) { sheetHeightDp.toPx() }
     var sheetDragOffsetPx by remember(owner.mid) { mutableFloatStateOf(0f) }
+    val settleScope = rememberCoroutineScope()
+    var settleJob by remember(owner.mid) { mutableStateOf<Job?>(null) }
+    val latestSheetMotion by rememberUpdatedState(sheetMotion)
+    val latestVisible by rememberUpdatedState(visible)
     val latestOnDismiss by rememberUpdatedState(onDismiss)
     val hostVisibilityProgress by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(durationMillis = 280),
+        animationSpec = tween(durationMillis = if (visible) {
+            sheetMotion.contentEnterFadeDurationMillis
+        } else {
+            sheetMotion.contentExitFadeDurationMillis
+        }),
         label = "upPreviewHostVisibility",
     )
     val presentationProgress = resolveUpPreviewSheetVisibilityProgress(
@@ -230,6 +243,7 @@ fun UpPreviewSheet(
                     return Offset.Zero
                 }
 
+                settleJob?.cancel()
                 val consumedY = available.y.coerceAtLeast(-sheetDragOffsetPx)
                 sheetDragOffsetPx = (sheetDragOffsetPx + consumedY).coerceAtLeast(0f)
                 return Offset(x = 0f, y = consumedY)
@@ -244,6 +258,7 @@ fun UpPreviewSheet(
                     return Offset.Zero
                 }
                 if (available.y > 0f) {
+                    settleJob?.cancel()
                     sheetDragOffsetPx =
                         (sheetDragOffsetPx + available.y).coerceAtMost(maxSheetDragPx)
                 }
@@ -258,10 +273,17 @@ fun UpPreviewSheet(
                     velocityYPxPerSecond = available.y,
                     dismissThresholdPx = dismissThresholdPx,
                 )
-                if (shouldDismiss) {
-                    latestOnDismiss()
-                } else {
-                    sheetDragOffsetPx = 0f
+                settleJob?.cancel()
+                settleJob = settleScope.launch {
+                    animate(
+                        initialValue = sheetDragOffsetPx,
+                        targetValue = if (shouldDismiss) maxSheetDragPx else 0f,
+                        initialVelocity = available.y,
+                        animationSpec = latestSheetMotion.dragSettleSpec,
+                    ) { value, _ ->
+                        sheetDragOffsetPx = value.coerceIn(0f, maxSheetDragPx)
+                    }
+                    if (shouldDismiss && latestVisible) latestOnDismiss()
                 }
                 return Velocity(x = 0f, y = available.y)
             }
@@ -273,8 +295,12 @@ fun UpPreviewSheet(
         }
     }
 
-    LaunchedEffect(visible, owner.mid) {
+    LaunchedEffect(visible, owner.mid, maxSheetDragPx) {
+        settleJob?.cancel()
         if (visible) sheetDragOffsetPx = 0f
+    }
+    androidx.compose.runtime.DisposableEffect(owner.mid) {
+        onDispose { settleJob?.cancel() }
     }
     // Ensure progress clears after fully hidden (host animation finished).
     LaunchedEffect(visible, hostVisibilityProgress) {
@@ -512,7 +538,15 @@ private fun UpPreviewSheetHeader(
             }
             Spacer(Modifier.width(8.dp))
             AppSurface(
-                modifier = Modifier.clickable(enabled = followStatusKnown, onClick = onFollowClick),
+                modifier = Modifier.clickable(
+                    onClickLabel = if (followStatusKnown) null else "重新确认状态并关注",
+                    onClick = rememberFollowActionWithConfirmation(
+                        targetKey = owner.mid,
+                        userName = owner.name,
+                        isFollowing = isFollowing,
+                        onFollowClick = onFollowClick,
+                    ),
+                ),
                 shape = CircleShape,
                 color = if (!followStatusKnown || isFollowing) {
                     colors.followingFillColor

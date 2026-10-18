@@ -144,9 +144,12 @@ internal fun resolvePortraitFullscreenButtonAction(
     return PortraitFullscreenButtonAction.ENTER_PORTRAIT_FULLSCREEN
 }
 
-// Includes the tab row, sort header, action dock and a usable comment drag region.
-internal const val MIN_INLINE_COMMENT_VIEWPORT_HEIGHT_DP = 240f
-
+/**
+ * Switching tabs never requests a compact player, including short windows and foldable covers.
+ * Collapse belongs to the scroll gesture and its orientation/pause setting. A viewport-space
+ * fallback here bypasses OFF and also skips nested-scroll consumption, locking comments compact.
+ */
+@Suppress("UNUSED_PARAMETER")
 internal fun shouldUseCompactInlinePortraitPlayerForCommentTab(
     useOfficialInlinePortraitDetailExperience: Boolean,
     selectedTabIndex: Int,
@@ -155,21 +158,7 @@ internal fun shouldUseCompactInlinePortraitPlayerForCommentTab(
     collapseMode: PortraitPlayerCollapseMode = PortraitPlayerCollapseMode.BOTH,
     isVerticalVideo: Boolean = true,
     isPlaybackPaused: Boolean = false,
-    isCompactFoldableCoverWindow: Boolean = false,
-    availableCommentHeightDp: Float = Float.POSITIVE_INFINITY,
-): Boolean {
-    // Keep the player visible, but do not require a list gesture when expanded video leaves
-    // no usable comment hit region. Window geometry also covers unrecognized foldable covers.
-    if (
-        (isCompactFoldableCoverWindow || availableCommentHeightDp < MIN_INLINE_COMMENT_VIEWPORT_HEIGHT_DP) &&
-        useOfficialInlinePortraitDetailExperience &&
-        selectedTabIndex == 1 &&
-        !isPortraitFullscreen
-    ) {
-        return true
-    }
-    return false
-}
+): Boolean = false
 
 internal fun shouldUseCompactInlinePortraitPlayerForIntroScroll(
     useOfficialInlinePortraitDetailExperience: Boolean,
@@ -205,12 +194,14 @@ internal fun isVideoDetailIntroScrollPastCollapseThreshold(
 internal fun resolveInlinePortraitPlayerCollapseProgress(
     manualCollapseProgress: Float,
     compactForCommentTabProgress: Float,
-    restoreRequested: Boolean = false
+    restoreRequested: Boolean = false,
+    hidePausedPlayerForComments: Boolean = false,
 ): Float {
     if (restoreRequested) return 0f
-    // The list threshold drives the state holder to its compact offset. Rendering must follow
-    // that manual offset afterwards so an upward drag can restore the player immediately.
-    return manualCollapseProgress.coerceIn(0f, 1f)
+    // 评论空间保护会让手势让路给列表，画面必须同步采用紧凑进度，不能依赖暂停后再滑动。
+    // 暂停时仍按手势位移隐藏，避免把原本的紧凑画面直接压成高度 0。
+    val compactProgress = if (hidePausedPlayerForComments) 0f else compactForCommentTabProgress
+    return max(manualCollapseProgress, compactProgress).coerceIn(0f, 1f)
 }
 
 internal fun resolveInlinePortraitPlayerCommentCollapseDurationMillis(

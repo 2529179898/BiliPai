@@ -37,7 +37,7 @@ class PlayerTapGesturesUiRegressionTest {
     private var playbackSpeed = 1f
     private var longPressStarts = 0
 
-    private fun setPlayerSurface() {
+    private fun setPlayerSurface(captureSingleTap: (Offset) -> (() -> Unit)? = { null }) {
         rule.setContent {
             viewConfiguration = LocalViewConfiguration.current
             Box(
@@ -57,6 +57,7 @@ class PlayerTapGesturesUiRegressionTest {
                     }
                     .pointerInput(Unit) {
                         detectPlayerTapGestures(
+                            captureSingleTap = captureSingleTap,
                             onTap = {
                                 taps += it
                                 controlsVisible = !controlsVisible
@@ -74,6 +75,41 @@ class PlayerTapGesturesUiRegressionTest {
     private fun finishTapWindow() {
         rule.mainClock.advanceTimeBy(viewConfiguration.doubleTapTimeoutMillis + 100L)
         rule.waitForIdle()
+    }
+
+    @Test
+    fun capturedDanmakuTap_opensMenuWithoutTogglingControls() {
+        var openedMenus = 0
+        setPlayerSurface(captureSingleTap = { { openedMenus += 1 } })
+        rule.onNodeWithTag("player-tap-surface").performTouchInput { click(center) }
+        finishTapWindow()
+
+        rule.runOnIdle {
+            assertEquals(1, openedMenus)
+            assertTrue(taps.isEmpty())
+            assertTrue(doubleTaps.isEmpty())
+            assertFalse(controlsVisible)
+        }
+    }
+
+    @Test
+    fun doubleTapOverDanmaku_discardsCapturedMenuAction() {
+        var openedMenus = 0
+        setPlayerSurface(captureSingleTap = { { openedMenus += 1 } })
+        rule.onNodeWithTag("player-tap-surface").performTouchInput {
+            click(center)
+            advanceEventTime(viewConfiguration.doubleTapMinTimeMillis + 20L)
+            click(center)
+        }
+        finishTapWindow()
+
+        rule.runOnIdle {
+            assertEquals(0, openedMenus)
+            assertEquals(1, doubleTaps.size)
+            assertTrue(taps.isEmpty())
+            assertTrue(paused)
+            assertFalse(controlsVisible)
+        }
     }
 
     @Test

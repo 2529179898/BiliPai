@@ -14,6 +14,61 @@ import kotlin.test.assertTrue
 
 class VideoDetailReturnMediaLayoutTest {
     @Test
+    fun horizontalCoverStaysInsideTheContractingShellInBothDirectionsAndOnCancel() {
+        val hostWidth = 1080f
+        val hostHeight = 2400f
+        val bounds = Rect(24f, 800f, 1056f, 1088f)
+        val cover = Rect(24f, 800f, 456f, 1070f)
+        val layout = resolveVideoDetailReturnSourceCardLayout(
+            viewportWidthPx = hostWidth,
+            sourceBounds = bounds,
+            sourceCoverBounds = cover,
+            sourceLayout = VideoCardSourceLayout.SIDE_BY_SIDE,
+        )
+        val sourceX = bounds.width / hostWidth
+        val sourceY = bounds.height / hostHeight
+        for (phase in listOf(
+            VideoCardTransitionBackgroundPhase.OPENING,
+            VideoCardTransitionBackgroundPhase.RETURNING,
+            VideoCardTransitionBackgroundPhase.HELD,
+        )) {
+            // Reverse sampling also covers cancelling/re-grabbing a predictive return.
+            for (step in (0..1000).toList() + (1000 downTo 0).toList()) {
+                val depth = step / 1000f
+                val gesture = phase == VideoCardTransitionBackgroundPhase.HELD
+                val alpha = resolveVideoDetailFlyingSourceChromeAlpha(
+                    depth, phase, gesture, VideoCardSourceLayout.SIDE_BY_SIDE,
+                )
+                val handoff = resolveVideoDetailMediaLayoutHandoffProgress(
+                    depth, phase, gesture, VideoCardSourceLayout.SIDE_BY_SIDE,
+                    sourceChromeAlpha = alpha,
+                )
+                val frame = resolveVideoDetailReturnMediaLayoutFrame(
+                    containerWidthPx = hostWidth.toInt(),
+                    containerHeightPx = 608,
+                    landingLayout = layout,
+                    handoffProgress = handoff,
+                )
+                val x = com.android.purebilibili.navigation3.predictiveback
+                    .resolveMiuixVideoCardOuterScale(sourceX, depth, 1f)
+                val y = com.android.purebilibili.navigation3.predictiveback
+                    .resolveMiuixVideoCardOuterScaleY(sourceX, sourceY, depth, 1f)
+                val visibleCoverBottom = (frame.offsetYPx + frame.heightPx) * x
+                assertTrue(
+                    visibleCoverBottom <= hostHeight * y + 1f,
+                    "Cover clipped at depth=$depth phase=$phase: bottom=$visibleCoverBottom shell=${hostHeight * y}",
+                )
+                val detailAlpha = com.android.purebilibili.core.ui.transition
+                    .resolveVideoCardDetailChromeAlpha(
+                        depth, phase, gesture, sourceLayout = VideoCardSourceLayout.SIDE_BY_SIDE,
+                    )
+                assertEquals(1f, detailAlpha + alpha, 0.0001f)
+                assertEquals(alpha, handoff, 0.0001f)
+            }
+        }
+    }
+
+    @Test
     fun sixteenByTenSourceCoverHasTheSameOpeningReturnAndIdleEndpoint() {
         val layout = resolveVideoDetailReturnSourceCardLayout(
             viewportWidthPx = 1080f,
@@ -134,15 +189,15 @@ class VideoDetailReturnMediaLayoutTest {
     @Test
     fun fullBarSnapshotKeepsItsAspectRatioWhileTheOuterShellIsStillTall() {
         val bounds = Rect(24f, 1800f, 1056f, 1968f)
-        // At depth 0.1 the page-height inverse is much larger than the width
-        // inverse. A bitmap must use the width inverse on both axes.
+        // Source bitmap reconstruction must preserve the width-based scale on both
+        // axes even before the flying shell reaches its final bounds.
         val inverse = com.android.purebilibili.navigation3.predictiveback
             .resolveMiuixVideoCardInverseScaleForDepth(
                 sourceScaleX = bounds.width / 1080f,
                 sourceScaleY = bounds.height / 2400f,
                 depth = 0.1f,
             )
-        assertTrue(inverse.scaleY > inverse.scaleX)
+        assertEquals(inverse.scaleX, inverse.scaleY, .0001f)
         val frame = resolveVideoDetailReturnMediaLayoutFrame(
             containerWidthPx = 1080,
             containerHeightPx = 608,

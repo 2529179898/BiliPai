@@ -1046,7 +1046,7 @@ fun BangumiPlayerScreen(
         }
 
         // 播放器折叠状态（对齐 PiliPlus 下滑收起播放器）
-        val inlinePlayerCollapseState = rememberInlinePortraitPlayerCollapseState("bangumi:$seasonId:$currentEpisodeIdForDebug")
+        val inlinePlayerCollapseState = rememberInlinePortraitPlayerCollapseState("bangumi:$seasonId")
         val portraitPlayerCollapseMode by com.android.purebilibili.core.store.SettingsManager
             .getPortraitPlayerCollapseMode(context)
             .collectAsStateWithLifecycle(initialValue = PortraitPlayerCollapseMode.BOTH)
@@ -1068,9 +1068,13 @@ fun BangumiPlayerScreen(
             with(density) { (playerHeight - collapsedPlayerHeight).toPx().coerceAtLeast(0f) }
         }
 
-        // 换集时展开播放器
-        LaunchedEffect(currentEpisodeIdForDebug) {
-            inlinePlayerCollapseState.reset()
+        // Keep one viewport state across episodes so the old height can ease to expanded.
+        // This is shared player behavior, independent of glass/native component styling.
+        LaunchedEffect(inlinePlayerCollapseState, currentEpisodeIdForDebug) {
+            inlinePlayerCollapseState.restore()
+        }
+        LaunchedEffect(inlinePlayerCollapseState, inlineCollapseEnabled, collapseRangePx) {
+            inlinePlayerCollapseState.reconcileLayout(inlineCollapseEnabled, collapseRangePx)
         }
 
         val rawCollapseProgress = remember(inlinePlayerCollapseState.offsetPx, collapseRangePx) {
@@ -1079,7 +1083,11 @@ fun BangumiPlayerScreen(
 
         val animatedCollapseProgress by animateFloatAsState(
             targetValue = if (inlineCollapseEnabled) rawCollapseProgress else 0f,
-            animationSpec = if (inlinePlayerCollapseState.restoreRequested) {
+            animationSpec = if (
+                inlinePlayerCollapseState.restoreRequested ||
+                    inlinePlayerCollapseState.layoutReconciled ||
+                    !inlineCollapseEnabled
+            ) {
                 tween(durationMillis = 280, easing = FastOutSlowInEasing)
             } else {
                 snap()
@@ -1089,12 +1097,16 @@ fun BangumiPlayerScreen(
 
         // 折叠自动暂停 / 展开自动恢复
         var autoPausedByPlayerCollapse by remember(currentEpisodeIdForDebug) { mutableStateOf(false) }
-        val isPlayerCollapsed = animatedCollapseProgress >= 0.98f
+        val isPlayerCollapsed = inlineCollapseEnabled && rawCollapseProgress >= 0.98f &&
+            !inlinePlayerCollapseState.restoreRequested
         LaunchedEffect(isPlayerCollapsed, pauseOnPlayerCollapseEnabled, isFullscreen, currentEpisodeIdForDebug) {
             val player = exoPlayer ?: return@LaunchedEffect
+            // An earlier episode/setting effect can request restoration in this same frame.
+            // The departing visual height must not pause the newly selected episode.
+            val collapsedForAutoPause = isPlayerCollapsed && !inlinePlayerCollapseState.restoreRequested
             if (shouldAutoPauseOnPlayerCollapse(
                 autoPauseEnabled = pauseOnPlayerCollapseEnabled,
-                isPlayerCollapsed = isPlayerCollapsed,
+                isPlayerCollapsed = collapsedForAutoPause,
                 isPlaying = player.isPlaying,
                 isPortraitFullscreen = isFullscreen,
             )) {
@@ -1102,22 +1114,28 @@ fun BangumiPlayerScreen(
                 autoPausedByPlayerCollapse = true
             } else if (shouldAutoResumeOnPlayerExpand(
                 autoPauseEnabled = pauseOnPlayerCollapseEnabled,
-                isPlayerCollapsed = isPlayerCollapsed,
+                isPlayerCollapsed = collapsedForAutoPause,
                 wasAutoPausedByCollapse = autoPausedByPlayerCollapse,
                 isPortraitFullscreen = isFullscreen,
             )) {
                 autoPausedByPlayerCollapse = false
                 player.play()
-            } else if (!isPlayerCollapsed) {
+            } else if (!collapsedForAutoPause) {
                 autoPausedByPlayerCollapse = false
             }
         }
 
-        val nestedScrollConnection = remember(inlineCollapseEnabled, isFullscreen, collapseRangePx) {
+        // Re-grabbing an animated restore continues from the visible height, not its zero target.
+        val latestAnimatedCollapseProgress by rememberUpdatedState(animatedCollapseProgress)
+        val nestedScrollConnection = remember(
+            inlinePlayerCollapseState, inlineCollapseEnabled, isFullscreen, collapseRangePx,
+        ) {
             object : NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                     val scrollUpdate = reduceVideoDetailPreScroll(
-                        currentOffsetPx = inlinePlayerCollapseState.offsetPx,
+                        currentOffsetPx = if (inlinePlayerCollapseState.restoreRequested) {
+                            -latestAnimatedCollapseProgress * collapseRangePx
+                        } else inlinePlayerCollapseState.offsetPx,
                         deltaPx = available.y,
                         minOffsetPx = -collapseRangePx,
                         inlinePortraitScrollEnabled = inlineCollapseEnabled,
@@ -1128,7 +1146,9 @@ fun BangumiPlayerScreen(
 
                 override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
                     val scrollUpdate = reduceVideoDetailPostScroll(
-                        currentOffsetPx = inlinePlayerCollapseState.offsetPx,
+                        currentOffsetPx = if (inlinePlayerCollapseState.restoreRequested) {
+                            -latestAnimatedCollapseProgress * collapseRangePx
+                        } else inlinePlayerCollapseState.offsetPx,
                         deltaPx = available.y,
                         minOffsetPx = -collapseRangePx,
                         inlinePortraitScrollEnabled = inlineCollapseEnabled,
@@ -1171,6 +1191,8 @@ fun BangumiPlayerScreen(
                             detail = state.seasonDetail,
                             currentEpisode = state.currentEpisode,
                             commentViewModel = commentViewModel,
+                            isVideoPlaying = playbackDebugSnapshot.isPlaying,
+                            handleCommentFeedback = !commentPanelVisible,
                             onEpisodeClick = { viewModel.switchEpisode(it) },
                             onFollowStatusSelect = { viewModel.updateFollowStatus(it) },
                             onUserClick = onUserClick,
@@ -1218,7 +1240,18 @@ fun BangumiPlayerScreen(
                         Modifier.fillMaxSize()
                             .background(Color.Black)
                     ) {
-                        Box(Modifier.fillMaxSize().padding(top = if (isFullscreen) 0.dp else portraitPlayerTopPadding)) {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .padding(top = if (isFullscreen) 0.dp else portraitPlayerTopPadding)
+                                // 外层已避让状态栏，所有材质都消费实际占位，防止子顶栏重复下移。
+                                // 这是共用 inset 修复，不改变玻璃与原生组件各自的尺寸、间距和字阶。
+                                .then(
+                                    if (!isFullscreen) {
+                                        Modifier.consumeWindowInsets(PaddingValues(top = portraitPlayerTopPadding))
+                                    } else Modifier
+                                )
+                        ) {
                             playerContentView(isFullscreen)
                         }
                         if (!isFullscreen) {
@@ -1258,6 +1291,8 @@ fun BangumiPlayerScreen(
                         .fillMaxWidth()
                         .height(currentViewportHeight)
                         .background(Color.Black)
+                        // 上方状态栏背景已占位；所有材质共用这次消费，原生组件参数保持不变。
+                        .consumeWindowInsets(PaddingValues(top = portraitPlayerTopPadding))
                 ) {
                     playerContentView(false)
 
@@ -1314,6 +1349,7 @@ fun BangumiPlayerScreen(
                         BangumiPlayerContent(
                             detail = state.seasonDetail, currentEpisode = state.currentEpisode,
                             commentViewModel = commentViewModel, commentsOnly = true,
+                            isVideoPlaying = playbackDebugSnapshot.isPlaying,
                             onEpisodeClick = viewModel::switchEpisode, onFollowStatusSelect = viewModel::updateFollowStatus,
                             onUserClick = onUserClick, onCommentUrlClick = onOpenBilibiliLink,
                             onTimestampClick = ::seekFromComment,

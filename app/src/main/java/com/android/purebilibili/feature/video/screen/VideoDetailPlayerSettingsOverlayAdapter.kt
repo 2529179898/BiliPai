@@ -2,7 +2,7 @@ package com.android.purebilibili.feature.video.screen
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -67,10 +67,11 @@ internal fun VideoDetailPlayerSettingsOverlayAdapter(
         sortPreferenceScope = danmakuPreferenceScope,
     )
 
-    LaunchedEffect(danmakuManager, viewModel) {
+    DisposableEffect(danmakuManager, viewModel) {
         danmakuManager.setOnDanmakuClickListener { text, dmid, userHash, isSelf ->
             android.util.Log.d("VideoDetailScreen", "👆 Danmaku clicked: $text")
             viewModel.showDanmakuMenu(dmid, text, userHash, isSelf)
         }
+        onDispose { danmakuManager.setOnDanmakuClickListener(null) }
     }
 }

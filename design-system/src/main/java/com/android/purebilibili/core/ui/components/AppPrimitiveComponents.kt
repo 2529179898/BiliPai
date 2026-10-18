@@ -141,6 +141,17 @@ internal fun TabPosition.toAppTabSlot(): AppTabSlot = AppTabSlot(
     contentWidth = contentWidth,
 )
 
+/** Measure the label independently of its equal-width touch target. */
+internal fun resolveMeasuredTabContentSlots(
+    slots: List<AppTabSlot>,
+    labelWidths: List<Dp>?,
+): List<AppTabSlot> {
+    if (labelWidths == null || labelWidths.size != slots.size) return slots
+    return slots.mapIndexed { index, slot ->
+        slot.copy(contentWidth = labelWidths[index].coerceAtLeast(24.dp).coerceAtMost(slot.width))
+    }
+}
+
 /** Visual padding only; native button sizing and touch-target handling stay intact. */
 object AppButtonDefaults {
     val ContentPadding = ButtonDefaults.ContentPadding
@@ -1286,6 +1297,7 @@ fun AppPrimaryTabRow(
     containerColor: Color = TabRowDefaults.primaryContainerColor,
     contentColor: Color = TabRowDefaults.primaryContentColor,
     indicatorPositionProvider: (() -> Float)? = null,
+    labelContentWidths: List<Dp>? = null,
     tabs: @Composable () -> Unit,
 ) {
     @Suppress("DEPRECATION")
@@ -1297,7 +1309,9 @@ fun AppPrimaryTabRow(
         indicator = { tabPositions ->
             AppElasticTabIndicator(
                 selectedTabIndex = selectedTabIndex,
-                tabSlots = tabPositions.map { it.toAppTabSlot() },
+                tabSlots = resolveMeasuredTabContentSlots(
+                    tabPositions.map { it.toAppTabSlot() }, labelContentWidths,
+                ),
                 matchContentSize = true,
                 primary = true,
                 indicatorPositionProvider = indicatorPositionProvider,
@@ -1318,6 +1332,7 @@ fun AppPrimaryScrollableTabRow(
     edgePadding: Dp = TabRowDefaults.ScrollableTabRowEdgeStartPadding,
     minTabWidth: Dp = resolvePiliPlusScrollableUnderlineMinWidth(),
     indicatorPositionProvider: (() -> Float)? = null,
+    labelContentWidths: List<Dp>? = null,
     tabs: @Composable () -> Unit,
 ) {
     AppElasticScrollableTabRow(
@@ -1331,7 +1346,7 @@ fun AppPrimaryScrollableTabRow(
         indicator = { tabSlots ->
             AppElasticTabIndicator(
                 selectedTabIndex = selectedTabIndex,
-                tabSlots = tabSlots,
+                tabSlots = resolveMeasuredTabContentSlots(tabSlots, labelContentWidths),
                 matchContentSize = true,
                 primary = true,
                 indicatorPositionProvider = indicatorPositionProvider,

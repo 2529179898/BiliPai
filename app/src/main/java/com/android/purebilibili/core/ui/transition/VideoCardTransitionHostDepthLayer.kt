@@ -79,6 +79,26 @@ internal fun VideoCardTransitionHostDepthLayer(
                     exposure = exposure,
                     liveProgress = progressProvider(),
                 )
+                val frozenLayerAlpha = resolveVideoCardTransitionFrozenLayerAlpha(
+                    exposure = exposure,
+                    depthProgress = progress,
+                )
+                if (!shouldDrawVideoCardTransitionFrozenLayer(frozenLayerAlpha)) {
+                    // Source and host use the same handoff boundary. No invisible blur
+                    // updates during preparation; retain the layer for gesture reversal.
+                    val isLight = isLightBackgroundProvider()
+                    val scrimAlpha = resolveVideoCardTransitionBackgroundScrimAlpha(
+                        depthProgress = resolveVideoCardTransitionDepthProgress(progress, phase),
+                        phase = phase,
+                        motionTier = motionTier,
+                        isLightBackground = isLight,
+                    )
+                    if (scrimAlpha > 0.001f) {
+                        drawRect((if (isLight) VIDEO_CARD_TRANSITION_LIGHT_SCRIM_TINT else Color.Black)
+                            .copy(alpha = scrimAlpha))
+                    }
+                    return@drawWithContent
+                }
                 val frame = snapshotState.frameCache.resolve(
                     progress = progress,
                     phase = phase,
@@ -95,6 +115,7 @@ internal fun VideoCardTransitionHostDepthLayer(
                     frame = frame,
                     canvasSize = size,
                     sourceBounds = sourceBoundsProvider(),
+                    layerAlpha = frozenLayerAlpha,
                 )
                 if (shouldDrawVideoCardTransitionScaleGapFill(frame.contentScale)) {
                     drawRect(
@@ -104,15 +125,8 @@ internal fun VideoCardTransitionHostDepthLayer(
                         )
                     )
                 }
-                val frozenLayerAlpha = resolveVideoCardTransitionFrozenLayerAlpha(
-                    exposure = exposure,
-                    depthProgress = progress,
-                )
-                contentLayer.alpha = frozenLayerAlpha
-                if (frozenLayerAlpha > 0.001f) {
-                    drawLayer(contentLayer)
-                    VideoCardTransitionDiagnostics.onSourceLayerDrawn()
-                }
+                drawLayer(contentLayer)
+                VideoCardTransitionDiagnostics.onSourceLayerDrawn()
                 if (frame.scrimAlpha > 0.001f) {
                     val scrimColor = if (frame.useLightScrimTint) {
                         VIDEO_CARD_TRANSITION_LIGHT_SCRIM_TINT

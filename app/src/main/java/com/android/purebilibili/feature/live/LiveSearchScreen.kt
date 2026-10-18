@@ -222,6 +222,7 @@ fun LiveSearchScreen(
                 }
                 if (submitted) {
                     AppThemeAdaptiveTabRow(
+                        liquidGlassAnimateLabelWidthChanges = true,
                         role = AppTabRowRole.SECONDARY,
                         options = tabs,
                         selectedValue = pager.currentPage,

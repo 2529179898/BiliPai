@@ -58,6 +58,17 @@ class AdaptiveBottomSheetPolicyTest {
     }
 
     @Test
+    fun `reduced custom sheet motion uses brief consistent fades for both themes`() {
+        listOf(AppUiStyle.MATERIAL3, AppUiStyle.MIUIX).forEach { style ->
+            val spec = resolveAdaptiveBottomSheetMotionSpec(style, reducedMotion = true)
+            assertEquals(120, spec.scrimEnterDurationMillis)
+            assertEquals(120, spec.contentEnterFadeDurationMillis)
+            assertEquals(90, spec.scrimExitDurationMillis)
+            assertEquals(90, spec.contentExitFadeDurationMillis)
+        }
+    }
+
+    @Test
     fun `non glass Miuix wide windows keep a compact centered sheet`() {
         val phone = resolveAppModalLayoutSpec(windowWidthDp = 412, miuixNonGlass = true)
         val tablet = resolveAppModalLayoutSpec(windowWidthDp = 840, miuixNonGlass = true)

@@ -89,6 +89,7 @@ internal data class VideoCardSourceChromeSnapshot(
     val danmakuText: String = "",
     val durationText: String = "",
     val followed: Boolean = false,
+    val recommendationReason: String = "",
     /** What the list info column actually showed at click. */
     val infoPresentation: VideoCardSourceInfoPresentation = VideoCardSourceInfoPresentation(),
     /** What the list cover actually painted at click. */

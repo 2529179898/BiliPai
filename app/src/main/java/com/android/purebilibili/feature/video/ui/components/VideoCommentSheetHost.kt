@@ -3,15 +3,11 @@ package com.android.purebilibili.feature.video.ui.components
 import com.android.purebilibili.core.ui.AppContentColors
 
 import android.os.Build
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import com.android.purebilibili.core.ui.transition.resolvePredictiveBackBlurFrame
 import com.android.purebilibili.core.ui.transition.BlurRenderEffectCache
 import androidx.compose.foundation.background
@@ -83,10 +79,7 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import com.android.purebilibili.core.ui.InteractiveOverlayProgressVisual
 import com.android.purebilibili.core.ui.InteractiveOverlaySurfaceType
 import com.android.purebilibili.core.ui.resolveInteractiveOverlayProgressVisual
-import com.android.purebilibili.data.model.CommentFraudStatus
 import com.android.purebilibili.data.model.response.ReplyItem
-import com.android.purebilibili.data.repository.resolveCommentFraudLightMessage
-import com.android.purebilibili.data.repository.shouldShowCommentFraudResultDialog
 import com.android.purebilibili.feature.dynamic.components.ImagePreviewDialog
 import com.android.purebilibili.feature.dynamic.components.ImagePreviewTextContent
 import com.android.purebilibili.feature.dynamic.components.ImagePreviewSourceAnchor
@@ -391,6 +384,12 @@ fun VideoCommentSheetHost(
         }
     }
     val hostVisible = hostContent != VideoCommentSheetHostContent.HIDDEN
+    // A host can be mounted already visible when opened from the inline list.
+    // Start the sheet transition hidden so that first mount also slides upward.
+    val sheetVisibility = remember { MutableTransitionState(false) }
+    LaunchedEffect(hostVisible) {
+        sheetVisibility.targetState = hostVisible
+    }
     val scrimAlpha = maxScrimAlphaOverride
         ?: resolveVideoCommentSheetHostScrimAlpha(mainSheetVisible = mainSheetVisible)
     val dismissOnBackdropTap = shouldDismissVideoCommentSheetHostOnBackdropTap(
@@ -420,13 +419,7 @@ fun VideoCommentSheetHost(
     )
     val sheetDragOffsetPx by animateFloatAsState(
         targetValue = sheetDragTargetOffsetPx,
-        animationSpec = tween(
-            durationMillis = when {
-                isDraggingSheet -> 0
-                isDismissDragSettling -> motionSpec.contentExitFadeDurationMillis.coerceAtLeast(180)
-                else -> 180
-            }
-        ),
+        animationSpec = if (isDraggingSheet) tween(0) else motionSpec.dragSettleSpec,
         label = "video_comment_main_sheet_offset"
     )
     val latestSheetDragOffsetPx = rememberUpdatedState(sheetDragOffsetPx)
@@ -588,36 +581,7 @@ fun VideoCommentSheetHost(
         }
     }
 
-    var fraudDialogStatus by remember { mutableStateOf<CommentFraudStatus?>(null) }
-    LaunchedEffect(handleFraudEvents) {
-        if (!handleFraudEvents) return@LaunchedEffect
-        commentViewModel.fraudEvent.collect { status ->
-            val lightMessage = resolveCommentFraudLightMessage(status)
-            if (lightMessage != null) {
-                Toast.makeText(context, lightMessage, Toast.LENGTH_SHORT).show()
-            } else if (shouldShowCommentFraudResultDialog(status)) {
-                fraudDialogStatus = status
-            }
-        }
-    }
-
-    fraudDialogStatus?.let { status ->
-        CommentFraudResultDialog(
-            status = status,
-            onDismiss = {
-                fraudDialogStatus = null
-                commentViewModel.dismissFraudResult()
-            },
-            onDeleteComment = if (status == CommentFraudStatus.SHADOW_BANNED) {
-                {
-                    val rpid = commentViewModel.commentState.value.fraudDetectRpid
-                    if (rpid > 0) {
-                        commentViewModel.startDissolve(rpid)
-                    }
-                }
-            } else null
-        )
-    }
+    CommentFraudFeedbackHost(commentViewModel = commentViewModel, enabled = handleFraudEvents)
 
     val openCommentUrl: (String) -> Unit = openCommentUrl@{ rawUrl ->
         val url = rawUrl.trim()
@@ -692,7 +656,7 @@ fun VideoCommentSheetHost(
             }
             val sheetHeight = with(density) { sheetHeightPx.toDp() }
             AnimatedVisibility(
-                visible = hostVisible,
+                visibleState = sheetVisibility,
                 enter = motionSpec.contentEnter,
                 exit = motionSpec.contentExit,
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -762,6 +726,8 @@ fun VideoCommentSheetHost(
                                         }
                                         detectVerticalDragGestures(
                                             onDragStart = {
+                                                isDismissDragSettling = false
+                                                isDragDismissExitPending = false
                                                 isDraggingSheet = true
                                                 sheetDragTargetOffsetPx = resolveVideoCommentSheetDragStartOffset(
                                                     renderedOffsetPx = latestSheetDragOffsetPx.value,
@@ -814,10 +780,8 @@ fun VideoCommentSheetHost(
                         AnimatedVisibility(
                             visible = hostContent == VideoCommentSheetHostContent.THREAD_DETAIL &&
                                 subReplyState.rootReply != null,
-                            enter = fadeIn(animationSpec = tween(220)) +
-                                slideInVertically(animationSpec = tween(260)) { height -> height },
-                            exit = if (threadBackCompleted) androidx.compose.animation.ExitTransition.None else fadeOut(animationSpec = tween(200)) +
-                                slideOutVertically(animationSpec = tween(240)) { height -> height },
+                            enter = motionSpec.contentEnter,
+                            exit = if (threadBackCompleted) androidx.compose.animation.ExitTransition.None else motionSpec.contentExit,
                         ) {
                             val rootReply = subReplyState.rootReply
                             if (rootReply != null) {
@@ -859,6 +823,7 @@ fun VideoCommentSheetHost(
                                         onConversationClick = commentViewModel::openSubReplyConversation,
                                         onConversationBack = commentViewModel::closeSubReplyConversation,
                                         isConversationMode = subReplyState.conversationAnchor != null,
+                                        conversationAnchorId = subReplyState.conversationAnchor?.rpid ?: 0L,
                                         dissolvingIds = subReplyState.dissolvingIds,
                                         currentMid = commentState.currentMid,
                                         onDissolveStart = { rpid -> commentViewModel.startSubDissolve(rpid) },
@@ -903,6 +868,7 @@ internal fun VideoCommentMainList(
     scrollToTopRequest: Int = 0,
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
 ) {
+    val avatarPushEnabled = rememberCommentAvatarPushEnabled()
     val state by viewModel.commentState.collectAsStateWithLifecycle()
     val fullSearchState by viewModel.fullSearchState.collectAsStateWithLifecycle()
     val fullSearchReplies by viewModel.fullSearchReplies.collectAsStateWithLifecycle()
@@ -943,6 +909,7 @@ internal fun VideoCommentMainList(
                 scope.launch { SettingsManager.setCommentDefaultSortMode(context, mode.apiMode) }
             },
             onSearchClick = { showCommentSearchSheet = true },
+            compactTypography = true,
             modifier = Modifier
                 .fillMaxWidth()
                 .then(headerDragModifier),
@@ -1031,6 +998,7 @@ internal fun VideoCommentMainList(
                     ) { reply ->
                         ReplyItemView(
                             modifier = videoCommentItemModifier(),
+                            avatarListState = listState.takeIf { avatarPushEnabled },
                             item = reply,
                             upMid = state.upMid,
                             showUpFlag = state.showUpFlag,

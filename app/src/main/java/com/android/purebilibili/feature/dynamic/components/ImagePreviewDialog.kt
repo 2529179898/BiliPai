@@ -188,6 +188,7 @@ private data class ImagePreviewOverlayRequest(
     val textContent: ImagePreviewTextContent?,
     val defaultTextVisible: Boolean,
     val onImageLongPress: ((String) -> Unit)?,
+    val publicContent: Boolean = false,
     val onDismiss: () -> Unit
 )
 
@@ -334,16 +335,18 @@ fun ImagePreviewDialog(
     textContent: ImagePreviewTextContent? = null,
     defaultTextVisible: Boolean = true,
     onImageLongPress: ((String) -> Unit)? = null,
+    publicContent: Boolean = false,
     onDismiss: () -> Unit
 ) {
     val latestOnDismiss by rememberUpdatedState(onDismiss)
-    val requestToken = remember(images, initialIndex, sourceRect, sourceRects, sourceCornerRadiusDp, livePhotoVideos) { System.nanoTime() }
+    val requestToken = remember(images, initialIndex, sourceRect, sourceRects, sourceCornerRadiusDp, livePhotoVideos, publicContent) { System.nanoTime() }
 
     DisposableEffect(requestToken) {
         ImagePreviewOverlayController.show(
             ImagePreviewOverlayRequest(
                 token = requestToken,
                 images = images,
+                publicContent = publicContent,
                 livePhotoVideos = livePhotoVideos,
                 initialIndex = initialIndex,
                 sourceRect = sourceRect,
@@ -395,6 +398,7 @@ fun ImagePreviewOverlayHost(
                 }
                 ImagePreviewOverlayContent(
                     images = request.images,
+                    publicContent = request.publicContent,
                     livePhotoVideos = request.livePhotoVideos,
                     initialIndex = request.initialIndex,
                     sourceRect = request.sourceRect,
@@ -432,6 +436,7 @@ private fun ImagePreviewOverlayContent(
     textContent: ImagePreviewTextContent? = null,
     defaultTextVisible: Boolean = true,
     onImageLongPress: ((String) -> Unit)? = null,
+    publicContent: Boolean = false,
     dismissRequestCount: Int = 0,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
@@ -555,7 +560,7 @@ private fun ImagePreviewOverlayContent(
     }
 
     //  GIF 图片加载器
-    val gifImageLoader = context.imageLoader
+    val gifImageLoader = if (publicContent) com.android.purebilibili.core.plugin.feed.PublicContentImageLoader.get(context) else context.imageLoader
 
     //  使用 HorizontalPager 实现滑动切换
     val pagerState = rememberPagerState(
@@ -621,7 +626,7 @@ private fun ImagePreviewOverlayContent(
         if (storagePermission.isGranted) {
             isSaving = true
             scope.launch {
-                val success = saveImageToGallery(context, imageUrl)
+                val success = saveImageToGallery(context, imageUrl, publicContent = publicContent)
                 isSaving = false
                 withContext(Dispatchers.Main.immediate) {
                     handleImageSaveResult(success)
@@ -673,7 +678,7 @@ private fun ImagePreviewOverlayContent(
         if (storagePermission.isGranted) {
             isSaving = true
             scope.launch {
-                val success = urls.map { saveImageToGallery(context, it) }.all { it }
+                val success = urls.map { saveImageToGallery(context, it, publicContent = publicContent) }.all { it }
                 isSaving = false
                 withContext(Dispatchers.Main.immediate) { handleImageSaveResult(success) }
             }
@@ -687,7 +692,7 @@ private fun ImagePreviewOverlayContent(
         if (imageUrl.isEmpty() || isSharing) return
         isSharing = true
         scope.launch {
-            val success = shareImageFromPreview(context, imageUrl)
+            val success = shareImageFromPreview(context, imageUrl, publicContent = publicContent)
             isSharing = false
             withContext(Dispatchers.Main.immediate) {
                 handleImageShareResult(success)
@@ -1170,13 +1175,18 @@ private fun ImagePreviewOverlayContent(
                                 }
                             )
                         }
-                        val previewRequest = remember(context, imageUrl, decodeSize, placeholderCacheKey, requestToken) {
+                        val previewRequest = remember(context, imageUrl, decodeSize, placeholderCacheKey, requestToken, publicContent) {
                             ImageRequest.Builder(context)
                                 .data(imageUrl)
                                 // 预览必须采样解码，避免超大原图超过 Canvas 单位图绘制上限。
                                 .size(decodeSize.widthPx, decodeSize.heightPx)
                                 .placeholderMemoryCacheKey(placeholderCacheKey)
-                                .httpHeaders(NetworkHeaders.Builder().set("Referer", "https://www.bilibili.com/").build())
+                                // B 站图片需要固定 Referer；公开内容（RSS 正文）改由匿名图片链路按图片站点补 Referer。
+                                .apply {
+                                    if (!publicContent) {
+                                        httpHeaders(NetworkHeaders.Builder().set("Referer", "https://www.bilibili.com/").build())
+                                    }
+                                }
                                 // 进出场由画廊自身的 morph 控制，图片请求不能随退出状态重建。
                                 .crossfade(false)
                                 .listener(
@@ -2355,12 +2365,12 @@ private fun resolveImageShareExtension(mimeType: String): String = when (mimeTyp
 /**
  *  分享图片 - 下载原始图片到应用缓存，再通过 FileProvider 交给系统分享面板
  */
-suspend fun shareImageFromPreview(context: Context, imageUrl: String): Boolean {
+suspend fun shareImageFromPreview(context: Context, imageUrl: String, publicContent: Boolean = false): Boolean {
     val normalizedUrl = normalizeImageUrl(imageUrl)
     if (normalizedUrl.isEmpty()) return false
     val mimeType = resolveImageShareMimeType(normalizedUrl)
     val sharedFile = withContext(Dispatchers.IO) {
-        createImagePreviewShareFile(context, normalizedUrl, mimeType)
+        createImagePreviewShareFile(context, normalizedUrl, mimeType, publicContent)
     } ?: return false
 
     return withContext(Dispatchers.Main.immediate) {
@@ -2395,13 +2405,18 @@ suspend fun shareImageFromPreview(context: Context, imageUrl: String): Boolean {
 private fun createImagePreviewShareFile(
     context: Context,
     imageUrl: String,
-    mimeType: String
+    mimeType: String,
+    publicContent: Boolean = false,
 ): File? {
     return try {
         val cacheDir = File(context.cacheDir, "shared_images").apply { mkdirs() }
         cleanupImagePreviewShareCache(cacheDir)
         val extension = resolveImageShareExtension(mimeType)
         val outputFile = File(cacheDir, "BiliPai_${System.currentTimeMillis()}.$extension")
+        if (publicContent) {
+            com.android.purebilibili.core.plugin.feed.downloadPublicContentToFile(imageUrl, outputFile)
+            return outputFile
+        }
         val connection = java.net.URL(imageUrl).openConnection() as java.net.HttpURLConnection
         try {
             connection.setRequestProperty("Referer", "https://www.bilibili.com/")
@@ -2437,7 +2452,7 @@ private fun cleanupImagePreviewShareCache(cacheDir: File) {
 /**
  *  保存图片到相册 - 支持 GIF/WebP 等格式保留
  */
-suspend fun saveImageToGallery(context: android.content.Context, imageUrl: String): Boolean {
+suspend fun saveImageToGallery(context: android.content.Context, imageUrl: String, publicContent: Boolean = false): Boolean {
     return withContext(Dispatchers.IO) {
         try {
             //  检测图片格式
@@ -2447,28 +2462,31 @@ suspend fun saveImageToGallery(context: android.content.Context, imageUrl: Strin
 
             //  对于 GIF/WebP，直接下载原始字节流保留动画
             if (isGif || isWebp) {
-                val url = java.net.URL(imageUrl)
-                val connection = url.openConnection() as java.net.HttpURLConnection
-                connection.setRequestProperty("Referer", "https://www.bilibili.com/")
-                connection.connect()
-
-                if (connection.responseCode != 200) {
-                    Log.e("ImagePreview", "Failed to download: ${connection.responseCode}")
-                    return@withContext false
-                }
-
-                // 先把下载流落到临时文件，再分发给保存目标，避免整块字节驻留 Java 堆。
                 val tempFile = File.createTempFile("bilipai_save_", ".bin", context.cacheDir)
-                try {
-                    connection.inputStream.use { input ->
-                        tempFile.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
-                    }
-                } catch (e: Exception) {
-                    tempFile.delete()
-                    throw e
-                }
-                connection.disconnect()
+                if (publicContent) {
+                    com.android.purebilibili.core.plugin.feed.downloadPublicContentToFile(imageUrl, tempFile)
+                } else {
+                    val url = java.net.URL(imageUrl)
+                    val connection = url.openConnection() as java.net.HttpURLConnection
+                    connection.setRequestProperty("Referer", "https://www.bilibili.com/")
+                    connection.connect()
 
+                    if (connection.responseCode != 200) {
+                        Log.e("ImagePreview", "Failed to download: ${connection.responseCode}")
+                        return@withContext false
+                    }
+
+                    // 先把下载流落到临时文件，再分发给保存目标，避免整块字节驻留 Java 堆。
+                    try {
+                        connection.inputStream.use { input ->
+                            tempFile.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
+                        }
+                    } catch (e: Exception) {
+                        tempFile.delete()
+                        throw e
+                    }
+                    connection.disconnect()
+                }
                 // 生成文件名
                 val extension = when {
                     isGif -> "gif"
@@ -2526,10 +2544,15 @@ suspend fun saveImageToGallery(context: android.content.Context, imageUrl: Strin
             }
 
             //  对于 JPEG/PNG 等静态图片，使用 Coil 下载并转换
-            val imageLoader = context.imageLoader
+            val imageLoader = if (publicContent) com.android.purebilibili.core.plugin.feed.PublicContentImageLoader.get(context) else context.imageLoader
             val request = ImageRequest.Builder(context)
                 .data(imageUrl)
-                .httpHeaders(NetworkHeaders.Builder().set("Referer", "https://www.bilibili.com/").build())
+                // B 站图片需要固定 Referer；公开内容（RSS 正文）改由匿名图片链路按图片站点补 Referer。
+                .apply {
+                    if (!publicContent) {
+                        httpHeaders(NetworkHeaders.Builder().set("Referer", "https://www.bilibili.com/").build())
+                    }
+                }
                 .build()
 
             val result = imageLoader.execute(request)

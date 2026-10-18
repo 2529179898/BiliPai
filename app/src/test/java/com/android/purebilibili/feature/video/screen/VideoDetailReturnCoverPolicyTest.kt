@@ -1754,11 +1754,15 @@ class VideoDetailReturnCoverPolicyTest {
             clickChromeSnapshot = null,
             prefetchUrl = "https://prefetch@640w_400h.webp",
             prefetchCacheKey = "cover_BV1_n_640x400",
+            prefetchDecodeWidthPx = 640,
+            prefetchDecodeHeightPx = 400,
             routeCoverUrl = "https://route",
             bvid = "BV1",
         )
         assertEquals("https://prefetch@640w_400h.webp", fromPrefetch!!.url)
         assertEquals("cover_BV1_n_640x400", fromPrefetch.cacheKey)
+        assertEquals(640, fromPrefetch.decodeWidthPx)
+        assertEquals(400, fromPrefetch.decodeHeightPx)
     }
 
     @Test

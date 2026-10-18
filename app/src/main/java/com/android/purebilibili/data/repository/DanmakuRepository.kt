@@ -35,6 +35,14 @@ internal data class DanmakuThumbupState(
     val liked: Boolean
 )
 
+/** PiliPlus 将重复操作响应作为服务端真实状态，用于校正本地开关。 */
+internal fun resolveDanmakuLikeResult(code: Int, requestedLike: Boolean): Boolean? = when (code) {
+    0 -> requestedLike
+    65006 -> true
+    65004 -> false
+    else -> null
+}
+
 internal data class DanmakuCloudSyncSettings(
     val enabled: Boolean,
     val allowScroll: Boolean,
@@ -683,6 +691,8 @@ object DanmakuRepository {
                 ?: return@withContext Result.failure(Exception("未找到该弹幕投票信息"))
 
             Result.success(state)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("DanmakuRepo", "❌ getDanmakuThumbupState exception: ${e.message}", e)
             Result.failure(e)
@@ -695,12 +705,13 @@ object DanmakuRepository {
      * @param cid 视频 cid
      * @param dmid 弹幕 ID
      * @param like true=点赞, false=取消点赞
+     * @return 服务端确认的已赞状态；重复操作也会返回真实状态。
      */
     suspend fun likeDanmaku(
         cid: Long,
         dmid: Long,
         like: Boolean = true
-    ): Result<Unit> = withContext(Dispatchers.IO) {
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             val csrf = com.android.purebilibili.core.store.TokenManager.csrfCache
             if (csrf.isNullOrEmpty()) {
@@ -712,21 +723,22 @@ object DanmakuRepository {
             
             val response = api.likeDanmaku(oid = cid, dmid = dmid, op = op, csrf = csrf)
             
-            if (response.code == 0) {
-                com.android.purebilibili.core.util.Logger.d("DanmakuRepo", "✅ Danmaku ${if (like) "liked" else "unliked"}")
-                Result.success(Unit)
+            val confirmedLike = resolveDanmakuLikeResult(response.code, like)
+            if (confirmedLike != null) {
+                com.android.purebilibili.core.util.Logger.d("DanmakuRepo", "✅ Danmaku ${if (confirmedLike) "liked" else "unliked"}")
+                Result.success(confirmedLike)
             } else {
                 val errorMsg = when (response.code) {
                     -101 -> "请先登录"
                     -111 -> "鉴权失败，请重新登录"
                     -400 -> "请求参数错误"
-                    65004 -> "已经点过赞了"
-                    65005 -> "已经取消点赞了"
                     else -> response.message.ifEmpty { "操作失败 (${response.code})" }
                 }
                 android.util.Log.e("DanmakuRepo", "❌ likeDanmaku failed: ${response.code} - ${response.message}")
                 Result.failure(Exception(errorMsg))
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("DanmakuRepo", "❌ likeDanmaku exception: ${e.message}", e)
             Result.failure(e)

@@ -1,19 +1,17 @@
 package com.android.purebilibili.feature.video
 
-import android.graphics.Bitmap
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
-import com.android.purebilibili.feature.video.ui.components.PlainLandscapeDanmakuComposer
-import java.io.File
-import com.android.purebilibili.feature.video.ui.components.DanmakuSendDialog
 import com.android.purebilibili.feature.video.ui.components.CommentInputDialog
+import com.android.purebilibili.feature.video.ui.components.DanmakuSendDialog
+import com.android.purebilibili.feature.video.ui.components.PlainLandscapeDanmakuComposer
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -108,22 +106,32 @@ class DanmakuComposerUiRegressionTest {
     }
 
     @Test
-    fun plainLandscapeComposer_styleAndKeyboardSwitchesPreserveDraftAndSelection() {
+    fun plainLandscapeComposer_styleSwitchesPreserveDraftAndSendSelectedOptions() {
         val draft = mutableStateOf("")
+        val selection = mutableStateOf(Triple(16777215, 1, 25))
+        var sentText: String? = null
+        var sentSelection: Triple<Int, Int, Int>? = null
+        var sentAttention: Boolean? = null
         composeTestRule.setContent {
             MaterialTheme {
                 PlainLandscapeDanmakuComposer(
                     visible = true,
                     onDismiss = {},
-                    onSend = { _, _, _, _, _ -> },
+                    onSend = { text, color, mode, size, attention ->
+                        sentText = text
+                        sentSelection = Triple(color, mode, size)
+                        sentAttention = attention
+                    },
                     isSending = false,
-                    initialColor = 16777215,
-                    initialMode = 1,
-                    initialFontSize = 25,
+                    initialColor = selection.value.first,
+                    initialMode = selection.value.second,
+                    initialFontSize = selection.value.third,
                     initialText = draft.value,
                     initialAttentionCommand = false,
                     onDraftChange = { text, _ -> draft.value = text },
-                    onSelectionChange = { _, _, _ -> },
+                    onSelectionChange = { color, mode, size ->
+                        selection.value = Triple(color, mode, size)
+                    },
                 )
             }
         }
@@ -131,33 +139,28 @@ class DanmakuComposerUiRegressionTest {
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
             input.fetchSemanticsNode().config.getOrElse(SemanticsProperties.Focused) { false }
         }
-        input.assertIsFocused().performTextInput("保留这条弹幕草稿")
-        capturePlayerScreenshot("landscape-composer-input")
+        input.assertIsFocused().performTextReplacement("保留这条弹幕草稿")
         composeTestRule.onNodeWithTag("danmaku_landscape_style_toggle").performClick()
-        input.assertTextEquals("保留这条弹幕草稿")
         composeTestRule.onNodeWithText("字体大小").assertIsDisplayed()
-        composeTestRule.onNodeWithText("弹幕位置").assertIsDisplayed()
-        composeTestRule.onNodeWithText("弹幕颜色").assertIsDisplayed()
-        composeTestRule.onNodeWithText("置顶").performClick().assertIsSelected()
-        composeTestRule.onNodeWithContentDescription("红色").performClick().assertIsSelected()
-        capturePlayerScreenshot("landscape-composer-style")
-        input.performClick().assertIsFocused().assertTextEquals("保留这条弹幕草稿")
+        composeTestRule.onNodeWithText("置顶").performScrollTo().performClick().assertIsSelected()
+        composeTestRule.onNodeWithContentDescription("红色")
+            .performScrollTo().performClick().assertIsSelected()
+        input.assertTextEquals("保留这条弹幕草稿").performClick()
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            input.fetchSemanticsNode().config.getOrElse(SemanticsProperties.Focused) { false }
+        }
+        input.assertIsFocused().assertTextEquals("保留这条弹幕草稿")
         composeTestRule.onNodeWithText("字体大小").assertDoesNotExist()
-        capturePlayerScreenshot("landscape-composer-return-to-input")
         composeTestRule.onNodeWithTag("danmaku_landscape_style_toggle").performClick()
-        composeTestRule.onNodeWithText("置顶").assertIsSelected()
-        composeTestRule.onNodeWithContentDescription("红色").assertIsSelected()
+        composeTestRule.onNodeWithText("置顶").performScrollTo().assertIsSelected()
+        composeTestRule.onNodeWithContentDescription("红色").performScrollTo().assertIsSelected()
         input.assertTextEquals("保留这条弹幕草稿")
-    }
-
-    private fun capturePlayerScreenshot(name: String) {
-        val directory = InstrumentationRegistry.getArguments().getString("playerScreenshotDir") ?: return
-        composeTestRule.waitForIdle()
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        instrumentation.waitForIdleSync()
-        val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-        val output = File(directory).apply { mkdirs() }.resolve("$name.png")
-        output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
+        composeTestRule.onNodeWithContentDescription("发送弹幕").performClick()
+        composeTestRule.runOnIdle {
+            assertEquals("保留这条弹幕草稿", draft.value)
+            assertEquals("保留这条弹幕草稿", sentText)
+            assertEquals(Triple(16646914, 5, 25), sentSelection)
+            assertEquals(false, sentAttention)
+        }
     }
 }

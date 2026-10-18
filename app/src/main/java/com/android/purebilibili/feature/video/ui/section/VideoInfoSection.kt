@@ -1,6 +1,7 @@
 // File: feature/video/ui/section/VideoInfoSection.kt
 package com.android.purebilibili.feature.video.ui.section
 
+import com.android.purebilibili.core.ui.components.rememberFollowActionWithConfirmation
 import com.android.purebilibili.core.ui.AppContentColors
 
 import coil3.request.crossfade
@@ -1307,7 +1308,12 @@ fun UpInfoSection(
             // 关注状态未确认时不再用空格+灰底占位：直接按“未关注”的主题配色渲染完整按钮，
             // 状态回填后仅用 Crossfade 切换文案，避免灰胶囊→蓝色按钮的硬跳与闪烁。
             AppSurface(
-                onClick = onFollowClick,
+                onClick = rememberFollowActionWithConfirmation(
+                    targetKey = info.owner.mid,
+                    userName = info.owner.name,
+                    isFollowing = isFollowing,
+                    onFollowClick = onFollowClick,
+                ),
                 enabled = followStatusKnown,
                 color = when (followVisualPolicy.detailButtonTone) {
                     FollowButtonTone.PRIMARY -> AppContentColors.accent()
@@ -1592,7 +1598,15 @@ private fun CreatorTeamMemberChip(
             Box(
                 modifier = Modifier
                     .heightIn(min = 48.dp)
-                    .clickable(role = Role.Button, onClick = onFollowToggle),
+                    .clickable(
+                        role = Role.Button,
+                        onClick = rememberFollowActionWithConfirmation(
+                            targetKey = member.mid,
+                            userName = member.name,
+                            isFollowing = isFollowing,
+                            onFollowClick = onFollowToggle,
+                        ),
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 AppSurface(

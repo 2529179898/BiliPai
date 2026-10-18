@@ -78,7 +78,8 @@ fun AnimatedCountText(
             previousCount = count
             coroutineScope {
                 launch {
-                    pulseScale.snapTo(1.15f)
+                    // Retarget from the current value when counts change during a rebound.
+                    pulseScale.animateTo(1.15f, tween(80, easing = FastOutSlowInEasing))
                     pulseScale.animateTo(
                         targetValue = 1f,
                         animationSpec = spring(
@@ -88,7 +89,7 @@ fun AnimatedCountText(
                     )
                 }
                 if (blurOnChange) launch {
-                    blurProgress.snapTo(1f)
+                    blurProgress.animateTo(1f, tween(80, easing = FastOutSlowInEasing))
                     blurProgress.animateTo(0f, tween(if (animateFromZero) 1100 else 360))
                 }
             }

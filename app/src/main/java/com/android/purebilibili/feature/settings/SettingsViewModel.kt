@@ -34,6 +34,7 @@ import com.android.purebilibili.core.ui.transition.VIDEO_SHARED_TRANSITION_CUSTO
 import com.android.purebilibili.core.ui.transition.VideoSharedTransitionSpeed
 import com.android.purebilibili.core.util.CacheClearTarget
 import com.android.purebilibili.core.util.CacheUtils
+import com.android.purebilibili.core.theme.SeedPaletteStyle
 import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
@@ -73,6 +74,7 @@ data class SettingsUiState(
     val dynamicColor: Boolean = true,
     val md3ColorSource: Md3ColorSource = Md3ColorSource.FOLLOW_WALLPAPER,
     val md3CustomColorHex: String = "#007AFF",
+    val seedPaletteStyle: SeedPaletteStyle = SeedPaletteStyle.Standard,
     val colorStyle: PaletteStyle = PaletteStyle.TonalSpot,
     val colorSpec: ColorSpec.SpecVersion = ColorSpec.SpecVersion.SPEC_2025,
     val colorContrast: Contrast = Contrast.Default,
@@ -153,6 +155,7 @@ private data class CoreSettings(
     val dynamicColor: Boolean,
     val md3ColorSource: Md3ColorSource,
     val md3CustomColorHex: String,
+    val seedPaletteStyle: SeedPaletteStyle,
     val colorStyle: PaletteStyle,
     val colorSpec: ColorSpec.SpecVersion,
     val colorContrast: Contrast,
@@ -234,6 +237,7 @@ private data class BaseSettings(
     val dynamicColor: Boolean,
     val md3ColorSource: Md3ColorSource,
     val md3CustomColorHex: String,
+    val seedPaletteStyle: SeedPaletteStyle,
     val colorStyle: PaletteStyle,
     val colorSpec: ColorSpec.SpecVersion,
     val colorContrast: Contrast,
@@ -352,7 +356,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             .asAnyFlow(),
         SettingsManager.getDarkThemeSchedule(context).asAnyFlow(),
         // 新增偏好一律追加到末尾：这里按下标取值，插在中间会让后面所有项错位。
-        SettingsManager.getThemeColorContrast(context).asAnyFlow()
+        SettingsManager.getThemeColorContrast(context).asAnyFlow(),
+        SettingsManager.getSeedPaletteStyle(context).asAnyFlow()
     ) { values ->
         CoreSettings(
             themeSelection = values[0] as AppUiStyle,
@@ -364,6 +369,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             dynamicColor = values[5] as Boolean,
             md3ColorSource = values[6] as Md3ColorSource,
             md3CustomColorHex = values[7] as String,
+            seedPaletteStyle = values[13] as SeedPaletteStyle,
             colorStyle = values[8] as PaletteStyle,
             colorSpec = values[9] as ColorSpec.SpecVersion,
             colorContrast = values[12] as Contrast,
@@ -605,6 +611,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             dynamicColor = core.dynamicColor,
             md3ColorSource = core.md3ColorSource,
             md3CustomColorHex = core.md3CustomColorHex,
+            seedPaletteStyle = core.seedPaletteStyle,
             colorStyle = core.colorStyle,
             colorSpec = core.colorSpec,
             colorContrast = core.colorContrast,
@@ -675,6 +682,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             dynamicColor = settings.dynamicColor,
             md3ColorSource = settings.md3ColorSource,
             md3CustomColorHex = settings.md3CustomColorHex,
+            seedPaletteStyle = settings.seedPaletteStyle,
             colorStyle = settings.colorStyle,
             colorSpec = settings.colorSpec,
             colorContrast = settings.colorContrast,
@@ -856,6 +864,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun applyMd3CustomColor(hex: String) {
         viewModelScope.launch { SettingsManager.applyMd3CustomColor(context, hex) }
     }
+    fun setSeedPaletteStyle(style: SeedPaletteStyle) {
+        viewModelScope.launch { SettingsManager.setSeedPaletteStyle(context, style) }
+    }
+
     fun setThemeColorStyle(style: PaletteStyle) {
         viewModelScope.launch { SettingsManager.setThemeColorStyle(context, style) }
     }

@@ -1296,6 +1296,7 @@ private fun CinemaCommentsPane(
     onOpenBilibiliLink: ((String) -> Unit)?,
     onShareVideo: () -> Unit = {}
 ) {
+    val avatarPushEnabled = com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled()
     val commentAppearance = rememberVideoCommentAppearance()
     val listState = rememberLazyListState()
     // 首屏骨架按视口高度铺够槽位：少铺会让列表在数据到达时被撑长、整体跳一下。
@@ -1431,6 +1432,7 @@ private fun CinemaCommentsPane(
                     }
                 },
                 onSearchClick = { showCommentSearchSheet = true },
+                compactTypography = true,
             )
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             AdaptivePullToRefreshBox(
@@ -1481,6 +1483,8 @@ private fun CinemaCommentsPane(
             ) { reply ->
                 ReplyItemView(
                     modifier = videoCommentItemModifier(),
+                    avatarListState = listState.takeIf { avatarPushEnabled },
+                    avatarItemKey = "curtain_reply_${reply.rpid}",
                     item = reply,
                     upMid = success.info.owner.mid,
                     showUpFlag = commentState.showUpFlag,
@@ -1636,9 +1640,18 @@ private fun CinemaRelatedPane(
     val backToTopButtonEnabled = rememberBackToTopButtonEnabled()
     val scope = rememberCoroutineScope()
 
+    val relatedChromeSource = if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+        com.android.purebilibili.core.ui.blur.rememberChromeBackdropSource()
+    } else {
+        null
+    }
+    val relatedChromeBackdrop = relatedChromeSource?.takeIf { it.isReady }?.backdrop
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .then(relatedChromeSource?.modifier ?: Modifier),
             state = listState,
             contentPadding = PaddingValues(vertical = 8.dp)
         ) {
@@ -1696,6 +1709,7 @@ private fun CinemaRelatedPane(
         }
 
         AppLiquidGlassBackToTopButton(
+            backdrop = relatedChromeBackdrop,
             visible = backToTopButtonEnabled && showBackToTop,
             onClick = {
                 scope.launch {

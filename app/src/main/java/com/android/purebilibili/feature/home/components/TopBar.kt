@@ -1804,9 +1804,13 @@ private fun LightweightHomeTopTabs(
         val shouldAnimateMd3Tap = shouldUseMd3NativeUnderline &&
             !com.android.purebilibili.core.ui.LocalSystemReduceMotion.current &&
             shouldAnimateMd3TopTabUnderline(
-            pagerIsDragging = pagerIsDragging,
-            topTabIndicatorOwnsPosition = topTabIndicatorOwnsPosition
-        )
+                pagerIsDragging = pagerIsDragging,
+                topTabIndicatorOwnsPosition = topTabIndicatorOwnsPosition,
+                // Native MD3 follows the pager for taps, drags and release alike, as in
+                // video detail. Glass and Miuix retain their existing animation owners.
+                pagerDrivesIndicator = pagerState != null && !isLiquidGlassEnabled &&
+                    LocalAppUiStyle.current == AppUiStyle.MATERIAL3,
+            )
         val isMiuixUnderline = LocalAppUiStyle.current == AppUiStyle.MIUIX
         val leftAnimationSpec: androidx.compose.animation.core.AnimationSpec<Float> = if (shouldAnimateMd3Tap) {
             if (isMiuixUnderline) {

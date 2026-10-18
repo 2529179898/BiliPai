@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.video.ui.overlay
 
+import com.android.purebilibili.core.ui.components.rememberFollowActionWithConfirmation
 import com.android.purebilibili.core.ui.MediaContrastPalette
 
 import com.android.purebilibili.core.ui.AppContentColors
@@ -240,30 +241,32 @@ fun PortraitFullscreenOverlay(
                 )
 
                 // 2. 右侧互动栏 (不再包含头像)
-                PortraitInteractionBar(
-                    isLiked = isLiked,
-                    likeStatusKnown = likeStatusKnown,
-                    likeCount = statLike,
-                    isCoined = isCoined,
-                    coinCount = statCoin,
-                    isFavorited = isFavorited,
-                    favoriteCount = statFavorite,
-                    commentCount = statReply.takeIf { it > 0 } ?: statDanmaku, // 优先用评论数，没有则用弹幕数代替展示
-                    shareCount = statShare,
-                    onLikeClick = onLikeClick,
-                    onLikeLongClick = onLikeLongClick,
-                    onCoinClick = onCoinClick,
-                    onFavoriteClick = onFavoriteClick,
-                    onFavoriteLongClick = onFavoriteLongClick,
-                    onCommentClick = onCommentClick,
-                    onShareClick = onShareClick,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .graphicsLayer {
-                            alpha = commentOverlayAlpha
-                            translationX = commentOverlayOffsetPx
-                        }
-                )
+                key(currentBvid) {
+                    PortraitInteractionBar(
+                        isLiked = isLiked,
+                        likeStatusKnown = likeStatusKnown,
+                        likeCount = statLike,
+                        isCoined = isCoined,
+                        coinCount = statCoin,
+                        isFavorited = isFavorited,
+                        favoriteCount = statFavorite,
+                        commentCount = statReply.takeIf { it > 0 } ?: statDanmaku, // 优先用评论数，没有则用弹幕数代替展示
+                        shareCount = statShare,
+                        onLikeClick = onLikeClick,
+                        onLikeLongClick = onLikeLongClick,
+                        onCoinClick = onCoinClick,
+                        onFavoriteClick = onFavoriteClick,
+                        onFavoriteLongClick = onFavoriteLongClick,
+                        onCommentClick = onCommentClick,
+                        onShareClick = onShareClick,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .graphicsLayer {
+                                alpha = commentOverlayAlpha
+                                translationX = commentOverlayOffsetPx
+                            }
+                    )
+                }
 
                 // 3. 底部区域 (信息 + 进度条 + 输入栏占位)
                 Column(
@@ -801,7 +804,15 @@ private fun PortraitVideoInfo(
                     color = if (LocalPlayerControlGlassEnabled.current) Color.Transparent else buttonColor,
                     modifier = Modifier
                         .fillMaxHeight()
-                        .clickable(enabled = followStatusKnown) { onFollowClick() }
+                        .clickable(
+                            onClickLabel = if (followStatusKnown) null else "重新确认状态并关注",
+                            onClick = rememberFollowActionWithConfirmation(
+                                targetKey = ownerMid,
+                                userName = authorName,
+                                isFollowing = isFollowing,
+                                onFollowClick = onFollowClick,
+                            ),
+                        )
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -976,15 +987,22 @@ private fun PortraitStaffSheet(
                         } else {
                             AppContentColors.accent()
                         },
-                        modifier = Modifier.clickable {
-                            scope.launch {
-                                val target = !isFollowing
-                                val ok = com.android.purebilibili.data.repository.ActionRepository
-                                    .followUser(member.mid, target)
-                                    .getOrDefault(false)
-                                if (ok) followStates[member.mid] = target
-                            }
-                        }
+                        modifier = Modifier.clickable(
+                            onClick = rememberFollowActionWithConfirmation(
+                                targetKey = member.mid,
+                                userName = member.name,
+                                isFollowing = isFollowing,
+                                onFollowClick = {
+                                    scope.launch {
+                                        val target = !isFollowing
+                                        val ok = com.android.purebilibili.data.repository.ActionRepository
+                                            .followUser(member.mid, target)
+                                            .getOrDefault(false)
+                                        if (ok) followStates[member.mid] = target
+                                    }
+                                },
+                            ),
+                        )
                     ) {
                         AppText(
                             text = if (isFollowing) "已关注" else "关注",

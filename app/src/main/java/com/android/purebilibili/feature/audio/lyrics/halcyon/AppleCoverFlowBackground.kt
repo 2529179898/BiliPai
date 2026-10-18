@@ -20,8 +20,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
@@ -84,7 +86,8 @@ internal fun AppleCoverFlowBackground(
     isPlaying: Boolean,
     animate: Boolean = true,
     blur: Float = 60f,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    audioEnergyProvider: () -> Float = { 0f },
 ) {
     val context = LocalContext.current
     val densityDpi = context.resources.displayMetrics.densityDpi
@@ -149,6 +152,18 @@ internal fun AppleCoverFlowBackground(
                 .fillMaxSize()
                 .clipToBounds()
                 .onSizeChanged { viewportSize = it }
+                // Modulate the original cover pixels beneath the existing fixed scrim.
+                // No extra black overlay or new palette; zero energy preserves the image.
+                .graphicsLayer {
+                    val energy = audioEnergyProvider().coerceIn(0f, 1f)
+                    scaleX = 1f + energy * 0.035f
+                    scaleY = 1f + energy * 0.035f
+                }
+                .drawWithContent {
+                    drawContent()
+                    val energy = audioEnergyProvider().coerceIn(0f, 1f)
+                    if (energy > 0f) drawRect(Color.White.copy(alpha = energy * 0.035f))
+                }
         ) {
             val ready = frameBitmap
             val source = sourceBitmap

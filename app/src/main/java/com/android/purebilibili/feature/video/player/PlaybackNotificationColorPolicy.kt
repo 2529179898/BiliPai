@@ -8,6 +8,9 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import com.android.purebilibili.core.store.AppThemeSettings
+import com.android.purebilibili.core.theme.createSeedColorScheme
+import com.android.purebilibili.core.theme.readSeedWallpaperColorScheme
+import com.android.purebilibili.core.theme.darkenSeedColorScheme
 import com.android.purebilibili.core.theme.createBiliPaiStyleColorScheme
 import com.android.purebilibili.core.theme.resolveLiquidControlAccentColor
 import com.android.purebilibili.core.theme.resolveMd3ThemeSeedColor
@@ -27,6 +30,23 @@ internal fun resolvePlaybackNotificationAccentColor(
     val seed = resolveMd3ThemeSeedColor(
         settings.md3ColorSource, settings.md3CustomColorHex, settings.themeColorIndex, wallpaperSeed,
     )
+    if (settings.seedPaletteStyle.enabled) {
+        val pureBlack = darkTheme && settings.darkThemeStyle == com.android.purebilibili.feature.settings.DarkThemeStyle.AMOLED
+        if (settings.md3ColorSource == Md3ColorSource.FOLLOW_WALLPAPER && wallpaperAccent != null) {
+            // Wallpaper input has already received the selected dark-mode adjustment.
+            return wallpaperAccent
+        }
+        val scheme = createSeedColorScheme(seed, darkTheme, settings.seedPaletteStyle, pureBlack, settings.colorSpec)
+        return com.android.purebilibili.core.theme.resolveAppThemeEndpointPalette(
+            base = scheme,
+            uiStyle = settings.uiStyle,
+            source = settings.md3ColorSource,
+            darkTheme = darkTheme,
+            amoledDarkTheme = pureBlack,
+            wallpaperOverrides = settings.wallpaperPaletteOverrides,
+            preserveGeneratedPalette = true,
+        ).material.primary
+    }
     val generatedAccent = if (settings.md3ColorSource == Md3ColorSource.WALLPAPER_RETONED) {
         val scheme = createBiliPaiStyleColorScheme(
             seedColor = seed,
@@ -69,7 +89,21 @@ internal fun resolvePlaybackNotificationColor(context: Context, settings: AppThe
     )
     val wallpaperAccent = if (settings.md3ColorSource == Md3ColorSource.FOLLOW_WALLPAPER) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (appearance.useDarkTheme) dynamicDarkColorScheme(context).primary
+            val compatibilitySeed = com.android.purebilibili.core.theme.latestWallpaperColorCompatibility.seed
+            if (compatibilitySeed != null) {
+                createBiliPaiStyleColorScheme(
+                    seedColor = compatibilitySeed,
+                    darkTheme = appearance.useDarkTheme,
+                    amoledDarkTheme = appearance.useAmoledDarkTheme,
+                    paletteStyle = settings.colorStyle,
+                    colorSpec = settings.colorSpec,
+                    colorContrast = settings.colorContrast,
+                    seedPaletteStyle = settings.seedPaletteStyle,
+                ).primary
+            } else if (settings.seedPaletteStyle.enabled) {
+                val scheme = readSeedWallpaperColorScheme(context, appearance.useDarkTheme)
+                if (appearance.useAmoledDarkTheme) darkenSeedColorScheme(scheme).primary else scheme.primary
+            } else if (appearance.useDarkTheme) dynamicDarkColorScheme(context).primary
             else dynamicLightColorScheme(context).primary
         } else {
             createBiliPaiStyleColorScheme(
@@ -80,13 +114,14 @@ internal fun resolvePlaybackNotificationColor(context: Context, settings: AppThe
                 colorSpec = settings.colorSpec,
                 uiStyle = settings.uiStyle,
                 colorContrast = settings.colorContrast,
+                seedPaletteStyle = settings.seedPaletteStyle,
             ).primary
         }
     } else null
     return resolvePlaybackNotificationAccentColor(
         settings, appearance.useDarkTheme, wallpaperAccent,
         wallpaperSeed = if (settings.md3ColorSource == Md3ColorSource.WALLPAPER_RETONED) {
-            readSystemWallpaperSeed(context)
+            com.android.purebilibili.core.theme.latestWallpaperColorCompatibility.seed ?: readSystemWallpaperSeed(context)
         } else null,
     ).toArgb()
 }

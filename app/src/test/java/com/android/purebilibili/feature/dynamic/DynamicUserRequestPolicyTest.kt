@@ -107,7 +107,7 @@ class DynamicUserRequestPolicyTest {
     }
 
     @Test
-    fun `selected user content filter keeps author and content axes independent`() {
+    fun `selected user content follows the top level category`() {
         val video = DynamicItem(
             id_str = "video",
             type = "DYNAMIC_TYPE_AV",
@@ -130,46 +130,18 @@ class DynamicUserRequestPolicyTest {
             listOf("video"),
             filterSelectedUserDynamicItems(
                 items = listOf(video, article),
-                filter = DynamicUserContentFilter.VIDEO,
+                logicalTab = 1,
             ).map { it.id_str },
         )
         assertEquals(
             listOf("article", "legacy-article"),
             filterSelectedUserDynamicItems(
                 items = listOf(video, article, legacyArticle),
-                filter = DynamicUserContentFilter.ARTICLE,
+                logicalTab = 3,
             ).map { it.id_str },
         )
     }
 
-    @Test
-    fun `empty concrete user filter does not trigger unbounded pagination`() {
-        assertEquals(
-            listOf("全部", "视频", "图文专栏"),
-            DynamicUserContentFilter.entries.map(DynamicUserContentFilter::label),
-        )
-        assertTrue(
-            shouldAutoLoadMoreForUserContentFilter(
-                isSelectedUserFeed = true,
-                filter = DynamicUserContentFilter.ALL,
-                visibleItemCount = 0,
-            )
-        )
-        assertFalse(
-            shouldAutoLoadMoreForUserContentFilter(
-                isSelectedUserFeed = true,
-                filter = DynamicUserContentFilter.ARTICLE,
-                visibleItemCount = 0,
-            )
-        )
-        assertTrue(
-            shouldAutoLoadMoreForUserContentFilter(
-                isSelectedUserFeed = true,
-                filter = DynamicUserContentFilter.ARTICLE,
-                visibleItemCount = 1,
-            )
-        )
-    }
 }
 
 private fun buildDynamicItem(id: String, mid: Long) = DynamicItem(

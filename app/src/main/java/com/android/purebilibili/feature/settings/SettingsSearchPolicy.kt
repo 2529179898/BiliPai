@@ -993,6 +993,7 @@ internal fun resolveSettingsSearchResults(
                 "playback.next_watch_hint_enabled" -> listOf("下一集", "相关推荐", "倒计时", "接下来观看", "片尾提示")
                 "playback.image_preview3d_page_enabled" -> listOf("图片立体翻页3D", "3D翻页")
                 "playback.comment_fraud_detection_enabled" -> listOf("发评反诈", "评论检测", "评论检查")
+                "playback.comment_avatar_push_enabled" -> listOf("头像碰撞", "头像吸附", "头像推挤", "评论动效")
                 "playback.comment_member_decorations_enabled" -> listOf("评论装扮", "个性装扮")
                 "playback.image_preview_long_press_save_enabled" -> listOf("图片长按保存", "长按保存图片")
                 "playback.video_info_default_expanded" -> listOf("简介默认展开")

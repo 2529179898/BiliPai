@@ -742,8 +742,9 @@ internal fun resolvePhoneVideoRequestedOrientation(
             )
         }
     } else {
-        // System rotation can now enter and leave landscape fullscreen on its own.
-        ActivityInfo.SCREEN_ORIENTATION_USER
+        // 应用关闭自动横竖屏后，内嵌播放必须固定竖屏。USER 会继续跟随系统旋转，
+        // 绕过应用开关进入横屏，而自动返回竖屏的监听已关闭，导致单向切换。
+        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
 }
 

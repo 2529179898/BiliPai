@@ -1346,11 +1346,6 @@ class MiniPlayerManager private constructor(private val context: Context) :
         private set
     private var cachedArtworkBitmap: Bitmap? = null
     
-    //  [新增] 缓存 UI 状态
-    fun cacheUiState(state: VideoPlaybackUiState.Success) {
-        cachedUiState = state
-        com.android.purebilibili.core.util.Logger.d(TAG, " 缓存 UI 状态: ${state.info.title}")
-    }
 
     fun updateCachedVideoTags(bvid: String, tags: List<com.android.purebilibili.data.model.response.VideoTag>) {
         val cached = cachedUiState ?: return
@@ -1365,7 +1360,9 @@ class MiniPlayerManager private constructor(private val context: Context) :
      * 后台/熄屏时 Compose 的 lifecycle-aware state collection 会暂停，不能依赖页面侧的
      * setVideoInfo 来刷新通知和当前媒体身份，否则播放器已换集而通知、返回目标仍停在旧视频。
      */
-    fun syncCurrentVideoInfo(state: VideoPlaybackUiState.Success) {
+    fun syncCurrentVideoInfo(state: VideoPlaybackUiState.Success, expectedPlayer: ExoPlayer) {
+        // Covered pages may finish loading after another detail has reclaimed the session.
+        if (player !== expectedPlayer) return
         val info = state.info
         currentBvid = info.bvid
         currentAudioMediaId = null
@@ -1397,6 +1394,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
     private var _player: ExoPlayer? = null
     //  外部播放器引用（来自 VideoDetailScreen 的 VideoPlayerState）
     private var _externalPlayer: ExoPlayer? = null
+    private val pageOwnership = PlaybackPageOwnership()
     //  优先使用外部播放器（如果存在）
     val player: ExoPlayer?
         get() = _externalPlayer ?: _player
@@ -1412,6 +1410,17 @@ class MiniPlayerManager private constructor(private val context: Context) :
     fun isPlayerManaged(target: ExoPlayer): Boolean {
         return _externalPlayer === target || _player === target
     }
+
+    internal fun retainPlayerForPage(target: ExoPlayer) {
+        pageOwnership.retain(target)
+    }
+
+    internal fun releasePlayerFromPage(target: ExoPlayer) {
+        pageOwnership.release(target)
+    }
+
+    internal fun isPlayerRetainedByPage(target: ExoPlayer): Boolean =
+        pageOwnership.isRetained(target)
 
     /**
      * 仅当外部播放器引用匹配目标实例时才清理，避免误清理新播放器引用。
@@ -1946,7 +1955,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
             val stopPlaybackOnExit = SettingsManager.getStopPlaybackOnExitSync(context)
             val audioFocusEnabled = SettingsManager.getAudioFocusEnabledSync(context)
 
-            // 响度均衡开启时注入 AGC 音频处理器（需重建播放会话才生效）
+            // 音乐氛围在 HiResCompatibleRenderersFactory 的公共音频入口动态读取开关。
             val renderersFactory = if (SettingsManager.getLoudnessNormalizationEnabledSync(context)) {
                 com.android.purebilibili.core.player.LoudnessAwareRenderersFactory(context)
             } else {
@@ -2228,15 +2237,12 @@ class MiniPlayerManager private constructor(private val context: Context) :
             Logger.d(TAG, "🔇 Stopped internal player")
         }
         
-        // ⚡ [性能优化] player 延迟释放，避免阻塞关闭动画
+        // A retained page still owns its player. A disposed page has transferred it to us.
         val playerToRelease = _externalPlayer
-        if (playerToRelease != null) {
+        if (playerToRelease != null && !pageOwnership.isRetained(playerToRelease)) {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                try {
+                if (!pageOwnership.isRetained(playerToRelease) && !isPlayerManaged(playerToRelease)) {
                     playerToRelease.release()
-                    Logger.d(TAG, "⚡ 延迟释放外部播放器")
-                } catch (e: Exception) {
-                    Logger.e(TAG, "释放外部播放器失败", e)
                 }
             }
         }
@@ -2288,6 +2294,24 @@ class MiniPlayerManager private constructor(private val context: Context) :
 
 
 
+    private fun replaceExternalPlayer(incomingPlayer: ExoPlayer) {
+        if (player !== incomingPlayer) resetBackgroundOptimizationState()
+        val previousPlayer = _externalPlayer
+        if (previousPlayer != null && previousPlayer !== incomingPlayer) {
+            previousPlayer.removeListener(playerListener)
+            previousPlayer.pause()
+            // Switching sessions must not invalidate a parent detail still on the back stack.
+            // Once its page is disposed, the manager owns cleanup of the transferred player.
+            if (!pageOwnership.isRetained(previousPlayer)) {
+                previousPlayer.stop()
+                previousPlayer.release()
+            }
+        }
+        _externalPlayer = incomingPlayer
+        incomingPlayer.removeListener(playerListener)
+        incomingPlayer.addListener(playerListener)
+    }
+
     /**
      *  设置视频信息并关联外部播放器（用于小窗模式）
      * 这个方法不创建新播放器，而是使用 VideoDetailScreen 的播放器
@@ -2314,22 +2338,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
         entryFromLeft = fromLeft  //  保存入场方向
         isLiveMode = false  // 📺 视频模式
         
-        // 🛑 [修复] 如果存在旧的外部播放器且不同于新的（切换视频场景），必须释放旧的防止泄漏/重音
-        if (player !== externalPlayer) resetBackgroundOptimizationState()
-        if (_externalPlayer != null && _externalPlayer != externalPlayer) {
-            Logger.d(TAG, "🛑 Releasing old external player: ${_externalPlayer.hashCode()} -> ${externalPlayer.hashCode()}")
-            try {
-                _externalPlayer?.removeListener(playerListener)
-                _externalPlayer?.stop()
-                _externalPlayer?.release()
-            } catch (e: Exception) {
-                Logger.e(TAG, "Failed to release old external player", e)
-            }
-        }
-        
-        _externalPlayer = externalPlayer
-        externalPlayer.removeListener(playerListener)
-        externalPlayer.addListener(playerListener)
+        replaceExternalPlayer(externalPlayer)
         isActive = true
         isMiniMode = false
 
@@ -2378,21 +2387,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
         isLiveMode = true
         entryFromLeft = fromLeft
         
-        // 释放旧的外部播放器（如果有且不同）
-        if (player !== externalPlayer) resetBackgroundOptimizationState()
-        if (_externalPlayer != null && _externalPlayer != externalPlayer) {
-            try {
-                _externalPlayer?.removeListener(playerListener)
-                _externalPlayer?.stop()
-                _externalPlayer?.release()
-            } catch (e: Exception) {
-                Logger.e(TAG, "Failed to release old external player", e)
-            }
-        }
-        
-        _externalPlayer = externalPlayer
-        externalPlayer.removeListener(playerListener)
-        externalPlayer.addListener(playerListener)
+        replaceExternalPlayer(externalPlayer)
         isActive = true
         isMiniMode = false
 
@@ -2794,6 +2789,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
         _player?.removeListener(playerListener)
         _player?.release()
         _player = null
+        // 音频输出入口释放时按会话所有权清理律动，不清空其他仍在播放的会话。
         scope.cancel()
         INSTANCE = null
     }

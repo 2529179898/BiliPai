@@ -9,34 +9,20 @@ import kotlin.test.assertTrue
 class PortraitDetailPresentationPolicyTest {
 
     @Test
-    fun commentTabUsesCompactPlayerWhenCoverRecognitionMissesShortViewport() {
-        assertTrue(
-            shouldUseCompactInlinePortraitPlayerForCommentTab(
-                useOfficialInlinePortraitDetailExperience = true,
-                selectedTabIndex = 1,
-                isPortraitFullscreen = false,
-                isCompactFoldableCoverWindow = false,
-                availableCommentHeightDp = 180f,
-            )
-        )
-    }
-
-    @Test
-    fun viewportProtectionDoesNotCollapseIntroFullscreenOrRoomyCommentPage() {
-        for ((tab, fullscreen, remainingHeight) in listOf(
-            Triple(0, false, 180f),
-            Triple(1, true, 180f),
-            Triple(1, false, MIN_INLINE_COMMENT_VIEWPORT_HEIGHT_DP),
-            Triple(1, false, 360f),
-        )) {
-            assertFalse(
-                shouldUseCompactInlinePortraitPlayerForCommentTab(
-                    useOfficialInlinePortraitDetailExperience = true,
-                    selectedTabIndex = tab,
-                    isPortraitFullscreen = fullscreen,
-                    availableCommentHeightDp = remainingHeight,
+    fun switchingToCommentsNeverForcesCompactPlayerForAnyModeOrPauseState() {
+        PortraitPlayerCollapseMode.entries.forEach { mode ->
+            listOf(false, true).forEach { paused ->
+                assertFalse(
+                    shouldUseCompactInlinePortraitPlayerForCommentTab(
+                        useOfficialInlinePortraitDetailExperience = true,
+                        selectedTabIndex = 1,
+                        isPortraitFullscreen = false,
+                        collapseMode = mode,
+                        isVerticalVideo = true,
+                        isPlaybackPaused = paused,
+                    )
                 )
-            )
+            }
         }
     }
 
@@ -606,9 +592,9 @@ class PortraitDetailPresentationPolicyTest {
     }
 
     @Test
-    fun inlinePortraitPlayer_scrollProgressFollowsManualOffsetForRestore() {
+    fun inlinePortraitPlayer_compactCommentsAffectLayoutWithoutPausingPlayback() {
         assertEquals(
-            0f,
+            1f,
             resolveInlinePortraitPlayerCollapseProgress(
                 manualCollapseProgress = 0f,
                 compactForCommentTabProgress = 1f
@@ -622,7 +608,7 @@ class PortraitDetailPresentationPolicyTest {
             )
         )
         assertEquals(
-            0.2f,
+            0.6f,
             resolveInlinePortraitPlayerCollapseProgress(
                 manualCollapseProgress = 0.2f,
                 compactForCommentTabProgress = 0.6f
@@ -634,6 +620,18 @@ class PortraitDetailPresentationPolicyTest {
                 manualCollapseProgress = 1f,
                 compactForCommentTabProgress = 1f,
                 restoreRequested = true
+            )
+        )
+    }
+
+    @Test
+    fun inlinePortraitPlayer_pausedCommentsKeepManualHideProgress() {
+        assertEquals(
+            0.2f,
+            resolveInlinePortraitPlayerCollapseProgress(
+                manualCollapseProgress = 0.2f,
+                compactForCommentTabProgress = 1f,
+                hidePausedPlayerForComments = true,
             )
         )
     }

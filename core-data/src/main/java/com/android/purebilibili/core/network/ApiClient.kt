@@ -351,6 +351,11 @@ interface BilibiliApi {
         @Query("web_location") webLocation: String = "333.1387"
     ): FavFolderResponse
 
+    @GET("x/v3/fav/folder/info")
+    suspend fun getFavFolderInfo(
+        @Query("media_id") mediaId: Long,
+    ): FavoriteInfoResponse
+
     @GET("x/v3/fav/folder/collected/list")
     suspend fun getCollectedFavFolders(
         @Query("up_mid") mid: Long,
@@ -358,6 +363,21 @@ interface BilibiliApi {
         @Query("ps") ps: Int = 20,
         @Query("platform") platform: String = "web"
     ): FavFolderResponse
+
+    // 普通收藏夹使用完整 media_id；UGC 合集订阅使用 favoriteSeason 的 season_id。
+    @retrofit2.http.FormUrlEncoded
+    @retrofit2.http.POST("x/v3/fav/folder/fav")
+    suspend fun favoriteFolder(
+        @retrofit2.http.Field("media_id") mediaId: Long,
+        @retrofit2.http.Field("csrf") csrf: String,
+    ): SimpleApiResponse
+
+    @retrofit2.http.FormUrlEncoded
+    @retrofit2.http.POST("x/v3/fav/folder/unfav")
+    suspend fun unfavoriteFolder(
+        @retrofit2.http.Field("media_id") mediaId: Long,
+        @retrofit2.http.Field("csrf") csrf: String,
+    ): SimpleApiResponse
 
     // [新增] 创建收藏夹
     @retrofit2.http.FormUrlEncoded
@@ -1124,6 +1144,12 @@ interface BilibiliApi {
         @retrofit2.http.Field("dmid") dmid: Long,             // 弹幕 ID
         @retrofit2.http.Field("op") op: Int = 1,              // 操作: 1点赞/2取消
         @retrofit2.http.Field("platform") platform: String = "web_player",
+        // 对齐 PiliPlus 的播放器来源参数，仅用于弹幕点赞请求。
+        @retrofit2.http.Field("polaris_app_id") polarisAppId: Int = 100,
+        @retrofit2.http.Field("polaris_platform") polarisPlatform: Int = 5,
+        @retrofit2.http.Field("spmid") spmid: String = "333.788.0.0",
+        @retrofit2.http.Field("from_spmid") fromSpmid: String = "333.788.0.0",
+        @retrofit2.http.Field("statistics") statistics: String = "{\"appId\":100,\"platform\":5,\"abtest\":\"\",\"version\":\"\"}",
         @retrofit2.http.Field("csrf") csrf: String
     ): DanmakuActionResponse
 

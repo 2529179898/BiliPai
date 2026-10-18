@@ -5,6 +5,7 @@ import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -39,6 +40,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.purebilibili.core.ui.AppShapes
+import com.android.purebilibili.core.ui.LocalSystemReduceMotion
 import com.android.purebilibili.core.ui.AppSpacingTokens
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.ui.ContainerLevel
@@ -159,23 +161,18 @@ internal fun PersonalMediaCardFrame(
 
 /**
  * PiliPlus 式多选遮罩：选中时在缩略图上铺黑色 60% 蒙层并居中显示对勾圆圈，
- * 以缩放 + 淡入淡出动画进出。
+ * 蒙层完整覆盖缩略图并淡入淡出，仅中心勾选标记做弹性缩放。
  */
 @Composable
 internal fun PersonalCardSelectMask(
     selected: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val reduceMotion = LocalSystemReduceMotion.current
     AnimatedVisibility(
         visible = selected,
-        enter = fadeIn(animationSpec = spring(stiffness = 380f)) + scaleIn(
-            initialScale = 0.7f,
-            animationSpec = spring(dampingRatio = 0.7f, stiffness = 380f),
-        ),
-        exit = fadeOut(animationSpec = spring(stiffness = 480f)) + scaleOut(
-            targetScale = 0.7f,
-            animationSpec = spring(stiffness = 480f),
-        ),
+        enter = fadeIn(animationSpec = tween(160)),
+        exit = fadeOut(animationSpec = tween(120)),
         modifier = modifier,
     ) {
         Box(
@@ -186,6 +183,16 @@ internal fun PersonalCardSelectMask(
         ) {
             Box(
                 modifier = Modifier
+                    .animateEnterExit(
+                        enter = scaleIn(
+                            initialScale = if (reduceMotion) 1f else 0.7f,
+                            animationSpec = spring(dampingRatio = 0.7f, stiffness = 380f),
+                        ),
+                        exit = scaleOut(
+                            targetScale = if (reduceMotion) 1f else 0.85f,
+                            animationSpec = tween(120),
+                        ),
+                    )
                     .size(34.dp)
                     .background(
                         MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),

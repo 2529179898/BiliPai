@@ -236,6 +236,22 @@ internal fun resolveVideoCardTransitionScrimAlpha(
     return maxAlpha * clamped
 }
 
+/** Shared by the scrim-only path and the complete depth frame; no blur geometry is needed. */
+internal fun resolveVideoCardTransitionBackgroundScrimAlpha(
+    depthProgress: Float,
+    phase: VideoCardTransitionBackgroundPhase,
+    motionTier: MotionTier,
+    isLightBackground: Boolean,
+): Float = if (phase == VideoCardTransitionBackgroundPhase.IDLE) {
+    0f
+} else {
+    resolveVideoCardTransitionScrimAlpha(
+        progress = depthProgress,
+        isLightBackground = isLightBackground,
+        motionTier = motionTier,
+    )
+}
+
 @Suppress("UNUSED_PARAMETER")
 internal fun resolveVideoCardTransitionContentScale(
     progress: Float,
@@ -429,17 +445,12 @@ internal fun resolveVideoCardTransitionBackgroundFrame(
             maxRadiusPx = maxBlurRadiusPx,
             quantumPx = blurQuantumPx,
         ),
-        scrimAlpha = when (phase) {
-            VideoCardTransitionBackgroundPhase.OPENING,
-            VideoCardTransitionBackgroundPhase.HELD,
-            VideoCardTransitionBackgroundPhase.RETURNING ->
-                resolveVideoCardTransitionScrimAlpha(
-                    progress = depthProgress,
-                    isLightBackground = isLightBackground,
-                    motionTier = motionTier,
-                )
-            VideoCardTransitionBackgroundPhase.IDLE -> 0f
-        },
+        scrimAlpha = resolveVideoCardTransitionBackgroundScrimAlpha(
+            depthProgress = depthProgress,
+            phase = phase,
+            motionTier = motionTier,
+            isLightBackground = isLightBackground,
+        ),
         contentScale = resolveVideoCardTransitionContentScale(
             progress = clamped,
             phase = phase,
@@ -1100,10 +1111,10 @@ internal fun applyVideoCardTransitionSnapshotFrame(
     frame: VideoCardTransitionBackgroundFrame,
     canvasSize: androidx.compose.ui.geometry.Size,
     sourceBounds: Rect? = null,
+    layerAlpha: Float = 1f,
 ) {
-    // The route draw path may lower alpha during its final live-content handoff. This layer is
-    // shared with the host-owned depth renderer, so every frame starts from an opaque baseline.
-    contentLayer.alpha = 1f
+    // Shared with the host renderer: write the owning renderer's final alpha once.
+    contentLayer.alpha = layerAlpha
     contentLayer.pivotOffset = resolveVideoCardTransitionBackgroundScalePivotOffset(
         sourceBounds = sourceBounds,
         canvasSize = canvasSize,
@@ -1356,6 +1367,55 @@ internal fun Modifier.videoCardTransitionBackgroundEffect(
         }
         val activeProgress = progressProvider()
         val activeMotionTier = motionTierProvider()
+        val snapshotBlurActive = shouldUseVideoCardTransitionSnapshotBlur(
+            exposure = activeExposure,
+            motionTier = activeMotionTier,
+            realtimeBlurEnabled = realtimeBlurEnabledProvider(),
+        )
+        if (!snapshotBlurActive) {
+            // Blur off / Reduced / older APIs: only scrim changes. Do not compute or
+            // allocate the unused blur, corner, shadow and scale frame on every draw.
+            drawContent()
+            val isLightBackground = isLightBackgroundProvider()
+            val scrimAlpha = resolveVideoCardTransitionBackgroundScrimAlpha(
+                depthProgress = resolveVideoCardTransitionDepthProgress(activeProgress, activePhase),
+                phase = activePhase,
+                motionTier = activeMotionTier,
+                isLightBackground = isLightBackground,
+            )
+            if (scrimAlpha > 0.001f) {
+                val scrimColor = if (isLightBackground) {
+                    VIDEO_CARD_TRANSITION_LIGHT_SCRIM_TINT
+                } else {
+                    Color.Black
+                }
+                drawRect(scrimColor.copy(alpha = scrimAlpha))
+            }
+            return@drawWithContent
+        }
+
+        val frozenLayerAlpha = resolveVideoCardTransitionFrozenLayerAlpha(
+            exposure = activeExposure,
+            depthProgress = activeProgress,
+        )
+        if (!shouldDrawVideoCardTransitionFrozenLayer(frozenLayerAlpha)) {
+            // The live page has taken over. Skip recording and invisible blur updates.
+            // Keep refresh state intact so gesture reversal can reacquire a fresh snapshot.
+            drawContent()
+            val isLight = isLightBackgroundProvider()
+            val scrimAlpha = resolveVideoCardTransitionBackgroundScrimAlpha(
+                depthProgress = resolveVideoCardTransitionDepthProgress(activeProgress, activePhase),
+                phase = activePhase,
+                motionTier = activeMotionTier,
+                isLightBackground = isLight,
+            )
+            if (scrimAlpha > 0.001f) {
+                drawRect((if (isLight) VIDEO_CARD_TRANSITION_LIGHT_SCRIM_TINT else Color.Black)
+                    .copy(alpha = scrimAlpha))
+            }
+            return@drawWithContent
+        }
+
         val frame = snapshotState.frameCache.resolve(
             progress = activeProgress,
             phase = activePhase,
@@ -1366,24 +1426,6 @@ internal fun Modifier.videoCardTransitionBackgroundEffect(
             deviceCornerRadiusPx = deviceCornerRadiusPx,
             scaleReduction = scaleReductionProvider(),
         )
-        val snapshotBlurActive = shouldUseVideoCardTransitionSnapshotBlur(
-            exposure = activeExposure,
-            motionTier = activeMotionTier,
-            realtimeBlurEnabled = realtimeBlurEnabledProvider(),
-        )
-        if (!snapshotBlurActive) {
-            // IDLE / Reduced / 低版本：正常绘制页面；元素缩放由各 shared shell 自己承担。
-            drawContent()
-            if (frame.scrimAlpha > 0.001f) {
-                val scrimColor = if (frame.useLightScrimTint) {
-                    VIDEO_CARD_TRANSITION_LIGHT_SCRIM_TINT
-                } else {
-                    Color.Black
-                }
-                drawRect(scrimColor.copy(alpha = frame.scrimAlpha))
-            }
-            return@drawWithContent
-        }
 
         // OPENING 首录；预测/返回 DL stale 时重录。
         // 防黑：失效层绝不 drawLayer。防无糊：成功 record 后只画带 BlurEffect 的冻结层，
@@ -1437,10 +1479,6 @@ internal fun Modifier.videoCardTransitionBackgroundEffect(
         // 捕获 PlayerView/TextureView 的实时像素，若它一直不透明地盖到 progress=0，
         // 上一级页面会在手势即将完成时仍发黑、发糊。交接区间与宽卡片的源内容
         // crossfade 保持一致，使实时页面与返回卡片同步显现。
-        val frozenLayerAlpha = resolveVideoCardTransitionFrozenLayerAlpha(
-            exposure = activeExposure,
-            depthProgress = activeProgress,
-        )
         val liveHandoffActive = frozenLayerAlpha < 0.999f
 
         // 返回末段 / 预览中段：先画 live content 让 hazeSource 重新登记，
@@ -1459,6 +1497,7 @@ internal fun Modifier.videoCardTransitionBackgroundEffect(
             frame = frame,
             canvasSize = size,
             sourceBounds = sourceBoundsProvider(),
+            layerAlpha = frozenLayerAlpha,
         )
         if (!liveHandoffActive && shouldDrawVideoCardTransitionScaleGapFill(frame.contentScale)) {
             drawRect(
@@ -1468,11 +1507,8 @@ internal fun Modifier.videoCardTransitionBackgroundEffect(
                 )
             )
         }
-        contentLayer.alpha = frozenLayerAlpha
-        if (frozenLayerAlpha > 0.001f) {
-            drawLayer(contentLayer)
-            VideoCardTransitionDiagnostics.onSourceLayerDrawn()
-        }
+        drawLayer(contentLayer)
+        VideoCardTransitionDiagnostics.onSourceLayerDrawn()
 
         if (frame.scrimAlpha > 0.001f) {
             val scrimColor = if (frame.useLightScrimTint) {
@@ -1484,6 +1520,9 @@ internal fun Modifier.videoCardTransitionBackgroundEffect(
         }
     }
 }
+
+/** Match both renderers' visibility boundary before recording or resolving a blur frame. */
+internal fun shouldDrawVideoCardTransitionFrozenLayer(alpha: Float): Boolean = alpha > 0.001f
 
 /**
  * Fades the frozen depth snapshot out over the full source-card takeover window.
