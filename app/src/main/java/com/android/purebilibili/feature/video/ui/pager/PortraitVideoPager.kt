@@ -312,6 +312,7 @@ fun PortraitVideoPager(
     engagementViewModel: VideoEngagementViewModel,
     sharedPlayer: ExoPlayer? = null,
     useTextureSurfaceForNavigation: Boolean = false,
+    isPlayerSurfaceReady: Boolean = true,
     initialStartPositionMs: Long = 0L,
     /**
      * 竖屏流进度同步：(bvid, positionMs, cid, coverUrl)。
@@ -1857,6 +1858,7 @@ fun PortraitVideoPager(
                 onOpenCoinDialog = engagementViewModel::openCoinDialog,
                 exoPlayer = exoPlayer, // [核心] 传递共享播放器
                 useTextureSurfaceForNavigation = useTextureSurfaceForNavigation,
+                isPlayerSurfaceReady = isPlayerSurfaceReady,
                 currentPlayingBvid = currentPlayingBvid, // [修复] 传递当前播放的 BVID 用于校验
                 currentPlayingCid = currentPlayingCid,
                 currentPlayingAid = currentPlayingAid,
@@ -2084,6 +2086,7 @@ private fun VideoPageItem(
     onOpenCoinDialog: () -> Unit,
     exoPlayer: ExoPlayer,
     useTextureSurfaceForNavigation: Boolean,
+    isPlayerSurfaceReady: Boolean,
     currentPlayingBvid: String?, // [新增]
     currentPlayingCid: Long,
     currentPlayingAid: Long,
@@ -3095,11 +3098,8 @@ private fun VideoPageItem(
             )
         }
 
-        // [核心逻辑]
-        // 始终保留 AndroidView 以确保 Surface 准备就绪，但只有当播放器加载了当前视频时才将其绑定或显示
-        // 否则显示封面
-        
-        if (isCurrentPage && isPlayerReadyForThisVideo) {
+        // Wait for persisted surface settings while retaining format-aware HDR selection.
+        if (isCurrentPage && isPlayerReadyForThisVideo && isPlayerSurfaceReady) {
             val surfaceHdrRequired = com.android.purebilibili.feature.video.ui.components.rememberVideoSurfaceHdrRequired(
                 exoPlayer, selectedQualityId,
             )
@@ -3218,7 +3218,7 @@ private fun VideoPageItem(
         }
 
         // 封面图 (在加载中、未匹配到视频、或未开始播放时显示)
-        val showCover = shouldShowPortraitCover(
+        val showCover = !isPlayerSurfaceReady || shouldShowPortraitCover(
             isLoading = isLoading,
             isCurrentPage = isCurrentPage,
             isPlayerReadyForThisVideo = isPlayerReadyForThisVideo,

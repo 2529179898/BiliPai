@@ -270,6 +270,7 @@ internal fun TabletVideoLayout(
     forceCoverOnlyOnReturn: Boolean = false,
     predictiveBackCancelRecoveryGeneration: Int = 0,
     liveSurfaceCardTransitionEnabled: Boolean = true,
+    isPlayerSurfaceReady: Boolean = true,
     paneControlsEnabled: Boolean = true,
     videoAiSummaryEntryEnabled: Boolean = true,
     videoNoteEnabled: Boolean = true,
@@ -440,6 +441,7 @@ internal fun TabletVideoLayout(
                                         cardTransitionEnabled = transitionEnabled && !hasHingePartition,
                                         liveSurfaceCardTransitionEnabled = liveSurfaceCardTransitionEnabled,
                                     ),
+                                    isPlayerSurfaceReady = isPlayerSurfaceReady,
                                     allowLivePlayerSharedElement = !hasHingePartition &&
                                         resolveAllowLivePlayerSharedElementForMorph(
                                             cardTransitionEnabled = transitionEnabled,

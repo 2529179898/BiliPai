@@ -509,9 +509,15 @@ internal fun VideoDetailScreenStateHolder(
         .getHomeUpBadgesVisible(context)
         .collectAsStateWithLifecycle(initialValue = true
         )
-    val liveSurfaceCardTransitionEnabled by com.android.purebilibili.core.store.SettingsManager
-        .getLiveSurfaceCardTransitionEnabled(context)
-        .collectAsStateWithLifecycle(initialValue = false)
+    // Keep unknown distinct from false: the first PlayerView must use the persisted surface type.
+    // The remembered flow never emits null, so lifecycle restarts retain the last known value.
+    val liveSurfaceCardTransitionPreference by remember(context) {
+        com.android.purebilibili.core.store.SettingsManager
+            .getLiveSurfaceCardTransitionEnabled(context)
+            .map<Boolean, Boolean?> { it }
+    }.collectAsStateWithLifecycle(initialValue = null)
+    val isPlayerSurfaceReady = liveSurfaceCardTransitionPreference != null
+    val liveSurfaceCardTransitionEnabled = liveSurfaceCardTransitionPreference == true
     // SDR live morph TextureView only when both master transition + live-surface switch are on.
     // HDR still forces SurfaceView inside shouldUseTextureSurfaceForFlip (no quality sacrifice).
     val useTextureSurfaceForNavigation = remember(
@@ -3546,6 +3552,7 @@ internal fun VideoDetailScreenStateHolder(
             preserveCurrentFrameOnFullscreenChange = preserveCurrentFrameOnFullscreenChange,
             liveBackPreview = bindLivePlayerForBackPreview,
             useTextureSurfaceForNavigation = useTextureSurfaceForNavigation,
+            isPlayerSurfaceReady = isPlayerSurfaceReady,
             predictiveBackCancelRecoveryGeneration = predictiveBackCancelRecoveryGeneration,
             allowLivePlayerSharedElement = allowLivePlayerSharedElement,
             sourceRouteForSharedElement = sourceRouteForSharedElement,
@@ -3807,6 +3814,7 @@ internal fun VideoDetailScreenStateHolder(
                         forceCoverOnly = forceCoverOnlyForLiveSafeReturn,
                         preserveCurrentFrameOnFullscreenChange = preserveCurrentFrameOnFullscreenChange,
                         useTextureSurfaceForNavigation = useTextureSurfaceForNavigation,
+                        isPlayerSurfaceReady = isPlayerSurfaceReady,
                         predictiveBackCancelRecoveryGeneration = predictiveBackCancelRecoveryGeneration,
                         allowLivePlayerSharedElement = allowLivePlayerSharedElement,
                         sourceRouteForSharedElement = sourceRouteForSharedElement,
@@ -4126,6 +4134,7 @@ internal fun VideoDetailScreenStateHolder(
                                 forceCoverOnlyOnReturn = forceCoverOnlyForLiveSafeReturn,
                                 predictiveBackCancelRecoveryGeneration = predictiveBackCancelRecoveryGeneration,
                                 liveSurfaceCardTransitionEnabled = liveSurfaceCardTransitionEnabled,
+                                isPlayerSurfaceReady = isPlayerSurfaceReady,
                                 paneControlsEnabled = isTransitionFinished,
                                 videoAiSummaryEntryEnabled = videoAiSummaryEntryEnabled,
                                 videoNoteEnabled = videoNoteEnabled,
@@ -4202,6 +4211,7 @@ internal fun VideoDetailScreenStateHolder(
                             forceCoverOnlyOnReturn = forceCoverOnlyForLiveSafeReturn,
                             predictiveBackCancelRecoveryGeneration = predictiveBackCancelRecoveryGeneration,
                             liveSurfaceCardTransitionEnabled = liveSurfaceCardTransitionEnabled,
+                            isPlayerSurfaceReady = isPlayerSurfaceReady,
                             paneControlsEnabled = isTransitionFinished,
                             videoAiSummaryEntryEnabled = videoAiSummaryEntryEnabled,
                             videoNoteEnabled = videoNoteEnabled,
@@ -5652,6 +5662,7 @@ internal fun VideoDetailScreenStateHolder(
             engagementViewModel = engagementViewModel,
             sharedPlayer = if (useSharedPortraitPlayer) playerState.player else null,
             useTextureSurfaceForNavigation = useTextureSurfaceForNavigation,
+            isPlayerSurfaceReady = isPlayerSurfaceReady,
             onBack = {
                 if (directPortraitEntryFromRoute) {
                     handleBack()

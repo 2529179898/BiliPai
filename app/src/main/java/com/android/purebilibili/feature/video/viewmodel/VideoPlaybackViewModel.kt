@@ -3419,16 +3419,6 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                     requestCodecOverride = playbackRequest.videoCodecOverride,
                     settingsSecondCodecPreference = settingsSecondCodecPreference
                 )
-                val isHdrSupported = appContext?.let {
-                    com.android.purebilibili.core.util.MediaUtils.isHdrSupported(it)
-                } ?: com.android.purebilibili.core.util.MediaUtils.isHdrSupported()
-                val isDolbyVisionSupported = appContext?.let {
-                    com.android.purebilibili.core.util.MediaUtils.isDolbyVisionSupported(it)
-                } ?: com.android.purebilibili.core.util.MediaUtils.isDolbyVisionSupported()
-                val isAv1Supported = resolveEffectiveAv1Support(
-                    deviceSupportsAv1 = com.android.purebilibili.core.util.MediaUtils.isAv1Supported(),
-                    sessionBlockedCodecs = sessionBlockedCodecs
-                )
                 
                 // [Added] Determine auto-play behavior
                 // If autoPlay arg is present, use it. Otherwise reset to "Click to Play" setting
@@ -3464,23 +3454,33 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
             }
             
             try {
-                val loadConfig = PlaybackLoadConfig(
-                    defaultQuality = finalQuality,
-                    audioQualityPreference = audioQualityPreference,
-                    videoCodecPreference = videoCodecPreference,
-                    videoSecondCodecPreference = videoSecondCodecPreference,
-                    playWhenReady = shouldAutoPlay,
-                    isAv1Supported = isAv1Supported,
-                    isHdrSupported = isHdrSupported,
-                    isDolbyVisionSupported = isDolbyVisionSupported,
-                    onVideoInfo = { info ->
-                        publishVideoDetailInfo(info, playbackRequest.bvid, requestToken)
-                    },
-                    videoInfoLoader = { videoInfoDeferred.await() },
-                    playbackSpeed = exoPlayer?.playbackParameters?.speed ?: appContext?.let {
-                        com.android.purebilibili.core.store.SettingsManager.getPreferredPlaybackSpeedSync(it)
-                    }
-                )
+                val capabilityContext = appContext
+                val loadQuality = finalQuality
+                val playbackSpeed = exoPlayer?.playbackParameters?.speed ?: capabilityContext?.let {
+                    com.android.purebilibili.core.store.SettingsManager.getPreferredPlaybackSpeedSync(it)
+                }
+                val loadConfig = withContext(Dispatchers.Default) {
+                    PlaybackLoadConfig(
+                        defaultQuality = loadQuality,
+                        audioQualityPreference = audioQualityPreference,
+                        videoCodecPreference = videoCodecPreference,
+                        videoSecondCodecPreference = videoSecondCodecPreference,
+                        playWhenReady = shouldAutoPlay,
+                        isAv1Supported = resolveEffectiveAv1Support(
+                            deviceSupportsAv1 = com.android.purebilibili.core.util.MediaUtils.isAv1Supported(),
+                            sessionBlockedCodecs = sessionBlockedCodecs
+                        ),
+                        isHdrSupported = com.android.purebilibili.core.util.MediaUtils
+                            .isHdrSupported(capabilityContext),
+                        isDolbyVisionSupported = com.android.purebilibili.core.util.MediaUtils
+                            .isDolbyVisionSupported(capabilityContext),
+                        onVideoInfo = { info ->
+                            publishVideoDetailInfo(info, playbackRequest.bvid, requestToken)
+                        },
+                        videoInfoLoader = { videoInfoDeferred.await() },
+                        playbackSpeed = playbackSpeed
+                    )
+                }
                 // 🛡️ [修复] 增加超时保护，防止加载无限挂起
                 val loadResult = kotlinx.coroutines.withTimeout(15000L) {
                     playbackLoader.load(
