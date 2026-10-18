@@ -1,65 +1,82 @@
 package com.android.purebilibili.feature.live.components
 
-import com.android.purebilibili.core.ui.AppContentColors
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import com.android.purebilibili.core.ui.components.AppButton
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.EmojiEmotions
+import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.MaterialTheme
-import com.android.purebilibili.core.ui.AppModalBottomSheet
-import com.android.purebilibili.core.ui.components.AppIcon
-import com.android.purebilibili.core.ui.components.AppIconButton
-import com.android.purebilibili.core.ui.components.AppOutlinedTextField
-import com.android.purebilibili.core.ui.components.AppFilterChip
-import com.android.purebilibili.core.ui.components.AppSurface
-import com.android.purebilibili.core.ui.components.AppText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.AppSpacingTokens
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.ui.ContainerLevel
+import com.android.purebilibili.core.ui.LocalNavigationBackHandler
+import com.android.purebilibili.core.ui.components.AppButton
+import com.android.purebilibili.core.ui.components.AppFilterChip
+import com.android.purebilibili.core.ui.components.AppIcon
+import com.android.purebilibili.core.ui.components.AppIconButton
+import com.android.purebilibili.core.ui.components.AppSurface
+import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.data.repository.LiveDanmakuPermission
 import com.android.purebilibili.feature.live.LiveDanmakuItem
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.EmojiEmotions
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.mutableStateOf
 
 /** 弹幕默认颜色（白色） */
 private const val LIVE_DANMAKU_DEFAULT_COLOR = 16777215
@@ -69,12 +86,11 @@ private const val LIVE_DANMAKU_DEFAULT_MODE = 1
 private const val LIVE_DANMAKU_MAX_COLOR_SWATCHES = 8
 
 /**
- * 发送直播弹幕弹窗
- *
- * 支持选择弹幕颜色与滚动模式（依据服务端返回的权限 [LiveDanmakuPermission]），
- * 发送时携带 color / mode 字段；无权限时回退默认白色滚动。
+ * 直播专用键盘输入栏：不创建对话框窗口、遮罩或默认展开的样式面板。
+ * 草稿与回复由调用方持有，关闭输入仅释放焦点；颜色、模式与表情按需展开。
+ * 此布局适用于全部直播材质，不改变通用 MD3 / Miuix 组件默认值。
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LiveSendDanmakuSheet(
     onDismiss: () -> Unit,
@@ -92,136 +108,208 @@ fun LiveSendDanmakuSheet(
     onClearReply: () -> Unit = {},
     emoticonContent: (@Composable () -> Unit)? = null,
 ) {
-    val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
-    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    androidx.compose.runtime.LaunchedEffect(emoticonContent == null) {
-        if (emoticonContent == null) { focusRequester.requestFocus(); keyboard?.show() } else keyboard?.hide()
-    }
-    androidx.compose.runtime.LaunchedEffect(permission.availableColors, permission.availableModes) {
-        if (permission.availableColors.isNotEmpty() && permission.availableColors.none { it.color == selectedColor }) onColorSelected(permission.availableColors.first().color)
-        if (permission.availableModes.isNotEmpty() && permission.availableModes.none { it.mode == selectedMode }) onModeSelected(permission.availableModes.first().mode)
-    }
-    val maxLength = permission.maxLength.takeIf { it > 0 } ?: 40
+    val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val showingEmoticons = emoticonContent != null
     var showStyle by rememberSaveable { mutableStateOf(false) }
-    val canChooseStyle = permission.availableColors.isNotEmpty() && permission.availableModes.isNotEmpty()
+    val maxLength = permission.maxLength.takeIf { it > 0 } ?: 40
+    val effectiveColor = permission.availableColors.firstOrNull { it.color == selectedColor }?.color
+        ?: permission.availableColors.firstOrNull()?.color
+        ?: LIVE_DANMAKU_DEFAULT_COLOR
+    val effectiveMode = permission.availableModes.firstOrNull { it.mode == selectedMode }?.mode
+        ?: permission.availableModes.firstOrNull()?.mode
+        ?: LIVE_DANMAKU_DEFAULT_MODE
+    val canSend = !isSending && permission.canSend &&
+        message.trim().isNotEmpty() && message.length <= maxLength
+    val dismiss = {
+        focusManager.clearFocus(force = true)
+        keyboard?.hide()
+        onDismiss()
+    }
+    val send = {
+        if (canSend) onSend(message.trim(), effectiveColor, effectiveMode)
+    }
 
-    AppModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 640.dp)
-                .fillMaxWidth()
-                .align(Alignment.CenterHorizontally)
-                .verticalScroll(rememberScrollState())
-                .padding(
-                    horizontal = AppSpacingTokens.ExtraLarge,
-                    vertical = AppSpacingTokens.Small,
-                ),
-            verticalArrangement = Arrangement.spacedBy(AppSpacingTokens.Large)
-        ) {
-            AppText(
-                text = "发弹幕",
-                color = AppContentColors.primaryText(),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+    LaunchedEffect(showingEmoticons) {
+        if (showingEmoticons) {
+            focusManager.clearFocus(force = true)
+            keyboard?.hide()
+        } else {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            focusManager.clearFocus(force = true)
+            keyboard?.hide()
+        }
+    }
+    LaunchedEffect(effectiveColor, effectiveMode) {
+        if (selectedColor != effectiveColor) onColorSelected(effectiveColor)
+        if (selectedMode != effectiveMode) onModeSelected(effectiveMode)
+    }
+    LocalNavigationBackHandler(enabled = true) { dismiss() }
+
+    // IME 消费返回键后不自动重获焦点；若输入栏仍在，再次返回或点外关闭。
+    BoxWithConstraints(
+        Modifier.fillMaxSize()
+            .imePadding()
+            .navigationBarsPadding()
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+    ) {
+        val advancedMaxHeight = maxHeight * 0.4f
+        // 透明命中层只负责点外关闭，不给直播画面添加半屏遮罩。
+        Box(
+            Modifier.fillMaxSize().clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClickLabel = "关闭输入，保留草稿",
+                onClick = dismiss,
             )
-            AppSurface(
-                color = AppSurfaceTokens.cardContainer(),
-                shape = AppShapes.container(ContainerLevel.Card)
+        )
+        AppSurface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .widthIn(max = 640.dp)
+                .fillMaxWidth(),
+            color = AppSurfaceTokens.surface(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = AppSpacingTokens.Small, vertical = AppSpacingTokens.ExtraSmall),
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(AppSpacingTokens.Large),
-                    verticalArrangement = Arrangement.spacedBy(AppSpacingTokens.Medium)
-                ) {
-                    if (replyTarget != null) {
-                        AppSurface(shape = AppShapes.container(ContainerLevel.Pill), color = MaterialTheme.colorScheme.secondaryContainer) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = AppSpacingTokens.Medium)) {
-                                AppText("@${replyTarget.uname.ifBlank { replyTarget.uid.toString() }}", modifier = Modifier.weight(1f))
-                                AppIconButton(onClick = onClearReply, enabled = !isSending) { AppIcon(Icons.Outlined.Close, "取消回复，保留正文") }
-                            }
-                        }
-                    }
-                    AppOutlinedTextField(
-                        value = message,
-                        onValueChange = { onMessageChange(it.take(maxLength)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        focusRequester = focusRequester,
-                        enabled = !isSending,
-                        minLines = 2,
-                        maxLines = 4,
-                        placeholderText = if (replyTarget == null) "输入弹幕内容" else "输入回复内容",
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = {
-                            val content = message.trim()
-                            if (content.isNotEmpty() && permission.canSend && !isSending) {
-                                onSend(content, selectedColor, selectedMode)
-                            }
-                        })
-                    )
-                    if (canChooseStyle) {
-                        com.android.purebilibili.core.ui.components.AppTextButton(onClick = { showStyle = !showStyle }) {
-                            AppText(if (showStyle) "收起弹幕样式" else "弹幕样式")
-                        }
-                    }
-                    if (canChooseStyle && showStyle) {
-                        DanmakuColorSelector(
-                            options = permission.availableColors,
-                            selectedColor = selectedColor,
-                            onColorSelected = onColorSelected,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        DanmakuModeSelector(
-                            options = permission.availableModes,
-                            selectedMode = selectedMode,
-                            onModeSelected = onModeSelected,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    AppText(
-                        text = buildString {
-                            append(permission.statusText)
-                            append(" · ")
-                            append(message.length)
-                            append("/")
-                            append(maxLength)
-                            if (permission.availableColors.isNotEmpty()) {
-                                append(" · ")
-                                append(permission.availableColors.take(3).joinToString("、") { it.name })
-                            }
-                            if (permission.availableModes.isNotEmpty()) {
-                                append(" · ")
-                                append(permission.availableModes.take(2).joinToString("、") { it.name })
-                            }
-                        },
-                        color = AppContentColors.secondaryText(),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                if (replyTarget != null) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (onOpenEmote != null) {
-                            AppIconButton(enabled = !isSending, onClick = onOpenEmote) {
-                                AppIcon(
-                                    imageVector = Icons.Outlined.EmojiEmotions,
-                                    contentDescription = "表情",
-                                )
-                            }
-                        } else {
-                            Box(Modifier)
-                        }
-                        AppButton(
-                            enabled = !isSending && permission.canSend && message.trim().isNotEmpty(),
-                            onClick = { onSend(message.trim(), selectedColor, selectedMode) }
-                        ) {
-                            AppText(if (isSending) "发送中…" else "发送")
+                        AppText(
+                            text = "回复 @${replyTarget.uname.ifBlank { replyTarget.uid.toString() }}",
+                            modifier = Modifier.weight(1f).padding(start = AppSpacingTokens.Small),
+                            color = AppContentColors.secondaryText(),
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        AppIconButton(onClick = onClearReply, enabled = !isSending) {
+                            AppIcon(Icons.Outlined.Close, "取消回复，保留正文")
                         }
                     }
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.ExtraSmall),
+                ) {
+                    BasicTextField(
+                        value = message,
+                        onValueChange = { if (!isSending) onMessageChange(it.take(maxLength)) },
+                        modifier = Modifier.weight(1f)
+                            .onFocusChanged {
+                                if (it.isFocused && showingEmoticons) onOpenEmote?.invoke()
+                            }
+                            .focusRequester(focusRequester),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = AppContentColors.primaryText()),
+                        cursorBrush = SolidColor(AppContentColors.accent()),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { send() }),
+                        decorationBox = { innerTextField ->
+                            Box(
+                                modifier = Modifier
+                                    .heightIn(min = 48.dp)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AppSpacingTokens.Small),
+                                contentAlignment = Alignment.CenterStart,
+                            ) {
+                                if (message.isEmpty()) {
+                                    AppText(
+                                        text = if (!permission.canSend) permission.statusText
+                                            else if (replyTarget == null) "发个弹幕…" else "输入回复…",
+                                        color = AppContentColors.secondaryText(),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        },
+                    )
+                    if (onOpenEmote != null) {
+                        AppIconButton(
+                            enabled = !isSending,
+                            onClick = {
+                                showStyle = false
+                                onOpenEmote()
+                            },
+                        ) {
+                            AppIcon(
+                                if (showingEmoticons) Icons.Outlined.Keyboard else Icons.Outlined.EmojiEmotions,
+                                if (showingEmoticons) "切换键盘" else "表情",
+                            )
+                        }
+                    }
+                    AppIconButton(
+                        enabled = !isSending,
+                        onClick = {
+                            showStyle = !showStyle
+                            if (showingEmoticons) onOpenEmote?.invoke()
+                        },
+                    ) {
+                        AppIcon(Icons.Outlined.MoreHoriz, if (showStyle) "收起弹幕设置" else "弹幕设置与字数")
+                    }
+                    AppButton(enabled = canSend, onClick = { send() }) {
+                        AppText(if (isSending) "发送中…" else "发送")
+                    }
+                }
+                if (!permission.canSend) {
+                    AppText(
+                        permission.statusText,
+                        color = AppContentColors.secondaryText(),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (showStyle && !showingEmoticons) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = advancedMaxHeight)
+                            .verticalScroll(rememberScrollState())
+                            .padding(AppSpacingTokens.Small),
+                        verticalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
+                    ) {
+                        AppText(
+                            "${permission.statusText} · ${message.length}/$maxLength",
+                            color = AppContentColors.secondaryText(),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        if (permission.availableColors.isNotEmpty()) {
+                            DanmakuColorSelector(
+                                options = permission.availableColors,
+                                selectedColor = effectiveColor,
+                                onColorSelected = { if (!isSending) onColorSelected(it) },
+                            )
+                        }
+                        if (permission.availableModes.isNotEmpty()) {
+                            DanmakuModeSelector(
+                                options = permission.availableModes,
+                                selectedMode = effectiveMode,
+                                onModeSelected = { if (!isSending) onModeSelected(it) },
+                            )
+                        }
+                        com.android.purebilibili.core.ui.components.AppTextButton(onClick = dismiss) {
+                            AppText("关闭输入，保留草稿")
+                        }
+                    }
+                }
+                if (showingEmoticons) {
+                    Box(Modifier.fillMaxWidth().heightIn(max = advancedMaxHeight)) {
+                        emoticonContent?.invoke()
+                    }
+                }
             }
-            emoticonContent?.invoke()
         }
     }
 }

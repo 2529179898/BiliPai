@@ -480,7 +480,7 @@ fun CommentInputDialog(
                                 .navigationBarsPadding() // 避让底部导航栏(手势条)
                         ) {
                             // 1. 顶部：输入框
-                            Box(
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(
@@ -488,7 +488,8 @@ fun CommentInputDialog(
                                         max = layoutPolicy.inputBoxMaxHeightDp.dp
                                     )
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), AppShapes.container(ContainerLevel.Chip))
-                                    .padding(12.dp)
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 CommentEmoteTextField(
                                     value = textFieldValue,
@@ -503,8 +504,8 @@ fun CommentInputDialog(
                                     hintColor = AppContentColors.secondaryText().copy(alpha = 0.7f),
                                     cursorColor = AppContentColors.accent(),
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .fillMaxHeight() // 填满 Box
+                                        .weight(1f)
+                                        .fillMaxHeight()
                                         .focusRequester(focusRequester)
                                         .testTag("comment_composer_input"),
                                     textStyle = MaterialTheme.typography.bodyLarge.copy(
@@ -512,12 +513,11 @@ fun CommentInputDialog(
                                     ),
                                 )
 
-                                // 右上角全屏图标 (装饰)
+                                // 独立尾部槽位隔离正文和提示文字；所有材质共用，保留原生尺寸与配色。
                                 AppIcon(
                                     imageVector = Icons.Filled.Fullscreen,
                                     contentDescription = "Expand",
                                     modifier = Modifier
-                                        .align(Alignment.TopEnd)
                                         .size(16.dp)
                                         .alpha(0.5f),
                                     tint = AppContentColors.secondaryText()

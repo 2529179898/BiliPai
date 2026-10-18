@@ -90,13 +90,13 @@ class CommentInputDialogUiRegressionTest {
         composeRule.onNodeWithContentDescription("表情").performTouchInput { click() }
         composeRule.onNodeWithTag("comment_kaomoji_grid").assertDoesNotExist()
         composeRule.onNodeWithText("颜文字").performTouchInput { click() }
-        composeRule.onNodeWithTag("comment_kaomoji_grid")
-            .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange))
         composeRule.onNodeWithText("(⌒▽⌒)").performTouchInput { click() }
         assertChooserMode(expectKaomojiGrid = true)
         composeRule.onNodeWithTag("comment_composer_input").assertTextEquals("A(⌒▽⌒)B")
 
-        composeRule.onNodeWithTag("comment_kaomoji_grid")
+        composeRule.onNode(
+            hasScrollToIndexAction() and hasAnyAncestor(hasTestTag("comment_kaomoji_grid"))
+        )
             .performScrollToNode(hasText("⊙__⊙"))
         composeRule.onNodeWithText("⊙__⊙").assertIsDisplayed().performTouchInput { click() }
         assertChooserMode(expectKaomojiGrid = true)
@@ -212,6 +212,27 @@ class CommentInputDialogUiRegressionTest {
         composeRule.onNodeWithText("颜文字").performTouchInput { click() }
         composeRule.onNodeWithText("(^_^)").assertIsDisplayed()
         assertChooserMode(expectKaomojiGrid = true)
+    }
+
+    @Test
+    fun longReplyAndDraft_neverOverlapExpandIcon() {
+        composeRule.setContent {
+            MaterialTheme {
+                CommentInputDialog(
+                    visible = true,
+                    replyToName = "很长的回复对象昵称".repeat(8),
+                    initialText = "这是一段需要自动换行的评论正文。".repeat(20),
+                    onDismiss = {},
+                    onSend = { _, _, _ -> },
+                )
+            }
+        }
+
+        val input = composeRule.onNodeWithTag("comment_composer_input")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val expand = composeRule.onNodeWithContentDescription("Expand")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("正文应在全屏图标左侧结束", input.right < expand.left)
     }
 
     private fun assertChooserMode(expectKaomojiGrid: Boolean = false) {

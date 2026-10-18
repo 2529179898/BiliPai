@@ -220,8 +220,8 @@ fun LivePlayerScreen(
     var showPlayerInfoDialog by remember { mutableStateOf(false) }
     var showShutdownTimerDialog by remember { mutableStateOf(false) }
     var showContributionRankSheet by remember { mutableStateOf(false) }
-    var showSendDanmakuSheet by remember { mutableStateOf(false) }
-    var showEmoticonSheet by remember { mutableStateOf(false) }
+    var showSendDanmakuSheet by rememberSaveable(roomId, siteId) { mutableStateOf(false) }
+    var showEmoticonSheet by rememberSaveable(roomId, siteId) { mutableStateOf(false) }
     var sendColor by rememberSaveable(roomId, siteId) { mutableIntStateOf(16777215) }
     var sendMode by rememberSaveable(roomId, siteId) { mutableIntStateOf(1) }
     var danmakuDraft by rememberSaveable(roomId, siteId) { mutableStateOf("") }
@@ -229,6 +229,12 @@ fun LivePlayerScreen(
     var showStreamSourceSheet by remember { mutableStateOf(false) }
     var showPortraitMoreSheet by remember(roomId, siteId) { mutableStateOf(false) }
     var showPortraitInteractionSheet by remember(roomId, siteId) { mutableStateOf(false) }
+    fun openDanmakuInput(showEmoticons: Boolean = false) {
+        // 输入栏在页面内承载，不能留在竖屏互动弹层的独立窗口后方。
+        showPortraitInteractionSheet = false
+        showEmoticonSheet = showEmoticons
+        showSendDanmakuSheet = true
+    }
     var isPortraitClearScreen by rememberSaveable(roomId, siteId) { mutableStateOf(false) }
     var showPortraitPlayerControls by rememberSaveable(roomId, siteId) { mutableStateOf(true) }
     var isPortraitChatVisible by rememberSaveable(roomId, siteId) { mutableStateOf(true) }
@@ -560,9 +566,12 @@ fun LivePlayerScreen(
                     if (danmakuDraft.trim() == event.message) {
                         danmakuDraft = ""
                         showSendDanmakuSheet = false
+                        showEmoticonSheet = false
                     }
                 }
                 LivePlayerEvent.EmoticonSent -> {
+                    // 表情发送结束同样关闭输入，不能因收起表情面板而重新弹出键盘。
+                    showSendDanmakuSheet = false
                     showEmoticonSheet = false
                 }
             }
@@ -1128,7 +1137,7 @@ fun LivePlayerScreen(
                     onToggleBackgroundPlayback = { toggleBackgroundPlayback() },
                     onOpenShutdownTimer = { showShutdownTimerDialog = true },
                     onOpenPlayerInfo = { showPlayerInfoDialog = true },
-                    onOpenSend = { showSendDanmakuSheet = true },
+                    onOpenSend = { openDanmakuInput() },
                     videoFitDesc = videoAspectRatio.displayName,
                     onVideoFitClick = { showVideoFitMenu = true },
                     currentQualityDesc = currentQualityDesc,
@@ -1198,7 +1207,7 @@ fun LivePlayerScreen(
                     onToggleBackgroundPlayback = { toggleBackgroundPlayback() },
                     onOpenShutdownTimer = { showShutdownTimerDialog = true },
                     onOpenPlayerInfo = { showPlayerInfoDialog = true },
-                    onOpenSend = { showSendDanmakuSheet = true },
+                    onOpenSend = { openDanmakuInput() },
                     videoFitDesc = videoAspectRatio.displayName,
                     onVideoFitClick = { showVideoFitMenu = true },
                     currentQualityDesc = currentQualityDesc,
@@ -1272,7 +1281,7 @@ fun LivePlayerScreen(
     val chatContent: @Composable (Boolean, Boolean) -> Unit = { isOverlay, showHeader ->
         LiveChatSection(
             messages = chatHistory,
-            onOpenSend = { showSendDanmakuSheet = true },
+            onOpenSend = { openDanmakuInput() },
             headerTitle = "实时互动",
             supportingText = "发送弹幕和主播互动",
             isOverlay = isOverlay,
@@ -1281,13 +1290,12 @@ fun LivePlayerScreen(
             onToggleDanmaku = { toggleLiveDanmaku() },
             onLike = { count -> viewModel.clickLike(count) },
             onOpenEmote = {
-                showEmoticonSheet = true
-                showSendDanmakuSheet = true
+                openDanmakuInput(showEmoticons = true)
             },
             onUserClick = onUserClick,
             onAtUser = { item ->
                 viewModel.setReplyTarget(item)
-                showSendDanmakuSheet = true
+                openDanmakuInput()
             },
             onBlockUser = { item ->
                 if (item.uid > 0L) {
@@ -1311,9 +1319,8 @@ fun LivePlayerScreen(
             isDanmakuEnabled = successState?.isDanmakuEnabled ?: true,
             onToggleDanmaku = { toggleLiveDanmaku() },
             onLike = { count -> viewModel.clickLike(count) },
-            onOpenEmote = { showEmoticonSheet = true
-                showSendDanmakuSheet = true },
-            onOpenSend = { showSendDanmakuSheet = true },
+            onOpenEmote = { openDanmakuInput(showEmoticons = true) },
+            onOpenSend = { openDanmakuInput() },
             selectedPage = selectedInteractionTab,
             showPageIndicator = liveSuperChatPanelEnabled,
         )
@@ -1418,7 +1425,7 @@ fun LivePlayerScreen(
             onQualityClick = { showQualityMenu = true },
             onlineRankText = roomInfo.onlineRankText,
             onOpenRank = { showContributionRankSheet = true },
-            onOpenSend = { showSendDanmakuSheet = true },
+            onOpenSend = { openDanmakuInput() },
             onOpenBlock = { showBlockDialog = true },
             redPocketInfo = successState?.redPocketInfo,
             onRedPocketClick = {
@@ -1618,7 +1625,7 @@ fun LivePlayerScreen(
                         onQualityClick = { showQualityMenu = true },
                         onlineRankText = roomInfo.onlineRankText,
             onOpenRank = { showContributionRankSheet = true },
-                        onOpenSend = { showSendDanmakuSheet = true },
+                        onOpenSend = { openDanmakuInput() },
                         onOpenBlock = { showBlockDialog = true },
                         redPocketInfo = successState?.redPocketInfo,
                         onRedPocketClick = {
@@ -1655,7 +1662,6 @@ fun LivePlayerScreen(
             maxWidthDp = liveSuperChatMaxWidthDp,
             modifier = Modifier.fillMaxSize()
         )
-    }
     }
 
     if (showPortraitMoreSheet) {
@@ -1973,9 +1979,9 @@ fun LivePlayerScreen(
             emoticonContent = if (showEmoticonSheet) ({
                 LiveEmoticonPanel(
                     packages = emoticonPackages,
-                    enabled = !isSending,
+                    enabled = !isSending && (successState?.danmakuPermission?.canSend != false),
                     onInsertText = { item ->
-                        val maxLength = successState?.danmakuPermission?.maxLength ?: 40
+                        val maxLength = successState?.danmakuPermission?.maxLength?.takeIf { it > 0 } ?: 40
                         com.android.purebilibili.data.repository.appendLiveTextEmoticon(danmakuDraft, item, maxLength)
                             .onSuccess { danmakuDraft = it }
                             .onFailure { Toast.makeText(context, it.message, Toast.LENGTH_SHORT).show() }
@@ -2007,6 +2013,7 @@ fun LivePlayerScreen(
                 showStreamSourceSheet = false
             }
         }
+    }
     }
 }
 
