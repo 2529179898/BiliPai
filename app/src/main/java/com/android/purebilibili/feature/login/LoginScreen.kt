@@ -372,6 +372,7 @@ private fun LoginMethodTabs(
     onMethodSelected: (LoginMethod) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     AppThemeAdaptiveTabRow(
         role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
         options = resolveAvailableLoginMethods().map { method ->
@@ -383,6 +384,10 @@ private fun LoginMethodTabs(
             .fillMaxWidth()
             .wrapContentWidth(Alignment.CenterHorizontally),
         scrollable = true,
+        // Glass uses equal slots measured from the longest login label. Fill the selected
+        // slot so shorter labels do not add a second inset inside the dock's own padding.
+        // Keep the default label-adaptation argument for native MD3/Miuix paths.
+        liquidGlassAdaptIndicatorToLabel = !liquidGlassEnabled,
     )
 }
 
