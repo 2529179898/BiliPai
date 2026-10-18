@@ -217,6 +217,7 @@ internal fun canPublishCommentDraft(
 @Composable
 fun CommentInputDialog(
     visible: Boolean,
+    draftKey: String,
     onDismiss: () -> Unit,
     onSend: (String, List<Uri>, Boolean) -> Unit,
     isSending: Boolean = false,
@@ -268,15 +269,16 @@ fun CommentInputDialog(
     }
 
     // 状态
-    var textFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+    var textFieldValue by rememberSaveable(draftKey, stateSaver = TextFieldValue.Saver) {
         mutableStateOf(commentDraftTextFieldValue(initialText))
     }
-    var isForwardToDynamic by rememberSaveable { mutableStateOf(initialSyncToDynamic) } // 转发到动态
+    var isForwardToDynamic by rememberSaveable(draftKey) { mutableStateOf(initialSyncToDynamic) } // 转发到动态
     var showEmojiPanel by remember { mutableStateOf(false) }    // 表情面板
     var showMentionPanel by remember { mutableStateOf(false) }
     var mentionSearchText by remember { mutableStateOf("") }
     var currentTab by remember { mutableLongStateOf(1L) }
     var selectedImageUris by rememberSaveable(
+        draftKey,
         stateSaver = listSaver<List<Uri>, String>(
             save = { uris -> uris.map(Uri::toString) },
             restore = { uris -> uris.map(Uri::parse) },
@@ -284,6 +286,7 @@ fun CommentInputDialog(
     ) { mutableStateOf(initialImageUris) }
     var lastKeyboardHeightDp by remember(configuration.orientation) { mutableIntStateOf(0) }
     var inputWasVisible by rememberSaveable { mutableStateOf(false) }
+    var restoredDraftKey by rememberSaveable { mutableStateOf<String?>(null) }
     val text = textFieldValue.text
     val canPublish = canPublishCommentDraft(
         text = text,
@@ -300,7 +303,7 @@ fun CommentInputDialog(
     var dismissRequested by remember { mutableStateOf(false) }
     val latestOnDismiss by rememberUpdatedState(onDismiss)
     val inputActive = visible && !dismissRequested
-    LaunchedEffect(visible) {
+    LaunchedEffect(visible, draftKey) {
         dismissRequested = false
         inputVisibility.targetState = visible
     }
@@ -309,7 +312,7 @@ fun CommentInputDialog(
     }
     // Keep the native window mounted until the actual sheet inside it finishes exiting.
     // External closure (including send success) follows the same path without a second callback.
-    LaunchedEffect(inputVisibility.isIdle, inputVisibility.currentState, dismissRequested) {
+    LaunchedEffect(inputVisibility.isIdle, inputVisibility.currentState, dismissRequested, draftKey) {
         if (inputVisibility.isIdle && !inputVisibility.currentState && dismissRequested) {
             latestOnDismiss()
         }
@@ -322,15 +325,17 @@ fun CommentInputDialog(
             inputVisibility.targetState = false
         }
     }
+    var imagePickerDraftKey by rememberSaveable { mutableStateOf<String?>(null) }
     val imagePickerLauncher = rememberLauncherForActivityResult(
         PickMultipleGalleryVisualMedia(maxItems = 9)
     ) { uris ->
-        if (uris.isNotEmpty()) {
+        if (uris.isNotEmpty() && imagePickerDraftKey == draftKey) {
             selectedImageUris = (selectedImageUris + uris)
                 .distinct()
                 .take(9)
             onDraftChange(textFieldValue.text, selectedImageUris, isForwardToDynamic)
         }
+        imagePickerDraftKey = null
     }
 
     fun updateTextFieldValue(nextValue: TextFieldValue) {
@@ -361,7 +366,7 @@ fun CommentInputDialog(
 
 
     // 重置状态
-    LaunchedEffect(visible) {
+    LaunchedEffect(visible, draftKey) {
         if (!visible) {
             // 外部关闭（例如导航离开详情页）也要立即撤销输入焦点，避免输入光标
             // 在弹层退场期间继续显示在播放详情页上。
@@ -373,10 +378,11 @@ fun CommentInputDialog(
             return@LaunchedEffect
         }
 
-        // 恢复后的可见会话保留正文、选区、图片及转发状态；重新打开才加载上游草稿。
-        if (inputWasVisible) return@LaunchedEffect
+        // 同一会话恢复保留选区；换目标或重新打开时只从该会话的草稿恢复。
+        if (inputWasVisible && restoredDraftKey == draftKey) return@LaunchedEffect
         inputWasVisible = true
-        // 草稿更新会随每次输入回流，不能作为 effect key，否则会持续覆盖 IME 选区。
+        restoredDraftKey = draftKey
+        // 正文回流不参与 effect key，避免每次输入都重置 IME 选区。
         textFieldValue = commentDraftTextFieldValue(initialText)
         isForwardToDynamic = initialSyncToDynamic
         showEmojiPanel = false
@@ -431,7 +437,7 @@ fun CommentInputDialog(
                 keyboardHeightDp = maxOf(lastKeyboardHeightDp, keyboardHeightDp),
                 availableHeightDp = availablePanelHeightDp,
             )
-            LaunchedEffect(showEmojiPanel, inputActive, canInputComment) {
+            LaunchedEffect(showEmojiPanel, inputActive, canInputComment, draftKey) {
                 if (!shouldAutoShowCommentKeyboard(inputActive, canInputComment, showEmojiPanel)) {
                     keyboardController?.hide()
                     focusManager.clearFocus(force = true)
@@ -491,27 +497,30 @@ fun CommentInputDialog(
                                     .padding(12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                CommentEmoteTextField(
-                                    value = textFieldValue,
-                                    onValueChange = ::updateTextFieldValue,
-                                    emoteUrls = inputEmoteUrls,
-                                    enabled = canInputComment && !isSending,
-                                    readOnly = showEmojiPanel,
-                                    onBeginEditing = { showEmojiPanel = false },
-                                    hint = inputHint.ifBlank { "进来唠会嗑呗~" }.let { resolvedHint ->
-                                        if (replyToName != null) "回复 @$replyToName: $resolvedHint" else resolvedHint
-                                    },
-                                    hintColor = AppContentColors.secondaryText().copy(alpha = 0.7f),
-                                    cursorColor = AppContentColors.accent(),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .focusRequester(focusRequester)
-                                        .testTag("comment_composer_input"),
-                                    textStyle = MaterialTheme.typography.bodyLarge.copy(
-                                        color = AppContentColors.primaryText()
-                                    ),
-                                )
+                                // 原生编辑器也按会话隔离，旧 TextWatcher 不能回写新回复目标。
+                                key(draftKey) {
+                                    CommentEmoteTextField(
+                                        value = textFieldValue,
+                                        onValueChange = ::updateTextFieldValue,
+                                        emoteUrls = inputEmoteUrls,
+                                        enabled = canInputComment && !isSending,
+                                        readOnly = showEmojiPanel,
+                                        onBeginEditing = { showEmojiPanel = false },
+                                        hint = inputHint.ifBlank { "进来唠会嗑呗~" }.let { resolvedHint ->
+                                            if (replyToName != null) "回复 @$replyToName: $resolvedHint" else resolvedHint
+                                        },
+                                        hintColor = AppContentColors.secondaryText().copy(alpha = 0.7f),
+                                        cursorColor = AppContentColors.accent(),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                            .focusRequester(focusRequester)
+                                            .testTag("comment_composer_input"),
+                                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                            color = AppContentColors.primaryText()
+                                        ),
+                                    )
+                                }
 
                                 // 独立尾部槽位隔离正文和提示文字；所有材质共用，保留原生尺寸与配色。
                                 AppIcon(
@@ -545,7 +554,7 @@ fun CommentInputDialog(
                                             cursor = cursor,
                                             mentionName = user.name
                                         )
-                                        textFieldValue = TextFieldValue(nextText, nextSelection)
+                                        updateTextFieldValue(TextFieldValue(nextText, nextSelection))
                                         showMentionPanel = false
                                         mentionSearchText = ""
                                     },
@@ -722,6 +731,7 @@ fun CommentInputDialog(
 
                                     AppIconButton(
                                         onClick = {
+                                            imagePickerDraftKey = draftKey
                                             imagePickerLauncher.launch(
                                                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                             )

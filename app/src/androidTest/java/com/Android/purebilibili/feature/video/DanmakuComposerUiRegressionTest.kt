@@ -29,6 +29,7 @@ class DanmakuComposerUiRegressionTest {
             MaterialTheme {
                 CommentInputDialog(
                     visible = true,
+                    draftKey = "restored-comment",
                     initialText = "旧评论",
                     onDismiss = {},
                     onSend = { _, _, _ -> },
