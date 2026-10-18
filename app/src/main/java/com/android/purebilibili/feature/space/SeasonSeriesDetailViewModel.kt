@@ -84,11 +84,12 @@ class SeasonSeriesDetailViewModel(application: Application) : BaseListViewModel(
         }
     }
 
-    internal fun changeFavoriteDetailSortOrder(order: FavoriteDetailSortOrder) {
+    internal fun changeFavoriteDetailSortOrder(order: FavoriteDetailSortOrder): Boolean {
         if (!canSortFavoriteFolder || order == _favoriteDetailSortOrder.value ||
-            _uiState.value.isLoading || isLoadingMore || _isManagingState.value) return
+            _uiState.value.isLoading || isLoadingMore || _isManagingState.value) return false
         _favoriteDetailSortOrder.value = order
         loadData()
+        return true
     }
 
     // Pagination

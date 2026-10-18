@@ -173,8 +173,11 @@ class SeasonSeriesDetailViewModelTest {
             Result.failure(IllegalStateException("中间页失败"))
         viewModel.init("favorite", 900L, 101L, "收藏夹")
         runCurrent()
-        viewModel.changeFavoriteDetailSortOrder(FavoriteDetailSortOrder.OLDEST_FIRST)
+        assertFalse(viewModel.changeFavoriteDetailSortOrder(FavoriteDetailSortOrder.NEWEST_FIRST))
+        assertTrue(viewModel.changeFavoriteDetailSortOrder(FavoriteDetailSortOrder.OLDEST_FIRST))
+        assertFalse(viewModel.changeFavoriteDetailSortOrder(FavoriteDetailSortOrder.NEWEST_FIRST))
         runCurrent()
+        assertFalse(viewModel.changeFavoriteDetailSortOrder(FavoriteDetailSortOrder.OLDEST_FIRST))
 
         assertEquals(listOf(1L), viewModel.uiState.value.items.map { it.aid })
         assertEquals(3, viewModel.favoriteDetailProgressState.value.currentPage)

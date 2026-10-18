@@ -357,11 +357,6 @@ fun CommonListScreen(
     var showFavoriteDetailEditor by rememberSaveable(
         seasonSeriesDetailViewModel, accountIdentity.mid, accountIdentity.generation
     ) { mutableStateOf(false) }
-    LaunchedEffect(favoriteDetailSortOrder) {
-        if (seasonSeriesDetailViewModel?.canSortFavoriteFolder == true) {
-            primaryGridState.scrollToItem(0)
-        }
-    }
     val likedVideosHasMore by likedVideosViewModel?.hasMoreState?.collectAsStateWithLifecycle()
         ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val likedVideosIsLoadingMore by likedVideosViewModel?.isLoadingMoreState?.collectAsStateWithLifecycle()
@@ -1943,7 +1938,13 @@ fun CommonListScreen(
                                                             enabled = !isFavoriteDetailBusy,
                                                             selected = order == favoriteDetailSortOrder,
                                                             onClick = {
-                                                                seasonSeriesDetailViewModel.changeFavoriteDetailSortOrder(order)
+                                                                // Returning to this page must preserve its restored position.
+                                                                // Only an accepted user sort change starts a new list at the top.
+                                                                if (seasonSeriesDetailViewModel.changeFavoriteDetailSortOrder(order)) {
+                                                                    coroutineScope.launch {
+                                                                        primaryGridState.scrollToItem(0)
+                                                                    }
+                                                                }
                                                             },
                                                         )
                                                     },
