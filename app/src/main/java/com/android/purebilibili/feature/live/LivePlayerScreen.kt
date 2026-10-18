@@ -410,12 +410,6 @@ fun LivePlayerScreen(
             isInteractionPanelVisible = isInteractionPanelVisible
         )
     }
-    val useTextureSurfaceForLivePlayer = remember(sharedTransitionScope, animatedVisibilityScope) {
-        shouldUseTextureSurfaceForLivePlayer(
-            hasSharedTransitionScope = sharedTransitionScope != null,
-            hasAnimatedVisibilityScope = animatedVisibilityScope != null
-        )
-    }
     val liveSubtitle = remember(roomInfo, anchorInfo) {
         listOf(
             roomInfo.watchedText,
@@ -628,6 +622,12 @@ fun LivePlayerScreen(
             .setHandleAudioBecomingNoisy(true)
             .build().apply { playWhenReady = true }
     }
+    val liveHdrSurfaceRequired = com.android.purebilibili.feature.video.ui.components.rememberVideoSurfaceHdrRequired(exoPlayer)
+    val useTextureSurfaceForLivePlayer = shouldUseTextureSurfaceForLivePlayer(
+        hasSharedTransitionScope = sharedTransitionScope != null,
+        hasAnimatedVisibilityScope = animatedVisibilityScope != null,
+        requiresHdrSurfaceOutput = liveHdrSurfaceRequired,
+    )
 
     LaunchedEffect(exoPlayer, isLiveAudioOnly) {
         if (isLiveAudioOnly) {
@@ -983,7 +983,7 @@ fun LivePlayerScreen(
                     .background(roomColorTokens.baseBackgroundColor)
                     .hazeSourceCompat(state = hazeState)
                 .then(
-                    if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+                    if (useTextureSurfaceForLivePlayer && sharedTransitionScope != null && animatedVisibilityScope != null) {
                         with(sharedTransitionScope) {
                             Modifier.sharedElement(
                                 sharedContentState = rememberSharedContentState(key = com.android.purebilibili.core.ui.transition.liveCoverSharedElementKey(bilibiliRoomId)),
@@ -1023,6 +1023,7 @@ fun LivePlayerScreen(
                     )
                 }
 
+                key(exoPlayer, useTextureSurfaceForLivePlayer) {
                 AndroidView(
                     factory = { ctx ->
                         val livePlayerView = if (useTextureSurfaceForLivePlayer) {
@@ -1045,8 +1046,13 @@ fun LivePlayerScreen(
                         }
                         playerViewRef = playerView
                     },
+                    onRelease = { view ->
+                        if (playerViewRef === view) playerViewRef = null
+                        view.player = null
+                    },
                     modifier = viewportModifier
                 )
+                }
             }
 
             // Danmaku Overlay (Only render if enabled)

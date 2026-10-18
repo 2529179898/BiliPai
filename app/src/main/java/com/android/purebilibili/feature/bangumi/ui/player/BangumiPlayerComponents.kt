@@ -288,7 +288,11 @@ fun BangumiPlayerView(
         glassSupported = pageGlassSupported,
         retainedGlassTexture = hasUsedPageGlassTexture,
         hdr = requiresHdrSurface,
-        existingTextureRequest = features.isFlippedHorizontal || features.isFlippedVertical,
+        existingTextureRequest = com.android.purebilibili.feature.video.ui.section.shouldUseTextureSurfaceForFlip(
+            isFlippedHorizontal = features.isFlippedHorizontal,
+            isFlippedVertical = features.isFlippedVertical,
+            requiresHdrSurfaceOutput = requiresHdrSurface,
+        ),
     )
     val shouldRenderAnime4kPipeline = shouldUseAnime4kPipeline &&
         videoSizeState.first > 0 &&

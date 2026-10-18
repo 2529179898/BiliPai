@@ -3100,26 +3100,26 @@ private fun VideoPageItem(
         // 否则显示封面
         
         if (isCurrentPage && isPlayerReadyForThisVideo) {
+            val surfaceHdrRequired = com.android.purebilibili.feature.video.ui.components.rememberVideoSurfaceHdrRequired(
+                exoPlayer, selectedQualityId,
+            )
+            val preferTexture = shouldUseTextureSurfaceForFlip(
+                isFlippedHorizontal = false,
+                isFlippedVertical = false,
+                navigationTransformEnabled = useTextureSurfaceForNavigation || portraitGlassSupported,
+                requiresHdrSurfaceOutput = surfaceHdrRequired,
+            )
             PortraitVideoViewportContainer(
                 currentVideoAspect = portraitPagerViewportAspect,
                 modifier = mediaLayerModifier,
                 fillContainer = portraitPagerFillContainer
             ) {
-                key(currentPlayingBvid, bvid, portraitGlassSupported) {
+                key(currentPlayingBvid, bvid, preferTexture) {
                     Box(
                         modifier = viewportTransformModifier
                     ) {
                         AndroidView(
                             factory = { ctx ->
-                                // HDR/Dolby need SurfaceView; navigation morph TextureView kills HDR.
-                                val preferTexture = shouldUseTextureSurfaceForFlip(
-                                    isFlippedHorizontal = false,
-                                    isFlippedVertical = false,
-                                    navigationTransformEnabled = useTextureSurfaceForNavigation || portraitGlassSupported,
-                                    requiresHdrSurfaceOutput = requiresHdrSurfaceOutput(
-                                        currentQualityId = selectedQualityId
-                                    )
-                                )
                                 val basePlayerView = if (preferTexture) {
                                     android.view.LayoutInflater.from(ctx)
                                         .inflate(
@@ -3164,6 +3164,10 @@ private fun VideoPageItem(
                                         resizeMode = portraitPagerResizeMode,
                                     )
                                 }
+                            },
+                            onRelease = { view ->
+                                if (playerViewRef === view) playerViewRef = null
+                                view.player = null
                             },
                             modifier = Modifier.fillMaxSize()
                         )

@@ -30,9 +30,11 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
 import com.android.purebilibili.core.ui.motion.rememberSystemReduceMotion
 import com.android.purebilibili.core.ui.performance.isLowBlurBudgetForced
@@ -90,8 +92,14 @@ internal fun ProfileAvatarEffect(
                     pivotY = 0f
                     setContent {
                         val currentUser = latestUser.value
+                        val context = LocalContext.current
+                        val avatarRequest = remember(context, currentUser.face) {
+                            ImageRequest.Builder(context)
+                                .data(currentUser.face)
+                                .buildForProfileFusion()
+                        }
                         AsyncImage(
-                            model = currentUser.face,
+                            model = avatarRequest,
                             contentDescription = "${currentUser.name}的头像，编辑个人资料",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()

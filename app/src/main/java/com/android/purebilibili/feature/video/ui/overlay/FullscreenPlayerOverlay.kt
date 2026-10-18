@@ -1057,6 +1057,9 @@ fun FullscreenPlayerOverlay(
 
         // 视频播放器
         player?.let { exoPlayer ->
+            val useTextureSurface = com.android.purebilibili.feature.video.ui.components.rememberCompatibleVideoTextureSurface(
+                exoPlayer, miniPlayerManager.cachedUiState?.currentQuality ?: 0,
+            )
             BoxWithConstraints(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -1078,9 +1081,10 @@ fun FullscreenPlayerOverlay(
                         )
                 }
 
+                key(exoPlayer, useTextureSurface) {
                 AndroidView(
                     factory = { ctx ->
-                        PlayerView(ctx).apply {
+                        com.android.purebilibili.feature.video.ui.components.createVideoPlayerView(ctx, useTextureSurface).apply {
                             this.player = exoPlayer
                             useController = false
                             keepScreenOn = keepFullscreenPlaybackAwake
@@ -1095,8 +1099,13 @@ fun FullscreenPlayerOverlay(
                         playerView.resizeMode = aspectRatio.playerResizeMode
                         playerViewRef = playerView
                     },
+                    onRelease = { view ->
+                        if (playerViewRef === view) playerViewRef = null
+                        view.player = null
+                    },
                     modifier = viewportModifier
                 )
+                }
 
                 if (danmakuEnabled) {
                     key(danmakuManager) {

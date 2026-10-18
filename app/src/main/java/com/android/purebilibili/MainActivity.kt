@@ -1788,9 +1788,13 @@ open class MainActivity : AppCompatActivity() {
                     }
                     if (playbackOverlayState.showDedicatedPipPlayer) {
                         miniPlayerManager.player?.let { pipPlayer ->
+                            val useTextureSurface = com.android.purebilibili.feature.video.ui.components.rememberCompatibleVideoTextureSurface(
+                                pipPlayer, miniPlayerManager.cachedUiState?.currentQuality ?: 0,
+                            )
+                            key(pipPlayer, useTextureSurface) {
                             AndroidView(
                                 factory = { viewContext ->
-                                    PlayerView(viewContext).apply {
+                                    com.android.purebilibili.feature.video.ui.components.createVideoPlayerView(viewContext, useTextureSurface).apply {
                                         player = pipPlayer
                                         useController = false
                                         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
@@ -1798,10 +1802,12 @@ open class MainActivity : AppCompatActivity() {
                                     }
                                 },
                                 update = { playerView -> playerView.player = pipPlayer },
+                                onRelease = { view -> view.player = null },
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .background(Color.Black)
                             )
+                            }
                         }
                     }
                     //  小窗播放器覆盖层 (非 PiP 模式下显示；PIP 期间保持挂载但内容

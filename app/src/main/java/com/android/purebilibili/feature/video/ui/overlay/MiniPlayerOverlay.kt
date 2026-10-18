@@ -546,15 +546,20 @@ fun MiniPlayerOverlay(
             Box(modifier = Modifier.fillMaxSize()) {
                 // 视频画面
                 player?.let { exoPlayer ->
+                    val useTextureSurface = com.android.purebilibili.feature.video.ui.components.rememberCompatibleVideoTextureSurface(
+                        exoPlayer, miniPlayerManager.cachedUiState?.currentQuality ?: 0,
+                    )
+                    key(exoPlayer, useTextureSurface) {
                     AndroidView(
                         factory = { ctx ->
-                            PlayerView(ctx).apply {
+                            com.android.purebilibili.feature.video.ui.components.createVideoPlayerView(ctx, useTextureSurface).apply {
                                 this.player = exoPlayer
                                 useController = false
                                 setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                             }
                         },
                         update = { view -> view.player = exoPlayer },
+                        onRelease = { view -> view.player = null },
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(shellVisual.cardCornerRadiusDp.dp))
@@ -665,6 +670,7 @@ fun MiniPlayerOverlay(
                                 )
                             }
                     )
+                    }
                 }
 
                 //  顶部拖动区域 - 用于移动小窗位置
