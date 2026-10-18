@@ -213,6 +213,7 @@ class VideoCommentViewModel : ViewModel() {
     // 再后台静默刷新，避免每次都从白屏骨架开始。
     private val commentCache = sharedVideoCommentCache
     private var subReplyLoadJob: Job? = null
+    private var subReplySession = 0L
     private val _subReplyState = MutableStateFlow(SubReplyUiState())
     val subReplyState = _subReplyState.asStateFlow()
 
@@ -567,6 +568,7 @@ class VideoCommentViewModel : ViewModel() {
             "subreply_click subjectValid=${requestSubject.isValid} visible=${_subReplyState.value.visible}"
         }
         if (!requestSubject.isValid) return
+        subReplySession++
         subReplyLoadJob?.cancel()
         _subReplyState.value = SubReplyUiState(
             visible = true,
@@ -601,6 +603,7 @@ class VideoCommentViewModel : ViewModel() {
             return true
         }
 
+        subReplySession++
         subReplyLoadJob?.cancel()
         val routeSubject = currentSubject
         _subReplyState.value = _subReplyState.value.copy(
@@ -675,6 +678,7 @@ class VideoCommentViewModel : ViewModel() {
     }
 
     fun closeSubReply() {
+        subReplySession++
         subReplyLoadJob?.cancel()
         _subReplyState.update { current ->
             current.copy(
@@ -740,8 +744,7 @@ class VideoCommentViewModel : ViewModel() {
             else -> {
                 allReplies.map { rootReply ->
                     if (rootReply.rpid != newReply.root) return@map rootReply
-                    val updatedPreviewReplies = (listOf(newReply) + rootReply.replies.orEmpty())
-                        .distinctBy { it.rpid }
+                    val updatedPreviewReplies = insertSentSubReply(rootReply.replies.orEmpty(), newReply)
                     rootReply.copy(
                         count = rootReply.count + 1,
                         rcount = rootReply.rcount + 1,
@@ -758,15 +761,7 @@ class VideoCommentViewModel : ViewModel() {
         )
 
         if (subState.visible && activeRootReply != null && newReply.root == activeRootReply.rpid) {
-            val updatedItems = (listOf(newReply) + subState.items).distinctBy { it.rpid }
-            _subReplyState.value = subState.copy(
-                items = updatedItems.toImmutableList(),
-                totalCount = resolveSubReplyLoadedTotalCount(
-                    rootReply = activeRootReply,
-                    loadedReplyCount = updatedItems.size,
-                    remoteReplyCount = subState.totalCount + 1
-                )
-            )
+            _subReplyState.value = subState.withSentSubReply(newReply)
         }
     }
 
@@ -1081,6 +1076,7 @@ class VideoCommentViewModel : ViewModel() {
         val sendCurrentAid = currentAid
         val sendReplyTarget = currentState.replyTarget
         val sendSubReplyState = _subReplyState.value
+        val sendSubReplySession = subReplySession
         
         viewModelScope.launch {
             // [修复] 正确计算 root ID
@@ -1092,7 +1088,7 @@ class VideoCommentViewModel : ViewModel() {
             val root = if (isSubReplyContext) {
                 sendSubReplyState.rootReply!!.rpid
             } else {
-                sendReplyTarget?.rpid ?: 0
+                sendReplyTarget?.let { it.root.takeIf { id -> id > 0L } ?: it.rpid } ?: 0L
             }
             // parent 总是回复目标的 ID (如果没有回复目标，则是 0)
             val parent = sendReplyTarget?.rpid ?: 0
@@ -1180,19 +1176,23 @@ class VideoCommentViewModel : ViewModel() {
                 } 
                 // 2. 如果是二级评论，刷新二级评论列表
                 else if (isSubReplyContext) {
-                    if (newReply != null) {
-                        // 有返回评论对象，直接添加到列表顶部
-                        val currentSub = _subReplyState.value
-                        _subReplyState.value = currentSub.copy(
-                            items = (listOf(newReply) + currentSub.items).toImmutableList(),
+                    val currentSub = _subReplyState.value
+                    val canApplyToThread = shouldApplySentSubReplyResult(
+                        root, sendSubReplySession, subReplySession, currentSub
+                    )
+                    if (newReply != null && canApplyToThread) {
+                        _subReplyState.value = currentSub.withSentSubReply(
+                            resolveSentSubReply(newReply, root, parent, sendReplyTarget)
                         )
-                    } else {
+                    } else if (newReply == null && canApplyToThread) {
                         // [修复] newReply 为 null 时，重新加载二级评论列表
                         android.util.Log.d("CommentVM", " sendComment: sub-reply newReply is null, reloading...")
-                        val currentSub = _subReplyState.value
-                        currentSub.rootReply?.let { root ->
+                        subReplyLoadJob?.cancel()
+                        currentSub.rootReply?.let { activeRoot ->
                             _subReplyState.value = currentSub.copy(
                                 items = emptyList<ReplyItem>().toImmutableList(),
+                                baseItems = emptyList<ReplyItem>().toImmutableList(),
+                                conversationAnchor = null,
                                 page = 1,
                                 isEnd = false,
                                 isLoading = true,
@@ -1200,7 +1200,7 @@ class VideoCommentViewModel : ViewModel() {
                             )
                             loadSubReplies(
                                 subject = sendSubject,
-                                rootId = root.rpid,
+                                rootId = activeRoot.rpid,
                                 page = 1,
                                 paginationOffset = null
                             )
@@ -1210,7 +1210,10 @@ class VideoCommentViewModel : ViewModel() {
                     _commentState.value = current.copy(
                         isSending = false,
                         sendError = null,
-                        replyTarget = null
+                        replyTarget = if (
+                            subReplySession == sendSubReplySession &&
+                            current.replyTarget?.rpid == sendReplyTarget?.rpid
+                        ) null else current.replyTarget
                     )
                 }
                 // 3. 一级列表回复 (展开二级或直接回复)

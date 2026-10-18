@@ -14,6 +14,9 @@ import com.android.purebilibili.feature.video.viewmodel.resetForSort
 import com.android.purebilibili.feature.video.viewmodel.resolveRoutedCommentRootReply
 import com.android.purebilibili.feature.video.viewmodel.resolveSubReplyLoadedTotalCount
 import com.android.purebilibili.feature.video.viewmodel.resolveSubReplyRemoteTotalCount
+import com.android.purebilibili.feature.video.viewmodel.resolveSentSubReply
+import com.android.purebilibili.feature.video.viewmodel.withSentSubReply
+import com.android.purebilibili.feature.video.viewmodel.shouldApplySentSubReplyResult
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentSet
 import kotlinx.coroutines.Job
@@ -87,6 +90,7 @@ class CommentDetailViewModel : ViewModel() {
     private var currentRootId: Long = 0L
     private var currentTargetReplyId: Long = 0L
     private var subReplyLoadJob: Job? = null
+    private var threadSession = 0L
 
     fun loadInitial(
         oid: Long,
@@ -101,6 +105,7 @@ class CommentDetailViewModel : ViewModel() {
             return
         }
 
+        threadSession++
         currentOid = oid
         currentType = type
         currentRootId = rootId
@@ -245,14 +250,17 @@ class CommentDetailViewModel : ViewModel() {
         syncToDynamic: Boolean = false,
         onSuccess: () -> Unit = {}
     ) {
+        if (_isSending.value) return
         val rootReply = _subReplyState.value.rootReply ?: return
         val replying = _replyingTo.value ?: rootReply
         val parentId = if (replying.rpid == rootReply.rpid) 0L else replying.rpid
         val oid = currentOid
         val type = currentType
+        val sendSession = threadSession
+        _isSending.value = true
 
         viewModelScope.launch {
-            _isSending.value = true
+            // Bind the result to the thread that opened this composer, not the current destination.
             CommentRepository.addCommentForSubject(
                 oid = oid,
                 type = type,
@@ -262,17 +270,22 @@ class CommentDetailViewModel : ViewModel() {
                 syncToDynamic = syncToDynamic
             ).onSuccess { newReply ->
                 _isSending.value = false
-                hideReplyInput()
-                onSuccess()
-                if (newReply != null) {
-                    val currentItems = _subReplyState.value.items
-                    _subReplyState.value = _subReplyState.value.copy(
-                        items = (listOf(newReply) + currentItems).distinctBy { it.rpid }.toImmutableList(),
-                        totalCount = _subReplyState.value.totalCount + 1
+                if (currentOid != oid || currentType != type || !shouldApplySentSubReplyResult(
+                        rootReply.rpid, sendSession, threadSession, _subReplyState.value
                     )
+                ) return@onSuccess
+                hideReplyInput()
+                if (newReply != null) {
+                    _subReplyState.update {
+                        it.withSentSubReply(
+                            resolveSentSubReply(newReply, rootReply.rpid, parentId, replying),
+                            conversationItemsAreFiltered = false
+                        )
+                    }
                 } else {
                     loadSubReplies(page = 1, paginationOffset = null)
                 }
+                onSuccess()
             }.onFailure {
                 _isSending.value = false
             }
