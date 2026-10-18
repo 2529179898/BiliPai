@@ -366,6 +366,7 @@ private data class SubReplyDetailPage(
     val listState: LazyListState,
     val isRefreshing: Boolean,
     val isLoading: Boolean,
+    val isEnd: Boolean,
     val error: String?,
     val showManualLoadMore: Boolean,
     val replyDisplayCount: Int,
@@ -668,6 +669,7 @@ internal fun SubReplyDetailContent(
                 listState = listState,
                 isRefreshing = isRefreshing,
                 isLoading = isLoading,
+                isEnd = isEnd || localConversationMode,
                 error = error,
                 showManualLoadMore = showManualLoadMore,
                 replyDisplayCount = detailReplyDisplayCount,
@@ -684,6 +686,7 @@ internal fun SubReplyDetailContent(
             val listState = page.listState
             val isRefreshing = page.isRefreshing
             val isLoading = page.isLoading
+            val isEnd = page.isEnd
             val error = page.error
             val showManualLoadMore = page.showManualLoadMore
             val detailReplyDisplayCount = page.replyDisplayCount
@@ -917,6 +920,20 @@ internal fun SubReplyDetailContent(
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                                     color = appearance.sortTint
                                 )
+                            }
+                            isEnd && !isLoading && !isRefreshing -> {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 24.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    AppText(
+                                        text = "—— end ——",
+                                        color = appearance.secondaryTextColor,
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
                             }
                         }
                     }
