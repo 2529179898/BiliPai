@@ -4648,9 +4648,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
 
     private fun ensureComposerDraftVideo() {
         val videoId = (_uiState.value as? VideoPlaybackUiState.Success)?.info?.bvid.orEmpty()
-        if (_composerDrafts.value.videoId != videoId) {
-            _composerDrafts.value = VideoComposerDraftState(videoId = videoId)
-        }
+        _composerDrafts.update { it.forVideo(videoId) }
     }
 
     // 表情包数据
@@ -4674,6 +4672,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
     fun showCommentInputDialog() {
         android.util.Log.d("VideoPlaybackViewModel", "📝 showCommentInputDialog called")
         ensureComposerDraftVideo()
+        _composerDrafts.update { it.copy(comments = it.comments.open()) }
         _showCommentDialog.value = true
         // 懒加载表情包
         loadEmotes()
@@ -4743,15 +4742,29 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun updateCommentDraft(
+        videoId: String,
+        sessionId: Long,
+        replyRpid: Long?,
         text: String,
         imageUris: List<Uri>,
         syncToDynamic: Boolean
     ) {
+        val currentVideoId = (_uiState.value as? VideoPlaybackUiState.Success)?.info?.bvid.orEmpty()
+        if (videoId.isBlank() || (currentVideoId.isNotBlank() && currentVideoId != videoId)) return
         ensureComposerDraftVideo()
-        val key = commentComposerDraftKey(_replyingToComment.value?.rpid)
-        val draft = CommentComposerDraft(text, imageUris, syncToDynamic)
         _composerDrafts.update { state ->
-            state.copy(comments = state.comments + (key to draft))
+            if (
+                state.videoId != videoId ||
+                state.comments.sessionId != sessionId ||
+                sessionId <= state.comments.completedSessionId
+            ) state
+            else state.copy(
+                comments = state.comments.update(
+                    sessionId,
+                    replyRpid,
+                    CommentComposerDraft(text, imageUris, syncToDynamic)
+                )
+            )
         }
     }
     
@@ -5149,6 +5162,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         syncToDynamic: Boolean = false,
         targetAid: Long? = null
     ) {
+        if (_isSendingComment.value) return
         if (inputMessage != null) {
             _commentInput.value = inputMessage
         }
@@ -5168,64 +5182,85 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         // this call; reading the StateFlow later used to lose the reply target and publish a
         // new root comment instead.
         val replyTo = _replyingToComment.value
+        ensureComposerDraftVideo()
+        val draftState = _composerDrafts.value
+        val sendVideoId = draftState.videoId
+        val sendSessionId = draftState.comments.sessionId
+        val sentDraft = draftState.comments.drafts[commentComposerDraftKey(replyTo?.rpid)]
         val outgoingMessage = resolveCommentReplyMessage(
             message = message,
             replyName = replyTo?.member?.uname,
             replyRoot = replyTo?.root
         )
 
+        if (!_isSendingComment.compareAndSet(false, true)) return
         viewModelScope.launch {
-            _isSendingComment.value = true
-            
-            val (root, parent) = resolveCommentReplyTargets(
-                replyRpid = replyTo?.rpid,
-                replyRoot = replyTo?.root
-            )
-            val picturesResult = uploadCommentPictures(imageUris)
-            val pictures = picturesResult.getOrElse { uploadError ->
-                Logger.e(
-                    "PlayerVM",
-                    "Comment image upload failed: aid=$sendAid, imageCount=${imageUris.size}, message=${uploadError.message}",
-                    uploadError
+            try {
+                val (root, parent) = resolveCommentReplyTargets(
+                    replyRpid = replyTo?.rpid,
+                    replyRoot = replyTo?.root
                 )
-                toast(uploadError.message ?: "图片上传失败")
-                _isSendingComment.value = false
-                return@launch
-            }
-            
-            com.android.purebilibili.data.repository.CommentRepository
-                .addComment(
-                    aid = sendAid,
-                    message = outgoingMessage,
-                    root = root,
-                    parent = parent,
-                    pictures = pictures,
-                    syncToDynamic = syncToDynamic
-                )
-                .onSuccess { reply ->
-                    toast(if (replyTo != null) "回复成功" else "评论成功")
-                    _commentInput.value = ""
-                    val sentDraftKey = commentComposerDraftKey(replyTo?.rpid)
-                    _composerDrafts.update { state ->
-                        state.copy(comments = state.comments - sentDraftKey)
-                    }
-                    _replyingToComment.value = null
-                    _showCommentDialog.value = false
-                    clearCommentMentionSearch()
-                    
-                    // 通知 UI 刷新评论列表
-                    _commentSentEvent.trySend(reply)
-                }
-                .onFailure { error ->
+                val picturesResult = uploadCommentPictures(imageUris)
+                val pictures = picturesResult.getOrElse { uploadError ->
                     Logger.e(
                         "PlayerVM",
-                        "Comment send failed: aid=$sendAid, root=$root, parent=$parent, pictureCount=${pictures.size}, message=${error.message}",
-                        error
+                        "Comment image upload failed: aid=$sendAid, imageCount=${imageUris.size}, message=${uploadError.message}",
+                        uploadError
                     )
-                    toast(error.message ?: "发送失败")
+                    toast(uploadError.message ?: "图片上传失败")
+                    return@launch
                 }
-            
-            _isSendingComment.value = false
+
+                com.android.purebilibili.data.repository.CommentRepository
+                    .addComment(
+                        aid = sendAid,
+                        message = outgoingMessage,
+                        root = root,
+                        parent = parent,
+                        pictures = pictures,
+                        syncToDynamic = syncToDynamic
+                    )
+                    .onSuccess { reply ->
+                        toast(if (replyTo != null) "回复成功" else "评论成功")
+                        val currentVideoId = (_uiState.value as? VideoPlaybackUiState.Success)
+                            ?.info?.bvid.orEmpty()
+                        val isSameVideo = currentVideoId.isBlank() || currentVideoId == sendVideoId
+                        _composerDrafts.update { state ->
+                            if (!isSameVideo || state.videoId != sendVideoId) state
+                            else state.copy(
+                                comments = state.comments.complete(
+                                    sendSessionId,
+                                    replyTo?.rpid,
+                                    sentDraft
+                                )
+                            )
+                        }
+                        val activeDraftState = _composerDrafts.value
+                        if (
+                            isSameVideo &&
+                            activeDraftState.videoId == sendVideoId &&
+                            activeDraftState.comments.sessionId == sendSessionId
+                        ) {
+                            _commentInput.value = ""
+                            _replyingToComment.value = null
+                            _showCommentDialog.value = false
+                            clearCommentMentionSearch()
+                        }
+
+                        // 通知 UI 刷新评论列表
+                        _commentSentEvent.trySend(reply)
+                    }
+                    .onFailure { error ->
+                        Logger.e(
+                            "PlayerVM",
+                            "Comment send failed: aid=$sendAid, root=$root, parent=$parent, pictureCount=${pictures.size}, message=${error.message}",
+                            error
+                        )
+                        toast(error.message ?: "发送失败")
+                    }
+            } finally {
+                _isSendingComment.value = false
+            }
         }
     }
 

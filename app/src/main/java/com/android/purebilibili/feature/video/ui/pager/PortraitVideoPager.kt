@@ -4092,10 +4092,15 @@ private fun VideoPageItem(
             val emotePackages by viewModel.emotePackages.collectAsStateWithLifecycle()
             val mentionSearchState by viewModel.commentMentionSearchState.collectAsStateWithLifecycle()
             val composerDrafts by viewModel.composerDrafts.collectAsStateWithLifecycle()
-            val commentDraftKey = com.android.purebilibili.feature.video.viewmodel
-                .commentComposerDraftKey(replyingToComment?.rpid)
-            val commentDraft = composerDrafts.comments[commentDraftKey]
-                ?: com.android.purebilibili.feature.video.viewmodel.CommentComposerDraft()
+            val draftVideoId = composerDrafts.videoId
+            val draftSessionId = composerDrafts.comments.sessionId
+            val draftReplyRpid = replyingToComment?.rpid
+            val draftKey = remember(draftVideoId, draftSessionId, draftReplyRpid) {
+                "$draftVideoId:$draftReplyRpid:$draftSessionId"
+            }
+            val commentDraft = composerDrafts.comments.drafts[
+                com.android.purebilibili.feature.video.viewmodel.commentComposerDraftKey(draftReplyRpid)
+            ] ?: com.android.purebilibili.feature.video.viewmodel.CommentComposerDraft()
             val commentState by commentViewModel.commentState.collectAsStateWithLifecycle()
             val commentFraudDetectionEnabled by com.android.purebilibili.core.store.SettingsManager
                 .getCommentFraudDetectionEnabled(context)
@@ -4114,7 +4119,13 @@ private fun VideoPageItem(
 
             com.android.purebilibili.feature.video.ui.components.CommentInputDialog(
                 visible = showCommentInput,
-                onDismiss = { viewModel.hideCommentInputDialog() },
+                draftKey = draftKey,
+                onDismiss = {
+                    val current = viewModel.composerDrafts.value
+                    if (current.videoId == draftVideoId && current.comments.sessionId == draftSessionId) {
+                        viewModel.hideCommentInputDialog()
+                    }
+                },
                 isSending = isSendingComment,
                 replyToName = replyingToComment?.member?.uname,
                 inputHint = if (replyingToComment != null) commentState.childInputHint else commentState.rootInputHint,
@@ -4127,15 +4138,23 @@ private fun VideoPageItem(
                 initialText = commentDraft.text,
                 initialImageUris = commentDraft.imageUris,
                 initialSyncToDynamic = commentDraft.syncToDynamic,
-                onDraftChange = viewModel::updateCommentDraft,
+                onDraftChange = { text, images, sync ->
+                    viewModel.updateCommentDraft(draftVideoId, draftSessionId, draftReplyRpid, text, images, sync)
+                },
                 currentVideoPositionMsProvider = { exoPlayer.currentPosition.coerceAtLeast(0L) },
                 onSend = { message, imageUris, syncToDynamic ->
-                    viewModel.sendComment(
-                        inputMessage = message,
-                        imageUris = imageUris,
-                        syncToDynamic = syncToDynamic,
-                        targetAid = activeAid
-                    )
+                    val current = viewModel.composerDrafts.value
+                    if (current.videoId == draftVideoId && current.comments.sessionId == draftSessionId &&
+                        viewModel.replyingToComment.value?.rpid == draftReplyRpid &&
+                        viewModel.showCommentDialog.value
+                    ) {
+                        viewModel.sendComment(
+                            inputMessage = message,
+                            imageUris = imageUris,
+                            syncToDynamic = syncToDynamic,
+                            targetAid = activeAid
+                        )
+                    }
                 }
             )
         }
