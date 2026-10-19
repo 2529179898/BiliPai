@@ -306,7 +306,7 @@ private fun CommentFraudItemCard(
                         text = record.source_id ?: "OID: ${record.oid}",
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
-                        color = AppContentColors.accent()
+                        color = AppContentColors.link()
                     )
                 }
 

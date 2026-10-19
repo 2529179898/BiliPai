@@ -423,7 +423,7 @@ fun BottomBarSettingsContent(
                             AppPreferenceDivider()
                             SettingsItemAnchor("navigation.keep_home_top_search") {
                                 AppSwitchPreference(
-                                    icon = rememberSettingsSemanticIcon(SettingsIconRole.BOTTOM_BAR_SEARCH),
+                                    icon = rememberSettingsSemanticIcon(SettingsIconRole.KEEP_TOP_SEARCH),
                                     title = settingItemTitle("navigation.keep_home_top_search"),
                                     subtitle = "开启时顶部与底栏搜索同时显示；关闭时隐藏首页顶部搜索条",
                                     checked = keepHomeTopSearch,
@@ -436,7 +436,7 @@ fun BottomBarSettingsContent(
                             AppPreferenceDivider()
                             SettingsItemAnchor("navigation.linked_dock_merge_on_scroll_enabled") {
                                 AppSwitchPreference(
-                                    icon = rememberSettingsSemanticIcon(SettingsIconRole.BOTTOM_BAR_SEARCH),
+                                    icon = rememberSettingsSemanticIcon(SettingsIconRole.LINKED_DOCK_MERGE),
                                     title = settingItemTitle("navigation.linked_dock_merge_on_scroll_enabled"),
                                     subtitle = "向下浏览时，搜索按钮与底栏合并",
                                     checked = linkedDockMergeOnScrollEnabled,
@@ -451,7 +451,7 @@ fun BottomBarSettingsContent(
                             AppPreferenceDivider()
                             SettingsItemAnchor("navigation.list_scoped_search_enabled") {
                                 AppSwitchPreference(
-                                    icon = rememberSettingsSemanticIcon(SettingsIconRole.BOTTOM_BAR_SEARCH),
+                                    icon = rememberSettingsSemanticIcon(SettingsIconRole.LIST_SCOPED_SEARCH),
                                     title = settingItemTitle("navigation.list_scoped_search_enabled"),
                                     subtitle = "收藏、历史和稍后再看改用底栏搜索当前页",
                                     checked = listScopedSearchEnabled,
@@ -1301,7 +1301,7 @@ private fun BottomBarTabItem(
                 com.android.purebilibili.core.ui.AppDialogAction(
                     onClick = { showColorPicker = false }
                 ) {
-                    AppText("取消", color = AppContentColors.accent())
+                    AppText("取消", color = AppContentColors.link())
                 }
             }
         )

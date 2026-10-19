@@ -236,7 +236,7 @@ private fun RuleEditor(
                 AppText(
                     text = "规则",
                     style = MaterialTheme.typography.labelMedium,
-                    color = AppContentColors.accent()
+                    color = AppContentColors.link()
                 )
                 AppIconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
                     AppIcon(

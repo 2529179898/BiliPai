@@ -11,8 +11,8 @@ import androidx.compose.ui.graphics.Color
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.materialkolor.hct.Hct
 import com.materialkolor.palettes.TonalPalette
-import com.materialkolor.scheme.DynamicScheme
-import com.materialkolor.scheme.Variant
+import com.materialkolor.dynamiccolor.DynamicScheme
+import com.materialkolor.dynamiccolor.Variant
 
 /** Rebuild from Android's five core palettes, keeping the supplied tone colors. */
 @RequiresApi(Build.VERSION_CODES.S)
@@ -54,6 +54,7 @@ internal fun readSeedWallpaperColorScheme(context: Context, isDark: Boolean): Co
         tertiaryPalette = tertiary,
         neutralPalette = neutral,
         neutralVariantPalette = neutralVariant,
+        errorPalette = TonalPalette.fromHueAndChroma(25.0, 84.0),
         specVersion = ColorSpec.SpecVersion.SPEC_2021,
     )
     return seedDynamicColorScheme(scheme, legacySurface = true) { role, tone ->

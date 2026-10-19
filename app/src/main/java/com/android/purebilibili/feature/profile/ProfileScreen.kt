@@ -1267,10 +1267,11 @@ private fun ProfileSpaceContent(
         },
     )
     val density = LocalDensity.current
-    // Keep this anchor independent of the expanding details height. Details grow downward.
-    val profileStatsTopProvider: () -> Float = {
-        with(density) { (statusBarTopPadding + 215.dp).toPx() }
+    var identityStatsTopPx by remember(density, statusBarTopPadding) {
+        mutableStateOf(with(density) { (statusBarTopPadding + 215.dp).toPx() })
     }
+    // Measured text may grow this reserve downward; expanding account details must not move it.
+    val profileStatsTopProvider: () -> Float = { identityStatsTopPx }
     // Finish identity collapse before the statistics enter the toolbar.
     val profileCollapseRangeProvider: () -> Float = {
         with(density) {
@@ -1429,6 +1430,7 @@ private fun ProfileSpaceContent(
                         onFansClick = onFansClick,
                         onDynamicsClick = { onTabSelected(ProfileSpaceMainTab.DYNAMIC) },
                         showIdentity = false,
+                        identityReserve = with(density) { profileStatsTopProvider().toDp() },
                         topClipProvider = {
                             with(density) { (statusBarTopPadding + 56.dp).toPx() } +
                                 mobileListState.firstVisibleItemScrollOffset.toFloat()
@@ -1523,6 +1525,14 @@ private fun ProfileSpaceContent(
                 expandedFractionProvider = profileExpandedFractionProvider,
                 statsTopProvider = profileStatsTopProvider,
                 collapseRangeProvider = profileCollapseRangeProvider,
+                onIdentityMeasured = { nameHeight, uidHeight ->
+                    identityStatsTopPx = resolveProfileIdentityStatsTopPx(
+                        statusBarTopPx = with(density) { statusBarTopPadding.toPx() },
+                        density = density.density,
+                        nameHeightPx = nameHeight,
+                        uidHeightPx = uidHeight,
+                    )
+                },
                 listState = mobileListState,
                 flingBehavior = profileHeaderFling,
                 onAvatarClick = { showEditDialog = true },
@@ -1897,6 +1907,7 @@ private fun ProfileSpaceHeroHeader(
     onDynamicsClick: () -> Unit,
     showIdentity: Boolean = true,
     topClipProvider: () -> Float = { 0f },
+    identityReserve: Dp = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 215.dp,
 ) {
     val configuration = LocalConfiguration.current
     val windowSizeClass = LocalWindowSizeClass.current
@@ -1904,7 +1915,6 @@ private fun ProfileSpaceHeroHeader(
         screenHeightDp = configuration.screenHeightDp,
         widthSizeClass = windowSizeClass.widthSizeClass
     ).dp
-    val identityReserve = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 215.dp
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -2250,6 +2260,8 @@ private fun ProfileSpaceTabs(
     val chromeSpec = remember { resolveProfileSpaceTabChromeSpec() }
     val selectedIndex = tabs.indexOfFirst { it.tab == selectedTab }.coerceAtLeast(0)
     AppThemeAdaptiveTabRow(
+        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
         options = tabs.map { AppSegmentOption(it.tab, it.title) },
         selectedValue = tabs[selectedIndex].tab,

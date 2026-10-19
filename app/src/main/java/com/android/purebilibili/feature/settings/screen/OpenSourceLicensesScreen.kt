@@ -78,6 +78,12 @@ val openSourceLibraries = listOf(
         description = "Material Design 组件与主题系统"
     ),
     OpenSourceLibrary(
+        name = "Material Symbols",
+        license = "Apache 2.0",
+        url = "https://github.com/google/material-design-icons",
+        description = "设置语义图标使用的 Outlined 矢量字形"
+    ),
+    OpenSourceLibrary(
         name = "Miuix",
         license = "Apache 2.0",
         url = "https://github.com/compose-miuix-ui/miuix",
@@ -169,7 +175,7 @@ val openSourceLibraries = listOf(
     ),
     OpenSourceLibrary(
         name = "Material Kolor",
-        license = "Apache 2.0",
+        license = "MIT / Apache 2.0",
         url = "https://github.com/jordond/materialkolor",
         description = "Material You 动态配色生成"
     ),
@@ -339,7 +345,7 @@ fun OpenSourceLicensesScreen(
                     AppText(
                         text = "说明：该列表按当前工程依赖、投屏/测试模块以及明确参考实现整理，可能不包含全部传递依赖或完整法律清单。",
                         style = MaterialTheme.typography.labelMedium,
-                        color = AppContentColors.accent(),
+                        color = AppContentColors.link(),
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
@@ -418,7 +424,7 @@ fun LicenseCard(
                     AppText(
                         text = "GitHub/链接",
                         style = MaterialTheme.typography.labelSmall,
-                        color = AppContentColors.accent(),
+                        color = AppContentColors.link(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -426,7 +432,7 @@ fun LicenseCard(
                 AppText(
                     text = library.url,
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppContentColors.accent(),
+                    color = AppContentColors.link(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp)

@@ -179,6 +179,8 @@ internal fun TabletSecondaryLiquidTabRow(
 ) {
     val liquidGlassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
     AppThemeAdaptiveTabRow(
+        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
         centerContent = false,
         options = labels.mapIndexed { index, label -> AppSegmentOption(index, label) },
@@ -270,6 +272,7 @@ internal fun TabletVideoLayout(
     forceCoverOnlyOnReturn: Boolean = false,
     predictiveBackCancelRecoveryGeneration: Int = 0,
     liveSurfaceCardTransitionEnabled: Boolean = true,
+    isPlayerSurfaceReady: Boolean = true,
     paneControlsEnabled: Boolean = true,
     videoAiSummaryEntryEnabled: Boolean = true,
     videoNoteEnabled: Boolean = true,
@@ -440,6 +443,7 @@ internal fun TabletVideoLayout(
                                         cardTransitionEnabled = transitionEnabled && !hasHingePartition,
                                         liveSurfaceCardTransitionEnabled = liveSurfaceCardTransitionEnabled,
                                     ),
+                                    isPlayerSurfaceReady = isPlayerSurfaceReady,
                                     allowLivePlayerSharedElement = !hasHingePartition &&
                                         resolveAllowLivePlayerSharedElementForMorph(
                                             cardTransitionEnabled = transitionEnabled,

@@ -79,13 +79,20 @@ internal fun PushingReplyMemberAvatar(
     listState: LazyListState,
     itemKey: Any,
     modifier: Modifier = Modifier,
+    contentHeightPxProvider: (() -> Int)? = null,
+    allowNeighborContact: Boolean = true,
     onClick: () -> Unit,
 ) {
     ReplyMemberAvatar(
         member = member,
         placeholderColor = placeholderColor,
         lightweightMode = lightweightMode,
-        modifier = modifier.commentAvatarPushOffset(listState, itemKey),
+        modifier = modifier.commentAvatarPushOffset(
+            listState = listState,
+            itemKey = itemKey,
+            contentHeightPxProvider = contentHeightPxProvider,
+            allowNeighborContact = allowNeighborContact,
+        ),
         onClick = onClick,
     )
 }

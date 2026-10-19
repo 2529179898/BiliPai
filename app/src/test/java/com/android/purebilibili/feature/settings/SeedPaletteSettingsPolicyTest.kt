@@ -52,4 +52,19 @@ class SeedPaletteSettingsPolicyTest {
             }
         }
     }
+    @Test
+    fun cmfOffersOnlyItsNative2026StandardAndKeepsOtherStylePreferences() {
+        val style = PaletteStyle.Cmf()
+        val standard = SeedPaletteStyle.Standard
+        assertEquals(listOf(ColorSpec.SpecVersion.SPEC_2026),
+            resolveColorSpecOptions(style, standard).map { it.value })
+        assertEquals(ColorSpec.SpecVersion.SPEC_2026,
+            resolveSelectedColorSpec(ColorSpec.SpecVersion.SPEC_2021, style, standard))
+        assertTrue(resolveSelectedColorSpecSubtitle(ColorSpec.SpecVersion.SPEC_2021, style, standard).contains("CMF"))
+        assertEquals(ColorSpec.SpecVersion.SPEC_2025,
+            resolveSelectedColorSpec(ColorSpec.SpecVersion.SPEC_2026, PaletteStyle.TonalSpot, standard))
+        assertEquals(ColorSpec.SpecVersion.SPEC_2021,
+            resolveSelectedColorSpec(ColorSpec.SpecVersion.SPEC_2026, PaletteStyle.Content, standard))
+    }
+
 }

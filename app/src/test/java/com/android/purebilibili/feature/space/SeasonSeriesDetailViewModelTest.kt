@@ -161,7 +161,90 @@ class SeasonSeriesDetailViewModelTest {
         coVerify(exactly = 0) { FavoriteRepository.copyOrMoveResources(any(), any(), any(), any(), any()) }
     }
 
-    private fun resources(ids: IntRange, hasMore: Boolean) = FavoriteResourceData(
+    @Test
+    fun `oldest first traverses forty one resources from last page and explicitly retries failures`() = runTest(dispatcher) {
+        runCurrent()
+        val info = FavoriteInfo(id = 900L, mid = 101L, title = "收藏夹", media_count = 41)
+        coEvery { FavoriteRepository.getFavoriteList(mediaId = 900L, pn = 1) } returns
+            Result.success(resources(41 downTo 22, hasMore = true).copy(info = info))
+        coEvery { FavoriteRepository.getFavoriteList(mediaId = 900L, pn = 3) } returns
+            Result.success(resources(1..1, hasMore = false).copy(info = info))
+        coEvery { FavoriteRepository.getFavoriteList(mediaId = 900L, pn = 2) } returns
+            Result.failure(IllegalStateException("中间页失败"))
+        viewModel.init("favorite", 900L, 101L, "收藏夹")
+        runCurrent()
+        assertFalse(viewModel.changeFavoriteDetailSortOrder(FavoriteDetailSortOrder.NEWEST_FIRST))
+        assertTrue(viewModel.changeFavoriteDetailSortOrder(FavoriteDetailSortOrder.OLDEST_FIRST))
+        assertFalse(viewModel.changeFavoriteDetailSortOrder(FavoriteDetailSortOrder.NEWEST_FIRST))
+        runCurrent()
+        assertFalse(viewModel.changeFavoriteDetailSortOrder(FavoriteDetailSortOrder.OLDEST_FIRST))
+
+        assertEquals(listOf(1L), viewModel.uiState.value.items.map { it.aid })
+        assertEquals(3, viewModel.favoriteDetailProgressState.value.currentPage)
+        assertEquals(41, viewModel.favoriteDetailProgressState.value.expectedCount)
+        assertTrue(viewModel.hasMoreState.value)
+        coVerify(exactly = 0) { FavoriteRepository.getFavoriteList(mediaId = 900L, pn = 2) }
+
+        viewModel.loadMore()
+        runCurrent()
+        assertEquals(listOf(1L), viewModel.uiState.value.items.map { it.aid })
+        assertEquals("中间页失败", viewModel.uiState.value.loadMoreError)
+        assertEquals(3, viewModel.favoriteDetailProgressState.value.currentPage)
+        viewModel.loadMore()
+        runCurrent()
+        coVerify(exactly = 1) { FavoriteRepository.getFavoriteList(mediaId = 900L, pn = 2) }
+
+        coEvery { FavoriteRepository.getFavoriteList(mediaId = 900L, pn = 2) } returns
+            Result.success(resources(21 downTo 2, hasMore = true).copy(info = info))
+        viewModel.retryLoadMore()
+        runCurrent()
+        assertEquals((1L..21L).toList(), viewModel.uiState.value.items.map { it.aid })
+        assertNull(viewModel.uiState.value.loadMoreError)
+        assertEquals(2, viewModel.favoriteDetailProgressState.value.currentPage)
+        viewModel.loadMore()
+        runCurrent()
+
+        assertEquals((1L..41L).toList(), viewModel.uiState.value.items.map { it.aid })
+        assertEquals(41, viewModel.favoriteDetailProgressState.value.loadedCount)
+        assertEquals(1, viewModel.favoriteDetailProgressState.value.currentPage)
+        assertFalse(viewModel.hasMoreState.value)
+        coVerify(exactly = 2) { FavoriteRepository.getFavoriteList(mediaId = 900L, pn = 2) }
+        coVerify(exactly = 1) { FavoriteRepository.getFavoriteList(mediaId = 900L, pn = 3) }
+    }
+
+    @Test
+    fun `editor loads complete folder metadata instead of resource list summary`() = runTest(dispatcher) {
+        runCurrent()
+        coEvery { FavoriteRepository.getFavoriteList(mediaId = 900L, pn = 1) } returns
+            Result.success(resources(1..2, hasMore = false).copy(info = FavoriteInfo(mid = 101L)))
+        val complete = FavoriteInfo(
+            id = 900L,
+            mid = 101L,
+            title = "完整标题",
+            cover = "https://example.com/cover.jpg",
+            intro = "完整简介",
+            media_count = 2,
+            attr = 3,
+        )
+        coEvery { FavoriteRepository.getFolderInfo(900L) } returns Result.success(complete)
+        viewModel.init("favorite", 900L, 202L, "路由标题")
+        runCurrent()
+        assertTrue(viewModel.canEditFavoriteFolder)
+        assertNull(viewModel.favoriteFolderInfo.value)
+        var opened = false
+        viewModel.loadFavoriteFolderForEditing { opened = true }
+        assertTrue(viewModel.isManagingState.value)
+        assertFalse(opened)
+        runCurrent()
+
+        assertTrue(opened)
+        assertFalse(viewModel.isManagingState.value)
+        assertEquals(complete, viewModel.favoriteFolderInfo.value)
+        assertEquals("完整标题", viewModel.uiState.value.title)
+        coVerify(exactly = 1) { FavoriteRepository.getFolderInfo(900L) }
+    }
+
+    private fun resources(ids: IntProgression, hasMore: Boolean) = FavoriteResourceData(
         medias = ids.map { FavoriteData(id = it.toLong(), bvid = "BV$it", title = "视频$it", type = 2) },
         has_more = hasMore,
     )

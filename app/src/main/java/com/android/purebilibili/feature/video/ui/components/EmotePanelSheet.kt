@@ -101,6 +101,8 @@ fun EmotePanelSheet(
                 var selectedPackageIndex by remember { mutableIntStateOf(0) }
 
                 AppThemeAdaptiveTabRow(
+                    // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                    liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                     role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                     centerContent = false,
                     options = packages.mapIndexed { index, pkg ->

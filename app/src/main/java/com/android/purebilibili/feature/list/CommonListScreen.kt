@@ -179,6 +179,8 @@ import com.android.purebilibili.feature.article.resolveArticleSharedTransitionKe
 import com.android.purebilibili.feature.home.components.BiliPaiImmersiveTopBar
 import com.android.purebilibili.feature.home.components.shouldUseBiliPaiProgressiveTopBlur
 import com.android.purebilibili.feature.space.SeasonSeriesDetailViewModel
+import com.android.purebilibili.feature.space.FavoriteDetailSortOrder
+import com.android.purebilibili.data.model.response.FavoriteInfo
 import com.android.purebilibili.feature.video.player.ExternalPlaylistSource
 import com.android.purebilibili.feature.video.player.PlayMode
 import com.android.purebilibili.feature.video.player.PlaylistManager
@@ -341,6 +343,20 @@ fun CommonListScreen(
     } else false
     val likedVideosViewModel = viewModel as? LikedVideosViewModel
     val seasonSeriesDetailViewModel = viewModel as? SeasonSeriesDetailViewModel
+    val favoriteFolderInfo by seasonSeriesDetailViewModel?.favoriteFolderInfo?.collectAsStateWithLifecycle()
+        ?: remember { mutableStateOf<FavoriteInfo?>(null) }
+    val favoriteDetailSortOrder by seasonSeriesDetailViewModel?.favoriteDetailSortOrder?.collectAsStateWithLifecycle()
+        ?: remember { mutableStateOf(FavoriteDetailSortOrder.NEWEST_FIRST) }
+    val isFavoriteDetailManaging by seasonSeriesDetailViewModel?.isManagingState?.collectAsStateWithLifecycle()
+        ?: remember { mutableStateOf(false) }
+    val isFavoriteDetailLoadingMore by seasonSeriesDetailViewModel?.isLoadingMoreState?.collectAsStateWithLifecycle()
+        ?: remember { mutableStateOf(false) }
+    val canEditFavoriteDetail = (accountIdentity.mid ?: 0L) > 0L &&
+        seasonSeriesDetailViewModel?.canEditFavoriteFolder == true
+    val isFavoriteDetailBusy = state.isLoading || isFavoriteDetailLoadingMore || isFavoriteDetailManaging
+    var showFavoriteDetailEditor by rememberSaveable(
+        seasonSeriesDetailViewModel, accountIdentity.mid, accountIdentity.generation
+    ) { mutableStateOf(false) }
     val likedVideosHasMore by likedVideosViewModel?.hasMoreState?.collectAsStateWithLifecycle()
         ?: androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val likedVideosIsLoadingMore by likedVideosViewModel?.isLoadingMoreState?.collectAsStateWithLifecycle()
@@ -367,8 +383,6 @@ fun CommonListScreen(
     val canCopyFavoriteDetailResources = seasonSeriesDetailViewModel?.canCopyFavoriteResources == true
     val canManageFavoriteDetailResources = state.canRemoveItems &&
         seasonSeriesDetailViewModel?.canManageFavoriteResources == true
-    val isFavoriteDetailManaging by seasonSeriesDetailViewModel?.isManagingState?.collectAsStateWithLifecycle()
-        ?: remember { mutableStateOf(false) }
     val favoriteDetailRenderKey: (VideoItem) -> String = { video -> video.bvid.ifBlank { video.id.toString() } }
     var isFavoriteDetailBatchMode by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     var selectedFavoriteDetailKeys by rememberSaveable { androidx.compose.runtime.mutableStateOf(setOf<String>()) }
@@ -528,15 +542,10 @@ fun CommonListScreen(
     var selectedFavoriteResourceIds by rememberSaveable { androidx.compose.runtime.mutableStateOf(setOf<Long>()) }
     var showFavoriteBatchDeleteConfirm by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     var pendingFavoriteTransferCopy by rememberSaveable { androidx.compose.runtime.mutableStateOf<Boolean?>(null) }
-    var favoriteFolderEditorMode by rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var showCreateFavoriteFolder by rememberSaveable { mutableStateOf(false) }
     var favoriteFolderEditorTitle by rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
     var favoriteFolderEditorIntro by rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
     var favoriteFolderEditorPrivate by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-    var favoriteFolderEditorMediaId by rememberSaveable { androidx.compose.runtime.mutableStateOf(0L) }
-    var favoriteFolderEditorCover by rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
-    var favoriteFolderEditorLoaded by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-    var favoriteFolderEditorError by remember { mutableStateOf<String?>(null) }
-    var favoriteFolderEditorRetry by remember { mutableIntStateOf(0) }
     var showFavoriteFolderDeleteConfirm by rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     // 浏览分区由入口和用户操作决定。目录并行加载，不能用暂时为空的收藏夹列表切换到订阅。
     val isSubscribedBrowse = favoriteViewModel != null &&
@@ -811,13 +820,10 @@ fun CommonListScreen(
         selectedFavoriteResourceIds = emptySet()
         showFavoriteBatchDeleteConfirm = false
         pendingFavoriteTransferCopy = null
-        favoriteFolderEditorMode = null
+        showCreateFavoriteFolder = false
         favoriteFolderEditorTitle = ""
         favoriteFolderEditorIntro = ""
-        favoriteFolderEditorMediaId = 0L
-        favoriteFolderEditorCover = ""
-        favoriteFolderEditorLoaded = false
-        favoriteFolderEditorError = null
+        favoriteFolderEditorPrivate = false
         showFavoriteFolderDeleteConfirm = false
         showFavoriteCleanInvalidConfirm = false
         showFavoriteDynamicShareConfirm = false
@@ -827,6 +833,7 @@ fun CommonListScreen(
         pendingFavoriteDetailTransferCopy = null
         selectedFavoriteDetailTransferFolderId = null
         pendingFavoriteDetailRemoveKeys = null
+        showFavoriteDetailEditor = false
         primaryGridState.scrollToItem(0)
         subscribedFolderListState.scrollToItem(0)
         favoriteFolderListState.scrollToItem(0)
@@ -1852,28 +1859,10 @@ fun CommonListScreen(
                                                         label = "新建收藏夹",
                                                         enabled = !isFavoriteManaging,
                                                         onClick = {
-                                                            favoriteFolderEditorMode = "create"
+                                                            showCreateFavoriteFolder = true
                                                             favoriteFolderEditorTitle = ""
                                                             favoriteFolderEditorIntro = ""
                                                             favoriteFolderEditorPrivate = false
-                                                            favoriteFolderEditorMediaId = 0L
-                                                            favoriteFolderEditorLoaded = true
-                                                            favoriteFolderEditorError = null
-                                                        },
-                                                    ),
-                                                    AppWindowAction(
-                                                        label = "编辑收藏夹",
-                                                        enabled = selectedFavoriteFolder != null && !isFavoriteManaging,
-                                                        onClick = {
-                                                            selectedFavoriteFolder?.let { folder ->
-                                                                favoriteFolderEditorMode = "edit"
-                                                                favoriteFolderEditorTitle = folder.title
-                                                                favoriteFolderEditorIntro = ""
-                                                                favoriteFolderEditorMediaId = resolveFavoriteFolderMediaId(folder)
-                                                                favoriteFolderEditorCover = ""
-                                                                favoriteFolderEditorLoaded = false
-                                                                favoriteFolderEditorError = null
-                                                            }
                                                         },
                                                     ),
                                                     AppWindowAction(
@@ -1930,6 +1919,56 @@ fun CommonListScreen(
                                             )
                                         }
                                     }
+                                    }
+                                }
+
+                                if (seasonSeriesDetailViewModel?.canSortFavoriteFolder == true &&
+                                    !isBatchActionMode
+                                ) {
+                                    AppWindowActionMenu(
+                                        enabled = !isFavoriteDetailBusy,
+                                        groups = buildList {
+                                            add(listOf(
+                                                AppWindowAction(
+                                                    label = "收藏时间：${favoriteDetailSortOrder.label}",
+                                                    enabled = !isFavoriteDetailBusy,
+                                                    children = FavoriteDetailSortOrder.entries.map { order ->
+                                                        AppWindowAction(
+                                                            label = order.label,
+                                                            enabled = !isFavoriteDetailBusy,
+                                                            selected = order == favoriteDetailSortOrder,
+                                                            onClick = {
+                                                                // Returning to this page must preserve its restored position.
+                                                                // Only an accepted user sort change starts a new list at the top.
+                                                                if (seasonSeriesDetailViewModel.changeFavoriteDetailSortOrder(order)) {
+                                                                    coroutineScope.launch {
+                                                                        primaryGridState.scrollToItem(0)
+                                                                    }
+                                                                }
+                                                            },
+                                                        )
+                                                    },
+                                                ),
+                                            ))
+                                            if (canEditFavoriteDetail) {
+                                                add(listOf(
+                                                    AppWindowAction(
+                                                        label = "编辑信息",
+                                                        enabled = !isFavoriteDetailBusy,
+                                                        onClick = {
+                                                            seasonSeriesDetailViewModel.loadFavoriteFolderForEditing {
+                                                                showFavoriteDetailEditor = true
+                                                            }
+                                                        },
+                                                    ),
+                                                ))
+                                            }
+                                        },
+                                    ) {
+                                        AppIcon(
+                                            imageVector = Icons.Filled.MoreVert,
+                                            contentDescription = "收藏夹管理",
+                                        )
                                     }
                                 }
 
@@ -2052,6 +2091,8 @@ fun CommonListScreen(
                             exit = shrinkVertically() + fadeOut(),
                         ) {
                             AppLiquidAwareTabRow(
+                                // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                                liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                                 options = favoriteSectionOptions,
                                 selectedValue = favoriteSection,
@@ -2147,6 +2188,8 @@ fun CommonListScreen(
                             exit = shrinkVertically() + fadeOut(),
                         ) {
                             AppThemeAdaptiveTabRow(
+                                // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                                liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
                                 options = historyFilterOptions,
                                 selectedValue = historyContentFilter,
@@ -2353,98 +2396,81 @@ fun CommonListScreen(
         )
     }
 
-    favoriteFolderEditorMode?.let { mode ->
-        LaunchedEffect(mode, favoriteFolderEditorMediaId, favoriteFolderEditorRetry, accountIdentity) {
-            if (mode != "edit" || favoriteFolderEditorLoaded) return@LaunchedEffect
-            favoriteFolderEditorError = null
-            val result = favoriteViewModel?.loadFavoriteFolderForEditing(favoriteFolderEditorMediaId)
-            val info = result?.getOrNull()
-            if (info != null) {
-                favoriteFolderEditorTitle = info.title
-                favoriteFolderEditorIntro = info.intro
-                favoriteFolderEditorPrivate = isFavoriteFolderPrivate(info.attr)
-                favoriteFolderEditorCover = info.cover
-                favoriteFolderEditorLoaded = true
-            } else {
-                favoriteFolderEditorError = result?.exceptionOrNull()?.message ?: "读取收藏夹信息失败"
-            }
-        }
+    if (showCreateFavoriteFolder) {
         AppAlertDialog(
-            onDismissRequest = { favoriteFolderEditorMode = null },
-            title = { AppText(if (mode == "create") "新建收藏夹" else "编辑收藏夹") },
+            onDismissRequest = { showCreateFavoriteFolder = false },
+            title = { AppText("新建收藏夹") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(AppSpacingTokens.Medium)) {
-                    if (!favoriteFolderEditorLoaded) {
-                        AppText(favoriteFolderEditorError ?: "正在读取收藏夹信息…")
-                        if (favoriteFolderEditorError != null) {
-                            AppTextButton(onClick = { favoriteFolderEditorRetry++ }) {
-                                AppText("重试")
-                            }
-                        }
-                    } else {
-                        if (mode == "edit") {
-                            AppText("修改当前收藏夹的名称、简介和可见性")
-                        }
-                        AppTextField(
-                            value = favoriteFolderEditorTitle,
-                            onValueChange = { favoriteFolderEditorTitle = it },
-                            label = "名称",
-                            placeholder = "收藏夹名称",
+                    AppTextField(
+                        value = favoriteFolderEditorTitle,
+                        onValueChange = { favoriteFolderEditorTitle = it },
+                        label = "名称",
+                        placeholder = "收藏夹名称",
+                    )
+                    AppTextField(
+                        value = favoriteFolderEditorIntro,
+                        onValueChange = { favoriteFolderEditorIntro = it },
+                        label = "简介",
+                        placeholder = "可选",
+                        singleLine = false,
+                        minLines = 2,
+                        maxLines = 4,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        AppText("设为私密")
+                        AppSwitch(
+                            checked = favoriteFolderEditorPrivate,
+                            onCheckedChange = { favoriteFolderEditorPrivate = it },
                         )
-                        AppTextField(
-                            value = favoriteFolderEditorIntro,
-                            onValueChange = { favoriteFolderEditorIntro = it },
-                            label = "简介",
-                            placeholder = "可选",
-                            singleLine = false,
-                            minLines = 2,
-                            maxLines = 4,
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            AppText("设为私密")
-                            AppSwitch(
-                                checked = favoriteFolderEditorPrivate,
-                                onCheckedChange = { favoriteFolderEditorPrivate = it },
-                            )
-                        }
                     }
                 }
             },
             confirmButton = {
                 AppTextButton(
-                    enabled = favoriteFolderEditorLoaded && favoriteFolderEditorTitle.isNotBlank() && isFavoriteManaging.not(),
+                    enabled = favoriteFolderEditorTitle.isNotBlank() && isFavoriteManaging.not(),
                     onClick = {
-                        if (mode == "create") {
-                            favoriteViewModel?.createFavoriteFolder(
-                                title = favoriteFolderEditorTitle,
-                                intro = favoriteFolderEditorIntro,
-                                isPrivate = favoriteFolderEditorPrivate,
-                            )
-                        } else {
-                            favoriteViewModel?.editFavoriteFolder(
-                                mediaId = favoriteFolderEditorMediaId,
-                                title = favoriteFolderEditorTitle,
-                                intro = favoriteFolderEditorIntro,
-                                isPrivate = favoriteFolderEditorPrivate,
-                                cover = favoriteFolderEditorCover,
-                            )
-                        }
-                        favoriteFolderEditorMode = null
+                        favoriteViewModel?.createFavoriteFolder(
+                            title = favoriteFolderEditorTitle,
+                            intro = favoriteFolderEditorIntro,
+                            isPrivate = favoriteFolderEditorPrivate,
+                        )
+                        showCreateFavoriteFolder = false
                     },
                 ) {
-                    AppText(if (mode == "create") "创建" else "保存修改")
+                    AppText("创建")
                 }
             },
             dismissButton = {
-                AppTextButton(onClick = { favoriteFolderEditorMode = null }) {
+                AppTextButton(onClick = { showCreateFavoriteFolder = false }) {
                     AppText("取消")
                 }
             },
         )
+    }
+
+    if (showFavoriteDetailEditor && canEditFavoriteDetail) {
+        favoriteFolderInfo?.let { folder ->
+            FavoriteFolderEditorDialog(
+                folder = folder,
+                accountKey = accountIdentity,
+                isSaving = isFavoriteDetailManaging,
+                onDismiss = { showFavoriteDetailEditor = false },
+                onSave = { title, intro, isPrivate, coverUri ->
+                    seasonSeriesDetailViewModel?.saveFavoriteFolder(
+                        title = title,
+                        intro = intro,
+                        isPrivate = isPrivate,
+                        coverUri = coverUri,
+                        onSuccess = { showFavoriteDetailEditor = false },
+                    )
+                },
+            )
+        }
     }
 
     if (showFavoriteFolderDeleteConfirm && favoriteViewModel != null) {

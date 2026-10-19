@@ -42,21 +42,45 @@ class LiveAudioOnlyPlaybackPolicyTest {
         assertTrue(
             shouldUseTextureSurfaceForLivePlayer(
                 hasSharedTransitionScope = true,
-                hasAnimatedVisibilityScope = true
+                hasAnimatedVisibilityScope = true,
+                preferCompatibleTextureSurface = false,
             )
         )
         assertFalse(
             shouldUseTextureSurfaceForLivePlayer(
                 hasSharedTransitionScope = false,
-                hasAnimatedVisibilityScope = true
+                hasAnimatedVisibilityScope = true,
+                preferCompatibleTextureSurface = false,
             )
         )
         assertFalse(
             shouldUseTextureSurfaceForLivePlayer(
                 hasSharedTransitionScope = true,
-                hasAnimatedVisibilityScope = false
+                hasAnimatedVisibilityScope = false,
+                preferCompatibleTextureSurface = false,
             )
         )
+    }
+
+    @Test
+    fun `compatible live playback uses texture without a transition but retains hdr output`() {
+        assertTrue(
+            shouldUseTextureSurfaceForLivePlayer(
+                hasSharedTransitionScope = false,
+                hasAnimatedVisibilityScope = false,
+                preferCompatibleTextureSurface = true,
+            )
+        )
+        for (compatible in listOf(false, true)) {
+            assertFalse(
+                shouldUseTextureSurfaceForLivePlayer(
+                    hasSharedTransitionScope = true,
+                    hasAnimatedVisibilityScope = true,
+                    requiresHdrSurfaceOutput = true,
+                    preferCompatibleTextureSurface = compatible,
+                )
+            )
+        }
     }
 
     @Test

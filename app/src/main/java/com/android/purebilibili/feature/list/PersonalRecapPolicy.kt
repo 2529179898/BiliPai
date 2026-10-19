@@ -7,7 +7,6 @@ import com.android.purebilibili.data.repository.HistoryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 
 /** 回顾时间窗：今日 / 近七天 / 近一个月。 */
@@ -21,8 +20,10 @@ enum class PersonalRecapWindow(val label: String) {
 fun resolvePersonalRecapWindowStart(nowMs: Long, window: PersonalRecapWindow): Long {
     return when (window) {
         PersonalRecapWindow.TODAY -> {
-            val dayStart = LocalDate.ofInstant(Instant.ofEpochMilli(nowMs), ZoneId.systemDefault())
-            dayStart.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val zone = ZoneId.systemDefault()
+            // LocalDate.ofInstant requires API 34; this chain is available from API 26.
+            Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate()
+                .atStartOfDay(zone).toInstant().toEpochMilli()
         }
         PersonalRecapWindow.LAST_SEVEN_DAYS -> nowMs - 7L * 24 * 60 * 60 * 1000
         PersonalRecapWindow.LAST_MONTH -> nowMs - 30L * 24 * 60 * 60 * 1000

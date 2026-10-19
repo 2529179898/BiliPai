@@ -11,10 +11,10 @@ import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.ui.globalWallpaperAwareChromeColor
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -27,7 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import com.android.purebilibili.core.ui.components.AppIcon
 import androidx.compose.material3.MaterialTheme
 import com.android.purebilibili.core.ui.components.AppIconButton
@@ -51,7 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.purebilibili.core.store.HomeSettings
 import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.feature.dynamic.resolveDynamicTopBarHorizontalPadding
-import com.android.purebilibili.feature.dynamic.resolveDynamicTopBarLiquidTabSpec
+import com.android.purebilibili.feature.dynamic.resolveDynamicTopBarTabHeightDp
 import com.android.purebilibili.feature.home.components.DynamicPublishSkinDecoration
 import com.android.purebilibili.core.ui.components.PageAwareAsyncImage
 import java.io.File
@@ -118,7 +118,7 @@ fun DynamicTopBarWithTabs(
     val density = LocalDensity.current
     val context = LocalContext.current
     val statusBarHeight = WindowInsets.statusBars.getTop(density).let { with(density) { it.toDp() } }
-    val liquidTabSpec = resolveDynamicTopBarLiquidTabSpec()
+    val tabHeight = resolveDynamicTopBarTabHeightDp(density.fontScale).dp
     val homeSettings by SettingsManager
         .getHomeSettings(context)
         .collectAsStateWithLifecycle(initialValue = HomeSettings())
@@ -129,13 +129,16 @@ fun DynamicTopBarWithTabs(
     val isProgressiveBlurActive = progressiveTopBlurEnabled && !headerBlurEnabled
     val isProgressiveFadeActive = appThemeConfig.progressiveTopFadeEnabled && !headerBlurEnabled
     val collapseArrowRotation = animateFloatAsState(
-        targetValue = if (actionDockCollapsed) 180f else 0f,
+        targetValue = if (actionDockCollapsed) 0f else 180f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium,
         ),
         label = "dynamicActionsChevronRotation",
     )
+
+    // Shared layout request: both materials put the toggle beside the tabs and expand
+    // actions downward. Glass controls decoration only, not the header structure.
 
     BiliPaiImmersiveTopBar(
         backdrop = dockBackdrop,
@@ -163,31 +166,26 @@ fun DynamicTopBarWithTabs(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(
-                    if (liquidGlassEnabled) {
-                        Modifier.height(liquidTabSpec.heightDp.dp)
-                    } else {
-                        // Native tabs may grow above 48dp with the user's font scale.
-                        Modifier.heightIn(min = liquidTabSpec.heightDp.dp)
-                    }
-                )
+                .height(tabHeight)
                 .padding(horizontal = resolveDynamicTopBarHorizontalPadding()),
             horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AppThemeAdaptiveTabRow(
+                // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.PRIMARY,
                 options = tabs.mapIndexed { index, label -> AppSegmentOption(index, label) },
                 selectedValue = selectedTab,
                 onSelectionChange = onTabSelected,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).height(tabHeight),
                 scrollable = true,
                 // Glass needs extra label room and scrollable overflow; native MD3/Miuix
                 // keep their own slot spacing.
                 liquidGlassLabelHorizontalPadding = if (liquidGlassEnabled) 20.dp else null,
                 compactMiuixWhenTwoOptions = false,
-                height = liquidTabSpec.heightDp.dp,
-                indicatorHeight = liquidTabSpec.indicatorHeightDp.dp,
+                height = tabHeight,
+                indicatorHeight = tabHeight - 8.dp,
                 labelFontSize = com.android.purebilibili.core.ui.appTabLabelFontSize(),
                 indicatorPositionProvider = indicatorPositionProvider,
                 isScrollInProgressProvider = isScrollInProgressProvider,
@@ -195,41 +193,52 @@ fun DynamicTopBarWithTabs(
                 tapPressRefractionEnabled = true,
                 miuixBackdrop = dockBackdrop.takeIf { liquidGlassEnabled },
             )
+            CompositionLocalProvider(
+                LocalAppTopBarIconDecorationEnabled provides liquidGlassEnabled,
+                LocalAppTopBarIconBackdrop provides dockBackdrop,
+            ) {
+                AppIconButton(
+                    onClick = { onActionDockCollapsedChange(!actionDockCollapsed) },
+                    modifier = Modifier.size(tabHeight),
+                ) {
+                    AppIcon(
+                        imageVector = Icons.Outlined.KeyboardArrowDown,
+                        modifier = Modifier.graphicsLayer {
+                            rotationZ = collapseArrowRotation.value
+                        },
+                        contentDescription = if (actionDockCollapsed) "展开动态操作" else "收起动态操作",
+                    )
+                }
+            }
         }
 
-        // Shared two-row structure; glass decoration stays opt-in. Native MD3/Miuix
-        // retain their own tab sizing, icon touch targets and menu presentation.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .padding(horizontal = resolveDynamicTopBarHorizontalPadding()),
-            horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small, Alignment.End),
-            verticalAlignment = Alignment.CenterVertically,
+        AnimatedVisibility(
+            visible = !actionDockCollapsed,
+            enter = expandVertically(
+                expandFrom = Alignment.Top,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+            ) + fadeIn(),
+            exit = shrinkVertically(
+                shrinkTowards = Alignment.Top,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+            ) + fadeOut(),
         ) {
             CompositionLocalProvider(
                 LocalAppTopBarIconDecorationEnabled provides liquidGlassEnabled,
                 LocalAppTopBarIconBackdrop provides dockBackdrop,
             ) {
-                AnimatedVisibility(
-                    visible = !actionDockCollapsed,
-                    enter = expandHorizontally(
-                        expandFrom = Alignment.End,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMedium,
-                        ),
-                    ) + fadeIn(),
-                    exit = shrinkHorizontally(
-                        shrinkTowards = Alignment.End,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMedium,
-                        ),
-                    ) + fadeOut(),
-                ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .padding(horizontal = resolveDynamicTopBarHorizontalPadding()),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small, Alignment.End),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         if (onAuthorSearchClick != null) {
@@ -312,18 +321,6 @@ fun DynamicTopBarWithTabs(
                             )
                         }
                     }
-                }
-                AppIconButton(
-                    onClick = { onActionDockCollapsedChange(!actionDockCollapsed) },
-                ) {
-                    AppIcon(
-                        imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                        modifier = Modifier.graphicsLayer {
-                            rotationZ = collapseArrowRotation.value
-                        },
-                        contentDescription = if (actionDockCollapsed) "展开动态操作" else "收起动态操作",
-                    )
-                }
             }
         }
         Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
@@ -331,4 +328,3 @@ fun DynamicTopBarWithTabs(
     }
 }
 
-internal fun resolveDynamicTabSelectedColor(primaryColor: Color): Color = primaryColor

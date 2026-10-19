@@ -43,25 +43,10 @@ internal fun resolveDynamicSidebarDividerTopOffset(topPadding: Dp): Dp {
     return topPadding + resolveDynamicSidebarReturnHeaderHeightDp().dp
 }
 
-internal data class DynamicTopBarLiquidTabSpec(
-    val topPaddingDp: Int,
-    val bottomPaddingDp: Int,
-    val heightDp: Int,
-    val indicatorHeightDp: Int,
-    val labelFontSizeSp: Int
-)
-
-internal fun resolveDynamicTopBarLiquidTabSpec(): DynamicTopBarLiquidTabSpec {
-    val heightDp = resolveDynamicTopBarHeightDp()
-    return DynamicTopBarLiquidTabSpec(
-        topPaddingDp = 0,
-        bottomPaddingDp = 0,
-        heightDp = heightDp,
-        // Top docks use a tighter 4dp vertical inset than the taller bottom navigation dock.
-        indicatorHeightDp = heightDp - 8,
-        labelFontSizeSp = 13
-    )
-}
+// Shared requested geometry, not a glass-only override: tabs and toggle grow together.
+internal fun resolveDynamicTopBarTabHeightDp(fontScale: Float): Float =
+    com.android.purebilibili.core.ui.AppChromeSizeTokens.TopBarIconVisualSize.value *
+        fontScale.coerceAtLeast(1f)
 
 internal fun resolveDynamicTabIndicatorPosition(
     selectedIndex: Int,

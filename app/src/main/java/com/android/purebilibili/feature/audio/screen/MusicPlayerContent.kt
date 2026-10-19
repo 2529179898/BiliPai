@@ -1050,6 +1050,8 @@ internal fun MusicPlayerContent(
                             .wrapContentWidth(Alignment.CenterHorizontally),
                     ) {
                         BottomBarLiquidSegmentedControl(
+                            // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                             items = resolveMusicPlayerPageTabs(),
                             centerGlassContent = true,
                             selectedIndex = pagerState.currentPage,

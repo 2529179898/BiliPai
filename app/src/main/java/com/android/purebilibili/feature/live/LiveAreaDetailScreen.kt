@@ -91,6 +91,8 @@ fun LiveAreaDetailScreen(
                 if (metadataLoaded) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         AppThemeAdaptiveTabRow(
+                            // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                             role = AppTabRowRole.SECONDARY,
                             options = tabs.mapIndexed { index, tab -> AppSegmentOption(index, tab.title) },
                             selectedValue = pager.currentPage,

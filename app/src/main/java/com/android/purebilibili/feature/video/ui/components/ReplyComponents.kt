@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -1272,6 +1273,11 @@ fun ReplyItemView(
     onUrlClick: ((String) -> Unit)? = null,
     maxTimestampMs: Long? = null,
     hideSubPreview: Boolean = false,
+    // Thread detail reuses this row in every material; defaults keep native main-list behavior.
+    containerColor: Color = Color.Unspecified,
+    onConversationClick: (() -> Unit)? = null,
+    // A thread root shares its lazy item with the section header; its avatar must stop above it.
+    boundAvatarToItem: Boolean = false,
     // Independent opt-in for comment lists, in every material style.
     // Null preserves the native MD3/Miuix layout and all other comment callers.
     avatarListState: LazyListState? = null,
@@ -1418,8 +1424,8 @@ fun ReplyItemView(
             hasUpReply = hasUpSubReply
         )
     }
-    val openThreadFromRootClick = remember(item.count, item.rcount, item.replies) {
-        shouldOpenReplyThreadFromRootClick(item)
+    val openThreadFromRootClick = remember(hideSubPreview, item.count, item.rcount, item.replies) {
+        !hideSubPreview && shouldOpenReplyThreadFromRootClick(item)
     }
     val copyToClipboard = rememberClipboardCopyHandler()
     val blockedUpRepository = remember { BlockedUpRepository.getInstance(context) }
@@ -1573,11 +1579,20 @@ fun ReplyItemView(
         )
     }
 
+    val avatarContentHeightPx = if (boundAvatarToItem && avatarListState != null) {
+        remember(item.rpid) { mutableIntStateOf(0) }
+    } else null
+
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .then(
+                if (avatarContentHeightPx != null) {
+                    Modifier.onSizeChanged { avatarContentHeightPx.intValue = it.height }
+                } else Modifier
+            )
             .commentAvatarRowBackground(
-                color = appearance.panelColor,
+                color = if (containerColor == Color.Unspecified) appearance.panelColor else containerColor,
                 pushEnabled = avatarListState != null,
                 gutterWidth = layoutPolicy.horizontalPaddingDp.dp + NAGRAM_CHAT_AVATAR_SIZE_DP.dp,
             )
@@ -1631,7 +1646,7 @@ fun ReplyItemView(
                             placeholderColor = appearance.placeholderColor,
                             lightweightMode = lightweightMode,
                             modifier = Modifier.size(layoutPolicy.avatarSizeDp.dp),
-                            onClick = { onAvatarClick(item.member.mid) }
+                            onClick = { if (replyMemberMid > 0L) onAvatarClick(replyMemberMid.toString()) }
                         )
                     }
 
@@ -1855,6 +1870,20 @@ fun ReplyItemView(
                     if (!specialLabelText.isNullOrEmpty()) {
                         Spacer(modifier = Modifier.width(10.dp))
                         ReplySpecialLabelChip(text = specialLabelText)
+                    }
+
+                    if (onConversationClick != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        AppText(
+                            text = "查看对话",
+                            fontSize = VideoCommentTypographyTokens.action,
+                            color = appearance.actionTint,
+                            modifier = Modifier
+                                .sizeIn(minHeight = 32.dp)
+                                .testTag("$SUB_REPLY_DETAIL_CONVERSATION_TAG_PREFIX${item.rpid}")
+                                .clickable(onClick = onConversationClick)
+                                .wrapContentHeight(),
+                        )
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
@@ -2089,8 +2118,12 @@ fun ReplyItemView(
                     lightweightMode = lightweightMode,
                     listState = avatarListState,
                     itemKey = avatarItemKey,
+                    contentHeightPxProvider = if (avatarContentHeightPx == null) null else {
+                        { avatarContentHeightPx.intValue }
+                    },
+                    allowNeighborContact = !boundAvatarToItem,
                     modifier = Modifier.size(avatarSize),
-                    onClick = { onAvatarClick(item.member.mid) }
+                    onClick = { if (replyMemberMid > 0L) onAvatarClick(replyMemberMid.toString()) }
                 )
             }
         }

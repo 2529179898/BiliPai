@@ -84,7 +84,8 @@ import com.android.purebilibili.core.ui.ContainerLevel
  * iOS 风格设计
  */
 enum class PlaybackSettingsPage(val title: String) {
-    PLAYBACK("播放设置"), FULLSCREEN("全屏与手势"), COMMENTS("评论与内容"),
+    PLAYBACK(settingsDestinationCopy(SettingsSearchTarget.PLAYBACK).title),
+    FULLSCREEN("全屏与手势"), COMMENTS("评论与内容"),
     DECODER("视频解码"), DIAGNOSTICS("播放器诊断")
 }
 
@@ -555,10 +556,10 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                                .padding(vertical = 10.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            PlaybackSpeedOptionsPreferenceControl(
+                            PlaybackSpeedOptionsMenuPreference(
                                 options = playbackSpeedOptions,
                                 defaultSpeed = defaultPlaybackSpeed,
                                 onAddSpeed = { speed ->
@@ -574,10 +575,11 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                 modifier = Modifier.fillMaxWidth()
                             )
                             AppPreferenceDivider()
-                            PlaybackSpeedPreferenceControl(
-                                currentSpeed = defaultPlaybackSpeed,
-                                options = playbackSpeedOptions,
-                                onSpeedChange = { speed ->
+                            AppSingleChoicePreference(
+                                selectedValue = defaultPlaybackSpeed,
+                                options = playbackSpeedOptions.map { AppChoiceOption(it, formatPlaybackSpeed(it)) },
+                                presentation = AppSingleChoicePresentation.WINDOW_POPUP,
+                                onValueChange = { speed ->
                                     scope.launch {
                                         SettingsManager.setDefaultPlaybackSpeed(context, speed)
                                     }
@@ -595,8 +597,8 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                     }
                                 },
                                 title = "长按临时加速",
-                                subtitle = "按住视频时使用此速度；点按倍速数值可输入",
-                                modifier = Modifier.fillMaxWidth()
+                                subtitle = "点按右侧倍速，选择预设或输入 1–8x",
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                             )
                         }
                     }
@@ -722,7 +724,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                         AppPreferenceDivider()
                         SettingsItemAnchor("playback.audio_now_playing_bar_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.PLAYLIST_AUTO_CONTINUE),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.NOW_PLAYING_BAR),
                                 title = playbackSettingTitle("playback.audio_now_playing_bar_enabled"),
                                 subtitle = if (audioNowPlayingBarEnabled) {
                                     "离开视频页后，底部保留当前视频入口"
@@ -742,7 +744,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                         AppPreferenceDivider()
                         SettingsItemAnchor("playback.audio_now_playing_bar_opens_audio_mode") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.PLAYLIST_AUTO_CONTINUE),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.AUDIO_MODE_ENTRY),
                                 title = playbackSettingTitle("playback.audio_now_playing_bar_opens_audio_mode"),
                                 subtitle = if (audioNowPlayingBarOpensAudioMode) {
                                     "点击底部视频入口时跳转到听视频"
@@ -761,7 +763,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                         AppPreferenceDivider()
                         SettingsItemAnchor("playback.audio_now_playing_bar_immersive_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.PLAYLIST_AUTO_CONTINUE),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.AUDIO_TITLE_AUTO_HIDE),
                                 title = playbackSettingTitle("playback.audio_now_playing_bar_immersive_enabled"),
                                 subtitle = if (audioNowPlayingBarImmersiveEnabled) {
                                     "播放中 5 秒不操作时隐藏；点底部横条恢复"
@@ -781,7 +783,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                         AppPreferenceDivider()
                         SettingsItemAnchor("playback.loudness_normalization_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.PLAYLIST_AUTO_CONTINUE),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.LOUDNESS_NORMALIZATION),
                                 title = playbackSettingTitle("playback.loudness_normalization_enabled"),
                                 subtitle = if (loudnessNormalizationEnabled) {
                                     "自动拉平不同曲目间的响度差异；切换后重新开始播放生效"
@@ -801,7 +803,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                         AppPreferenceDivider()
                         SettingsItemAnchor("playback.audio_spectrum_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.ANIMATION),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.AUDIO_SPECTRUM),
                                 title = playbackSettingTitle("playback.audio_spectrum_enabled"),
                                 subtitle = if (audioSpectrumEnabled) {
                                     "听视频歌曲信息旁的短柱随声音起伏"
@@ -821,7 +823,7 @@ SettingsItemAnchor("playback.mini_player_mode") {
                         AppPreferenceDivider()
                         SettingsItemAnchor("playback.startup_auto_play_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.PLAYLIST_AUTO_CONTINUE),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.STARTUP_RESUME),
                                 title = playbackSettingTitle("playback.startup_auto_play_enabled"),
                                 subtitle = if (startupAutoPlayEnabled) {
                                     "重新打开应用并进入播放器后，继续上次播放"
@@ -1459,7 +1461,7 @@ private fun PlaybackInteractionSettingsSection(
         AppPreferenceDivider()
         SettingsItemAnchor("playback.next_watch_hint_enabled") {
             AppSwitchPreference(
-                icon = rememberSettingsSemanticIcon(SettingsIconRole.AUTO_PLAY_NEXT),
+                icon = rememberSettingsSemanticIcon(SettingsIconRole.NEXT_VIDEO_HINT),
                 title = playbackSettingTitle("playback.next_watch_hint_enabled"),
                 subtitle = "最后 5 秒提示下一集或相关推荐，关闭不影响自动续播",
                 checked = nextWatchHintEnabled,
@@ -1628,7 +1630,7 @@ SettingsItemAnchor("playback.subtitle_auto_preference") {
         AppPreferenceDivider()
         SettingsItemAnchor("playback.video_argue_msg_shown") {
             AppSwitchPreference(
-                icon = rememberSettingsSemanticIcon(SettingsIconRole.VIDEO_DESCRIPTION),
+                icon = rememberSettingsSemanticIcon(SettingsIconRole.VIDEO_CONTENT_NOTICE),
                 title = playbackSettingTitle("playback.video_argue_msg_shown"),
                 subtitle = if (videoArgueMsgShown) {
                     "在简介上方显示 UP 主的视频声明"
@@ -1663,7 +1665,7 @@ SettingsItemAnchor("playback.subtitle_auto_preference") {
         AppPreferenceDivider()
         SettingsItemAnchor("playback.detailed_comment_time_enabled") {
             AppSwitchPreference(
-                icon = rememberSettingsSemanticIcon(SettingsIconRole.COMMENT_DECORATION),
+                icon = rememberSettingsSemanticIcon(SettingsIconRole.COMMENT_EXACT_TIME),
                 title = playbackSettingTitle("playback.detailed_comment_time_enabled"),
                 subtitle = "显示年月日和时分秒；关闭后显示“多久前”",
                 checked = detailedCommentTimeEnabled,
@@ -1871,7 +1873,7 @@ SettingsItemAnchor("playback.comment_collapsed_reply_preview_limit") {
         AppPreferenceDivider()
             SettingsItemAnchor("playback.comment_avatar_push_enabled") {
                 AppSwitchPreference(
-                    icon = rememberSettingsSemanticIcon(SettingsIconRole.COMMENT_DECORATION),
+                    icon = rememberSettingsSemanticIcon(SettingsIconRole.COMMENT_AVATAR_PUSH),
                     title = playbackSettingTitle("playback.comment_avatar_push_enabled"),
                     subtitle = "头像以作者行为原位，滑出顶部后吸附并随评论边界顶替，滑回即恢复；支持评论、回复与搜索结果",
                     checked = commentAvatarPushEnabled,
@@ -2278,7 +2280,7 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
         AppPreferenceDivider()
         SettingsItemAnchor("playback.portrait_only_vertical_recommendations") {
             AppSwitchPreference(
-                icon = rememberSettingsSemanticIcon(SettingsIconRole.PORTRAIT_STORY_ENTRY),
+                icon = rememberSettingsSemanticIcon(SettingsIconRole.VERTICAL_RECOMMENDATIONS),
                 title = playbackSettingTitle("playback.portrait_only_vertical_recommendations"),
                 subtitle = if (portraitOnlyVerticalRecommendations) {
                     "仅推荐竖屏画面的视频"
@@ -2612,7 +2614,7 @@ SettingsItemAnchor("playback.fullscreen_swipe_seek_seconds") {
         AppPreferenceDivider()
         SettingsItemAnchor("playback.player_control_visibility.compact_player_chrome") {
             AppSwitchPreference(
-                icon = rememberSettingsSemanticIcon(SettingsIconRole.CAST_BUTTON),
+                icon = rememberSettingsSemanticIcon(SettingsIconRole.COMPACT_PLAYER_CONTROLS),
                 title = playbackSettingTitle("playback.player_control_visibility.compact_player_chrome"),
                 subtitle = "减少按钮间距和遮罩；分享移至“更多”",
                 checked = playerControlVisibility.compactPlayerChrome,
@@ -2707,7 +2709,7 @@ SettingsItemAnchor("playback.fullscreen_aspect_ratio") {
         AppPreferenceDivider()
         SettingsItemAnchor("playback.video_ambient_settings.enabled") {
             AppSwitchPreference(
-                icon = rememberSettingsSemanticIcon(SettingsIconRole.IMMERSIVE_STATUS_BAR),
+                icon = rememberSettingsSemanticIcon(SettingsIconRole.VIDEO_AMBIENT_LIGHT),
                 title = playbackSettingTitle("playback.video_ambient_settings.enabled"),
                 subtitle = "在播放器周边显示随画面变化的柔和光晕；HDR、Anime4K 和小窗下不启用",
                 checked = videoAmbientSettings.enabled,

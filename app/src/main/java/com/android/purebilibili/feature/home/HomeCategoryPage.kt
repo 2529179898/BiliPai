@@ -981,6 +981,8 @@ private fun PopularSubCategorySegmentedControl(
         // whose child dock is start-aligned. Disabled materials retain the equal-slot path.
         if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
             com.android.purebilibili.core.ui.components.AppLiquidAwareTabRow(
+                // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                 options = subCategories.mapIndexed { index, category ->
                     com.android.purebilibili.core.ui.components.AppSegmentOption(category, labels[index])
                 },
@@ -996,6 +998,8 @@ private fun PopularSubCategorySegmentedControl(
             return@Box
         }
         BottomBarLiquidSegmentedControl(
+            // Glass indicator fills the measured slot; native geometry keeps its defaults.
+            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
             items = labels,
             selectedIndex = selectedIndex,
             onSelected = { index ->
@@ -1038,6 +1042,8 @@ private fun TodayWatchModeSegmentedControl(
         stringResource(resolveTodayWatchModeLabelRes(mode))
     }
     BottomBarLiquidSegmentedControl(
+        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         items = labels,
         selectedIndex = selectedIndex,
         onSelected = { index ->

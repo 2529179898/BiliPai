@@ -114,7 +114,11 @@ fun resolveStatusContentColor(status: AppContentStatus, scheme: ColorScheme): Co
 
 /** Resolve opaque text against canvas and card roles instead of reducing text opacity. */
 fun resolveReadableNeutralContent(candidate: Color, scheme: ColorScheme): Color {
-    val surfaces = listOf(scheme.background, scheme.surface, scheme.surfaceContainer, scheme.surfaceContainerHigh)
+    val surfaces = listOf(
+        scheme.background, scheme.surface, scheme.surfaceContainerLowest, scheme.surfaceContainerLow,
+        scheme.surfaceContainer, scheme.surfaceContainerHigh, scheme.surfaceContainerHighest,
+        scheme.surfaceBright, scheme.surfaceDim, scheme.surfaceVariant,
+    ).distinct()
     fun readable(color: Color) = surfaces.all {
         calculateContrastRatio(opaqueCompositeOver(color, it), it) >= ACCESSIBLE_TEXT_MIN_CONTRAST
     }
@@ -125,7 +129,11 @@ fun resolveReadableNeutralContent(candidate: Color, scheme: ColorScheme): Color 
         val adjusted = lerp(candidate.copy(alpha = 1f), scheme.onSurface, step / 16f)
         if (readable(adjusted)) return adjusted
     }
-    return scheme.onSurface
+    // Advanced overrides can also make onSurface unreadable. Pick the best neutral
+    // fallback instead of returning the same failing foreground for all shared content.
+    return listOf(scheme.onSurface, Color.Black, Color.White).maxBy { color ->
+        surfaces.minOf { calculateContrastRatio(opaqueCompositeOver(color, it), it) }
+    }
 }
 
 internal fun resolveSelectionAccentColor(

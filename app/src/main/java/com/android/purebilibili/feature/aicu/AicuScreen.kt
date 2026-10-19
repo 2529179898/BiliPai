@@ -330,6 +330,8 @@ private fun AicuCategoryTabs(category: AicuCategory, liquidEnabled: Boolean, onS
             // Let the shared dock own its bounded fallback backdrop. Supplying a synthetic
             // gradient here separates the shell and moving indicator capture pipelines.
             AppThemeAdaptiveTabRow(
+                // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
                 options = options,
                 selectedValue = category,
@@ -402,6 +404,8 @@ private fun AicuCommentModeDock(
         )
         if (useGlass) {
             AppThemeAdaptiveTabRow(
+                // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
                 options = options,
                 selectedValue = selectedMode,

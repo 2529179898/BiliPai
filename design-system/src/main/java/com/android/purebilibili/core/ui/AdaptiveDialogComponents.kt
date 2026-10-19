@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -92,6 +93,17 @@ internal fun AdaptiveAlertDialog(
         uiStyle = uiStyle,
         nativeMiuixPopupsEnabled = themeConfig.nativeMiuixPopupsEnabled,
     )
+    // Dialog actions are drawn on the dialog fill, not on primary. Keep the picked
+    // accent for fills elsewhere; only repair these standalone action foregrounds.
+    val baseActionBackground = containerColor ?: if (renderer == AppAlertDialogRenderer.LOCAL_DIALOG) {
+        AppSurfaceTokens.cardContainer()
+    } else MaterialTheme.colorScheme.surface
+    val actionBackground = if (renderer == AppAlertDialogRenderer.MATERIAL_ALERT &&
+        baseActionBackground == MaterialTheme.colorScheme.surface
+    ) MaterialTheme.colorScheme.surfaceColorAtElevation(tonalElevation ?: AlertDialogDefaults.TonalElevation)
+        else baseActionBackground
+    val confirmContentColor = resolveButtonContentColor(actionBackground, AppSurfaceTokens.primary(), MaterialTheme.colorScheme)
+    val dismissContentColor = resolveButtonContentColor(actionBackground, AppSurfaceTokens.onSurface(), MaterialTheme.colorScheme)
     // 半开折叠屏：弹窗整体收进铰链安全侧，避免横跨折缝。
     val hingeSafeRegions = LocalHingeSafeOverlayRegions.current.dialog
     if (hingeSafeRegions != null) {
@@ -129,7 +141,8 @@ internal fun AdaptiveAlertDialog(
                             0.dp
                         } else AlertDialogDefaults.TonalElevation,
                     ) {
-                        MiuixAlertDialogBody(icon, title, text, confirmButton, dismissButton, constrainText = true)
+                        MiuixAlertDialogBody(icon, title, text, confirmButton, dismissButton,
+                            confirmContentColor, dismissContentColor, constrainText = true)
                     }
                 }
             }
@@ -151,6 +164,8 @@ internal fun AdaptiveAlertDialog(
                     text = text,
                     confirmButton = confirmButton,
                     dismissButton = dismissButton,
+                    confirmContentColor = confirmContentColor,
+                    dismissContentColor = dismissContentColor,
                 )
             }
             WindowDialog(
@@ -187,12 +202,12 @@ internal fun AdaptiveAlertDialog(
                 text = text,
                 confirmButton = {
                     ModalWindowBlurBehindEffect()
-                    ProvideAppActionContentColor(AppSurfaceTokens.primary()) {
+                    ProvideAppActionContentColor(confirmContentColor) {
                         confirmButton?.invoke() ?: Spacer(modifier = Modifier)
                     }
                 },
                 dismissButton = dismissButton?.let { dismiss ->
-                    { ProvideAppActionContentColor(AppSurfaceTokens.onSurface(), dismiss) }
+                    { ProvideAppActionContentColor(dismissContentColor, dismiss) }
                 },
                 properties = properties,
                 shape = shape ?: MaterialTheme.shapes.extraLarge,
@@ -211,6 +226,8 @@ private fun MiuixAlertDialogBody(
     text: @Composable (() -> Unit)?,
     confirmButton: @Composable (() -> Unit)?,
     dismissButton: @Composable (() -> Unit)?,
+    confirmContentColor: Color,
+    dismissContentColor: Color,
     constrainText: Boolean = false,
 ) {
     Column(
@@ -272,12 +289,12 @@ private fun MiuixAlertDialogBody(
         ) {
             if (dismissButton != null) {
                 Box(modifier = Modifier.padding(horizontal = 4.dp)) {
-                    ProvideAppActionContentColor(AppSurfaceTokens.onSurface(), dismissButton)
+                    ProvideAppActionContentColor(dismissContentColor, dismissButton)
                 }
             }
             if (confirmButton != null) {
                 Box(modifier = Modifier.padding(horizontal = 4.dp)) {
-                    ProvideAppActionContentColor(AppSurfaceTokens.primary(), confirmButton)
+                    ProvideAppActionContentColor(confirmContentColor, confirmButton)
                 }
             }
         }

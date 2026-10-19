@@ -2705,7 +2705,24 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         .map { preferences -> resolvePaletteStylePreference(preferences[KEY_THEME_COLOR_STYLE]) }
 
     suspend fun setThemeColorStyle(context: Context, style: PaletteStyle) {
-        context.settingsDataStore.edit { preferences -> preferences[KEY_THEME_COLOR_STYLE] = style.name }
+        context.settingsDataStore.edit { preferences -> preferences[KEY_THEME_COLOR_STYLE] = style.toString() }
+    }
+
+    /** Apply the invitation only after confirmation, in one transaction. Keep the user's
+     * source, seed, advanced colors, contrast and glass preferences untouched. */
+    internal suspend fun applyCmfUpdateTrial(context: Context, expected: AppThemeSettings): Boolean {
+        var applied = false
+        context.settingsDataStore.edit { preferences ->
+            val current = mapAppThemeSettingsFromPreferences(preferences)
+            // Recheck the preview snapshot, so another settings change cannot be overwritten.
+            if (current != expected || current.uiStyle != AppUiStyle.MATERIAL3 ||
+                current.md3ColorSource != Md3ColorSource.CUSTOM) return@edit
+            preferences[KEY_SEED_PALETTE_STYLE] = SeedPaletteStyle.Standard.name
+            preferences[KEY_THEME_COLOR_STYLE] = PaletteStyle.Cmf().toString()
+            preferences[KEY_THEME_COLOR_SPEC] = ColorSpec.SpecVersion.SPEC_2026.name
+            applied = true
+        }
+        return applied
     }
 
     fun getThemeColorSpec(context: Context): Flow<ColorSpec.SpecVersion> = context.settingsDataStore.data

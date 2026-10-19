@@ -265,6 +265,8 @@ private fun BangumiHubScreen(
                     }
                     if (state.page != BangumiHubPage.SEARCH) {
                         AppLiquidAwareTabRow(
+                            // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                             role = com.android.purebilibili.core.ui.components.AppTabRowRole.PRIMARY,
                             options = BangumiChannel.entries.map { AppSegmentOption(it, it.label) },
                             selectedValue = state.channel,
@@ -288,6 +290,8 @@ private fun BangumiHubScreen(
                     }
                     if (state.page == BangumiHubPage.FOLLOW) {
                         AppLiquidAwareTabRow(
+                            // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                             role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
                             options = BangumiFollowStatus.entries.map { AppSegmentOption(it, it.label) },
                             selectedValue = state.followStatus,

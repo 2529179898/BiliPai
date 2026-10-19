@@ -190,6 +190,8 @@ fun CommentSortHeader(
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     AppThemeAdaptiveTabRow(
+                        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                         role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
                         options = sortModes.map { AppSegmentOption(it, it.label) },
                         selectedValue = sortMode,
@@ -296,6 +298,8 @@ fun CommentSegmentedControl(
         resolveCommentSortSegmentedControlSpec(items.size, liquidGlassEnabled)
     }
     BottomBarLiquidSegmentedControl(
+        // Glass indicator fills the measured slot; native geometry keeps its defaults.
+        liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         items = items,
         selectedIndex = selectedIndex,
         onSelected = onScaleChange,

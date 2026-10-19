@@ -1321,6 +1321,7 @@ open class MainActivity : AppCompatActivity() {
             val uriHandler = LocalUriHandler.current
             val scope = rememberCoroutineScope()
             var startupUpdateCheckResult by remember { mutableStateOf<AppUpdateCheckResult?>(null) }
+            var startupUpdateCheckFinished by remember { mutableStateOf(false) }
             // Legacy state remains only for the retired in-place dialog path below.
             var startupUpdateDownloadState by remember { mutableStateOf(AppUpdateDownloadState()) }
             var pendingCrashSnapshotPath by remember {
@@ -1329,19 +1330,23 @@ open class MainActivity : AppCompatActivity() {
             var hasHandledCrashPrompt by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
-                val autoCheckUpdateEnabled = SettingsManager.getAutoCheckAppUpdate(context).first()
-                val updateChannel = SettingsManager.getAppUpdateChannel(context).first()
-                val gateAllowsCheck = AppUpdateAutoCheckGate.tryMarkChecked()
-                if (shouldRunAppEntryAutoCheck(autoCheckUpdateEnabled, gateAllowsCheck)) {
-                    AppUpdateChecker.check(
-                        currentVersion = BuildConfig.VERSION_NAME,
-                        currentVersionCode = BuildConfig.VERSION_CODE,
-                        includePrerelease = updateChannel == SettingsManager.AppUpdateChannel.BETA
-                    ).onSuccess { info ->
-                        if (info.isUpdateAvailable) {
-                            startupUpdateCheckResult = info
+                try {
+                    val autoCheckUpdateEnabled = SettingsManager.getAutoCheckAppUpdate(context).first()
+                    val updateChannel = SettingsManager.getAppUpdateChannel(context).first()
+                    val gateAllowsCheck = AppUpdateAutoCheckGate.tryMarkChecked()
+                    if (shouldRunAppEntryAutoCheck(autoCheckUpdateEnabled, gateAllowsCheck)) {
+                        AppUpdateChecker.check(
+                            currentVersion = BuildConfig.VERSION_NAME,
+                            currentVersionCode = BuildConfig.VERSION_CODE,
+                            includePrerelease = updateChannel == SettingsManager.AppUpdateChannel.BETA
+                        ).onSuccess { info ->
+                            if (info.isUpdateAvailable) {
+                                startupUpdateCheckResult = info
+                            }
                         }
                     }
+                } finally {
+                    startupUpdateCheckFinished = true
                 }
             }
             
@@ -1703,6 +1708,8 @@ open class MainActivity : AppCompatActivity() {
                                 AppNavigation(
                                 miniPlayerManager = miniPlayerManager,
                                 isInPipMode = isPipRenderingActive,
+                                entryDialogsBlocked = !startupUpdateCheckFinished || startupUpdateCheckResult != null ||
+                                    (pendingCrashSnapshotPath != null && !hasHandledCrashPrompt),
                                 pendingVideoId = pendingVideoId,
                                 pendingShortcutRoute = pendingRoute,
                                 pendingNavigationRoute = pendingNavigationRoute,
@@ -1775,6 +1782,15 @@ open class MainActivity : AppCompatActivity() {
                         isInMiniMode = miniPlayerManager.isMiniMode,
                         isVideoDetailDestination = isInVideoDetail
                     )
+                    if (miniPlayerManager.isMiniMode) {
+                        com.android.purebilibili.feature.video.screen.VideoDetailPipParamsEffect(
+                            context = this@MainActivity,
+                            activity = this@MainActivity,
+                            playerBounds = miniPlayerManager.miniPlayerSourceBoundsPx,
+                            pipModeEnabled = miniPlayerManager.shouldEnterPip(),
+                            player = miniPlayerManager.player
+                        )
+                    }
                     val playbackOverlayState = remember(
                         isInPipMode,
                         miniPlayerManager.isMiniMode,
@@ -1788,9 +1804,13 @@ open class MainActivity : AppCompatActivity() {
                     }
                     if (playbackOverlayState.showDedicatedPipPlayer) {
                         miniPlayerManager.player?.let { pipPlayer ->
+                            val useTextureSurface = com.android.purebilibili.feature.video.ui.components.rememberCompatibleVideoTextureSurface(
+                                pipPlayer, miniPlayerManager.cachedUiState?.currentQuality ?: 0,
+                            )
+                            key(pipPlayer, useTextureSurface) {
                             AndroidView(
                                 factory = { viewContext ->
-                                    PlayerView(viewContext).apply {
+                                    com.android.purebilibili.feature.video.ui.components.createVideoPlayerView(viewContext, useTextureSurface).apply {
                                         player = pipPlayer
                                         useController = false
                                         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
@@ -1798,10 +1818,12 @@ open class MainActivity : AppCompatActivity() {
                                     }
                                 },
                                 update = { playerView -> playerView.player = pipPlayer },
+                                onRelease = { view -> view.player = null },
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .background(Color.Black)
                             )
+                            }
                         }
                     }
                     //  小窗播放器覆盖层 (非 PiP 模式下显示；PIP 期间保持挂载但内容
@@ -2456,7 +2478,11 @@ open class MainActivity : AppCompatActivity() {
         refreshAndroid17HandoffAvailability()
         refreshSystemThemeSnapshot(reason = "resume")
         miniPlayerManager.clearUserLeaveHint()
-        miniPlayerManager.clearPlaybackRoutePipState()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
+            miniPlayerManager.updateSystemPipActive(true)
+        } else {
+            miniPlayerManager.clearPlaybackRoutePipState()
+        }
         miniPlayerManager.clearPlaybackNotificationIfIdleOnResume()
         if (
             shouldRestorePlaybackRouteStateOnResume(
@@ -2491,6 +2517,7 @@ open class MainActivity : AppCompatActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (startupRecoveryRedirected) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) return
         
         Logger.d(
             TAG,
@@ -2499,16 +2526,12 @@ open class MainActivity : AppCompatActivity() {
         miniPlayerManager.markUserLeaveHint()
         miniPlayerManager.refreshMediaSessionBinding()
         
-        val stopPlaybackOnExit = SettingsManager.getStopPlaybackOnExitSync(this)
+        miniPlayerManager.updatePlaybackRoutePipRequest(false)
         val audioModeAutoPipEnabled = SettingsManager.getAudioModeAutoPipEnabledSync(this)
         //  [重构] 使用新的模式判断方法
         val shouldEnterPip = miniPlayerManager.shouldEnterPip()
         val currentMode = miniPlayerManager.getCurrentMode()
-        val isActuallyPlaying = miniPlayerManager.isPlaying || (miniPlayerManager.player?.isPlaying == true)
-        val isPlaybackRouteActive = isPlaybackRouteActive(
-            isInVideoDetail = isInVideoDetail,
-            isInAudioMode = isInAudioModeRoute
-        )
+        val isActuallyPlaying = miniPlayerManager.player?.isPlaying == true
         val shouldTriggerPip = shouldTriggerPlaybackRoutePip(
             isInVideoDetail = isInVideoDetail,
             isInAudioMode = isInAudioModeRoute,
@@ -2517,7 +2540,7 @@ open class MainActivity : AppCompatActivity() {
             shouldEnterPip = shouldEnterPip,
             isActuallyPlaying = isActuallyPlaying
         )
-        miniPlayerManager.updatePlaybackRoutePipRequest(shouldTriggerPip)
+        // Pending state is set only immediately before a supported platform request.
 
         Logger.d(
             TAG,
@@ -2525,48 +2548,17 @@ open class MainActivity : AppCompatActivity() {
         )
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldTriggerPip) {
-            try {
-                Logger.d(TAG, " 尝试进入 PiP 模式...")
-                
-                val pipParams = PictureInPictureParams.Builder()
-                    .setAspectRatio(
-                        resolveSafeAndroidPipRational(
-                            videoWidth = miniPlayerManager.videoWidth,
-                            videoHeight = miniPlayerManager.videoHeight
-                        )
-                    )
-                    .setActions(
-                        buildPipPlaybackRemoteActions(
-                            context = this,
-                            player = miniPlayerManager.player
-                        )
-                    )
-                    // 从小窗当前位置无缝收缩进 PIP，而不是从全屏默认收缩
-                    .apply {
-                        miniPlayerManager.miniPlayerSourceBoundsPx?.let { setSourceRectHint(it) }
-                    }
-                
-                // Android 12+: 启用自动进入和无缝调整
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    pipParams.setAutoEnterEnabled(true)
-                    pipParams.setSeamlessResizeEnabled(true)
-                }
-                
-                enterPictureInPictureMode(pipParams.build())
-                Logger.d(TAG, " 成功进入 PiP 模式")
-            } catch (e: Exception) {
-                miniPlayerManager.updatePlaybackRoutePipRequest(false)
-                Logger.e(TAG, " 进入 PiP 失败", e)
-            }
+            enterMiniPlayerPictureInPicture()
         } else {
             Logger.d(TAG, "⏳ 未满足 PiP 条件: API>=${Build.VERSION_CODES.O}=${Build.VERSION.SDK_INT >= Build.VERSION_CODES.O}, shouldTriggerPip=$shouldTriggerPip")
         }
     }
 
     private fun enterMiniPlayerPictureInPicture() {
+        miniPlayerManager.updatePlaybackRoutePipRequest(false)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        if (!miniPlayerManager.shouldEnterPip() || miniPlayerManager.player == null) return
-        miniPlayerManager.updatePlaybackRoutePipRequest(true)
+        if (isInPictureInPictureMode) return
+        if (!miniPlayerManager.shouldEnterPip() || miniPlayerManager.player?.isPlaying != true) return
         try {
             val params = PictureInPictureParams.Builder()
                 .setAspectRatio(
@@ -2582,13 +2574,23 @@ open class MainActivity : AppCompatActivity() {
                     )
                 )
                 .apply {
-                    miniPlayerManager.miniPlayerSourceBoundsPx?.let { setSourceRectHint(it) }
+                    if (miniPlayerManager.isMiniMode) {
+                        miniPlayerManager.miniPlayerSourceBoundsPx?.let { setSourceRectHint(it) }
+                    }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        setAutoEnterEnabled(
+                            !isInAudioModeRoute && miniPlayerManager.player?.isPlaying == true
+                        )
                         setSeamlessResizeEnabled(true)
                     }
                 }
                 .build()
-            enterPictureInPictureMode(params)
+            miniPlayerManager.updatePlaybackRoutePipRequest(true)
+            val entered = enterPictureInPictureMode(params)
+            if (!entered) {
+                miniPlayerManager.updatePlaybackRoutePipRequest(false)
+                Logger.w(TAG, "系统拒绝进入画中画")
+            }
         } catch (error: Exception) {
             miniPlayerManager.updatePlaybackRoutePipRequest(false)
             Logger.e(TAG, "小窗切换画中画失败", error)

@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasTestTag
@@ -20,6 +21,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.android.purebilibili.data.model.response.ReplyContent
@@ -28,6 +30,8 @@ import com.android.purebilibili.data.model.response.ReplyMember
 import com.android.purebilibili.data.model.response.ReplyPicture
 import com.android.purebilibili.feature.video.ui.components.COMMENT_SUB_REPLY_PREVIEW_TAG_PREFIX
 import com.android.purebilibili.feature.video.ui.components.COMMENT_VIEW_ALL_REPLIES_TAG_PREFIX
+import com.android.purebilibili.feature.video.ui.components.COMMENT_PICTURE_TAG_PREFIX
+import com.android.purebilibili.feature.video.ui.components.SUB_REPLY_DETAIL_ITEM_TAG_PREFIX
 import com.android.purebilibili.feature.video.ui.components.ReplyItemView
 import com.android.purebilibili.feature.video.ui.components.SubReplySheet
 import com.android.purebilibili.feature.video.viewmodel.SubReplySortMode
@@ -38,9 +42,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-private const val SUB_REPLY_DETAIL_HEADER_TAG = "subreply_detail_header"
-private const val SUB_REPLY_DETAIL_CLOSE_TAG = "subreply_detail_close"
-private const val SUB_REPLY_DETAIL_ROOT_TAG = "subreply_detail_root"
 private const val SUB_REPLY_DETAIL_LIST_TAG = "subreply_detail_reply_list"
 private const val SUB_REPLY_DETAIL_CONVERSATION_TAG_PREFIX = "subreply_detail_conversation_"
 
@@ -50,31 +51,6 @@ class SubReplyDetailUiRegressionTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    @Test
-    fun subReplyDetail_exposesDedicatedStructureTags() {
-        composeTestRule.setContent {
-            MaterialTheme {
-                Box(
-                    modifier = Modifier.size(width = 390.dp, height = 844.dp)
-                ) {
-                    SubReplySheet(
-                        state = buildSubReplyState(),
-                        emoteMap = emptyMap(),
-                        onDismiss = {},
-                        onSortModeChange = {},
-                        onRefresh = {},
-                        onLoadMore = {}
-                    )
-                }
-            }
-        }
-
-        composeTestRule.onNodeWithTag(SUB_REPLY_DETAIL_HEADER_TAG).assertIsDisplayed()
-        composeTestRule.onNodeWithTag(SUB_REPLY_DETAIL_CLOSE_TAG).assertIsDisplayed()
-        composeTestRule.onNodeWithTag(SUB_REPLY_DETAIL_ROOT_TAG).assertIsDisplayed()
-        composeTestRule.onNodeWithTag(SUB_REPLY_DETAIL_LIST_TAG).assertIsDisplayed()
-        composeTestRule.onNodeWithText("相关回复共3条").assertIsDisplayed()
-    }
 
     @Test
     fun sortingDispatchesToOwnerAndReflectsItsState() {
@@ -107,7 +83,7 @@ class SubReplyDetailUiRegressionTest {
     }
 
     @Test
-    fun directedChildReply_showsConversationAffordance() {
+    fun directedChildReply_opensConversationAndReturnsToAllReplies() {
         composeTestRule.setContent {
             MaterialTheme {
                 Box(
@@ -126,16 +102,23 @@ class SubReplyDetailUiRegressionTest {
         }
 
         composeTestRule
-            .onNodeWithTag(SUB_REPLY_DETAIL_LIST_TAG)
+            .onNode(
+                hasScrollToIndexAction() and
+                    hasAnyAncestor(hasTestTag(SUB_REPLY_DETAIL_LIST_TAG))
+            )
             .performScrollToNode(hasTestTag("${SUB_REPLY_DETAIL_CONVERSATION_TAG_PREFIX}203"))
 
         composeTestRule
             .onNodeWithTag("${SUB_REPLY_DETAIL_CONVERSATION_TAG_PREFIX}203")
             .assertIsDisplayed()
+            .performClick()
+        composeTestRule.onNodeWithText("对话详情").assertIsDisplayed()
+        composeTestRule.onNodeWithText("返回全部回复").performClick()
+        composeTestRule.onNodeWithText("相关回复共3条").assertIsDisplayed()
     }
 
     @Test
-    fun clickingChildReplyPicture_usesPerReplyImageTag() {
+    fun clickingChildReplyPicture_opensThatReplyImage() {
         var previewedImage: String? = null
 
         composeTestRule.setContent {
@@ -159,7 +142,10 @@ class SubReplyDetailUiRegressionTest {
         }
 
         composeTestRule
-            .onNodeWithTag("subreply_detail_image_201_0")
+            .onNode(
+                hasTestTag("${COMMENT_PICTURE_TAG_PREFIX}0") and
+                    hasAnyAncestor(hasTestTag("${SUB_REPLY_DETAIL_ITEM_TAG_PREFIX}201"))
+            )
             .performClick()
 
         composeTestRule.runOnIdle {
@@ -331,6 +317,35 @@ class SubReplyDetailUiRegressionTest {
                 ?.toString()
             assertEquals("preview child reply", firstItem)
         }
+    }
+
+    @Test
+    fun detailRootWithPreview_doesNotNestRepliesOrOpenComposerOnBodyTap() {
+        var replyTarget: Long? = null
+        composeTestRule.setContent {
+            MaterialTheme {
+                SubReplySheet(
+                    state = SubReplyUiState(
+                        visible = true,
+                        rootReply = buildReplyWithPreview(),
+                        isEnd = true,
+                    ),
+                    emoteMap = emptyMap(),
+                    onDismiss = {},
+                    onSortModeChange = {},
+                    onRefresh = {},
+                    onLoadMore = {},
+                    onReplyClick = { replyTarget = it.rpid },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("${COMMENT_SUB_REPLY_PREVIEW_TAG_PREFIX}301").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("${COMMENT_VIEW_ALL_REPLIES_TAG_PREFIX}100").assertDoesNotExist()
+        composeTestRule.onNodeWithText("root").performTouchInput { click(center) }
+        composeTestRule.runOnIdle { assertEquals(null, replyTarget) }
+        composeTestRule.onNodeWithText("回复").performClick()
+        composeTestRule.runOnIdle { assertEquals(100L, replyTarget) }
     }
 
     private fun buildSubReplyState(): SubReplyUiState {

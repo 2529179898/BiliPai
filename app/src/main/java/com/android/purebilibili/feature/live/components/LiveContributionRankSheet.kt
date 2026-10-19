@@ -65,6 +65,8 @@ fun LiveContributionRankSheet(
         Column(Modifier.fillMaxWidth().height(panelHeight)) {
             AppText("高能榜", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(12.dp))
             AppThemeAdaptiveTabRow(
+                // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                 options = rankTypes.mapIndexed { index, type -> AppSegmentOption(index, type.title) },
                 selectedValue = pager.currentPage,

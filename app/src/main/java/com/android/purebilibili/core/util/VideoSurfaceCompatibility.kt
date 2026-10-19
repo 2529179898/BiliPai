@@ -3,8 +3,8 @@ package com.android.purebilibili.core.util
 import android.os.Build
 
 /**
- * vivo Android 13 tombstones show hwuiTask0 crashing in SurfaceControl.Transaction.setMatrix
- * while SurfaceView reports its position. Keep SDR playback off that native surface path.
+ * vivo and Xiaomi Android 13 tombstones show hwuiTask0 crashing in SurfaceControl
+ * transactions while SurfaceView reports its position. Keep SDR off that native path.
  * HDR callers retain SurfaceView because TextureView cannot preserve HDR display output.
  */
 internal fun prefersTextureVideoSurface(
@@ -13,4 +13,7 @@ internal fun prefersTextureVideoSurface(
     brand: String? = Build.BRAND,
 ): Boolean = sdkInt == 33 &&
     (manufacturer.equals("vivo", ignoreCase = true) ||
-        brand.equals("vivo", ignoreCase = true) || brand.equals("iQOO", ignoreCase = true))
+        brand.equals("vivo", ignoreCase = true) || brand.equals("iQOO", ignoreCase = true) ||
+        manufacturer.equals("Xiaomi", ignoreCase = true) ||
+        brand.equals("Xiaomi", ignoreCase = true) || brand.equals("Redmi", ignoreCase = true) ||
+        brand.equals("POCO", ignoreCase = true))

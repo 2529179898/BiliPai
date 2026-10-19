@@ -33,6 +33,8 @@ import com.android.purebilibili.core.ui.components.AppIconButton
 import com.android.purebilibili.core.ui.rememberAppBackIcon
 import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.data.model.CommentFraudStatus
+import com.android.purebilibili.data.model.response.EmotePackage
+import com.android.purebilibili.data.repository.CommentRepository
 import com.android.purebilibili.data.repository.resolveCommentFraudLightMessage
 import com.android.purebilibili.data.repository.shouldShowCommentFraudResultDialog
 import com.android.purebilibili.feature.video.ui.components.CommentFraudResultDialog
@@ -65,6 +67,12 @@ fun CommentDetailScreen(
     val isSending by viewModel.isSending.collectAsStateWithLifecycle()
     val fraudResult by viewModel.fraudResult.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var emotePackages by remember { mutableStateOf<List<EmotePackage>>(emptyList()) }
+    LaunchedEffect(showCommentInput) {
+        if (showCommentInput && emotePackages.isEmpty()) {
+            emotePackages = CommentRepository.getEmotePackages().getOrDefault(emptyList())
+        }
+    }
 
     LaunchedEffect(fraudResult) {
         val result = fraudResult ?: return@LaunchedEffect
@@ -238,7 +246,8 @@ fun CommentDetailScreen(
                     viewModel.sendReply(text, uris, sync)
                 },
                 isSending = isSending,
-                replyToName = replyingTo?.member?.uname
+                replyToName = replyingTo?.member?.uname,
+                emotePackages = emotePackages,
             )
         }
     }

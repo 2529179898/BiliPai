@@ -417,7 +417,8 @@ fun AppNavigation(
         onResult(PrivacyAuthenticationResult.Failure("请先设置系统锁屏后再解锁隐私内容"))
     },
     mainHazeState: dev.chrisbanes.haze.HazeState? = null, //  全局 Haze 状态
-    onBrandFeedbackBottomInsetChanged: (androidx.compose.ui.unit.Dp) -> Unit = {}
+    onBrandFeedbackBottomInsetChanged: (androidx.compose.ui.unit.Dp) -> Unit = {},
+    entryDialogsBlocked: Boolean = false,
 ) {
     val homeViewModel: HomeViewModel = viewModel()
     val coroutineScope = rememberCoroutineScope()
@@ -787,6 +788,15 @@ fun AppNavigation(
                 visibleItems = visibleBottomBarItems
             )
         }
+        com.android.purebilibili.feature.settings.highlights.UpdateHighlightsHost(
+            allowAutomatic = !entryDialogsBlocked && !agreementRequired &&
+                currentRoute == ScreenRoutes.Home.route && currentBottomNavItem == BottomNavItem.HOME &&
+                !foregroundSettling && !deferGlobalWallpaperPalette && !mainBottomPagerState.isNavigating &&
+                !isInPipMode && miniPlayerManager?.isPlaying != true &&
+                miniPlayerManager?.isMiniMode != true &&
+                pendingVideoId == null && pendingShortcutRoute == null && pendingNavigationRoute == null &&
+                initialSearchKeyword == null,
+        )
         // A new tab visit is distinct even if the history pager page was uncomposed
         // while away. Playback navigation leaves the selected tab and this identity intact.
         val historyBrowsingSessionKey = remember(currentBottomNavItem) { Any() }
@@ -2170,8 +2180,16 @@ fun AppNavigation(
                 }
             }
 
-            fun prepareVideoPlaybackForNavigationExit(videoKey: BiliPaiNavKey.VideoDetail) {
+            fun prepareVideoPlaybackForNavigationExit(
+                videoKey: BiliPaiNavKey.VideoDetail,
+                targetKey: BiliPaiNavKey?,
+            ) {
                 val manager = miniPlayerManager ?: return
+                // Returning to a retained detail is a session replacement, not a mini/audio exit.
+                if (targetKey is BiliPaiNavKey.VideoDetail) {
+                    manager.markLeavingByNavigation(expectedBvid = videoKey.bvid, forceStop = true)
+                    return
+                }
                 if (manager.prepareAudioNowPlayingForNavigationExit(videoKey.bvid)) {
                     manager.markLeavingByNavigation(
                         expectedBvid = videoKey.bvid,
@@ -2204,7 +2222,7 @@ fun AppNavigation(
                 popAction: () -> Unit
             ) {
                 markNavigation3VideoReturnBeforeBackAction(targetKey = targetKey)
-                prepareVideoPlaybackForNavigationExit(videoKey)
+                prepareVideoPlaybackForNavigationExit(videoKey, targetKey)
                 popAction()
             }
 
@@ -3644,7 +3662,10 @@ fun AppNavigation(
                                         activity?.isChangingConfigurations != true &&
                                         !isNavigatingToAudioMode
                                     ) {
-                                        prepareVideoPlaybackForNavigationExit(videoKey)
+                                        prepareVideoPlaybackForNavigationExit(
+                                            videoKey,
+                                            navigation3BackStack.lastOrNull(),
+                                        )
                                     }
                                 }
                             }
@@ -4901,6 +4922,7 @@ fun AppNavigation(
                 barEnabled = audioNowPlayingBarEnabled,
                 isInMiniMode = miniPlayerManager?.isMiniMode == true,
                 isLandscape = isLandscapeNowPlaying,
+                isTabletLayout = isTabletLayout,
                 isPlayerDestination = isPlayerNowPlayingDestination
             )
             val isReturningSameAudioVideo = navigation3ReturnSession.isReturningFromDetail &&
@@ -4915,6 +4937,7 @@ fun AppNavigation(
                 isInMiniMode = miniPlayerManager?.isMiniMode == true,
                 isVideoDetailDestination = isVideoDetailDestination,
                 isLandscape = isLandscapeNowPlaying,
+                isTabletLayout = isTabletLayout,
                 isPlayerDestination = isPlayerIndependentDestination
             )
             // 发布“听视频小横条是否悬浮在内容上方”，供首页/动态等悬浮元素避让

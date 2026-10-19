@@ -192,6 +192,8 @@ fun BangumiReviewScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 BottomBarLiquidSegmentedControl(
+                    // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                    liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                     items = reviewTypes.map { it.label },
                     selectedIndex = reviewTypes.indexOf(reviewType).coerceAtLeast(0),
                     onSelected = { index ->
@@ -208,6 +210,8 @@ fun BangumiReviewScreen(
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 BottomBarLiquidSegmentedControl(
+                    // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                    liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                     items = sortLabels,
                     selectedIndex = sort.coerceIn(0, sortLabels.lastIndex),
                     onSelected = { index -> sort = index },

@@ -49,7 +49,7 @@ internal fun settingsDestinationCopy(target: SettingsSearchTarget): SettingsDest
         summary = "选择界面风格、颜色、字体、显示大小和启动画面",
     )
     SettingsSearchTarget.PLAYBACK -> SettingsDestinationCopy(
-        title = "播放设置",
+        title = "播放器与画质",
         summary = "调整解码、清晰度、倍速、小窗和全屏操作",
     )
     SettingsSearchTarget.BOTTOM_BAR -> SettingsDestinationCopy(

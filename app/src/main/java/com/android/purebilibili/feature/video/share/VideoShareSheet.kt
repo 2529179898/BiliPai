@@ -216,6 +216,8 @@ internal fun VideoShareSheet(
             val segmentModifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth()
             if (LocalAppThemeConfig.current.liquidGlassEnabled) {
                 BottomBarLiquidSegmentedControl(
+                    // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                    liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                     items = styleOptions.map { it.label },
                     selectedIndex = shareStyle.ordinal,
                     onSelected = { shareStyle = VideoShareStyle.entries[it] },

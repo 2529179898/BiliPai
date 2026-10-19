@@ -42,6 +42,8 @@ import com.android.purebilibili.core.ui.LocalAppThemeConfig
 import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.data.model.response.BangumiDetail
 import com.android.purebilibili.data.model.response.BangumiEpisode
+import com.android.purebilibili.data.model.response.EmotePackage
+import com.android.purebilibili.data.repository.CommentRepository
 import com.android.purebilibili.feature.bangumi.BANGUMI_FOLLOW_STATUS_OPTIONS
 import com.android.purebilibili.feature.bangumi.BANGUMI_FOLLOW_STATUS_UNFOLLOW
 import com.android.purebilibili.feature.bangumi.BANGUMI_FOLLOW_STATUS_WATCHING
@@ -120,6 +122,12 @@ fun BangumiPlayerContent(
     val commentListState = key(currentEpisode.id) { rememberLazyListState() }
 
     var commentInputVisible by rememberSaveable(currentEpisode.id) { mutableStateOf(false) }
+    var emotePackages by remember { mutableStateOf<List<EmotePackage>>(emptyList()) }
+    LaunchedEffect(commentInputVisible) {
+        if (commentInputVisible && emotePackages.isEmpty()) {
+            emotePackages = CommentRepository.getEmotePackages().getOrDefault(emptyList())
+        }
+    }
     var sendPending by remember(currentEpisode.id) { mutableStateOf(false) }
     var previewImages by remember(currentEpisode.id) { mutableStateOf<List<String>>(emptyList()) }
     var previewIndex by remember(currentEpisode.id) { mutableIntStateOf(0) }
@@ -805,7 +813,8 @@ fun BangumiPlayerContent(
         replyToName = commentState.replyTarget?.member?.uname,
         inputHint = if (commentState.replyTarget == null) commentState.rootInputHint else commentState.childInputHint,
         canInputComment = commentState.canInputComment,
-        currentVideoPositionMsProvider = currentVideoPositionMsProvider
+        currentVideoPositionMsProvider = currentVideoPositionMsProvider,
+        emotePackages = emotePackages,
     )
 }
 

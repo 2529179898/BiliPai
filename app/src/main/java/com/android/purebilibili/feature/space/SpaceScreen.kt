@@ -154,6 +154,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import coil3.imageLoader
 import coil3.request.ImageRequest
+import com.android.purebilibili.feature.profile.buildForProfileFusion
 import coil3.size.Scale
 import com.android.purebilibili.R
 import com.android.purebilibili.core.theme.AppUiStyle
@@ -3580,6 +3581,8 @@ private fun SpaceMainTabRow(
             .padding(top = 6.dp, bottom = 2.dp)
     ) {
         AppThemeAdaptiveTabRow(
+            // Glass indicator fills the measured slot; native geometry keeps its defaults.
+            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
             role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
             options = tabs.map { AppSegmentOption(it.tab, it.title) },
             selectedValue = tabs[selectedIndex].tab,
@@ -5444,7 +5447,7 @@ private fun SpaceHeaderBanner(
                     model = ImageRequest.Builder(context)
                         .data(skinBackgroundPaths[page])
                         .crossfade(true)
-                        .build(),
+                        .buildForProfileFusion(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     alignment = Alignment.Center,
@@ -5490,7 +5493,7 @@ private fun SpaceHeaderBanner(
                         .data(item.header)
                         .memoryCacheKey(resolveImagePreviewPlaceholderCacheKey(item.header) ?: item.header)
                         .crossfade(false)
-                        .build(),
+                        .buildForProfileFusion(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     alignment = alignment,
@@ -5529,7 +5532,7 @@ private fun SpaceHeaderBanner(
                     .data(item.header)
                     .memoryCacheKey(resolveImagePreviewPlaceholderCacheKey(item.header) ?: item.header)
                     .crossfade(false)
-                    .build(),
+                    .buildForProfileFusion(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 alignment = alignment,
@@ -5555,7 +5558,7 @@ private fun SpaceHeaderBanner(
                     resolveImagePreviewPlaceholderCacheKey(fallbackTopPhotoUrl) ?: fallbackTopPhotoUrl
                 )
                 .crossfade(false)
-                .build(),
+                .buildForProfileFusion(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             alignment = Alignment.Center,

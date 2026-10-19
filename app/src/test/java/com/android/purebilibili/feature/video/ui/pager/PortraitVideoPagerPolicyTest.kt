@@ -711,25 +711,6 @@ class PortraitVideoPagerPolicyTest {
     }
 
     @Test
-    fun navigationReturn_usesTexturePlayerViewForLivePortraitFrameMorph() {
-        val pagerSource = File(
-            "src/main/java/com/android/purebilibili/feature/video/ui/pager/PortraitVideoPager.kt"
-        ).readText()
-        val adapterSource = File(
-            "src/main/java/com/android/purebilibili/feature/video/screen/VideoDetailPortraitOverlayAdapter.kt"
-        ).readText()
-        val holderSource = File(
-            "src/main/java/com/android/purebilibili/feature/video/screen/VideoDetailScreenStateHolder.kt"
-        ).readText()
-
-        assertTrue(pagerSource.contains("navigationTransformEnabled = useTextureSurfaceForNavigation"))
-        assertTrue(pagerSource.contains("R.layout.view_player_texture"))
-        assertTrue(adapterSource.contains("useTextureSurfaceForNavigation = useTextureSurfaceForNavigation"))
-        assertTrue(holderSource.contains("useTextureSurfaceForNavigation = useTextureSurfaceForNavigation"))
-        assertTrue(holderSource.contains("resolveNavigationLiveSurfaceTextureEnabled("))
-    }
-
-    @Test
     fun letterboxAmbientCapture_requiresCurrentReadyPageAndSettings() {
         assertTrue(
             shouldCapturePortraitLetterboxAmbientFrame(

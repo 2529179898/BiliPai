@@ -13,10 +13,12 @@ import com.android.purebilibili.core.store.AccountSessionStore
 import com.android.purebilibili.core.store.StoredAccountSession
 import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.core.coroutines.AccountScopedRequests
+import com.android.purebilibili.core.refresh.FavoriteFolderUpdateBus
 import com.android.purebilibili.core.store.AccountSessionIdentity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import com.android.purebilibili.data.model.response.FavFolder
+import com.android.purebilibili.data.model.response.FavFolderSource
 import com.android.purebilibili.data.model.response.NavData
 import com.android.purebilibili.data.model.response.SpaceUserInfo
 import com.android.purebilibili.data.model.response.SpaceVideoItem
@@ -25,6 +27,7 @@ import com.android.purebilibili.data.repository.FavoriteRepository
 import com.android.purebilibili.data.repository.BangumiRepository
 import com.android.purebilibili.feature.dynamic.DynamicDeleteAction
 import com.android.purebilibili.feature.bangumi.MY_FOLLOW_TYPE_BANGUMI
+import com.android.purebilibili.feature.list.resolveFavoriteFolderMediaId
 import com.android.purebilibili.feature.home.UserState
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.CancellationException
@@ -123,6 +126,30 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             }
             refreshSavedAccounts()
             if (isProfilePageActive) loadProfile()
+        }
+        viewModelScope.launch {
+            FavoriteFolderUpdateBus.changes.collect { update ->
+                val current = _uiState.value as? ProfileUiState.Success ?: return@collect
+                if (!accountRequests.isCurrent() || update.ownerMid <= 0L ||
+                    TokenManager.midCache != update.ownerMid || current.user.mid != update.ownerMid
+                ) return@collect
+                val folderIndex = current.space.favoriteFolders.indexOfFirst { folder ->
+                    folder.source == FavFolderSource.OWNED &&
+                        resolveFavoriteFolderMediaId(folder) == update.mediaId
+                }
+                if (folderIndex < 0) return@collect
+                val updatedFolders = current.space.favoriteFolders.toMutableList()
+                updatedFolders[folderIndex] = updatedFolders[folderIndex].copy(
+                    title = update.info.title,
+                    intro = update.info.intro,
+                    cover = update.info.cover,
+                    attr = update.info.attr,
+                )
+                _uiState.value = current.copy(
+                    favoriteFolders = updatedFolders,
+                    space = current.space.copy(favoriteFolders = updatedFolders),
+                )
+            }
         }
     }
 

@@ -312,7 +312,7 @@ fun AnimationSettingsContent(
                         AppPreferenceDivider()
                         SettingsItemAnchor("animation.global_drag_feedback_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.UI_ENTRANCE_ANIMATION),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.DRAG_FEEDBACK),
                                 title = settingItemTitle("animation.global_drag_feedback_enabled"),
                                 subtitle = "统一控制按钮与胶囊的拖动形变，关闭后保留按压反馈",
                                 checked = globalDragFeedbackEnabled,
@@ -457,7 +457,7 @@ fun AnimationSettingsContent(
                         AppPreferenceDivider()
                         SettingsItemAnchor("animation.app_navigation_settings.video_return_content_follow_progress_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.ANIMATION),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.RETURN_CONTENT_FOLLOW),
                                 title = settingItemTitle("animation.app_navigation_settings.video_return_content_follow_progress_enabled"),
                                 subtitle = if (appNavigationSettings.videoReturnContentFollowProgressEnabled) {
                                     "返回途中，封面和信息逐渐恢复为卡片"
@@ -500,7 +500,7 @@ fun AnimationSettingsContent(
                         AppPreferenceDivider()
                         SettingsItemAnchor("animation.app_navigation_settings.video_shared_return_gesture_translation_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.ANIMATION),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.RETURN_GESTURE_TRANSLATION),
                                 title = settingItemTitle("animation.app_navigation_settings.video_shared_return_gesture_translation_enabled"),
                                 subtitle = if (appNavigationSettings.videoSharedReturnGestureTranslationEnabled) {
                                     "滑动返回时，画面随手指移动"
@@ -785,7 +785,7 @@ fun AnimationSettingsContent(
                         if (!advancedOnly) {
                         SettingsItemAnchor("animation.skeleton_breathing_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.TOP_BAR_BLUR),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.SKELETON_BREATHING),
                                 title = settingItemTitle("animation.skeleton_breathing_enabled"),
                                 subtitle = "加载时，占位卡片轻轻明暗变化",
                                 checked = skeletonBreathingEnabled,
@@ -813,7 +813,7 @@ fun AnimationSettingsContent(
                         AppPreferenceDivider()
                         SettingsItemAnchor("animation.progressive_top_blur_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.TOP_BAR_BLUR),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.PROGRESSIVE_TOP_BLUR),
                                 title = settingItemTitle("animation.progressive_top_blur_enabled"),
                                 subtitle = "顶栏模糊随滚动渐变（需 Android 13+）",
                                 checked = state.progressiveTopBlurEnabled,
@@ -824,7 +824,7 @@ fun AnimationSettingsContent(
                         AppPreferenceDivider()
                         SettingsItemAnchor("animation.progressive_top_fade_enabled") {
                             AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.TOP_BAR_BLUR),
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.PROGRESSIVE_TOP_FADE),
                                 title = settingItemTitle("animation.progressive_top_fade_enabled"),
                                 subtitle = "状态栏到顶栏用纯色渐变过渡，比模糊更省电",
                                 checked = state.progressiveTopFadeEnabled,
@@ -922,7 +922,7 @@ fun AnimationSettingsContent(
                     AppText(
                         text = "预览图片和其他应用设置不会改变。",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppContentColors.accent(),
+                        color = AppContentColors.link(),
                     )
                 }
             },

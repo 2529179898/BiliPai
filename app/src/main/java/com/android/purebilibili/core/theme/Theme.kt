@@ -47,7 +47,7 @@ import com.android.purebilibili.feature.settings.Md3ColorSource
 import com.android.purebilibili.feature.settings.normalizeMd3CustomColorHex
 import com.materialkolor.Contrast
 import com.materialkolor.PaletteStyle
-import com.materialkolor.dynamicColorScheme
+import com.materialkolor.material3.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -193,7 +193,7 @@ internal fun shouldUseNativeMiuixPalette(uiStyle: AppUiStyle): Boolean =
 
 internal fun resolvePaletteStylePreference(rawValue: String?): PaletteStyle {
     return runCatching {
-        rawValue?.let(PaletteStyle::valueOf)
+        rawValue?.let(PaletteStyle::parse)
     }.getOrNull() ?: PaletteStyle.TonalSpot
 }
 
@@ -987,42 +987,18 @@ fun PureBiliBiliTheme(
         lightMaterialScheme, effectiveThemeRoleOverrides, colorStyle, colorSpec,
         liquidGlassEnabled, md3ColorSource, customPrimaryColor, colorContrast, seedPaletteStyle,
     ) {
-        val overridden = applyThemeRoleOverrides(
-            lightMaterialScheme, effectiveThemeRoleOverrides, darkTheme = false,
-            paletteStyle = colorStyle, colorSpec = colorSpec, colorContrast = colorContrast,
-        )
-        if (seedPaletteStyle.enabled) overridden else alignLiquidAccentColorScheme(
-            scheme = overridden,
-            accent = resolveLiquidControlAccentColor(
-                source = md3ColorSource,
-                customSeed = customPrimaryColor,
-                generatedAccent = overridden.primary,
-                roleOverridesEnabled = effectiveThemeRoleOverrides.enabled,
-                roleControlHex = effectiveThemeRoleOverrides.light.controlAccentHex,
-            ),
-            liquidGlassEnabled = liquidGlassEnabled,
-            source = md3ColorSource,
+        resolveConfiguredMaterialScheme(
+            lightMaterialScheme, effectiveThemeRoleOverrides, false, colorStyle, colorSpec,
+            colorContrast, seedPaletteStyle, md3ColorSource, customPrimaryColor, liquidGlassEnabled,
         )
     }
     val resolvedDarkMaterialScheme = remember(
         darkMaterialScheme, effectiveThemeRoleOverrides, colorStyle, colorSpec,
         liquidGlassEnabled, md3ColorSource, customPrimaryColor, colorContrast, seedPaletteStyle,
     ) {
-        val overridden = applyThemeRoleOverrides(
-            darkMaterialScheme, effectiveThemeRoleOverrides, darkTheme = true,
-            paletteStyle = colorStyle, colorSpec = colorSpec, colorContrast = colorContrast,
-        )
-        if (seedPaletteStyle.enabled) overridden else alignLiquidAccentColorScheme(
-            scheme = overridden,
-            accent = resolveLiquidControlAccentColor(
-                source = md3ColorSource,
-                customSeed = customPrimaryColor,
-                generatedAccent = overridden.primary,
-                roleOverridesEnabled = effectiveThemeRoleOverrides.enabled,
-                roleControlHex = effectiveThemeRoleOverrides.dark.controlAccentHex,
-            ),
-            liquidGlassEnabled = liquidGlassEnabled,
-            source = md3ColorSource,
+        resolveConfiguredMaterialScheme(
+            darkMaterialScheme, effectiveThemeRoleOverrides, true, colorStyle, colorSpec,
+            colorContrast, seedPaletteStyle, md3ColorSource, customPrimaryColor, liquidGlassEnabled,
         )
     }
     val lightEndpointPalette = remember(

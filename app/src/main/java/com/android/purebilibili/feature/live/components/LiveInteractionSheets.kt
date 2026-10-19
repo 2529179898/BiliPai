@@ -163,6 +163,8 @@ fun LiveEmoticonPanel(
             }
         }
         if (packages.size > 1) AppThemeAdaptiveTabRow(
+            // Glass indicator fills the measured slot; native geometry keeps its defaults.
+            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
             role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
             options = packages.mapIndexed { index, pkg -> AppSegmentOption(index, pkg.name) },
             selectedValue = pager.currentPage,
@@ -269,6 +271,8 @@ fun LiveDmBlockSheet(
                 val lists: @Composable () -> Unit = {
                     Column(Modifier.fillMaxSize()) {
                         AppThemeAdaptiveTabRow(
+                            // Glass indicator fills the measured slot; native geometry keeps its defaults.
+                            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                             role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                             options = listOf(AppSegmentOption(0, "关键词"), AppSegmentOption(1, "用户")),
                             selectedValue = pager.currentPage,

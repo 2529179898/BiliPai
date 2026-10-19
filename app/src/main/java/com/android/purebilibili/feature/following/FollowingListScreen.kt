@@ -648,7 +648,7 @@ class FollowingListViewModel : ViewModel() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun FollowingListScreen(
     mid: Long,
@@ -687,6 +687,28 @@ fun FollowingListScreen(
     var groupDialogTags by remember { mutableStateOf<List<RelationTagItem>>(emptyList()) }
     var groupDialogSelection by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var groupDialogMixed by remember { mutableStateOf(false) }
+
+    val successState = uiState as? FollowingListUiState.Success
+    val followedUsers = successState?.users.orEmpty()
+    val usersByGroup = remember(followedUsers, selectedGroupFilter, userFollowGroupIds) {
+        filterUsersBySelectedFollowGroup(
+            users = followedUsers,
+            selectedGroupFilter = selectedGroupFilter,
+            userFollowGroupIds = userFollowGroupIds,
+            defaultGroupTagId = DEFAULT_FOLLOW_TAG_ID,
+            allGroupTagId = Long.MIN_VALUE
+        )
+    }
+    val filteredUsers = remember(usersByGroup, searchQuery) {
+        if (searchQuery.isBlank()) usersByGroup
+        else usersByGroup.filter {
+            PinyinUtils.matches(it.uname, searchQuery) ||
+                PinyinUtils.matches(it.sign, searchQuery)
+        }
+    }
+    val visibleMids = remember(filteredUsers) { filteredUsers.map { it.mid } }
+    val selectedCount = selectedMids.size
+    val hasSelection = selectedCount > 0
 
     AppScaffold(
         blurContentReady = uiState !is FollowingListUiState.Loading,
@@ -736,11 +758,83 @@ fun FollowingListScreen(
                 com.android.purebilibili.core.ui.components.AppLiquidAwareSearchField(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
-                    placeholder = "搜索已加载 UP 主（全量请点加载全部）",
+                    placeholder = "搜索已加载 UP 主",
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
 
+            }
+        },
+        bottomBar = {
+            if (isEditMode && successState != null) {
+                // Page placement is shared by native and glass UI; keep component geometry
+                // at its own defaults and let Scaffold reserve the measured bottom-bar height.
+                AppSurface(
+                    tonalElevation = AppSpacingTokens.ExtraSmall - AppSpacingTokens.Micro / 2,
+                    shadowElevation = AppSpacingTokens.ExtraSmall - AppSpacingTokens.Micro / 2
+                ) {
+                    FlowRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                            .padding(horizontal = AppSpacingTokens.Large, vertical = AppSpacingTokens.Small + AppSpacingTokens.Micro),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Medium),
+                        verticalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
+                        itemVerticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AppOutlinedButton(
+                            onClick = {
+                                selectedMids = resolveFollowingSelectAll(
+                                    visibleMids = visibleMids,
+                                    currentSelected = selectedMids
+                                )
+                            },
+                            enabled = !isBatchUnfollowing
+                        ) {
+                            val allVisibleSelected = visibleMids.isNotEmpty() &&
+                                visibleMids.all { selectedMids.contains(it) }
+                            AppText(if (allVisibleSelected) "取消全选" else "全选当前")
+                        }
+
+                        AppOutlinedButton(
+                            onClick = {
+                                showBatchGroupDialog = true
+                                groupDialogLoading = true
+                                scope.launch {
+                                    val result = viewModel.prepareBatchGroupDialogData(selectedMids.toList())
+                                    result.onSuccess { dialogData ->
+                                        groupDialogTags = dialogData.tags
+                                        groupDialogSelection = dialogData.initialSelection
+                                        groupDialogMixed = dialogData.hasMixedSelection
+                                    }.onFailure {
+                                        showBatchGroupDialog = false
+                                        snackbarHostState.showSnackbar("加载分组失败: ${it.message}")
+                                    }
+                                    groupDialogLoading = false
+                                }
+                            },
+                            enabled = hasSelection && !isBatchUnfollowing
+                        ) {
+                            AppText("设置分组")
+                        }
+
+                        AppButton(
+                            onClick = { showBatchUnfollowConfirm = true },
+                            enabled = hasSelection && !isBatchUnfollowing
+                        ) {
+                            if (isBatchUnfollowing) {
+                                AppCircularProgressIndicator(
+                                    modifier = Modifier.size(AppSpacingTokens.Large),
+                                    strokeWidth = AppSpacingTokens.Micro,
+                                    color = AppContentColors.onAccent()
+                                )
+                            } else {
+                                AppText("取消关注 ($selectedCount)")
+                            }
+                        }
+                    }
+                }
             }
         }
     ) { padding ->
@@ -754,10 +848,8 @@ fun FollowingListScreen(
             ) {
                 // 加载中 / 出错 / 成功共用同一个 LazyColumn：骨架行与真实用户行使用同一种
                 // contentType，数据到达时是 item 原地替换，列表不会被整棵重建，首屏不跳。
-                val successState = uiState as? FollowingListUiState.Success
                 val errorState = uiState as? FollowingListUiState.Error
                 val showInitialSkeleton = uiState is FollowingListUiState.Loading
-                val followedUsers = successState?.users.orEmpty()
 
                         LaunchedEffect(followedUsers) {
                             val available = followedUsers.asSequence().map { it.mid }.toSet()
@@ -784,32 +876,10 @@ fun FollowingListScreen(
                             }
                         }
 
-                        val usersByGroup = remember(followedUsers, selectedGroupFilter, userFollowGroupIds) {
-                            filterUsersBySelectedFollowGroup(
-                                users = followedUsers,
-                                selectedGroupFilter = selectedGroupFilter,
-                                userFollowGroupIds = userFollowGroupIds,
-                                defaultGroupTagId = DEFAULT_FOLLOW_TAG_ID,
-                                allGroupTagId = Long.MIN_VALUE
-                            )
-                        }
                         val followGroupMetaLoadedCount = remember(followedUsers, userFollowGroupIds) {
                             followedUsers.count { user -> userFollowGroupIds.containsKey(user.mid) }
                         }
 
-                        // 🔍 过滤列表
-                        val filteredUsers = remember(usersByGroup, searchQuery) {
-                            if (searchQuery.isBlank()) usersByGroup
-                            else {
-                                usersByGroup.filter {
-                                    PinyinUtils.matches(it.uname, searchQuery) ||
-                                    PinyinUtils.matches(it.sign, searchQuery)
-                                }
-                            }
-                        }
-                        val visibleMids = remember(filteredUsers) { filteredUsers.map { it.mid } }
-                        val selectedCount = selectedMids.size
-                        val hasSelection = selectedCount > 0
 
                         // Scaffold + search sit above this box; indicator at list region top.
                         AdaptivePullToRefreshBox(
@@ -1000,72 +1070,6 @@ fun FollowingListScreen(
                         }
                         }
 
-                        if (isEditMode && successState != null) {
-                            AppSurface(
-                                tonalElevation = AppSpacingTokens.ExtraSmall - AppSpacingTokens.Micro / 2,
-                                shadowElevation = AppSpacingTokens.ExtraSmall - AppSpacingTokens.Micro / 2
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = AppSpacingTokens.Large, vertical = AppSpacingTokens.Small + AppSpacingTokens.Micro),
-                                    horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Medium),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    AppOutlinedButton(
-                                        onClick = {
-                                            selectedMids = resolveFollowingSelectAll(
-                                                visibleMids = visibleMids,
-                                                currentSelected = selectedMids
-                                            )
-                                        },
-                                        enabled = !isBatchUnfollowing
-                                    ) {
-                                        val allVisibleSelected = visibleMids.isNotEmpty() &&
-                                            visibleMids.all { selectedMids.contains(it) }
-                                        AppText(if (allVisibleSelected) "取消全选" else "全选当前")
-                                    }
-
-                                    AppOutlinedButton(
-                                        onClick = {
-                                            showBatchGroupDialog = true
-                                            groupDialogLoading = true
-                                            scope.launch {
-                                                val result = viewModel.prepareBatchGroupDialogData(selectedMids.toList())
-                                                result.onSuccess { dialogData ->
-                                                    groupDialogTags = dialogData.tags
-                                                    groupDialogSelection = dialogData.initialSelection
-                                                    groupDialogMixed = dialogData.hasMixedSelection
-                                                }.onFailure {
-                                                    showBatchGroupDialog = false
-                                                    snackbarHostState.showSnackbar("加载分组失败: ${it.message}")
-                                                }
-                                                groupDialogLoading = false
-                                            }
-                                        },
-                                        enabled = hasSelection && !isBatchUnfollowing
-                                    ) {
-                                        AppText("设置分组")
-                                    }
-
-                                    AppButton(
-                                        onClick = { showBatchUnfollowConfirm = true },
-                                        enabled = hasSelection && !isBatchUnfollowing,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        if (isBatchUnfollowing) {
-                                            AppCircularProgressIndicator(
-                                                modifier = Modifier.size(AppSpacingTokens.Large),
-                                                strokeWidth = AppSpacingTokens.Micro,
-                                                color = AppContentColors.onAccent()
-                                            )
-                                        } else {
-                                            AppText("取消关注 ($selectedCount)")
-                                        }
-                                    }
-                                }
-                            }
-                        }
 
                         if (showBatchUnfollowConfirm) {
                             AppAlertDialog(

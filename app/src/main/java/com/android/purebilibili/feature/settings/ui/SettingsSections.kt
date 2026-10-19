@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1860,6 +1861,13 @@ fun AboutSection(
     val appIconRes = remember(appIconKey, appIconAppearance) {
         resolveIconOptionPreviewRes(appIconKey, appIconAppearance)
     }
+    var showUpdateHighlights by rememberSaveable { mutableStateOf(false) }
+    if (showUpdateHighlights) {
+        com.android.purebilibili.feature.settings.highlights.UpdateHighlightsHost(
+            manualOpen = true,
+            onManualDismiss = { showUpdateHighlights = false },
+        )
+    }
     var detailDialogContent by remember { mutableStateOf<AppBuildInfoDialogContent?>(null) }
     val easterEggTint = rememberSettingsEntryTint(AppSemanticAccentRole.TERTIARY, AppContentColors.warning())
     val updateSiblingTints = rememberSettingsSiblingIconTints(5, paletteOffset = 3)
@@ -2031,6 +2039,14 @@ fun AboutSection(
 
     SettingsSectionTitle(title = "更新")
     SettingsCardGroup {
+        SettingClickableItem(
+            icon = sparklesIcon,
+            title = "本次更新",
+            subtitle = "了解新功能，先预览再决定是否体验",
+            onClick = { showUpdateHighlights = true },
+            iconTint = AppContentColors.accent(),
+        )
+        SettingsAdaptiveDivider()
         SettingClickableItem(
             icon = checkUpdateVisual.icon,
             iconPainter = checkUpdateVisual.iconResId?.let { painterResource(id = it) },
