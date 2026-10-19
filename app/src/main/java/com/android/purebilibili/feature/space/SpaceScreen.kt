@@ -347,9 +347,8 @@ fun SpaceScreen(
             !isLowBlurBudgetForced()
     ) rememberRecoverableHazeState() else null
     val pageGridStates = SpaceMainTab.entries.associateWith { rememberLazyGridState() }
-    val activePrimaryTab = resolveSpacePrimaryTab(
+    val activePrimaryTab =
         (uiState as? SpaceUiState.Success)?.tabShellState?.selectedTab ?: SpaceMainTab.HOME
-    )
     val gridState = pageGridStates.getValue(activePrimaryTab)
     val isSpaceScrolling by remember(gridState) {
         derivedStateOf { gridState.isScrollInProgress }
@@ -395,9 +394,21 @@ fun SpaceScreen(
     } == true
     val playAllSpaceVideos: () -> Unit = playAll@{
         val state = currentSuccessState ?: return@playAll
-        val startBvid = resolveSpacePlayAllStartTarget(state.videos) ?: return@playAll
+        val contribution = resolveSelectedContributionTab(
+            tabs = state.contributionTabs,
+            selectedTabId = state.selectedContributionTabId,
+            selectedSubTab = state.selectedSubTab,
+        )
+        val videos = when (contribution.subTab) {
+            SpaceSubTab.SEASON_VIDEO -> state.seasonArchives[contribution.seasonId]
+                .orEmpty().map { it.toSpaceVideoItem() }
+            SpaceSubTab.SERIES -> state.seriesArchives[contribution.seriesId]
+                .orEmpty().map { it.toSpaceVideoItem() }
+            else -> state.videos
+        }
+        val startBvid = resolveSpacePlayAllStartTarget(videos) ?: return@playAll
         val playlist = buildExternalPlaylistFromSpaceVideos(
-            videos = state.videos,
+            videos = videos,
             clickedBvid = startBvid
         ) ?: return@playAll
         com.android.purebilibili.feature.video.player.PlaylistManager.setExternalPlaylist(
@@ -530,15 +541,15 @@ fun SpaceScreen(
                         scrolledContainerColor = Color.Transparent
                     ),
                     actions = {
-                        if (canSearch) {
-                            AppIconButton(onClick = { viewModel.setSearchMode(!isSearchMode) }) {
-                                AppIcon(
-                                    imageVector = if (isSearchMode) Icons.Outlined.Close else Icons.Outlined.Search,
-                                    contentDescription = if (isSearchMode) "关闭搜索" else "搜索"
-                                )
-                            }
-                        }
                         CompositionLocalProvider(LocalAppTopBarIconBackdrop provides spaceChromeBackdrop) {
+                            if (canSearch) {
+                                AppIconButton(onClick = { viewModel.setSearchMode(!isSearchMode) }) {
+                                    AppIcon(
+                                        imageVector = if (isSearchMode) Icons.Outlined.Close else Icons.Outlined.Search,
+                                        contentDescription = if (isSearchMode) "关闭搜索" else "搜索"
+                                    )
+                                }
+                            }
                             AppWindowActionMenu(
                                 groups = buildList {
                                     if (showContributionVideoMenuActions) {
@@ -1248,14 +1259,14 @@ private fun SpaceContent(
         hasCheese = state.hasCheeseTab || state.cheeseItems.isNotEmpty(),
     )
     val selectedPage = displayedMainTabs.indexOfFirst {
-        it.tab == resolveSpacePrimaryTab(selectedMainTab)
+        it.tab == selectedMainTab
     }.coerceAtLeast(0)
     val pagerState = rememberContentTabPager(
         pageCount = displayedMainTabs.size,
         selectedPage = selectedPage,
         onPageSelected = { page ->
             displayedMainTabs.getOrNull(page)?.tab?.let { tab ->
-                if (tab != resolveSpacePrimaryTab(selectedMainTab)) onMainTabSelected(tab)
+                if (tab != selectedMainTab) onMainTabSelected(tab)
             }
         },
         prepareNeighbors = { sourcePage ->
@@ -1481,12 +1492,11 @@ private fun SpaceContent(
         ) { page ->
         val primaryTab = displayedMainTabs[page].tab
         val isPageActive = page == selectedPage
-        val pageTab = if (isPageActive) selectedMainTab else primaryTab
         val state = state.copy(
-            tabShellState = state.tabShellState.withSelectedTab(pageTab),
+            tabShellState = state.tabShellState.withSelectedTab(primaryTab),
             isSearchMode = state.isSearchMode && isPageActive,
         )
-        val selectedMainTab = pageTab
+        val selectedMainTab = primaryTab
         val gridState = pageGridStates.getValue(primaryTab)
         val lazyGridSharedTransitionScope = lazyGridSharedTransitionScope.takeIf { isPageActive }
         val lazyGridAnimatedVisibilityScope = lazyGridAnimatedVisibilityScope.takeIf { isPageActive }
@@ -1666,6 +1676,17 @@ private fun SpaceContent(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        // Sticky grid headers pin to the viewport, not its content padding.
+                        // Keep native and glass rails below chrome while the hero scrolls behind it.
+                        .offset {
+                            val minimumTop = chromeTopInset.roundToPx()
+                            val layoutInfo = gridState.layoutInfo
+                            val headerTop = layoutInfo.visibleItemsInfo
+                                .firstOrNull { it.key == "space_tabs" }
+                                // Item offsets exclude the grid's before-content padding.
+                                ?.offset?.y?.plus(layoutInfo.beforeContentPadding) ?: minimumTop
+                            IntOffset(0, (minimumTop - headerTop).coerceAtLeast(0))
+                        }
                         .background(
                             // 吸顶行需要足够不透明：壁纸模式下 74% 会让「主页/动态/投稿」
                             // 变成叠在亮封面上的幽灵文字。
@@ -2306,21 +2327,11 @@ private fun SpaceContent(
                         val season = state.seasons.firstOrNull { it.meta.season_id == selectedContributionTab.seasonId }
                         val archives = state.seasonArchives[selectedContributionTab.seasonId].orEmpty()
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            SpaceCollectionSummaryCard(
-                                title = season?.meta?.name ?: selectedContributionTab.title,
-                                subtitle = season?.meta?.description.orEmpty(),
-                                cover = season?.meta?.cover.orEmpty(),
+                            SpaceCollectionSummaryBar(
                                 total = season?.meta?.total ?: archives.size,
                                 modifier = boundedListModifier,
-                                onClick = {
-                                    onViewAllClick(
-                                        "season",
-                                        selectedContributionTab.seasonId,
-                                        state.userInfo.mid,
-                                        selectedContributionTab.title,
-                                        state.userInfo.name
-                                    )
-                                }
+                                playAllEnabled = archives.isNotEmpty(),
+                                onPlayAll = onPlayAllVideos,
                             )
                         }
                         if (archives.isEmpty()) {
@@ -2360,21 +2371,11 @@ private fun SpaceContent(
                         val series = state.series.firstOrNull { it.meta.series_id == selectedContributionTab.seriesId }
                         val archives = state.seriesArchives[selectedContributionTab.seriesId].orEmpty()
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            SpaceCollectionSummaryCard(
-                                title = series?.meta?.name ?: selectedContributionTab.title,
-                                subtitle = series?.meta?.description.orEmpty(),
-                                cover = series?.meta?.cover.orEmpty(),
+                            SpaceCollectionSummaryBar(
                                 total = series?.meta?.total ?: archives.size,
                                 modifier = boundedListModifier,
-                                onClick = {
-                                    onViewAllClick(
-                                        "series",
-                                        selectedContributionTab.seriesId,
-                                        state.userInfo.mid,
-                                        selectedContributionTab.title,
-                                        state.userInfo.name
-                                    )
-                                }
+                                playAllEnabled = archives.isNotEmpty(),
+                                onPlayAll = onPlayAllVideos,
                             )
                         }
                         if (archives.isEmpty()) {
@@ -2545,15 +2546,10 @@ private fun SpaceContent(
                         key = { "season_${it.meta.season_id}" },
                         span = { GridItemSpan(maxLineSpan) }
                     ) { season ->
-                        SpaceCollectionWithPreviewCard(
+                        SpaceCollectionRow(
                             title = season.meta.name,
-                            subtitle = season.meta.description,
-                            cover = season.meta.cover,
                             total = season.meta.total,
-                            previews = state.seasonArchives[season.meta.season_id]
-                                .orEmpty()
-                                .take(3)
-                                .map { PreviewMedia(it.pic, it.title) },
+                            modifier = boundedListModifier,
                             onClick = {
                                 onViewAllClick(
                                     "season",
@@ -2580,15 +2576,10 @@ private fun SpaceContent(
                         key = { "series_${it.meta.series_id}" },
                         span = { GridItemSpan(maxLineSpan) }
                     ) { series ->
-                        SpaceCollectionWithPreviewCard(
+                        SpaceCollectionRow(
                             title = series.meta.name,
-                            subtitle = series.meta.description,
-                            cover = series.meta.cover,
                             total = series.meta.total,
-                            previews = state.seriesArchives[series.meta.series_id]
-                                .orEmpty()
-                                .take(3)
-                                .map { PreviewMedia(it.pic, it.title) },
+                            modifier = boundedListModifier,
                             onClick = {
                                 onViewAllClick(
                                     "series",
@@ -2815,7 +2806,7 @@ private fun SpaceContent(
             // Read geometry in measurement/placement rather than recomposing on scroll.
             SpaceMainTabRow(
                 tabs = displayedMainTabs,
-                selectedTab = resolveSpacePrimaryTab(selectedMainTab),
+                selectedTab = selectedMainTab,
                 onSelect = onMainTabSelected,
                 indicatorPositionProvider = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
                 isScrollInProgressProvider = { pagerState.isScrollInProgress },
@@ -3457,33 +3448,6 @@ private fun SpaceContentTabs(
             totalAudios = state.totalAudios
         )
     }
-    val secondarySwitchItems = remember(displayedContributionTabs) {
-        resolveSpaceSecondarySwitchItems(
-            contributionTabs = displayedContributionTabs,
-            hasCheese = false,
-        )
-    }
-    val selectedSecondarySwitchId = remember(
-        selectedMainTab,
-        state.selectedContributionTabId,
-    ) {
-        resolveSelectedSpaceSecondarySwitchId(
-            selectedTab = selectedMainTab,
-            selectedContributionTabId = state.selectedContributionTabId,
-        )
-    }
-    val onSecondarySwitchSelected: (String) -> Unit = { id ->
-        val item = secondarySwitchItems.firstOrNull { it.id == id }
-        if (item != null) {
-            when (item.targetTab) {
-                SpaceMainTab.CONTRIBUTION -> {
-                    onMainTabSelected(SpaceMainTab.CONTRIBUTION)
-                    item.contributionTabId?.let(onContributionTabSelected)
-                }
-                else -> onMainTabSelected(item.targetTab)
-            }
-        }
-    }
     Column(modifier = modifier) {
         if (primaryTabHeightProvider != null) {
             Spacer(
@@ -3496,18 +3460,18 @@ private fun SpaceContentTabs(
         } else {
             SpaceMainTabRow(
                 tabs = displayedMainTabs,
-                selectedTab = resolveSpacePrimaryTab(selectedMainTab),
+                selectedTab = selectedMainTab,
                 onSelect = onMainTabSelected,
                 modifier = Modifier.stationaryPagerHeader(pagerState, page),
                 indicatorPositionProvider = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
                 isScrollInProgressProvider = { pagerState.isScrollInProgress },
             )
         }
-        if (shouldShowSpaceSecondarySwitch(selectedMainTab) && secondarySwitchItems.isNotEmpty()) {
+        if (selectedMainTab == SpaceMainTab.CONTRIBUTION && displayedContributionTabs.isNotEmpty()) {
             SpaceSecondarySwitchRow(
-                items = secondarySwitchItems,
-                selectedId = selectedSecondarySwitchId,
-                onSelect = onSecondarySwitchSelected,
+                items = displayedContributionTabs,
+                selectedId = state.selectedContributionTabId,
+                onSelect = onContributionTabSelected,
             )
         }
     }
@@ -3515,7 +3479,7 @@ private fun SpaceContentTabs(
 
 @Composable
 private fun SpaceSecondarySwitchRow(
-    items: List<SpaceSecondarySwitchItem>,
+    items: List<SpaceContributionTab>,
     selectedId: String,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -5058,10 +5022,40 @@ private fun SpaceCheeseSkeletonItem(
 }
 
 @Composable
-private fun SpaceCollectionSummaryCard(
+private fun SpaceCollectionSummaryBar(
+    total: Int,
+    playAllEnabled: Boolean,
+    onPlayAll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AppText(
+            text = "$total 个内容",
+            style = MaterialTheme.typography.bodySmall,
+            color = AppContentColors.secondaryText(),
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        AppTextButton(onClick = onPlayAll, enabled = playAllEnabled) {
+            AppIcon(
+                imageVector = Icons.Outlined.PlayCircleOutline,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            AppText("播放全部")
+        }
+    }
+}
+
+
+@Composable
+private fun SpaceCollectionRow(
     title: String,
-    subtitle: String,
-    cover: String,
     total: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -5074,158 +5068,23 @@ private fun SpaceCollectionSummaryCard(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
         onClick = onClick
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(116.dp)
-                    .height(72.dp)
-                    .clip(AppShapes.container(ContainerLevel.Card))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(FormatUtils.buildSizedImageUrl(cover, width = 480, height = 300))
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                AppText(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                AppText(
-                    text = "$total 个内容",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppContentColors.accent()
-                )
-                if (subtitle.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    AppText(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppContentColors.secondaryText(),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
-}
-
-private data class PreviewMedia(
-    val cover: String,
-    val title: String
-)
-
-@Composable
-private fun SpaceCollectionWithPreviewCard(
-    title: String,
-    subtitle: String,
-    cover: String,
-    total: Int,
-    previews: List<PreviewMedia>,
-    onClick: () -> Unit
-) {
-    AppSurface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = AppShapes.container(ContainerLevel.Card),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f),
-        onClick = onClick
-    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(
-                    modifier = Modifier
-                        .width(116.dp)
-                        .height(72.dp)
-                        .clip(AppShapes.container(ContainerLevel.Card))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(FormatUtils.buildSizedImageUrl(cover, width = 480, height = 300))
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    AppText(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    AppText(
-                        text = "$total 个内容",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppContentColors.accent()
-                    )
-                    if (subtitle.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        AppText(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = AppContentColors.secondaryText(),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-
-            if (previews.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(previews, key = { "${it.cover}_${it.title}" }) { preview ->
-                        Column(modifier = Modifier.width(112.dp)) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(FormatUtils.buildSizedImageUrl(preview.cover, width = 320, height = 200))
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(70.dp)
-                                    .clip(AppShapes.container(ContainerLevel.Card))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            AppText(
-                                text = preview.title,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppContentColors.secondaryText(),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-            }
+            AppText(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            AppText(
+                text = "$total 个内容",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppContentColors.secondaryText(),
+            )
         }
     }
 }
