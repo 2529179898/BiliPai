@@ -104,7 +104,7 @@ import com.android.purebilibili.core.plugin.skin.parseUiSkinColor
  * Bottom Control Bar Component
  *
  * Fullscreen: [Play/Pause] [Time / Danmaku toggle / Settings / Send] [Tools] [Fullscreen]
- * Inline controls retain their compact send action and action dock.
+ * Inline: [Play/Pause] [Time / Danmaku toggle / Settings] [Compact send] [Tools] [Fullscreen]
  */
 
 data class PlayerProgress(
@@ -710,7 +710,12 @@ fun BottomControlBar(
         )
     }
     val inlineTimeGlassDock = !isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
-    val actionSpacing = with(LocalDensity.current) { layoutPolicy.actionTextFontSp.sp.toDp() * 2 }
+    // Fullscreen labels use a fixed font size, so the two-character gap is a fixed dp value.
+    val actionSpacing = (layoutPolicy.actionTextFontSp * 2).dp
+    val chromeDensity = LocalDensity.current
+    val controlRowDensity = remember(chromeDensity, isFullscreen) {
+        if (isFullscreen) Density(chromeDensity.density, fontScale = 1f) else chromeDensity
+    }
     val glassProgressDock = isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val expandInlineActionDock = !isFullscreen && uiLayoutWidthDp < 600 && !showCompactDanmakuSend
     val showDirectTools = isFullscreen && uiLayoutWidthDp >= 840
@@ -807,8 +812,11 @@ fun BottomControlBar(
         }
 
         // 2. Control Row
+        // Fullscreen chrome keeps fixed label sizes so system font scaling cannot clip
+        // fixed-width slots such as "更多"; inline controls still follow system font scale.
         CompositionLocalProvider(
             LocalMinimumInteractiveComponentSize provides layoutPolicy.playButtonSizeDp.dp,
+            LocalDensity provides controlRowDensity,
         ) {
         Row(
             modifier = Modifier
@@ -820,21 +828,12 @@ fun BottomControlBar(
             // Fullscreen actions share one layout: content-width tools stay right-aligned with
             // fixed two-character gaps; glass-only width reserves are marked inline.
             if (isFullscreen) {
-                PlayerControlGlassDock(enabled = true, shape = CircleShape) {
-                    AppIconButton(
-                        onClick = onPlayPauseClick,
-                        modifier = Modifier
-                            .size(layoutPolicy.playButtonSizeDp.dp)
-                            .testTag("player_play_pause"),
-                    ) {
-                        AppIcon(
-                            imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                            contentDescription = if (isPlaying) "暂停" else "播放",
-                            tint = Color.White,
-                            modifier = Modifier.size(layoutPolicy.playIconSizeDp.dp),
-                        )
-                    }
-                }
+                PlayerPlayPauseButton(
+                    isPlaying = isPlaying,
+                    onClick = onPlayPauseClick,
+                    sizeDp = layoutPolicy.playButtonSizeDp,
+                    iconSizeDp = layoutPolicy.playIconSizeDp,
+                )
                 val showDanmakuToggle = shouldShowDanmakuToggleInControlBar(
                     isFullscreen = isFullscreen,
                     widthDp = uiLayoutWidthDp,
@@ -1130,15 +1129,16 @@ fun BottomControlBar(
                             }
 
                             if (showMoreActionsButton || sponsorContributionAvailable || isFullscreen) {
+                                // The popup inherits the fixed control-row density; restore the system
+                                // font scale for menu items and keep only the "更多" label fixed.
+                                CompositionLocalProvider(LocalDensity provides chromeDensity) {
                                 AppWindowActionMenu(
                                     // 其它文字项与右侧退全屏按钮都紧贴内容，而 IconButton 的默认
                                     // 最小槽位 40dp 会给“更多”两侧各留约 8dp，看起来比相邻项宽。
                                     // 这里把它收到文字宽（两个字 ≈ 2×字号）再加一点余量：
                                     // 视觉间距与相邻项一致，也不额外占用这一排的可用宽度。
                                     modifier = Modifier.width(
-                                        // Glass follows font scale; preserve the native slot unchanged.
-                                        if (liquidGlassEnabled) actionSpacing + 2.dp
-                                        else (layoutPolicy.actionTextFontSp * 2 + 2).dp,
+                                        (layoutPolicy.actionTextFontSp * 2 + 2).dp,
                                     ),
                                     groups = listOf(
                                         listOfNotNull(
@@ -1226,6 +1226,7 @@ fun BottomControlBar(
                                     ),
                                     onExpandedChange = { expanded -> showMoreActionsPanel = expanded },
                                     content = {
+                                        CompositionLocalProvider(LocalDensity provides controlRowDensity) {
                                         AppText(
                                             text = "更多",
                                             color = if (showMoreActionsPanel) AppContentColors.accent() else Color.White,
@@ -1239,8 +1240,10 @@ fun BottomControlBar(
                                             overflow = TextOverflow.Clip,
                                             modifier = Modifier.padding(vertical = layoutPolicy.actionChipVerticalPaddingDp.dp)
                                         )
+                                        }
                                     }
                                 )
+                                }
                             }
 
                             // 📱 [修复] 竖屏全屏按钮 - 仅在非全屏且有需要时显示，避免挤压平板控制栏
@@ -1263,13 +1266,19 @@ fun BottomControlBar(
                     }
                 }
             } else {
-                // Measure the fullscreen action independently before allocating the remaining row.
-                // Long time/quality labels and larger fonts cannot push it outside the viewport.
+                // Inline controls: play/pause stays at the bottom-left, then time and danmaku.
                 Row(
                     modifier = Modifier
                         .weight(1f),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    PlayerPlayPauseButton(
+                        isPlaying = isPlaying,
+                        onClick = onPlayPauseClick,
+                        sizeDp = layoutPolicy.playButtonSizeDp,
+                        iconSizeDp = layoutPolicy.playIconSizeDp,
+                    )
+                    Spacer(modifier = Modifier.width(layoutPolicy.afterPlaySpacingDp.dp))
                     val showDanmakuToggle = shouldShowDanmakuToggleInControlBar(
                         isFullscreen = isFullscreen,
                         widthDp = uiLayoutWidthDp
@@ -1821,6 +1830,30 @@ private fun PlayerControlMiddleRow(
         layout(constraints.maxWidth, height) {
             left.placeRelative(0, (height - left.height) / 2)
             right.placeRelative(constraints.maxWidth - right.width, (height - right.height) / 2)
+        }
+    }
+}
+
+@Composable
+private fun PlayerPlayPauseButton(
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    sizeDp: Int,
+    iconSizeDp: Int,
+) {
+    PlayerControlGlassDock(enabled = true, shape = CircleShape) {
+        AppIconButton(
+            onClick = onClick,
+            modifier = Modifier
+                .size(sizeDp.dp)
+                .testTag("player_play_pause"),
+        ) {
+            AppIcon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (isPlaying) "暂停" else "播放",
+                tint = Color.White,
+                modifier = Modifier.size(iconSizeDp.dp),
+            )
         }
     }
 }

@@ -1625,18 +1625,6 @@ private fun VideoPlayerOverlayContent(
             )
         }
 
-        CenterPlaybackControl(
-            visible = !isFullscreen && isVisible &&
-                (pluginPlaybackStatus.first || player.playbackState == Player.STATE_READY || player.playbackState == Player.STATE_ENDED) &&
-                centerLoadingUiState == null &&
-                !isScreenLocked && !isSeekScrubbing && !danmakuComposerVisible &&
-                !endDrawerVisible && !landscapeCommentPanelVisible && !showInsightDetails,
-            isPlaying = effectiveIsPlaying,
-            onPlayPause = { togglePlayPause() },
-            diameter = if (isFullscreen) 72.dp else 56.dp,
-            modifier = Modifier.align(Alignment.Center),
-        )
-
         // --- 3.5 🔒 [新增] 屏幕锁定按钮 (仅全屏模式) ---
         if (isFullscreen && showFullscreenLockButton) {
             AnimatedVisibility(

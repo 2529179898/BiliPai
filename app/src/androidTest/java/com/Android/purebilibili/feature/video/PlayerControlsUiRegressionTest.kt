@@ -93,7 +93,12 @@ class PlayerControlsUiRegressionTest {
         composeTestRule.runOnIdle { fullscreen.value = false }
         listOf(true, false).forEachIndexed { index, liquidGlassEnabled ->
             composeTestRule.runOnIdle { glass.value = liquidGlassEnabled }
-            composeTestRule.onNodeWithTag("player_play_pause").assertDoesNotExist()
+            // Inline play/pause sits at the bottom-left, before the danmaku actions.
+            val play = composeTestRule.onNodeWithTag("player_play_pause").assertIsDisplayed()
+                .fetchSemanticsNode().boundsInRoot
+            val settingsBounds = composeTestRule.onNodeWithTag("player_danmaku_settings")
+                .fetchSemanticsNode().boundsInRoot
+            assertTrue("Inline play/pause must stay left of danmaku actions", play.right <= settingsBounds.left)
             composeTestRule.onNodeWithTag("player_danmaku_settings").performClick()
             composeTestRule.runOnIdle {
                 assertEquals(2, sends)
@@ -266,7 +271,7 @@ class PlayerControlsUiRegressionTest {
                 }
             }
         }
-        // Both materials keep fixed, content-width tools beside the exit button.
+        // Fullscreen labels ignore system font scale: gaps stay fixed across widths and scales.
         listOf(1f to 1f, 0.65f to 1f, 0.65f to 1.5f, 0.4f to 1.5f).forEachIndexed { index, (width, scale) ->
             composeTestRule.runOnIdle {
                 widthFraction.value = width
@@ -276,7 +281,7 @@ class PlayerControlsUiRegressionTest {
             if (liquidGlassEnabled) {
                 composeTestRule.onNodeWithTag("player_time_viewport").assertIsDisplayed()
             }
-            if (index < 2) {
+            if (index < 3) {
                 composeTestRule.onNodeWithText("1080P").performScrollTo()
                 val tools = listOf("1080P", "分集", "倍速").map { label ->
                     composeTestRule.onNodeWithText(label).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
@@ -286,7 +291,7 @@ class PlayerControlsUiRegressionTest {
                 assertEquals(gapPx, tools[2].left - tools[1].right, 1f)
                 previousGapPx?.let { assertEquals(it, gapPx, 1f) }
                 previousGapPx = gapPx
-                if (index == 0) {
+                if (index == 0 || index == 2) {
                     // Unused width belongs before the tools, not between them or after "更多".
                     val send = composeTestRule.onNodeWithTag("player_danmaku_send").fetchSemanticsNode().boundsInRoot
                     val more = composeTestRule.onNodeWithText("更多").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
