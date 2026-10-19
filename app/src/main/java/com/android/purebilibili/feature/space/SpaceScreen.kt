@@ -3239,26 +3239,24 @@ private fun SpaceHeader(
 }
 
 @Composable
-private fun SpaceHeaderIdentityInfo(
+internal fun SpaceHeaderIdentityInfo(
     userInfo: SpaceUserInfo,
     officialBadge: OfficialVerifyBadgeSpec?,
     onLiveClick: (Long, String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 信息区：名字 + 等级 + VIP 标识。
-    // Row 的 weight 要传给 SelectionContainer 的顶层布局，不能只挂在其内部 Column。
+    // 名称先按可用宽度测量，等级与会员标签放不下时换行，避免固定徽章挤占名称。
     SelectionContainer(modifier = modifier) {
         Column {
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                itemVerticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 AppText(
                     text = userInfo.name,
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .copyOnLongPress(userInfo.name, "UP主名称"),
+                    modifier = Modifier.copyOnLongPress(userInfo.name, "UP主名称"),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = resolveUpNameColor(
                         vipStatus = userInfo.vip.status,
