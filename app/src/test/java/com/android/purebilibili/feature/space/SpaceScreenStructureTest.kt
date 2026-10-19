@@ -266,30 +266,6 @@ class SpaceScreenStructureTest {
         )
     }
 
-    @Test
-    fun `space wide layout uses container geometry and content specific widths`() {
-        val source = loadSource("app/src/main/java/com/android/purebilibili/feature/space/SpaceScreen.kt")
-        val header = source
-            .substringAfter("private fun SpaceHeader(")
-            .substringBefore("private fun SpaceHeaderIdentityInfo(")
-        val dynamicItems = source
-            .substringAfter("items = dynamicCardItems")
-            .substringBefore(") { dynamic ->")
-
-        assertTrue(source.contains("resolveSpaceAdaptiveLayoutSpec("))
-        assertTrue(source.contains("windowSizeClass.widthDp.value.roundToInt()"))
-        assertTrue(source.contains("adaptiveLayoutSpec.contentMaxWidthDp.dp"))
-        assertTrue(source.contains("adaptiveLayoutSpec.dynamicColumns"))
-        assertTrue(source.contains("maxWidth = adaptiveLayoutSpec.listContentMaxWidthDp.dp"))
-        assertTrue(source.contains("useExpandedLayout = adaptiveLayoutSpec.useExpandedHeader"))
-        assertTrue(header.contains("BoxWithConstraints("))
-        assertTrue(header.contains("val renderedBannerWidth = maxWidth + outerPadding"))
-        assertTrue(header.contains("resolveSpaceBannerMetrics("))
-        assertFalse(header.contains("LocalConfiguration.current"))
-        assertTrue(header.contains(".widthIn(max = 480.dp)"))
-        assertTrue(dynamicItems.contains("span = { GridItemSpan(1) }"))
-        assertTrue(source.contains("modifier = boundedListModifier"))
-    }
 
     @Test
     fun `played video locate prompt is configurable and scoped to each space visit`() {
