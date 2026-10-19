@@ -103,8 +103,8 @@ import com.android.purebilibili.core.plugin.skin.parseUiSkinColor
 /**
  * Bottom Control Bar Component
  *
- * Redesigned Control Bar:
- * [Play/Pause] [Time]  [Danmaku Switch] [       Input Bar       ] [Settings]  [Quality] [Speed] [Fullscreen]
+ * Fullscreen: [Play/Pause] [Time / Danmaku toggle / Settings / Send] [Tools] [Fullscreen]
+ * Inline controls retain their compact send action and action dock.
  */
 
 data class PlayerProgress(
@@ -226,23 +226,6 @@ internal fun resolveVideoProgressBarSeekGestureHost(
     return VideoProgressBarSeekGestureHost.SharedOuterContainer
 }
 
-data class LandscapeDanmakuPlaceholderPolicy(
-    val maxLines: Int,
-    val ellipsis: Boolean,
-    val trailingTextPaddingDp: Int
-)
-
-internal fun resolveLandscapeDanmakuPlaceholderPolicy(
-    settingButtonSizeDp: Int,
-    settingEndPaddingDp: Int,
-    extraBufferDp: Int = 8
-): LandscapeDanmakuPlaceholderPolicy {
-    return LandscapeDanmakuPlaceholderPolicy(
-        maxLines = 1,
-        ellipsis = true,
-        trailingTextPaddingDp = settingButtonSizeDp + settingEndPaddingDp + extraBufferDp
-    )
-}
 
 internal fun shouldShowSubtitleButtonInControlBar(
     isFullscreen: Boolean,
@@ -300,13 +283,6 @@ internal fun shouldShowEpisodeInMoreActions(
     showInlineEpisodeButton: Boolean
 ): Boolean = isFullscreen && hasEpisodeEntry && !showInlineEpisodeButton
 
-internal fun shouldShowDanmakuInputInControlBar(
-    isFullscreen: Boolean,
-    widthDp: Int
-): Boolean = com.android.purebilibili.feature.video.ui.components.shouldShowDanmakuInputInControlBar(
-    isFullscreen = isFullscreen,
-    widthDp = widthDp
-)
 
 /** Fullscreen always; tablet inline cinema (≥600dp) also needs a visible close toggle. */
 internal fun shouldShowDanmakuToggleInControlBar(
@@ -500,16 +476,13 @@ fun BottomControlBar(
     onFloatingPanelVisibilityChange: (Boolean) -> Unit = {},
     /** 紧凑布局：控制行更贴左右边缘，并更靠近进度条。 */
     compactPlayerChrome: Boolean = false,
-    /** Fullscreen uses dedicated danmaku docks instead of the inline input capsule. */
-    fullscreenDanmakuActionsInDedicatedDocks: Boolean = false,
 
     modifier: Modifier = Modifier,
     seekPositionProvider: (() -> Long)? = null,
     progressProvider: () -> PlayerProgress = { progress },
     currentChapterProvider: () -> String? = { currentChapter },
 ) {
-    val glassLandscapeControls = isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
-    val plainLandscapeControls = isFullscreen && !glassLandscapeControls
+    val liquidGlassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
     val subtitleTrackAvailable = subtitleControlState.trackAvailable
     val subtitlePrimaryAvailable = subtitleControlState.primaryAvailable
     val subtitleSecondaryAvailable = subtitleControlState.secondaryAvailable
@@ -599,12 +572,6 @@ fun BottomControlBar(
             widthDp = uiLayoutWidthDp
         )
     }
-    val danmakuPlaceholderPolicy = remember {
-        resolveLandscapeDanmakuPlaceholderPolicy(
-            settingButtonSizeDp = 0,
-            settingEndPaddingDp = 0,
-        )
-    }
     val fullscreenToggleTouchTargetDp = remember(layoutPolicy.fullscreenIconSizeDp, isFullscreen) {
         if (isFullscreen) PlayerChromeLayout.CircularButtonSizeDp
         else resolveFullscreenToggleTouchTargetDp(iconSizeDp = layoutPolicy.fullscreenIconSizeDp)
@@ -623,20 +590,11 @@ fun BottomControlBar(
             showInlineEpisodeButton = showEpisodeButton
         )
     }
-    val showDanmakuInput = remember(isFullscreen, uiLayoutWidthDp, fullscreenDanmakuActionsInDedicatedDocks) {
-        !fullscreenDanmakuActionsInDedicatedDocks && shouldShowDanmakuInputInControlBar(
+    val showCompactDanmakuSend = remember(isFullscreen, uiLayoutWidthDp) {
+        !isFullscreen && com.android.purebilibili.feature.video.ui.components.shouldShowCompactDanmakuSendAction(
             isFullscreen = isFullscreen,
             widthDp = uiLayoutWidthDp
         )
-    }
-    val showCompactDanmakuSend = remember(isFullscreen, uiLayoutWidthDp, fullscreenDanmakuActionsInDedicatedDocks) {
-        !fullscreenDanmakuActionsInDedicatedDocks && com.android.purebilibili.feature.video.ui.components.shouldShowCompactDanmakuSendAction(
-            isFullscreen = isFullscreen,
-            widthDp = uiLayoutWidthDp
-        )
-    }
-    val danmakuInputPlaceholder = remember(isLoggedIn) {
-        com.android.purebilibili.feature.video.ui.components.resolveDanmakuInputPlaceholder(isLoggedIn)
     }
     var showMoreActionsPanel by remember { mutableStateOf(false) }
     var showSubtitlePanel by remember { mutableStateOf(false) }
@@ -754,9 +712,8 @@ fun BottomControlBar(
     val inlineTimeGlassDock = !isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val actionSpacing = with(LocalDensity.current) { layoutPolicy.actionTextFontSp.sp.toDp() * 2 }
     val glassProgressDock = isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
-    val expandInlineActionDock = !isFullscreen && uiLayoutWidthDp < 600 &&
-        !showDanmakuInput && !showCompactDanmakuSend
-    val showDirectTools = isFullscreen && (fullscreenDanmakuActionsInDedicatedDocks || plainLandscapeControls) && uiLayoutWidthDp >= 840
+    val expandInlineActionDock = !isFullscreen && uiLayoutWidthDp < 600 && !showCompactDanmakuSend
+    val showDirectTools = isFullscreen && uiLayoutWidthDp >= 840
     val dockProgressLayoutPolicy = if (glassProgressDock) {
         // The track's touch row matches the shell, keeping the track vertically centered.
         // Chapter chrome stays above that row, as does the separate seek preview area.
@@ -860,7 +817,9 @@ fun BottomControlBar(
                 .padding(horizontal = layoutPolicy.horizontalPaddingDp.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (plainLandscapeControls) {
+            // Fullscreen actions share one layout; material differences stay inside the dock row.
+            // Native spacing, slots, insets, and defaults remain unchanged.
+            if (isFullscreen) {
                 PlayerControlGlassDock(enabled = true, shape = CircleShape) {
                     AppIconButton(
                         onClick = onPlayPauseClick,
@@ -883,8 +842,11 @@ fun BottomControlBar(
                 val danmakuActionWidthDp = if (isFullscreen) 40 else maxOf(40, layoutPolicy.playButtonSizeDp)
                 val leftDockPaddingDp = if (isFullscreen) 8 else if (inlineTimeGlassDock) 20 else 0
                 val timeEndSpacingDp = if (!inlineTimeGlassDock || showDanmakuToggle) layoutPolicy.afterTimeSpacingDp else 0
+                // Only glass reserves a scrollable time viewport on narrow windows.
+                // Native keeps its existing minimum width and adaptive layout.
                 val minimumLeftWidthDp = leftDockPaddingDp + timeEndSpacingDp +
-                    danmakuActionWidthDp * ((if (showDanmakuToggle) 2 else 0) + 1)
+                    danmakuActionWidthDp * ((if (showDanmakuToggle) 2 else 0) + 1) +
+                    (if (liquidGlassEnabled) layoutPolicy.playButtonSizeDp else 0)
                 PlayerControlMiddleRow(
                     minimumLeftWidth = minimumLeftWidthDp.dp,
                     modifier = Modifier.weight(1f),
@@ -912,7 +874,9 @@ fun BottomControlBar(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Row(
-                                modifier = Modifier.weight(1f, fill = false).horizontalScroll(rememberScrollState()),
+                                modifier = Modifier.weight(1f, fill = false)
+                                    .horizontalScroll(rememberScrollState())
+                                    .testTag("player_time_viewport"),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 if (isFullscreen && uiLayoutWidthDp >= 840 && showNextEpisodeButton) {
@@ -991,8 +955,10 @@ fun BottomControlBar(
                         enabled = true,
                         modifier = if (isFullscreen) Modifier.height(48.dp) else Modifier,
                     ) {
-                        PlainLandscapeDockActionRow(
-                            maxSpacing = actionSpacing * PlainFullscreenDockActionMaxSpacingFactor,
+                        LandscapeDockActionRow(
+                            liquidGlassEnabled = liquidGlassEnabled,
+                            maxSpacing = if (liquidGlassEnabled) actionSpacing
+                                else actionSpacing * PlainFullscreenDockActionMaxSpacingFactor,
                             minSpacing = PlainFullscreenDockActionMinSpacing,
                             modifier = if (isFullscreen) Modifier
                                 .fillMaxHeight()
@@ -1133,7 +1099,7 @@ fun BottomControlBar(
                             }
 
                             if (isFullscreen && uiLayoutWidthDp >= 840) {
-                                PlainFullscreenDockTextAction(
+                                LandscapeDockTextAction(
                                     text = "画中画",
                                     fontSp = layoutPolicy.actionTextFontSp,
                                     onClick = onPipClick,
@@ -1141,14 +1107,14 @@ fun BottomControlBar(
                             }
 
                             if (showDirectTools) {
-                                PlainFullscreenDockTextAction(
+                                LandscapeDockTextAction(
                                     text = "音质",
                                     selected = isSpecialAudioSelected,
                                     fontSp = layoutPolicy.actionTextFontSp,
                                     onClick = onAudioQualityClick,
                                 )
                                 if (anime4kAvailable) {
-                                    PlainFullscreenDockTextAction(
+                                    LandscapeDockTextAction(
                                         text = "画质增强",
                                         selected = anime4kEnabled,
                                         fontSp = layoutPolicy.actionTextFontSp,
@@ -1159,7 +1125,7 @@ fun BottomControlBar(
                                         },
                                     )
                                 }
-                                PlainFullscreenDockTextAction(
+                                LandscapeDockTextAction(
                                     text = "竖屏",
                                     fontSp = layoutPolicy.actionTextFontSp,
                                     onClick = onPortraitFullscreen,
@@ -1173,7 +1139,9 @@ fun BottomControlBar(
                                     // 这里把它收到文字宽（两个字 ≈ 2×字号）再加一点余量：
                                     // 视觉间距与相邻项一致，也不额外占用这一排的可用宽度。
                                     modifier = Modifier.width(
-                                        (layoutPolicy.actionTextFontSp * 2 + 2).dp,
+                                        // Glass follows font scale; preserve the native slot unchanged.
+                                        if (liquidGlassEnabled) actionSpacing + 2.dp
+                                        else (layoutPolicy.actionTextFontSp * 2 + 2).dp,
                                     ),
                                     groups = listOf(
                                         listOfNotNull(
@@ -1312,16 +1280,12 @@ fun BottomControlBar(
                     PlayerControlGlassDock(
                         enabled = true,
                         modifier = when {
-                            isFullscreen -> Modifier.height(48.dp)
                             inlineTimeGlassDock -> Modifier.heightIn(min = 40.dp)
                             else -> Modifier
                         },
                     ) {
                         Row(
                             modifier = when {
-                                isFullscreen -> Modifier
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 4.dp)
                                 inlineTimeGlassDock -> Modifier
                                     .padding(horizontal = 10.dp, vertical = 6.dp)
                                     .heightIn(min = 28.dp)
@@ -1329,21 +1293,6 @@ fun BottomControlBar(
                             },
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            if (isFullscreen && uiLayoutWidthDp >= 840 && showNextEpisodeButton) {
-                                AppIconButton(
-                                    onClick = onNextEpisodeClick,
-                                    modifier = Modifier.size(48.dp),
-                                ) {
-                                    AppIcon(
-                                        imageVector = Icons.Filled.SkipNext,
-                                        contentDescription = "下一集",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(22.dp),
-                                    )
-                                }
-                            }
-
-
                             ProgressTimeText(
                                 positionProvider = displayedPositionProvider,
                                 durationProvider = { progressProvider().duration },
@@ -1367,89 +1316,31 @@ fun BottomControlBar(
                                     activeTint = danmakuActiveColor,
                                     inactiveTint = danmakuInactiveColor,
                                     iconSize = layoutPolicy.danmakuIconSizeDp.dp,
-                                    modifier = if (isFullscreen) Modifier.width(40.dp).height(48.dp) else Modifier,
                                 )
 
                                 AppIconButton(
-                                    onClick = if (glassLandscapeControls) onDanmakuInputClick else onDanmakuSettingsClick,
-                                    modifier = (if (isFullscreen) Modifier.width(40.dp).height(48.dp) else Modifier)
-                                        .testTag(if (glassLandscapeControls) "player_danmaku_send" else "player_danmaku_settings")
-                                        .semantics {
-                                            contentDescription = if (glassLandscapeControls) {
-                                                if (isLoggedIn) "发弹幕" else "登录发弹幕"
-                                            } else "弹幕设置"
-                                        },
+                                    onClick = onDanmakuSettingsClick,
+                                    modifier = Modifier
+                                        .testTag("player_danmaku_settings")
+                                        .semantics { contentDescription = "弹幕设置" },
                                 ) {
-                                    if (glassLandscapeControls) {
-                                        com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSendIcon(
-                                            tint = Color.White.copy(alpha = if (isLoggedIn) 1f else 0.6f),
-                                            size = 22.dp,
-                                        )
-                                    } else {
-                                        com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSettingsIcon(
-                                            tint = Color.White.copy(alpha = 0.9f),
-                                            size = if (isFullscreen) 22.dp else layoutPolicy.danmakuIconSizeDp.dp,
-                                        )
-                                    }
+                                    com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSettingsIcon(
+                                        tint = Color.White.copy(alpha = 0.9f),
+                                        size = layoutPolicy.danmakuIconSizeDp.dp,
+                                    )
                                 }
 
                             }
                         }
                     }
                     if (showDanmakuToggle) {
-                        if (showDanmakuInput) {
-                            Spacer(modifier = Modifier.width(layoutPolicy.danmakuSwitchToInputSpacingDp.dp))
-
-                            BoxWithConstraints(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(if (isFullscreen) 48.dp else layoutPolicy.danmakuInputHeightDp.dp),
-                            ) {
-                                val availableWidthDp = maxWidth.value.toInt()
-                                if (
-                                    com.android.purebilibili.feature.video.ui.components
-                                        .shouldDrawDanmakuInputCapsule(availableWidthDp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(50))
-                                            .background(
-                                                if (isFullscreen) Color.Black.copy(alpha = 0.20f)
-                                                else Color.White.copy(alpha = if (isLoggedIn) 0.2f else 0.12f),
-                                            )
-                                            .consumeTap(onDanmakuInputClick),
-                                        contentAlignment = Alignment.CenterStart,
-                                    ) {
-                                        AppText(
-                                            text = if (isFullscreen) {
-                                                if (isLoggedIn) "发弹幕" else "登录发弹幕"
-                                            } else danmakuInputPlaceholder,
-                                            color = Color.White.copy(alpha = if (isLoggedIn) 0.62f else 0.44f),
-                                            fontSize = layoutPolicy.danmakuInputFontSp.sp,
-                                            maxLines = danmakuPlaceholderPolicy.maxLines,
-                                            overflow = if (danmakuPlaceholderPolicy.ellipsis) {
-                                                TextOverflow.Ellipsis
-                                            } else TextOverflow.Clip,
-                                            modifier = Modifier.padding(
-                                                start = layoutPolicy.danmakuInputStartPaddingDp.dp,
-                                                end = 8.dp,
-                                            ),
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(layoutPolicy.afterInputSpacingDp.dp))
-                        } else if (showCompactDanmakuSend) {
+                        if (showCompactDanmakuSend) {
                             Spacer(modifier = Modifier.width(layoutPolicy.danmakuSwitchToInputSpacingDp.dp))
                             Box(
                                 modifier = Modifier
-                                    .heightIn(min = if (isFullscreen) 48.dp else 0.dp)
                                     .clip(RoundedCornerShape(50))
                                     .background(
-                                        if (isFullscreen) Color.Black.copy(alpha = 0.20f)
-                                        else Color.White.copy(alpha = 0.16f),
+                                        Color.White.copy(alpha = 0.16f),
                                     )
                                     .clickable(onClick = onDanmakuInputClick)
                                     .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1466,42 +1357,28 @@ fun BottomControlBar(
                             }
                             Spacer(modifier = Modifier.width(layoutPolicy.afterInputSpacingDp.dp))
                             Spacer(modifier = Modifier.weight(1f))
-                        } else if (!fullscreenDanmakuActionsInDedicatedDocks && !expandInlineActionDock) {
+                        } else if (!expandInlineActionDock) {
                             Spacer(modifier = Modifier.weight(1f))
                         }
-                    } else if (!fullscreenDanmakuActionsInDedicatedDocks && !expandInlineActionDock) {
+                    } else if (!expandInlineActionDock) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
-                    if (fullscreenDanmakuActionsInDedicatedDocks || expandInlineActionDock) {
+                    if (expandInlineActionDock) {
                         Spacer(modifier = Modifier.width(PlayerChromeLayout.ActionGapDp.dp))
                     }
 
                     // Right: Function Buttons
                     PlayerControlGlassDock(
                         enabled = true,
-                        modifier = if (isFullscreen) Modifier
-                            .then(
-                                if (fullscreenDanmakuActionsInDedicatedDocks) Modifier.weight(1f)
-                                else Modifier.widthIn(max = (uiLayoutWidthDp * 0.62f).dp)
-                            )
-                            .height(48.dp)
-                        else if (expandInlineActionDock) Modifier.weight(1f) else Modifier,
+                        modifier = if (expandInlineActionDock) Modifier.weight(1f) else Modifier,
                     ) {
-                        PlayerDockActionRow(
-                            fillAvailableWidth = isFullscreen || expandInlineActionDock,
-                            modifier = if (isFullscreen) Modifier
-                                .fillMaxHeight()
-                                // Keep the scroll viewport away from the dock's rounded ends.
-                                // 液态玻璃全屏这一排最多同时出现 10 个入口，端头内边距收到 8dp。
-                                .padding(horizontal = 8.dp)
-                            else if (expandInlineActionDock) Modifier
+                        InlineDockActionRow(
+                            fillAvailableWidth = expandInlineActionDock,
+                            modifier = if (expandInlineActionDock) Modifier
                                 .heightIn(min = 40.dp)
                                 .padding(horizontal = 8.dp)
                             else Modifier,
-                            contentHorizontalPadding = if (isFullscreen) 0.dp else 2.dp,
                             minimumSpacing = when {
-                                // 液态玻璃全屏：间距由 4dp 收到 2dp，避免末端入口被胶囊圆角裁切。
-                                isFullscreen -> 2.dp
                                 expandInlineActionDock -> 4.dp
                                 else -> layoutPolicy.rightActionSpacingDp.dp
                             },
@@ -1510,7 +1387,7 @@ fun BottomControlBar(
                                 Box(
                                     modifier = Modifier
                                         .sizeIn(
-                                            minWidth = FullscreenDockActionMinWidth,
+                                            minWidth = InlineDockActionMinWidth,
                                             minHeight = 48.dp,
                                         )
                                         .clickable(onClick = onRatioClick),
@@ -1563,16 +1440,7 @@ fun BottomControlBar(
                                     softWrap = false,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier
-                                        .then(
-                                            if (isFullscreen) {
-                                                Modifier.sizeIn(
-                                                    minWidth = FullscreenDockActionMinWidth,
-                                                    minHeight = 48.dp,
-                                                )
-                                            } else Modifier,
-                                        )
                                         .clickable(onClick = onQualityClick)
-                                        .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                                 )
                             }
 
@@ -1586,16 +1454,7 @@ fun BottomControlBar(
                                     maxLines = 1,
                                     softWrap = false,
                                     modifier = Modifier
-                                        .then(
-                                            if (isFullscreen) {
-                                                Modifier.sizeIn(
-                                                    minWidth = FullscreenDockActionMinWidth,
-                                                    minHeight = 48.dp,
-                                                )
-                                            } else Modifier,
-                                        )
                                         .clickable(onClick = onEpisodeClick)
-                                        .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                                 )
                             }
 
@@ -1609,36 +1468,8 @@ fun BottomControlBar(
                                 maxLines = 1,
                                 softWrap = false,
                                 modifier = Modifier
-                                    .then(
-                                        if (isFullscreen) {
-                                            Modifier.sizeIn(
-                                                minWidth = FullscreenDockActionMinWidth,
-                                                minHeight = 48.dp,
-                                            )
-                                        } else Modifier,
-                                    )
                                     .clickable(onClick = onSpeedClick)
-                                    .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                             )
-
-                            if (fullscreenDanmakuActionsInDedicatedDocks && uiLayoutWidthDp >= 840 && showPlaybackOrderLabel) {
-                                AppText(
-                                    text = playbackOrderLabel,
-                                    color = Color.White,
-                                    fontSize = layoutPolicy.actionTextFontSp.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier
-                                        .sizeIn(
-                                            minWidth = FullscreenDockActionMinWidth,
-                                            minHeight = 48.dp,
-                                        )
-                                        .clickable(onClick = onPlaybackOrderClick)
-                                        .wrapContentSize(Alignment.Center)
-                                        .padding(horizontal = 2.dp),
-                                )
-                            }
 
                             if (showSubtitleButton) {
                                 AppText(
@@ -1651,7 +1482,7 @@ fun BottomControlBar(
                                     softWrap = false,
                                     modifier = Modifier
                                         .sizeIn(
-                                            minWidth = FullscreenDockActionMinWidth,
+                                            minWidth = InlineDockActionMinWidth,
                                             minHeight = 48.dp,
                                         )
                                         .clickable {
@@ -1667,40 +1498,6 @@ fun BottomControlBar(
                                             }
                                         }
                                         .wrapContentSize(Alignment.Center)
-                                )
-                            }
-
-                            if (isFullscreen && uiLayoutWidthDp >= 840) {
-                                FullscreenDockTextAction(
-                                    text = "画中画",
-                                    fontSp = layoutPolicy.actionTextFontSp,
-                                    onClick = onPipClick,
-                                )
-                            }
-
-                            if (showDirectTools) {
-                                FullscreenDockTextAction(
-                                    text = "音质",
-                                    selected = isSpecialAudioSelected,
-                                    fontSp = layoutPolicy.actionTextFontSp,
-                                    onClick = onAudioQualityClick,
-                                )
-                                if (anime4kAvailable) {
-                                    FullscreenDockTextAction(
-                                        text = "画质增强",
-                                        selected = anime4kEnabled,
-                                        fontSp = layoutPolicy.actionTextFontSp,
-                                        onClick = {
-                                            showSubtitlePanel = false
-                                            showMoreActionsPanel = false
-                                            showVideoEnhancementPanel = true
-                                        },
-                                    )
-                                }
-                                FullscreenDockTextAction(
-                                    text = "竖屏",
-                                    fontSp = layoutPolicy.actionTextFontSp,
-                                    onClick = onPortraitFullscreen,
                                 )
                             }
 
@@ -1742,7 +1539,7 @@ fun BottomControlBar(
                                                         onNextEpisodeClick()
                                                     })
                                             } else null,
-                                            if (showPlaybackOrderLabel && !(fullscreenDanmakuActionsInDedicatedDocks && uiLayoutWidthDp >= 840)) {
+                                            if (showPlaybackOrderLabel) {
                                                 AppWindowAction(label = playbackOrderLabel, selected = playbackOrderLabel != "自动连播", onClick = {
                                                         showMoreActionsPanel = false
                                                         onPlaybackOrderClick()
@@ -1787,17 +1584,6 @@ fun BottomControlBar(
                                                     showMoreActionsPanel = false
                                                     onChapterClick()
                                                 })
-                                            } else null,
-                                            if (
-                                                !fullscreenDanmakuActionsInDedicatedDocks && com.android.purebilibili.feature.video.ui.components.shouldShowDanmakuSendInMoreActions(
-                                                    isFullscreen = isFullscreen,
-                                                    showInlineDanmakuInput = showDanmakuInput
-                                                )
-                                            ) {
-                                                AppWindowAction(label = if (isLoggedIn) "发弹幕" else "登录发弹幕", onClick = {
-                                                        showMoreActionsPanel = false
-                                                        onDanmakuInputClick()
-                                                    })
                                             } else null
                                         )
                                     ),
@@ -1831,9 +1617,7 @@ fun BottomControlBar(
                                     maxLines = 1,
                                     softWrap = false,
                                     modifier = Modifier
-                                        .then(if (isFullscreen) Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp) else Modifier)
                                         .clickable(onClick = onPortraitFullscreen)
-                                        .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                                 )
                             }
                         }
@@ -2045,12 +1829,23 @@ private fun PlayerControlMiddleRow(
 }
 
 @Composable
-private fun PlainLandscapeDockActionRow(
+private fun LandscapeDockActionRow(
+    liquidGlassEnabled: Boolean,
     maxSpacing: Dp,
     minSpacing: Dp,
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
+    // Glass uses exact gaps and a content-width dock; native below keeps its adaptive row.
+    if (liquidGlassEnabled) {
+        Row(
+            modifier = modifier.horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(maxSpacing),
+            content = content,
+        )
+        return
+    }
     // 该行只出现在原生（关闭液态玻璃）的全屏横屏里，这一排没有胶囊底色：
     // 把行宽撑到视口，间距完全交给自适应策略，避免测量宽度把右侧按钮推远。
     BoxWithConstraints(modifier = modifier) {
@@ -2128,19 +1923,14 @@ private val PlainFullscreenDockActionMinSpacing = 0.dp
  */
 private val PlainFullscreenDockActionMaxSpacingFactor = 1.5f
 
-/**
- * 液态玻璃全屏这一排最多同时出现 10 个文字入口，胶囊宽度只够把它们均分：
- * 文字槽位收到 40dp（与左侧弹幕图标槽位一致），让末端的“更多”也能完整落在胶囊内；
- * 关闭液态玻璃后走原生布局，仍沿用 48dp 槽位。
- */
-private val FullscreenDockActionMinWidth = 40.dp
+/** Preserve the existing compact inline action slots; fullscreen uses content-width actions. */
+private val InlineDockActionMinWidth = 40.dp
 
 @Composable
-private fun PlayerDockActionRow(
+private fun InlineDockActionRow(
     fillAvailableWidth: Boolean,
     minimumSpacing: Dp,
     modifier: Modifier = Modifier,
-    contentHorizontalPadding: Dp = 2.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
     val arrangement = remember(fillAvailableWidth, minimumSpacing) {
@@ -2171,14 +1961,7 @@ private fun PlayerDockActionRow(
         contentAlignment = if (centerGlassActions) Alignment.CenterStart else Alignment.TopStart,
         modifier = modifier
             .then(if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier)
-            .then(
-                // 液态玻璃全屏把这项内边距一并让给入口宽度，关闭玻璃后仍保留原有 2dp。
-                if (fillAvailableWidth && contentHorizontalPadding > 0.dp) {
-                    Modifier.padding(horizontal = contentHorizontalPadding)
-                } else {
-                    Modifier
-                },
-            ),
+            .then(if (fillAvailableWidth) Modifier.padding(horizontal = 2.dp) else Modifier),
     ) {
         Row(
             modifier = if (fillAvailableWidth) Modifier
@@ -2195,7 +1978,7 @@ private fun PlayerDockActionRow(
 }
 
 @Composable
-private fun PlainFullscreenDockTextAction(
+private fun LandscapeDockTextAction(
     text: String,
     fontSp: Int,
     onClick: () -> Unit,
@@ -2212,29 +1995,6 @@ private fun PlainFullscreenDockTextAction(
         softWrap = false,
         modifier = modifier
             .heightIn(min = 48.dp)
-            .clickable(onClick = onClick)
-            .wrapContentSize(Alignment.Center),
-    )
-}
-
-@Composable
-private fun FullscreenDockTextAction(
-    text: String,
-    fontSp: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    selected: Boolean = false,
-) {
-    AppText(
-        text = text,
-        color = if (selected) AppContentColors.accent() else Color.White,
-        fontSize = fontSp.sp,
-        lineHeight = (fontSp + 2).sp,
-        fontWeight = FontWeight.Medium,
-        maxLines = 1,
-        softWrap = false,
-        modifier = modifier
-            .sizeIn(minWidth = FullscreenDockActionMinWidth, minHeight = 48.dp)
             .clickable(onClick = onClick)
             .wrapContentSize(Alignment.Center),
     )

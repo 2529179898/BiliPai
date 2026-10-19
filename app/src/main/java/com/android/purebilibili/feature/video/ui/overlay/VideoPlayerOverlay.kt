@@ -561,7 +561,6 @@ private fun VideoPlayerOverlayContent(
     val onSponsorContributionMarkBoundary = actions.onSponsorContributionMarkBoundary
     val onSponsorContributionMarkWholeVideo = actions.onSponsorContributionMarkWholeVideo
     val onSponsorContributionCancel = actions.onSponsorContributionCancel
-    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val danmakuEnabled = state.danmakuEnabled
     val onDanmakuToggle = actions.onDanmakuToggle
     val onDanmakuInputClick = actions.onDanmakuInputClick
@@ -1467,9 +1466,6 @@ private fun VideoPlayerOverlayContent(
                         },
                         onCommentClick = onLandscapeCommentClick,
                         isLoggedIn = isLoggedIn,
-                        onDanmakuSettingsClick = if (liquidGlassEnabled) {
-                            { showDanmakuSettings = true }
-                        } else null,
                         onCastClick = onCastClickAction,
                         showCastButton = playerControlVisibility.showCastButton,
                         onMoreClick = {
@@ -1514,7 +1510,6 @@ private fun VideoPlayerOverlayContent(
                     isPlaying = effectiveIsPlaying,
                     progressProvider = progressProvider,
                     isFullscreen = isFullscreen,
-                    fullscreenDanmakuActionsInDedicatedDocks = isFullscreen,
                     compactPlayerChrome = playerControlVisibility.compactPlayerChrome,
                     currentSpeed = currentSpeed,
                     currentRatio = currentAspectRatio,
@@ -1631,7 +1626,7 @@ private fun VideoPlayerOverlayContent(
         }
 
         CenterPlaybackControl(
-            visible = (!isFullscreen || liquidGlassEnabled) && isVisible &&
+            visible = !isFullscreen && isVisible &&
                 (pluginPlaybackStatus.first || player.playbackState == Player.STATE_READY || player.playbackState == Player.STATE_ENDED) &&
                 centerLoadingUiState == null &&
                 !isScreenLocked && !isSeekScrubbing && !danmakuComposerVisible &&
