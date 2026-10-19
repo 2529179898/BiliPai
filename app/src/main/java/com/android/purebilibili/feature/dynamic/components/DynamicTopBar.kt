@@ -43,13 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 //  Material Icons
-import com.android.purebilibili.core.store.HomeSettings
-import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.feature.dynamic.resolveDynamicTopBarHorizontalPadding
 import com.android.purebilibili.feature.dynamic.resolveDynamicTopBarTabHeightDp
 import com.android.purebilibili.feature.home.components.DynamicPublishSkinDecoration
@@ -116,14 +112,10 @@ fun DynamicTopBarWithTabs(
     onAuthorSearchClick: (() -> Unit)? = null,
 ) {
     val density = LocalDensity.current
-    val context = LocalContext.current
     val statusBarHeight = WindowInsets.statusBars.getTop(density).let { with(density) { it.toDp() } }
     val tabHeight = resolveDynamicTopBarTabHeightDp(density.fontScale).dp
-    val homeSettings by SettingsManager
-        .getHomeSettings(context)
-        .collectAsStateWithLifecycle(initialValue = HomeSettings())
-    val liquidGlassEnabled = homeSettings.androidNativeLiquidGlassEnabled
     val appThemeConfig = com.android.purebilibili.core.ui.LocalAppThemeConfig.current
+    val liquidGlassEnabled = appThemeConfig.liquidGlassEnabled
     val headerBlurEnabled = appThemeConfig.headerBlurEnabled
     val progressiveTopBlurEnabled = appThemeConfig.progressiveTopBlurEnabled
     val isProgressiveBlurActive = progressiveTopBlurEnabled && !headerBlurEnabled

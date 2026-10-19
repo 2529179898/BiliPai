@@ -47,7 +47,6 @@ import com.android.purebilibili.core.ui.components.resolveLiquidGlassTabSlotHori
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -63,7 +62,6 @@ import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -73,13 +71,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.android.purebilibili.core.store.SettingsManager
-import com.android.purebilibili.core.store.HomeSettings
 import com.android.purebilibili.core.ui.rememberAppSemanticVisualPolicy
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.input.pointer.pointerInput
-import kotlinx.coroutines.flow.map
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import com.android.purebilibili.core.ui.animation.DampedDragAnimationState
 import com.android.purebilibili.core.ui.animation.DampedDragTrackingMode
@@ -479,7 +474,7 @@ fun BottomBarLiquidSegmentedControl(
     } else {
         modifier.fillMaxWidth()
     }
-    // Geometry exists even while material preferences load. Sampling and press
+    // Geometry is independent from material sampling. Sampling and press
     // bloom are draw-only children and cannot change this layout or hit viewport.
     BoxWithConstraints(modifier = shellModifier.height(shellHeight)) {
         val renderedItemWidth = fixedItemWidth ?: if (!constraints.hasBoundedWidth) {
@@ -494,17 +489,11 @@ fun BottomBarLiquidSegmentedControl(
         } else {
             null
         }
-        val context = LocalContext.current
         val visualPolicy = rememberAppSemanticVisualPolicy()
-        val homeSettings by SettingsManager
-            .getHomeSettings(context)
-            .map { it as HomeSettings? }
-            .collectAsStateWithLifecycle(
-                initialValue = null,
-                context = kotlin.coroutines.EmptyCoroutineContext,
-            )
-        val resolvedHomeSettings = homeSettings ?: return@BoxWithConstraints
-        if (!resolvedHomeSettings.androidNativeLiquidGlassEnabled) {
+        // Material selection shares the same resolved theme as its parent and glass child.
+        val androidNativeLiquidGlassEnabled =
+            com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+        if (!androidNativeLiquidGlassEnabled) {
             val nativeOptions = remember(items) {
                 items.mapIndexed { index, label -> AppSegmentOption(index, label) }
             }
@@ -554,7 +543,7 @@ fun BottomBarLiquidSegmentedControl(
         val chromeStyle = resolveSegmentedControlChromeStyle(
             uiStyle = LocalAppUiStyle.current,
             prefersNativeChrome = visualPolicy.prefersNativeChrome,
-            androidNativeLiquidGlassEnabled = resolvedHomeSettings.androidNativeLiquidGlassEnabled,
+            androidNativeLiquidGlassEnabled = androidNativeLiquidGlassEnabled,
             preferInlineContentStyle = preferInlineContentStyle,
         )
         if (chromeStyle == SegmentedControlChromeStyle.ANDROID_NATIVE_UNDERLINE) {

@@ -4,6 +4,7 @@ package com.android.purebilibili.feature.video.ui.overlay
 import com.android.purebilibili.core.ui.MediaContrastPalette
 
 import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.ui.rememberAppBookmarkIcon
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 
@@ -185,6 +186,8 @@ fun TopControlBar(
     isLoggedIn: Boolean = true,
     backButtonStartPaddingDp: Int? = null,
     actionEndPaddingDp: Int? = null,
+    isFavorited: Boolean = false,
+    onFavoriteClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -256,6 +259,10 @@ fun TopControlBar(
     }
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
+    // Only glass fullscreen separates More into a circle aligned with the lock button.
+    val separateGlassMore = isFullscreen &&
+        com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+    val favoriteIcon = rememberAppBookmarkIcon()
     val leftSectionStartOffset = if (isFullscreen && backButtonStartPaddingDp != null) {
         val cutoutStart = with(density) {
             displayCutoutInsets.getLeft(density, layoutDirection).toDp()
@@ -296,7 +303,7 @@ fun TopControlBar(
                             displayCutoutInsets.getRight(this, layoutDirection) -
                             layoutPolicy.horizontalPaddingDp.dp.roundToPx()).coerceAtLeast(0)
                     } else 0
-                    val videoInset = if (isFullscreen && bounds != null && origin != null && constraints.hasBoundedWidth) {
+                    val videoInset = if (isFullscreen && !separateGlassMore && bounds != null && origin != null && constraints.hasBoundedWidth) {
                         resolveTopActionsVideoInsetPx(
                             rowLeftPx = origin.x,
                             rowWidthPx = constraints.maxWidth,
@@ -402,7 +409,7 @@ fun TopControlBar(
                             )
                         }
 
-                        if (showDislikeAction) {
+                        if (showDislikeAction && !separateGlassMore) {
                             // Dislike
                             ActionIcon(
                                 icon = Icons.Outlined.ThumbDown,
@@ -423,6 +430,30 @@ fun TopControlBar(
                             buttonSizeDp = layoutPolicy.buttonSizeDp,
                             iconSizeDp = layoutPolicy.iconSizeDp
                         )
+
+                        // Glass fullscreen completes the engagement group; native keeps its actions.
+                        if (separateGlassMore) {
+                            ActionIcon(
+                                icon = favoriteIcon,
+                                contentDescription = if (isFavorited) "已收藏，管理收藏夹" else "收藏",
+                                isActive = isFavorited,
+                                onClick = onFavoriteClick,
+                                buttonSizeDp = layoutPolicy.buttonSizeDp,
+                                iconSizeDp = layoutPolicy.iconSizeDp,
+                            )
+                        }
+
+                        if (showDislikeAction && separateGlassMore) {
+                            // Dislike
+                            ActionIcon(
+                                icon = Icons.Outlined.ThumbDown,
+                                contentDescription = "不喜欢",
+                                isActive = false,
+                                onClick = onDislikeClick,
+                                buttonSizeDp = layoutPolicy.buttonSizeDp,
+                                iconSizeDp = layoutPolicy.iconSizeDp
+                            )
+                        }
 
                         // Share
                         ActionIcon(
@@ -456,15 +487,36 @@ fun TopControlBar(
                     )
 
                     // More (Three dots)
+                    if (!separateGlassMore) {
+                        AppIconButton(
+                            onClick = onMoreClick,
+                            modifier = Modifier.size(layoutPolicy.buttonSizeDp.dp)
+                        ) {
+                            AppIcon(
+                                imageVector = Icons.Outlined.MoreVert,
+                                contentDescription = "更多",
+                                tint = Color.White,
+                                modifier = Modifier.size(layoutPolicy.iconSizeDp.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            if (separateGlassMore) {
+                Spacer(modifier = Modifier.width(PlayerChromeLayout.ActionGapDp.dp))
+                PlayerControlGlassDock(
+                    enabled = true,
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                ) {
                     AppIconButton(
                         onClick = onMoreClick,
-                        modifier = Modifier.size(layoutPolicy.buttonSizeDp.dp)
+                        modifier = Modifier.size(layoutPolicy.buttonSizeDp.dp),
                     ) {
                         AppIcon(
                             imageVector = Icons.Outlined.MoreVert,
                             contentDescription = "更多",
                             tint = Color.White,
-                            modifier = Modifier.size(layoutPolicy.iconSizeDp.dp)
+                            modifier = Modifier.size(layoutPolicy.iconSizeDp.dp),
                         )
                     }
                 }

@@ -87,6 +87,7 @@ internal fun VideoDetailPhoneSuccessContentLayer(
     motionSpec: VideoDetailMotionSpec,
     hazeState: HazeState,
     isTransitionFinished: Boolean,
+    relatedContentReady: Boolean = true,
     isLeaving: Boolean,
     rootTransitionOwnsContentAlpha: Boolean,
     keepContentVisibleAfterBackPreview: Boolean = false,
@@ -300,6 +301,7 @@ internal fun VideoDetailPhoneSuccessContentLayer(
                                     isVideoPlaying = isVideoPlaying,
                                     bottomContentPadding = videoContentBottomPadding,
                                     commentPullToRefreshEnabled = commentPullToRefreshEnabled,
+                                    relatedContentReady = relatedContentReady,
                                 ),
                                 primaryActions = VideoContentPrimaryActions(
                                     onFollowClick = engagementActions.toggleFollow,

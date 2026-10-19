@@ -450,9 +450,14 @@ fun AppNavigation(
         }
     }
     val uriHandler = LocalUriHandler.current
-    val homeSettings by SettingsManager.getHomeSettings(context).collectAsStateWithLifecycle(initialValue = com.android.purebilibili.core.store.HomeSettings(),
-        context = kotlin.coroutines.EmptyCoroutineContext
-    )
+    // Resolve once before mounting navigation chrome. A default settings object can
+    // otherwise publish the wrong glass tuning for the first frame after cold start.
+    val resolvedHomeSettings by SettingsManager.getHomeSettings(context)
+        .collectAsStateWithLifecycle<com.android.purebilibili.core.store.HomeSettings?>(
+            initialValue = null,
+            context = kotlin.coroutines.EmptyCoroutineContext,
+        )
+    val homeSettings = resolvedHomeSettings ?: return
     val effectiveHomeSettings = remember(homeSettings) {
         resolveEffectiveHomeSettings(
             homeSettings = homeSettings,
@@ -463,6 +468,7 @@ fun AppNavigation(
         homeSettings.liquidGlassAdvancedSettings,
         homeSettings.liquidGlassReadabilityMode,
         homeSettings.bottomBarLiquidGlassPreset,
+        homeSettings.navigationIconCrossScaleEnabled,
     ) {
         LiquidGlassRenderConfig(
             tuning = resolveLiquidGlassTuning(
@@ -471,6 +477,7 @@ fun AppNavigation(
                 readabilityMode = homeSettings.liquidGlassReadabilityMode,
             ),
             preset = homeSettings.bottomBarLiquidGlassPreset,
+            navigationIconCrossScaleEnabled = homeSettings.navigationIconCrossScaleEnabled,
         )
     }
     val uiSkinState by rememberUiSkinState(context)

@@ -1,5 +1,9 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.components.AppText
+import com.android.purebilibili.core.ui.videoCardTitleMaxLines
+import com.android.purebilibili.core.ui.videoCardTitleOverflow
+import com.android.purebilibili.feature.home.HomeFeedCardLayout
 import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -20,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -291,14 +296,27 @@ private fun RelatedVideoGridRowSkeleton() {
     val cardLayout = remember(homeFeedCardStyle) {
         resolveHomeFeedCardLayout(homeFeedCardStyle)
     }
-    Row(
-        modifier = Modifier
+    RelatedVideoGridRowSkeleton(cardLayout = cardLayout)
+}
+
+/** Same viewport, cover ratio and horizontal/stacked frame as a real recommendation row. */
+@Composable
+internal fun RelatedVideoGridRowSkeleton(
+    cardLayout: HomeFeedCardLayout,
+    title: String? = null,
+    modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = cardLayout.outerPaddingDp.dp, vertical = 4.dp)
+            .clearAndSetSemantics { }
+            .padding(horizontal = cardLayout.outerPaddingDp.dp, vertical = 2.dp),
     ) {
         RelatedVideoItemSkeleton(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
             coverAspectRatio = cardLayout.coverAspectRatio,
+            stacked = resolveRelatedVideoCardLayout(maxWidth.value.toInt()) == RelatedVideoCardLayout.STACKED,
+            title = title,
         )
     }
 }
@@ -306,13 +324,17 @@ private fun RelatedVideoGridRowSkeleton() {
 @Composable
 private fun RelatedVideoItemSkeleton(
     modifier: Modifier = Modifier,
-    @Suppress("UNUSED_PARAMETER") coverAspectRatio: Float = RELATED_VIDEO_CARD_COVER_ASPECT_RATIO,
+    coverAspectRatio: Float = RELATED_VIDEO_CARD_COVER_ASPECT_RATIO,
+    stacked: Boolean = false,
+    title: String? = null,
 ) {
     HorizontalVideoCardFrame(
+        coverAspectRatio = coverAspectRatio,
+        stacked = stacked,
+        trailingContent = { Spacer(Modifier.size(48.dp)) },
         modifier = modifier
             .clip(VideoDetailShapes.contentCard())
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(8.dp),
+            .background(MaterialTheme.colorScheme.surface),
         coverContent = {
             SkeletonBlock(
                 modifier = Modifier.fillMaxSize(),
@@ -320,8 +342,22 @@ private fun RelatedVideoItemSkeleton(
             )
         },
         infoContent = {
-            SkeletonBox(modifier = Modifier.fillMaxWidth(), height = 16.dp, cornerRadius = 8.dp)
-            SkeletonBox(modifier = Modifier.fillMaxWidth(0.82f), height = 16.dp, cornerRadius = 8.dp)
+            if (title != null) {
+                // Preserve the loaded title's measured line count while images and shared
+                // transition nodes wait for their handoff frame.
+                AppText(
+                    text = title,
+                    style = com.android.purebilibili.feature.home.components.cards.horizontalVideoCardTypography().title,
+                    color = Color.Transparent,
+                    maxLines = videoCardTitleMaxLines(),
+                    minLines = 1,
+                    overflow = videoCardTitleOverflow(),
+                    modifier = Modifier.fillMaxWidth().background(rememberVideoSkeletonBlockColor()),
+                )
+            } else {
+                SkeletonBox(modifier = Modifier.fillMaxWidth(), height = 16.dp, cornerRadius = 8.dp)
+                SkeletonBox(modifier = Modifier.fillMaxWidth(0.82f), height = 16.dp, cornerRadius = 8.dp)
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SkeletonBlock(modifier = Modifier.size(16.dp), shape = CircleShape)
                 Spacer(modifier = Modifier.width(6.dp))

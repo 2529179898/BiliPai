@@ -864,8 +864,6 @@ internal fun VideoDetailScreenStateHolder(
         heroDriver = entryHeroDriver,
         navigationTransitionScope = entryNavigationTransitionScope,
     )
-    // 网络请求仍立即启动；只将媒体准备移出导航动画，封面继续承担首帧交接。
-    val entryPlaybackReady = entryTransitionFinished
 
     fun markSecondaryNavigationLeave(expectedBvid: String = currentBvid) {
         miniPlayerManager?.markLeavingByNavigation(expectedBvid = expectedBvid)
@@ -1175,6 +1173,17 @@ internal fun VideoDetailScreenStateHolder(
             }
         }
     }
+
+    // Keep the existing morph and body reveal intact. Only animated fresh entries
+    // stagger post-landing work; mini-player reuse and animation-off entries bypass it.
+    val entryWorkPhase = rememberVideoDetailEntryWorkPhase(
+        staggerWork = transitionEnabled && deferVideoDetailEntryLoad && !reuseFromMiniPlayerAtEntry,
+        contentReady = isTransitionFinished && detailContentState != null,
+        isVisible = isVisible,
+    )
+    val entryPlaybackReady = entryTransitionFinished && entryWorkPhase != VideoDetailEntryWorkPhase.Content
+    val entryRelatedReady = entryWorkPhase == VideoDetailEntryWorkPhase.Related
+    val entryCommentsReady = entryTransitionFinished && entryWorkPhase >= VideoDetailEntryWorkPhase.Comments
 
     //  监听评论状态
     val commentState by commentViewModel.commentState.collectAsStateWithLifecycle()
@@ -3212,8 +3221,8 @@ internal fun VideoDetailScreenStateHolder(
     }
 
 
-    LaunchedEffect(detailContentState?.info?.aid, preferredCommentSortMode, isVisible, entryTransitionFinished) {
-        if (!isVisible || !entryTransitionFinished) return@LaunchedEffect
+    LaunchedEffect(detailContentState?.info?.aid, preferredCommentSortMode, isVisible, entryCommentsReady) {
+        if (!isVisible || !entryCommentsReady) return@LaunchedEffect
         val info = detailContentState?.info ?: return@LaunchedEffect
         commentViewModel.init(
             aid = info.aid,
@@ -5427,6 +5436,7 @@ internal fun VideoDetailScreenStateHolder(
                                         playerState = playerState,
                                         motionSpec = motionSpec,
                                         hazeState = hazeState,
+                                        relatedContentReady = entryRelatedReady,
                                         isTransitionFinished = isTransitionFinished ||
                                             keepLoadedContentForBackPreview ||
                                             suppressEnterFadeAfterBackPreview,

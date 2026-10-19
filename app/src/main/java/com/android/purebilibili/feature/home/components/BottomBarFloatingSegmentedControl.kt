@@ -25,11 +25,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -38,9 +41,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.android.purebilibili.core.store.HomeSettings
-import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.ui.LocalGlobalWallpaperBackdropVisible
 import com.android.purebilibili.core.ui.wallpaper.LocalGlobalWallpaperBackdropSource
@@ -49,7 +49,6 @@ import com.android.purebilibili.feature.home.components.miuix.DampedDragTracking
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import kotlinx.coroutines.flow.map
 
 /**
  * Reuse wrapper around [FloatingBottomBar]. No local drawBackdrop / lens / vibrancy.
@@ -95,33 +94,16 @@ internal fun BottomBarFloatingSegmentedControl(
 ) {
     if (items.isEmpty()) return
 
-    val context = LocalContext.current
-    val homeSettings by SettingsManager
-        .getHomeSettings(context)
-        .map { it as HomeSettings? }
-        .collectAsStateWithLifecycle(
-            // Do not render provisional chrome while the persisted setting is loading.
-            initialValue = null
-        )
-    val resolvedHomeSettings = homeSettings ?: return
+    // Consume the host's resolved material immediately: per-control DataStore collectors
+    // otherwise leave empty chrome and can disagree with the surrounding theme at mount.
+    val renderConfig = LocalLiquidGlassRenderConfig.current
     val liquidGlassEnabled = resolveSegmentedControlLiquidGlassEnabled(
-        storedLiquidGlassEnabled = resolvedHomeSettings.isBottomBarLiquidGlassEnabled,
+        storedLiquidGlassEnabled = false, // Legacy independent toggle is intentionally ignored.
         liquidGlassEffectsEnabled = liquidGlassEffectsEnabled,
         supportsIndependentLiquidGlass = false,
-        androidNativeLiquidGlassEnabled = resolvedHomeSettings.androidNativeLiquidGlassEnabled,
+        androidNativeLiquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
     )
-    val storedLiquidGlassTuning = remember(
-        resolvedHomeSettings.liquidGlassProgress,
-        resolvedHomeSettings.liquidGlassAdvancedSettings,
-        resolvedHomeSettings.liquidGlassReadabilityMode,
-    ) {
-        resolveLiquidGlassTuning(
-            resolvedHomeSettings.liquidGlassProgress,
-            resolvedHomeSettings.liquidGlassAdvancedSettings,
-            resolvedHomeSettings.liquidGlassReadabilityMode,
-        )
-    }
-    val liquidGlassTuning = liquidGlassTuningOverride ?: storedLiquidGlassTuning
+    val liquidGlassTuning = liquidGlassTuningOverride ?: renderConfig.tuning
     // The app theme can be forced independently from the system theme. Derive chrome tone from
     // the active semantic palette so a forced MD3 dark theme never receives a light-mode scrim.
     val isDarkTheme = resolveBottomBarDarkTheme(AppSurfaceTokens.background())
@@ -163,7 +145,9 @@ internal fun BottomBarFloatingSegmentedControl(
         null
     }
     val effectiveBackdrop = if (liquidGlassEnabled) {
-        suppliedBackdrop ?: localBackdrop
+        (suppliedBackdrop ?: localBackdrop)?.let {
+            com.android.purebilibili.feature.home.components.liquid.rememberStableBackdrop(it)
+        }
     } else {
         null
     }
@@ -237,13 +221,22 @@ internal fun BottomBarFloatingSegmentedControl(
     val onSelectedState = rememberUpdatedState(onSelected)
     val enabledState = rememberUpdatedState(enabled)
     val onItemReselectedState = rememberUpdatedState(onItemReselected)
-    // The shell owns layout and input. Cross-axis scroll clipping already leaves
-    // drawing room for the lens; press bloom must never enlarge the hit viewport.
+    // Scrollable glass uses the fixed shell's rounded viewport. Non-scrolling docks
+    // retain their press overflow; neither branch changes layout or pointer bounds.
     BoxWithConstraints(
         modifier = rootModifier.height(effectiveHeight).then(
-            if (scrollState != null) Modifier.drawWithContent {
-                // Keep the scrolling lens inside the fixed dock horizontally. Its vertical
-                // press bloom may still overflow without covering adjacent avatar/actions.
+            if (scrollState != null && liquidGlassEnabled) Modifier.drawWithCache {
+                // A rectangular edge slices partially visible indicators into a flat cap.
+                // Match the stationary shell instead of clipping against the moving rail.
+                val viewportPath = Path().apply {
+                    addOutline(
+                        resolveSharedBottomBarCapsuleShape().createOutline(size, layoutDirection, this@drawWithCache)
+                    )
+                }
+                onDrawWithContent {
+                    clipPath(viewportPath) { this@onDrawWithContent.drawContent() }
+                }
+            } else if (scrollState != null) Modifier.drawWithContent {
                 clipRect(top = -size.height, bottom = size.height * 2f) {
                     this@drawWithContent.drawContent()
                 }
@@ -391,7 +384,7 @@ internal fun BottomBarFloatingSegmentedControl(
                     },
                     selected = selected,
                     itemIndex = index,
-                    iconCrossScaleEnabled = resolvedHomeSettings.navigationIconCrossScaleEnabled,
+                    iconCrossScaleEnabled = renderConfig.navigationIconCrossScaleEnabled,
                 ) {
                     if (itemContent != null) {
                         itemContent(index, label, selected)

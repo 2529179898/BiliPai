@@ -64,6 +64,7 @@ internal enum class BottomBarLiquidOrientation {
 internal data class LiquidGlassRenderConfig(
     val tuning: LiquidGlassTuning = resolveLiquidGlassTuning(progress = 0.5f),
     val preset: BottomBarLiquidGlassPreset = BottomBarLiquidGlassPreset.BILIPAI_TUNED,
+    val navigationIconCrossScaleEnabled: Boolean = true,
 )
 
 internal val LocalLiquidGlassRenderConfig = staticCompositionLocalOf {
@@ -354,7 +355,9 @@ internal fun BottomBarMatchedReusableLiquidDock(
     // contains the background pixels. Do not record a second blank source and
     // sample both on every optical pass. Each dock still owns its lens/effects.
     val localBackdrop = if (backdrop == null) rememberLayerBackdrop() else null
-    val effectiveBackdrop = backdrop ?: localBackdrop
+    val effectiveBackdrop = (backdrop ?: localBackdrop)?.let {
+        com.android.purebilibili.feature.home.components.liquid.rememberStableBackdrop(it)
+    }
     val isDarkTheme = com.android.purebilibili.core.ui.isAppInDarkTheme()
     val blurIntensity = currentUnifiedBlurIntensity()
     val tuning = resolveAndroidNativeBottomBarTuning(

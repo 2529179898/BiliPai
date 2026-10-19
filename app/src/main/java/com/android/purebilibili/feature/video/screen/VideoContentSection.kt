@@ -502,6 +502,7 @@ internal class VideoContentPresentationState(
     val isVideoPlaying: Boolean,
     val bottomContentPadding: Dp,
     val commentPullToRefreshEnabled: Boolean = true,
+    val relatedContentReady: Boolean = true,
 )
 
 internal class VideoContentPrimaryActions(
@@ -977,6 +978,7 @@ internal fun VideoContentSection(
                         info = info,
                         relatedVideos = relatedVideos,
                         relatedLoadState = data.relatedLoadState,
+                        relatedContentReady = presentationState.relatedContentReady,
                         currentPageIndex = currentPageIndex,
                         followingMids = followingMids,
                         videoTags = videoTags,
@@ -1361,6 +1363,7 @@ private fun VideoIntroTab(
     info: ViewInfo,
     relatedVideos: List<RelatedVideo>,
     relatedLoadState: VideoPlaybackUiState.RelatedLoadState,
+    relatedContentReady: Boolean = true,
     currentPageIndex: Int,
     followingMids: Set<Long>,
     videoTags: List<VideoTag>,
@@ -1487,11 +1490,15 @@ private fun VideoIntroTab(
             VideoRecommendationHeader()
         }
 
-        if (relatedLoadState == VideoPlaybackUiState.RelatedLoadState.LOADING) {
-            item(key = "video_related_loading") {
-                Column {
-                    repeat(3) { com.android.purebilibili.core.ui.skeleton.MediaListRowSkeleton() }
-                }
+        // Keep loaded rows and their keys even while expensive images/shared bounds wait
+        // for the entry handoff. Network loading uses the same card geometry per lazy row.
+        if (visibleRelatedVideos.isEmpty() &&
+            (!relatedContentReady || relatedLoadState == VideoPlaybackUiState.RelatedLoadState.LOADING)
+        ) {
+            items(count = 3, key = { "video_related_loading_$it" }, contentType = { "video_related_loading" }) {
+                com.android.purebilibili.feature.video.ui.components.RelatedVideoGridRowSkeleton(
+                    cardLayout = relatedVideoCardLayout,
+                )
             }
         } else if (visibleRelatedVideos.isEmpty()) {
             item(key = "video_related_empty") {
@@ -1516,7 +1523,12 @@ private fun VideoIntroTab(
             },
             contentType = { _, _ -> "video_related_row" },
         ) { _, row ->
-            CompositionLocalProvider(
+            if (!relatedContentReady) {
+                com.android.purebilibili.feature.video.ui.components.RelatedVideoGridRowSkeleton(
+                    cardLayout = relatedVideoCardLayout,
+                    title = row.firstOrNull()?.title,
+                )
+            } else CompositionLocalProvider(
                 LocalVideoCardSharedElementSourceRoute provides "video/${info.bvid}"
             ) {
                 RelatedVideoGridRow(

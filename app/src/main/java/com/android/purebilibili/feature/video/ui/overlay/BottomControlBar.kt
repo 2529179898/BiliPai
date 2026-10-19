@@ -828,12 +828,15 @@ fun BottomControlBar(
             // Fullscreen actions share one layout: content-width tools stay right-aligned with
             // fixed two-character gaps; glass-only width reserves are marked inline.
             if (isFullscreen) {
-                PlayerPlayPauseButton(
-                    isPlaying = isPlaying,
-                    onClick = onPlayPauseClick,
-                    sizeDp = layoutPolicy.playButtonSizeDp,
-                    iconSizeDp = layoutPolicy.playIconSizeDp,
-                )
+                // Glass fullscreen restores the center control; native keeps bottom-left playback.
+                if (!liquidGlassEnabled) {
+                    PlayerPlayPauseButton(
+                        isPlaying = isPlaying,
+                        onClick = onPlayPauseClick,
+                        sizeDp = layoutPolicy.playButtonSizeDp,
+                        iconSizeDp = layoutPolicy.playIconSizeDp,
+                    )
+                }
                 val showDanmakuToggle = shouldShowDanmakuToggleInControlBar(
                     isFullscreen = isFullscreen,
                     widthDp = uiLayoutWidthDp,

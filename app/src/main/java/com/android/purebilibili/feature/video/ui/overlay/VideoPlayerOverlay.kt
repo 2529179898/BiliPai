@@ -1502,6 +1502,8 @@ private fun VideoPlayerOverlayContent(
                         isLiked = isLiked,
                         likeStatusKnown = likeStatusKnown,
                         isCoined = isCoined,
+                        isFavorited = isFavorited,
+                        onFavoriteClick = onToggleFavorite,
                         allowDislikeAction = showDislikeAction,
                         onLikeClick = onToggleLike,
                         onDislikeClick = onDislike,
@@ -1671,6 +1673,21 @@ private fun VideoPlayerOverlayContent(
                 initialAttentionCommand = danmakuComposerInitialAttentionCommand,
                 onDraftChange = onDanmakuComposerDraftChange,
                 onSelectionChange = onDanmakuComposerSelectionChange
+            )
+        }
+
+        // Restore 0.4.7 playback placement only for glass fullscreen; native and inline stay unchanged.
+        if (isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+            CenterPlaybackControl(
+                visible = isVisible &&
+                    (pluginPlaybackStatus.first || player.playbackState == Player.STATE_READY || player.playbackState == Player.STATE_ENDED) &&
+                    centerLoadingUiState == null &&
+                    !isScreenLocked && !isSeekScrubbing && !danmakuComposerVisible &&
+                    !endDrawerVisible && !landscapeCommentPanelVisible && !showInsightDetails,
+                isPlaying = effectiveIsPlaying,
+                onPlayPause = { togglePlayPause() },
+                diameter = 72.dp,
+                modifier = Modifier.align(Alignment.Center),
             )
         }
 
