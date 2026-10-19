@@ -70,7 +70,7 @@ import com.android.purebilibili.feature.video.ui.components.SpeedSelectionMenuDi
 import com.android.purebilibili.feature.video.ui.components.SpeedSelectionMenuPlacement
 import com.android.purebilibili.feature.video.ui.components.PlayerListPopupPlacement
 import com.android.purebilibili.feature.video.ui.components.DanmakuSettingsPanel
-import com.android.purebilibili.feature.video.ui.components.LandscapeDanmakuComposerForPlayer
+import com.android.purebilibili.feature.video.ui.components.LandscapeDanmakuComposer
 import com.android.purebilibili.feature.video.ui.components.VideoAspectRatio
 import com.android.purebilibili.feature.video.ui.components.AspectRatioMenu
 import com.android.purebilibili.feature.video.ui.components.VideoSettingsPanel
@@ -1659,7 +1659,7 @@ private fun VideoPlayerOverlayContent(
         }
 
         if (isFullscreen && danmakuComposerVisible) {
-            LandscapeDanmakuComposerForPlayer(
+            LandscapeDanmakuComposer(
                 visible = true,
                 onDismiss = onDismissDanmakuComposer,
                 onSend = onSendDanmakuComposer,
