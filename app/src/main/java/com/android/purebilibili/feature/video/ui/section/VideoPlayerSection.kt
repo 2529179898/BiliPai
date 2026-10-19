@@ -4692,12 +4692,14 @@ private fun VideoPlayerSectionContent(
                         controlsReserveHeightPx = commandControlsReservePx,
                     ),
                     state = commandState,
-                    renderingPaused = suppressTransientOverlaysForTransition,
+                    visible = shouldShowDanmakuLayer,
                     fontScale = danmakuFontScale,
                     items = visibleCommandDanmakuList,
                     player = playerState.player,
                     onFollowClick = onFollow,
-                    onTripleClick = onTriple,
+                    onLikeClick = onToggleLike,
+                    onCoinClick = onCoin,
+                    onFavoriteClick = onToggleFavorite,
                     onLinkClick = { item ->
                         val targetBvid = item.linkBvid.ifBlank {
                             if (item.linkAid > 0L) {

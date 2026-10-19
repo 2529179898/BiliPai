@@ -407,6 +407,55 @@ internal fun resolveFullscreenLockButtonVisualState(
     }
 }
 
+/** Media contrast belongs to this control, not the surrounding page's accent palette. */
+@Composable
+internal fun FullscreenLockButton(
+    visualState: FullscreenLockButtonVisualState,
+    onClick: () -> Unit,
+    cornerRadiusDp: Int,
+    iconSizeDp: Int,
+    modifier: Modifier = Modifier,
+) {
+    val glass = LocalPlayerControlGlassEnabled.current
+    val foreground = if (glass || !visualState.highlighted) Color.White else Color.Black
+    val background = when {
+        glass -> Color.Transparent
+        visualState.highlighted -> Color.White
+        else -> Color.Black.copy(alpha = 0.6f)
+    }
+    PlayerControlGlassDock(
+        enabled = true,
+        shape = CircleShape,
+        minimumReadabilityScrimAlpha = 0.6f,
+    ) {
+        // Glass owns the translucent backing; native mode retains its state inversion.
+        // Both glass states use media white, with the glyph and label conveying lock state.
+        CompositionLocalProvider(
+            com.android.purebilibili.core.ui.LocalAppButtonSlotColorCorrectionEnabled provides false,
+        ) {
+            AppSurface(
+                onClick = onClick,
+                color = background,
+                contentColor = foreground,
+                shape = RoundedCornerShape(cornerRadiusDp.dp),
+                modifier = modifier.size(PlayerChromeLayout.CircularButtonSizeDp.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    AppIcon(
+                        imageVector = when (visualState.icon) {
+                            FullscreenLockButtonIcon.LOCKED -> Icons.Outlined.Lock
+                            FullscreenLockButtonIcon.UNLOCKED -> Icons.Outlined.LockOpen
+                        },
+                        contentDescription = visualState.contentDescription,
+                        tint = foreground,
+                        modifier = Modifier.size(iconSizeDp.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 internal fun resolvePageSelectorSheetOuterBottomPaddingDp(
     isFullscreen: Boolean
 ): Int {
@@ -1635,30 +1684,12 @@ private fun VideoPlayerOverlayContent(
                     .align(Alignment.CenterEnd)
                     .padding(end = overlayVisualPolicy.lockButtonEndPaddingDp.dp)
             ) {
-                PlayerControlGlassDock(enabled = true, shape = androidx.compose.foundation.shape.CircleShape) {
-                    AppSurface(
-                        onClick = onLockToggle,
-                        color = Color.Transparent,
-                        shape = RoundedCornerShape(overlayVisualPolicy.lockButtonCornerRadiusDp.dp),
-                        modifier = Modifier.size(PlayerChromeLayout.CircularButtonSizeDp.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            AppIcon(
-                                when (fullscreenLockButtonState.icon) {
-                                    FullscreenLockButtonIcon.LOCKED -> Icons.Outlined.Lock
-                                    FullscreenLockButtonIcon.UNLOCKED -> Icons.Outlined.LockOpen
-                                },
-                                contentDescription = fullscreenLockButtonState.contentDescription,
-                                tint = if (fullscreenLockButtonState.highlighted) {
-                                    AppContentColors.accent()
-                                } else {
-                                    Color.White
-                                },
-                                modifier = Modifier.size(overlayVisualPolicy.lockIconSizeDp.dp)
-                            )
-                        }
-                    }
-                }
+                FullscreenLockButton(
+                    visualState = fullscreenLockButtonState,
+                    onClick = onLockToggle,
+                    cornerRadiusDp = overlayVisualPolicy.lockButtonCornerRadiusDp,
+                    iconSizeDp = overlayVisualPolicy.lockIconSizeDp,
+                )
             }
         }
 
