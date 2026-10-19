@@ -627,10 +627,14 @@ tasks.register("installFastRelease") {
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
     apply(plugin = "com.google.firebase.crashlytics")
-    tasks.matching { task ->
-        task.name.startsWith("uploadCrashlyticsMappingFile")
-    }.configureEach {
-        // 本地构建不上传 mapping，避免 release/dev 在离线环境失败。
-        enabled = false
+    // Offline/local builds stay opt-in. The release workflow explicitly supplies this flag.
+    val uploadReleaseMapping = providers.gradleProperty("bili.firebase.uploadMapping")
+        .map { it.toBoolean() }
+        .getOrElse(false)
+    android.buildTypes.configureEach {
+        val uploadMappingForBuildType = name == "release" && uploadReleaseMapping
+        configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+            mappingFileUploadEnabled = uploadMappingForBuildType
+        }
     }
 }

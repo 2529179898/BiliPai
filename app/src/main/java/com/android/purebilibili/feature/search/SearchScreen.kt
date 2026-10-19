@@ -1959,7 +1959,13 @@ fun SearchScreen(
                                                                         title = video.title,
                                                                     )
                                                                 ) {
-                                                                    is SearchResultNavigationTarget.Video -> onVideoClick(target.bvid, 0L, video.pic)
+                                                                    is SearchResultNavigationTarget.Video -> {
+                                                                        com.android.purebilibili.core.util.AnalyticsHelper.logSearchResultClick(
+                                                                            position = relatedIndex,
+                                                                            resultSection = "creator_related"
+                                                                        )
+                                                                        onVideoClick(target.bvid, 0L, video.pic)
+                                                                    }
                                                                     is SearchResultNavigationTarget.Course -> onCheeseClick?.invoke(target.seasonId, target.epId)
                                                                         ?: onBangumiClick(target.seasonId)
                                                                     is SearchResultNavigationTarget.Web -> onWebClick(target.url, target.title)
@@ -2040,8 +2046,10 @@ fun SearchScreen(
                                                             title = video.title
                                                         )
                                                     ) {
-                                                        is SearchResultNavigationTarget.Video ->
+                                                        is SearchResultNavigationTarget.Video -> {
+                                                            com.android.purebilibili.core.util.AnalyticsHelper.logSearchResultClick(position = index)
                                                             onVideoClick(target.bvid, 0, video.pic)
+                                                        }
                                                         is SearchResultNavigationTarget.Course -> {
                                                             if (onCheeseClick != null) {
                                                                 onCheeseClick(target.seasonId, target.epId)
