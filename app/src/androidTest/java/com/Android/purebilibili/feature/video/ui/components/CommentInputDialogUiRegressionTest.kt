@@ -318,11 +318,13 @@ class CommentInputDialogUiRegressionTest {
             }
         }
         val input = composeRule.onNodeWithTag("comment_composer_input")
+        input.performTouchInput { click() }
         input.performTextReplacement("编辑后的评论草稿")
         input.performTextInputSelection(TextRange(1, 4))
         val compact = input.fetchSemanticsNode().boundsInRoot
 
-        composeRule.onNodeWithContentDescription("展开输入区").assertHasClickAction().performClick()
+        composeRule.onNodeWithContentDescription("展开输入区").assertHasClickAction()
+            .performTouchInput { click() }
         composeRule.onNodeWithContentDescription("收起输入区").assertIsDisplayed()
         input.assertTextEquals("编辑后的评论草稿")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, TextRange(1, 4)))
@@ -330,7 +332,7 @@ class CommentInputDialogUiRegressionTest {
         assertTrue("展开应增加可编辑高度", expanded.height > compact.height)
         composeRule.onNodeWithText("发布").assertIsDisplayed()
 
-        composeRule.onNodeWithContentDescription("收起输入区").performClick()
+        composeRule.onNodeWithContentDescription("收起输入区").performTouchInput { click() }
         composeRule.onNodeWithContentDescription("展开输入区").assertIsDisplayed()
         input.assertTextEquals("编辑后的评论草稿")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, TextRange(1, 4)))
