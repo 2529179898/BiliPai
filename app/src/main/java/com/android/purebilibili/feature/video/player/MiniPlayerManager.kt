@@ -851,7 +851,9 @@ class MiniPlayerManager private constructor(private val context: Context) :
             var transferred = false
             try {
                 transferred = remoteAudio.transfer(request) {
-                    if (player !== local || pageOwnership.isRetained(local) || !AudioNowPlayingSession.active.value) null else {
+                    if (player !== local || pageOwnership.isRetained(local) || !AudioNowPlayingSession.active.value ||
+                        !local.playWhenReady || !shouldContinueBackgroundAudio() ||
+                        isLiveMode || isSystemPipActive || isMiniMode) null else {
                         val handoffPosition = local.currentPosition.coerceAtLeast(0L)
                         resetBackgroundOptimizationState()
                         stoppedLocal = true
@@ -895,7 +897,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
         remoteReclaimMutex.withLock {
             remoteTransferJob?.cancel()
             remoteTransferJob?.join()
-            if (!remoteAudio.active) recoverRemoteAudioIfPresent(failOnError = true)
+            if (!remoteAudio.active) recoverRemoteAudioIfPresentLocked(failOnError = true)
             if (!remoteAudio.active) return@withLock null
             remotePreferencesJob?.cancel()
             val state = remoteAudio.reclaim() ?: return@withLock null
@@ -912,15 +914,18 @@ class MiniPlayerManager private constructor(private val context: Context) :
             state
         }
 
-    internal suspend fun recoverRemoteAudioIfPresent(failOnError: Boolean = false) {
+    internal suspend fun recoverRemoteAudioIfPresent(failOnError: Boolean = false) =
+        remoteReclaimMutex.withLock { recoverRemoteAudioIfPresentLocked(failOnError) }
+
+    private suspend fun recoverRemoteAudioIfPresentLocked(failOnError: Boolean) {
         if (remoteAudio.active) return
-        val hasSaved = kotlinx.coroutines.withContext(Dispatchers.IO) {
-            TokenManager.awaitRestore(timeoutMs = 5000L)
-            com.android.purebilibili.core.store.MultiProcessPreferences.get(context, "background_audio")
-                .data.first()[androidx.datastore.preferences.core.stringPreferencesKey("snapshot")] != null
-        }
-        if (!hasSaved) return
         try {
+            val hasSaved = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                TokenManager.awaitRestore(timeoutMs = 5000L)
+                com.android.purebilibili.core.store.MultiProcessPreferences.get(context, "background_audio")
+                    .data.first()[androidx.datastore.preferences.core.stringPreferencesKey("snapshot")] != null
+            }
+            if (!hasSaved) return
             val state = remoteAudio.recover()
             if (state == null || state.accountMid != TokenManager.midCache) {
                 remoteAudio.close()
@@ -935,10 +940,12 @@ class MiniPlayerManager private constructor(private val context: Context) :
             AudioNowPlayingSession.markListening()
             observeRemoteAudioPreferences()
         } catch (e: kotlinx.coroutines.CancellationException) {
-            remoteAudio.close()
+            // This connection may belong to an already-playing service after main-process death.
+            // Canceling the UI's recovery must not stop that independent playback owner.
+            remoteAudio.disconnect()
             throw e
         } catch (e: Exception) {
-            remoteAudio.close()
+            remoteAudio.disconnect()
             Logger.w(TAG, "Unable to reconnect background audio", e)
             if (failOnError) throw e
         }

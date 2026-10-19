@@ -115,6 +115,9 @@ internal class BackgroundAudioConnection(
         controller = null
     }
 
+    /** Drop this client's binding while the independent service keeps its playback ownership. */
+    fun disconnect() = detach()
+
     override fun close() {
         controller?.sendCustomCommand(SessionCommand(AUDIO_CLOSE, Bundle.EMPTY), Bundle.EMPTY)
         detach()
