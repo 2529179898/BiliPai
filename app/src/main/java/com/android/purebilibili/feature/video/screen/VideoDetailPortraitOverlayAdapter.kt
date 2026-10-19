@@ -41,6 +41,8 @@ internal fun VideoDetailPortraitOverlayAdapter(
     uiState: VideoPlaybackUiState,
     portraitExperienceEnabled: Boolean,
     isPortraitFullscreen: Boolean,
+    /** 系统小窗：竖屏流只保留播放面，装饰层（标题 / 互动 / 进度）全部让位给系统 PiP。 */
+    isInPipMode: Boolean = false,
     useOfficialInlinePortraitDetailExperience: Boolean,
     isLandscape: Boolean,
     shouldAnimatePortraitPager: Boolean,
@@ -163,6 +165,7 @@ internal fun VideoDetailPortraitOverlayAdapter(
                 initialInfo = info,
                 recommendations = portraitRecommendations,
                 onlyVerticalRecommendations = portraitOnlyVerticalRecommendations,
+                isInPipMode = isInPipMode,
                 onBack = onBack,
                 onHomeClick = onHomeClick,
                 onVideoChange = onVideoChange,

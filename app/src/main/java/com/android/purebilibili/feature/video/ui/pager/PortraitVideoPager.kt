@@ -314,6 +314,11 @@ fun PortraitVideoPager(
     sharedPlayer: ExoPlayer? = null,
     useTextureSurfaceForNavigation: Boolean = false,
     isPlayerSurfaceReady: Boolean = true,
+    /**
+     * 系统小窗（PiP）：竖屏流只保留播放面。窗口由系统接管触摸，装饰层（标题 / 互动 /
+     * 进度条 / 下一集提示）在小窗里既不可用也不该跟随缩放，因此整体不合成。
+     */
+    isInPipMode: Boolean = false,
     initialStartPositionMs: Long = 0L,
     /**
      * 竖屏流进度同步：(bvid, positionMs, cid, coverUrl)。
@@ -1860,6 +1865,7 @@ fun PortraitVideoPager(
                 exoPlayer = exoPlayer, // [核心] 传递共享播放器
                 useTextureSurfaceForNavigation = useTextureSurfaceForNavigation,
                 isPlayerSurfaceReady = isPlayerSurfaceReady,
+                isInPipMode = isInPipMode,
                 currentPlayingBvid = currentPlayingBvid, // [修复] 传递当前播放的 BVID 用于校验
                 currentPlayingCid = currentPlayingCid,
                 currentPlayingAid = currentPlayingAid,
@@ -2021,7 +2027,8 @@ fun PortraitVideoPager(
         NextWatchOverlay(
             player = exoPlayer,
             mediaKey = "portrait:$currentPlayingBvid:$currentPlayingCid",
-            eligible = isPortraitPlaybackAllowed && !isLoading && !pagerState.isScrollInProgress &&
+            // 小窗里无法点击「接下来观看」，与限流播放器的 NextWatch 策略保持一致。
+            eligible = isPortraitPlaybackAllowed && !isInPipMode && !isLoading && !pagerState.isScrollInProgress &&
                 !portraitCommentOverlayActive && !portraitUpPreviewActive &&
                 playbackCompletionBehavior != com.android.purebilibili.core.store.PlaybackCompletionBehavior.REPEAT_ONE,
             resolve = {
@@ -2088,6 +2095,8 @@ private fun VideoPageItem(
     exoPlayer: ExoPlayer,
     useTextureSurfaceForNavigation: Boolean,
     isPlayerSurfaceReady: Boolean,
+    /** 系统小窗：只保留播放面与弹幕（受「小窗和画中画中不显示弹幕」约束）。 */
+    isInPipMode: Boolean = false,
     currentPlayingBvid: String?, // [新增]
     currentPlayingCid: Long,
     currentPlayingAid: Long,
@@ -2144,7 +2153,7 @@ private fun VideoPageItem(
         ),
         anime4k = false,
         audioOnly = false,
-        pip = false,
+        pip = isInPipMode,
     )
     val portraitGlassVisibility = androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (isCurrentPage && portraitOverlayVisible) 1f else 0f,
@@ -2197,6 +2206,12 @@ private fun VideoPageItem(
         .collectAsStateWithLifecycle(
             initialValue = com.android.purebilibili.core.store.PlayerInteractionSettings()
         )
+    // 竖屏流此前没有小窗概念，弹幕会无条件跟随；进入 PiP 后与播放器共用同一套
+    // 「小窗和画中画中不显示弹幕」设置，避免两条播放面在小窗里策略不一致。
+    val pipNoDanmakuEnabled by SettingsManager
+        .getPipNoDanmakuEnabled(context)
+        .collectAsStateWithLifecycle(initialValue = false)
+    val pipDanmakuVisible = !(isInPipMode && pipNoDanmakuEnabled)
     val currentAudioQuality = requestedAudioQuality
     val bvid = if (item is ViewInfo) item.bvid else (item as RelatedVideo).bvid
     val itemAid = if (item is ViewInfo) item.aid else (item as RelatedVideo).aid
@@ -3212,7 +3227,7 @@ private fun VideoPageItem(
                         )
 
                         if (shouldComposePortraitDanmakuOverlay(
-                                danmakuEnabled = danmakuEnabled,
+                                danmakuEnabled = danmakuEnabled && pipDanmakuVisible,
                                 surfaceMode = danmakuSurfaceMode,
                                 expectedMode = PortraitDanmakuSurfaceMode.VideoViewport,
                                 isCurrentPage = isCurrentPage,
@@ -3234,7 +3249,7 @@ private fun VideoPageItem(
 
         if (
             shouldComposePortraitDanmakuOverlay(
-                danmakuEnabled = danmakuEnabled,
+                danmakuEnabled = danmakuEnabled && pipDanmakuVisible,
                 surfaceMode = danmakuSurfaceMode,
                 expectedMode = PortraitDanmakuSurfaceMode.Page,
                 isCurrentPage = isCurrentPage,
@@ -3678,6 +3693,9 @@ private fun VideoPageItem(
                     (!isPlayerReadyForThisVideo || playerViewRef?.videoSurfaceView is android.view.TextureView)
             },
     ) {
+    // 系统小窗不合成竖屏流装饰层：标题 / 互动 / 进度条 / 旋转等控件在小窗里无法操作，
+    // 缩放后只会变成错误渲染，播放面本身仍在下方正常输出。
+    if (!isInPipMode) {
     PortraitFullscreenOverlay(
             playbackReady = isCurrentPage && !isLoading && isPlayerReadyForThisVideo,
             title = title,
@@ -3961,12 +3979,15 @@ private fun VideoPageItem(
             ),
             commentExpansionProgress = commentSheetVisibilityProgress
         )
+    }
 
     }
 
         val pageCidForSubtitle = snapshotCid.takeIf { it > 0L }
             ?: portraitDetailInfo?.cid
             ?: 0L
+        // 与播放器字幕叠层保持同一条策略：小窗里不合成字幕（shouldKeepSubtitleOverlayMounted）。
+        if (!isInPipMode) {
         PortraitSubtitleHost(
             success = currentSuccess,
             player = exoPlayer,
@@ -3994,6 +4015,7 @@ private fun VideoPageItem(
                 subtitleTrackAvailable = available
             }
         )
+        }
 
         if (showQualityMenu && isCurrentPage) {
             val detailQualityIds = if (isCurrentModelVideo) {
