@@ -11,6 +11,12 @@ import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.android.purebilibili.core.ui.common.contentTabPagerGestures
 import com.android.purebilibili.core.ui.common.rememberContentTabPager
 import com.android.purebilibili.core.ui.common.stationaryPagerHeader
@@ -361,6 +367,40 @@ fun SpaceScreen(
             )
         }
     }
+    // Glass-only compact browsing chrome. Observe user gestures rather than item offsets:
+    // sticky-header relayout and programmatic search/locate scrolling must not toggle the bar.
+    var spaceTopBarExpanded by remember(mid, gridState, spaceThemeConfig.liquidGlassEnabled) {
+        mutableStateOf(true)
+    }
+    val spaceHeaderVisible by remember(gridState) {
+        derivedStateOf { gridState.firstVisibleItemIndex == 0 }
+    }
+    val chromeDirectionThresholdPx = with(LocalDensity.current) { 24.dp.toPx() }
+    val spaceChromeScrollConnection = remember(
+        gridState, spaceThemeConfig.liquidGlassEnabled, chromeDirectionThresholdPx
+    ) {
+        object : NestedScrollConnection {
+            private var directionalTravel = 0f
+
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (!spaceThemeConfig.liquidGlassEnabled || source != NestedScrollSource.UserInput) {
+                    return Offset.Zero
+                }
+                val dy = available.y
+                if (dy == 0f) return Offset.Zero
+                if (directionalTravel * dy < 0f) directionalTravel = 0f
+                directionalTravel += dy
+                if (gridState.firstVisibleItemIndex == 0) {
+                    spaceTopBarExpanded = true
+                    directionalTravel = 0f
+                } else if (kotlin.math.abs(directionalTravel) >= chromeDirectionThresholdPx) {
+                    spaceTopBarExpanded = directionalTravel > 0f
+                    directionalTravel = 0f
+                }
+                return Offset.Zero
+            }
+        }
+    }
     val shouldShowBackToTop by remember(gridState) {
         derivedStateOf {
             shouldShowScrollToTop(
@@ -487,6 +527,7 @@ fun SpaceScreen(
         hazeState?.let { recoverableBlurEnabled(it) } == true &&
         !spaceProgressiveBlur
     AppScaffold(
+        modifier = Modifier.nestedScroll(spaceChromeScrollConnection),
         topBar = {
             BiliPaiImmersiveTopBar(
                 backdrop = spaceChromeBackdrop,
@@ -504,6 +545,7 @@ fun SpaceScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .then(if (spaceThemeConfig.liquidGlassEnabled) Modifier.statusBarsPadding() else Modifier)
                     .then(
                         if (spaceProgressiveBlur) {
                             Modifier
@@ -524,147 +566,178 @@ fun SpaceScreen(
                         }
                     )
             ) {
-                AppTopBar(
-                    title = if (pinnedTopChromeScrim > 0.4f) screenTitle else "",
-                    navigationIcon = {
-                        CompositionLocalProvider(LocalAppTopBarIconBackdrop provides spaceChromeBackdrop) {
-                            AppIconButton(onClick = onBack) {
-                                AppIcon(
-                                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                                    contentDescription = backLabel
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent
-                    ),
-                    actions = {
-                        CompositionLocalProvider(LocalAppTopBarIconBackdrop provides spaceChromeBackdrop) {
-                            if (canSearch) {
-                                AppIconButton(onClick = { viewModel.setSearchMode(!isSearchMode) }) {
+                AnimatedVisibility(
+                    visible = !spaceThemeConfig.liquidGlassEnabled ||
+                        spaceTopBarExpanded || spaceHeaderVisible || isSearchMode,
+                    enter = if (com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current) {
+                        expandVertically(expandFrom = Alignment.Top) + fadeIn()
+                    } else androidx.compose.animation.EnterTransition.None,
+                    exit = if (com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current) {
+                        shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+                    } else androidx.compose.animation.ExitTransition.None,
+                ) {
+                    AppTopBar(
+                        title = if (pinnedTopChromeScrim > 0.4f) screenTitle else "",
+                        navigationIcon = {
+                            CompositionLocalProvider(LocalAppTopBarIconBackdrop provides spaceChromeBackdrop) {
+                                AppIconButton(onClick = onBack) {
                                     AppIcon(
-                                        imageVector = if (isSearchMode) Icons.Outlined.Close else Icons.Outlined.Search,
-                                        contentDescription = if (isSearchMode) "关闭搜索" else "搜索"
+                                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                        contentDescription = backLabel
                                     )
                                 }
                             }
-                            AppWindowActionMenu(
-                                groups = buildList {
-                                    if (showContributionVideoMenuActions) {
-                                        add(
-                                            listOf(
-                                                AppWindowAction(
-                                                    label = "播放全部",
-                                                    icon = Icons.Outlined.PlayCircleOutline,
-                                                    onClick = playAllSpaceVideos,
-                                                ),
-                                                contributionLayoutToggleAction(
-                                                    layoutMode = contributionVideoLayoutMode,
-                                                    onToggle = {
-                                                        contributionVideoLayoutMode =
-                                                            nextContributionVideoLayoutMode
-                                                    },
-                                                ),
-                                                AppWindowAction(
-                                                    label = "排序：${resolveSpaceVideoSortCompactLabel(currentSuccessState?.sortOrder ?: VideoSortOrder.PUBDATE)}",
-                                                    icon = Icons.AutoMirrored.Outlined.Sort,
-                                                    children = VideoSortOrder.entries.map { order ->
-                                                        AppWindowAction(
-                                                            label = order.displayName,
-                                                            selected = currentSuccessState?.sortOrder == order,
-                                                            onClick = { viewModel.selectSortOrder(order) },
-                                                        )
-                                                    },
-                                                ),
-                                            )
-                                        )
-                                    } else if (showContributionLayoutToggle) {
-                                        add(
-                                            listOf(
-                                                contributionLayoutToggleAction(
-                                                    layoutMode = contributionVideoLayoutMode,
-                                                    onToggle = {
-                                                        contributionVideoLayoutMode =
-                                                            nextContributionVideoLayoutMode
-                                                    },
-                                                ),
-                                            )
-                                        )
-                                    }
-                                    if (queryAicu != null && mid > 0) {
-                                        add(listOf(AppWindowAction(
-                                            label = "评论与弹幕查询",
-                                            icon = Icons.Outlined.Search,
-                                            onClick = { queryAicu(mid) },
-                                        )))
-                                    }
-                                    add(
-                                        listOf(
-                                            AppWindowAction(
-                                                label = "复制空间链接",
-                                                icon = Icons.Outlined.ContentCopy,
-                                                onClick = {
-                                                    copyToClipboard(
-                                                        "https://space.bilibili.com/$mid",
-                                                        "空间链接",
-                                                    )
-                                                },
-                                            ),
-                                            AppWindowAction(
-                                                label = "复制 UID",
-                                                icon = Icons.Outlined.ContentCopy,
-                                                onClick = { copyToClipboard(mid.toString(), "UID") },
-                                            ),
-                                            AppWindowAction(
-                                                label = "分享",
-                                                icon = Icons.Outlined.Share,
-                                                onClick = {
-                                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                        type = "text/plain"
-                                                        putExtra(Intent.EXTRA_TEXT, "https://space.bilibili.com/$mid")
-                                                    }
-                                                    context.startActivity(Intent.createChooser(shareIntent, "分享空间"))
-                                                },
-                                            ),
-                                        )
-                                    )
-                                    add(
-                                        listOf(
-                                            AppWindowAction(
-                                                label = "举报",
-                                                icon = Icons.Outlined.VisibilityOff,
-                                                iconTint = AppContentColors.error(),
-                                                onClick = {
-                                                    onWebClick(
-                                                        "https://www.bilibili.com/appeal/?prefid=0&mid=$mid",
-                                                        "举报",
-                                                    )
-                                                },
-                                            ),
-                                            AppWindowAction(
-                                                label = if (isBlocked) unblockUserLabel else blockUserLabel,
-                                                icon = if (isBlocked) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
-                                                iconTint = if (isBlocked) {
-                                                    AppContentColors.accent()
-                                                } else {
-                                                    AppContentColors.error()
-                                                },
-                                                onClick = { showBlockConfirmDialog = true },
-                                            ),
-                                        )
-                                    )
-                                },
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent,
+                            scrolledContainerColor = Color.Transparent
+                        ),
+                        actions = {
+                            // Only glass chrome reserves explicit action slots; native MD3/Miuix
+                            // buttons retain their original sizing and spacing when glass is disabled.
+                            Row(
+                                modifier = if (spaceThemeConfig.liquidGlassEnabled) {
+                                    Modifier.padding(end = 8.dp)
+                                } else Modifier,
+                                horizontalArrangement = Arrangement.spacedBy(
+                                    if (spaceThemeConfig.liquidGlassEnabled) 8.dp else 0.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                AppIcon(
-                                    imageVector = Icons.Outlined.MoreVert,
-                                    contentDescription = moreLabel,
-                                )
+                                CompositionLocalProvider(LocalAppTopBarIconBackdrop provides spaceChromeBackdrop) {
+                                    if (canSearch) {
+                                        AppIconButton(
+                                            onClick = { viewModel.setSearchMode(!isSearchMode) },
+                                            modifier = if (spaceThemeConfig.liquidGlassEnabled) {
+                                                Modifier.size(com.android.purebilibili.core.ui.AppChromeSizeTokens.TopBarIconVisualSize)
+                                            } else Modifier,
+                                        ) {
+                                            AppIcon(
+                                                imageVector = if (isSearchMode) Icons.Outlined.Close else Icons.Outlined.Search,
+                                                contentDescription = if (isSearchMode) "关闭搜索" else "搜索"
+                                            )
+                                        }
+                                    }
+                                    AppWindowActionMenu(
+                                        modifier = if (spaceThemeConfig.liquidGlassEnabled) {
+                                            Modifier.size(com.android.purebilibili.core.ui.AppChromeSizeTokens.TopBarIconVisualSize)
+                                        } else Modifier,
+                                        groups = buildList {
+                                            if (showContributionVideoMenuActions) {
+                                                add(
+                                                    listOf(
+                                                        AppWindowAction(
+                                                            label = "播放全部",
+                                                            icon = Icons.Outlined.PlayCircleOutline,
+                                                            onClick = playAllSpaceVideos,
+                                                        ),
+                                                        contributionLayoutToggleAction(
+                                                            layoutMode = contributionVideoLayoutMode,
+                                                            onToggle = {
+                                                                contributionVideoLayoutMode =
+                                                                    nextContributionVideoLayoutMode
+                                                            },
+                                                        ),
+                                                        AppWindowAction(
+                                                            label = "排序：${resolveSpaceVideoSortCompactLabel(currentSuccessState?.sortOrder ?: VideoSortOrder.PUBDATE)}",
+                                                            icon = Icons.AutoMirrored.Outlined.Sort,
+                                                            children = VideoSortOrder.entries.map { order ->
+                                                                AppWindowAction(
+                                                                    label = order.displayName,
+                                                                    selected = currentSuccessState?.sortOrder == order,
+                                                                    onClick = { viewModel.selectSortOrder(order) },
+                                                                )
+                                                            },
+                                                        ),
+                                                    )
+                                                )
+                                            } else if (showContributionLayoutToggle) {
+                                                add(
+                                                    listOf(
+                                                        contributionLayoutToggleAction(
+                                                            layoutMode = contributionVideoLayoutMode,
+                                                            onToggle = {
+                                                                contributionVideoLayoutMode =
+                                                                    nextContributionVideoLayoutMode
+                                                            },
+                                                        ),
+                                                    )
+                                                )
+                                            }
+                                            if (queryAicu != null && mid > 0) {
+                                                add(listOf(AppWindowAction(
+                                                    label = "评论与弹幕查询",
+                                                    icon = Icons.Outlined.Search,
+                                                    onClick = { queryAicu(mid) },
+                                                )))
+                                            }
+                                            add(
+                                                listOf(
+                                                    AppWindowAction(
+                                                        label = "复制空间链接",
+                                                        icon = Icons.Outlined.ContentCopy,
+                                                        onClick = {
+                                                            copyToClipboard(
+                                                                "https://space.bilibili.com/$mid",
+                                                                "空间链接",
+                                                            )
+                                                        },
+                                                    ),
+                                                    AppWindowAction(
+                                                        label = "复制 UID",
+                                                        icon = Icons.Outlined.ContentCopy,
+                                                        onClick = { copyToClipboard(mid.toString(), "UID") },
+                                                    ),
+                                                    AppWindowAction(
+                                                        label = "分享",
+                                                        icon = Icons.Outlined.Share,
+                                                        onClick = {
+                                                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                                type = "text/plain"
+                                                                putExtra(Intent.EXTRA_TEXT, "https://space.bilibili.com/$mid")
+                                                            }
+                                                            context.startActivity(Intent.createChooser(shareIntent, "分享空间"))
+                                                        },
+                                                    ),
+                                                )
+                                            )
+                                            add(
+                                                listOf(
+                                                    AppWindowAction(
+                                                        label = "举报",
+                                                        icon = Icons.Outlined.VisibilityOff,
+                                                        iconTint = AppContentColors.error(),
+                                                        onClick = {
+                                                            onWebClick(
+                                                                "https://www.bilibili.com/appeal/?prefid=0&mid=$mid",
+                                                                "举报",
+                                                            )
+                                                        },
+                                                    ),
+                                                    AppWindowAction(
+                                                        label = if (isBlocked) unblockUserLabel else blockUserLabel,
+                                                        icon = if (isBlocked) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                                                        iconTint = if (isBlocked) {
+                                                            AppContentColors.accent()
+                                                        } else {
+                                                            AppContentColors.error()
+                                                        },
+                                                        onClick = { showBlockConfirmDialog = true },
+                                                    ),
+                                                )
+                                            )
+                                        },
+                                    ) {
+                                        AppIcon(
+                                            imageVector = Icons.Outlined.MoreVert,
+                                            contentDescription = moreLabel,
+                                        )
+                                    }
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                }
 
             }
             }
@@ -1252,7 +1325,6 @@ private fun SpaceContent(
     // Glass owns one drag/press lifecycle outside the pager. Per-page native rails keep
     // their existing sticky layout and animation; only glass pages reserve an empty slot.
     var glassPrimaryRailHeightPx by remember { mutableStateOf(0) }
-    var glassPrimaryRailBoundsInRoot by remember { mutableStateOf<Rect?>(null) }
     val displayedMainTabs = resolveSpaceDisplayedMainTabs(
         tabs = state.mainTabs,
         selectedTab = selectedMainTab,
@@ -1669,16 +1741,13 @@ private fun SpaceContent(
                 }
             }
 
-            // Tab 栏吸顶（对齐 PiliPlus 的 pinned TabBar）：头部滚走后固定在顶栏下方，
-            // 长列表里切换 Tab 不必先滚回顶部。
-            // Grid 版 stickyHeader 自动占满整行 span（foundation 内部即 maxLineSpan）。
-            stickyHeader(key = "space_tabs") {
+            // Glass rails scroll away with their category row. Native MD3/Miuix
+            // retain the original sticky header and its chrome inset compensation.
+            val spaceTabsContent: @Composable () -> Unit = {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        // Sticky grid headers pin to the viewport, not its content padding.
-                        // Keep native and glass rails below chrome while the hero scrolls behind it.
-                        .offset {
+                        .then(if (singleGlassPrimaryRail) Modifier else Modifier.offset {
                             val minimumTop = chromeTopInset.roundToPx()
                             val layoutInfo = gridState.layoutInfo
                             val headerTop = layoutInfo.visibleItemsInfo
@@ -1686,7 +1755,7 @@ private fun SpaceContent(
                                 // Item offsets exclude the grid's before-content padding.
                                 ?.offset?.y?.plus(layoutInfo.beforeContentPadding) ?: minimumTop
                             IntOffset(0, (minimumTop - headerTop).coerceAtLeast(0))
-                        }
+                        })
                         .background(
                             // 吸顶行需要足够不透明：壁纸模式下 74% 会让「主页/动态/投稿」
                             // 变成叠在亮封面上的幽灵文字。
@@ -1696,12 +1765,6 @@ private fun SpaceContent(
                         )
                         .onGloballyPositioned {
                             if (isPageActive) pinnedTabsRootBottomPx = it.boundsInRoot().bottom
-                            if (singleGlassPrimaryRail && page == pagerState.currentPage) {
-                                glassPrimaryRailBoundsInRoot = Rect(
-                                    it.positionInRoot(),
-                                    androidx.compose.ui.geometry.Size(it.size.width.toFloat(), it.size.height.toFloat()),
-                                )
-                            }
                         }
                 ) {
                     SpaceContentTabs(
@@ -1716,6 +1779,14 @@ private fun SpaceContent(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+            }
+
+            if (singleGlassPrimaryRail) {
+                item(key = "space_tabs", span = { GridItemSpan(maxLineSpan) }) {
+                    spaceTabsContent()
+                }
+            } else {
+                stickyHeader(key = "space_tabs") { spaceTabsContent() }
             }
 
             val showSearch = selectedMainTab == SpaceMainTab.DYNAMIC ||
@@ -2756,7 +2827,7 @@ private fun SpaceContent(
                     (gridState.firstVisibleItemIndex == 2 && gridState.firstVisibleItemScrollOffset > 0)
             }
         }
-        if (isContributionVideoTab && !state.isSearchMode &&
+        if (!singleGlassPrimaryRail && isContributionVideoTab && !state.isSearchMode &&
             (state.videos.isNotEmpty() || state.totalVideos > 0)
         ) {
             // 实测 dock：吸顶 Tab 行底边（根坐标）− 父容器顶边（根坐标）。
@@ -2811,27 +2882,36 @@ private fun SpaceContent(
                 indicatorPositionProvider = { pagerState.currentPage + pagerState.currentPageOffsetFraction },
                 isScrollInProgressProvider = { pagerState.isScrollInProgress },
                 modifier = Modifier
-                    .offset {
-                        IntOffset(
-                            0,
-                            ((glassPrimaryRailBoundsInRoot?.top ?: gridContainerRootTopPx) -
-                                gridContainerRootTopPx).roundToInt(),
-                        )
-                    }
                     .layout { measurable, constraints ->
-                        val bounds = glassPrimaryRailBoundsInRoot
-                        val width = (bounds?.width?.roundToInt() ?: constraints.maxWidth)
+                        // Read the same grid frame for width and placement. A root-coordinate
+                        // callback arrives after placement and makes this sibling trail scroll.
+                        val activeGrid = pageGridStates.getValue(selectedMainTab)
+                        val tabItem = activeGrid.layoutInfo.visibleItemsInfo
+                            .firstOrNull { it.key == "space_tabs" }
+                        val width = (tabItem?.size?.width ?: constraints.maxWidth)
                             .coerceIn(constraints.minWidth, constraints.maxWidth)
-                        val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+                        val placeable = measurable.measure(
+                            constraints.copy(minWidth = width, maxWidth = width)
+                        )
                         layout(constraints.maxWidth, placeable.height) {
-                            if (bounds != null) {
-                                // Ignore the pager's horizontal translation; the grid's
-                                // symmetric content padding only determines the rail width.
-                                placeable.placeRelative((constraints.maxWidth - placeable.width) / 2, 0)
+                            val info = activeGrid.layoutInfo
+                            val currentTabItem = info.visibleItemsInfo
+                                .firstOrNull { it.key == "space_tabs" }
+                            if (currentTabItem != null) {
+                                val top = currentTabItem.offset.y + info.beforeContentPadding
+                                if (top >= chromeTopInset.roundToPx()) {
+                                    // Preserve the single owner across horizontal page changes.
+                                    placeable.placeRelative(
+                                        (constraints.maxWidth - placeable.width) / 2,
+                                        top,
+                                    )
+                                }
                             }
                         }
                     }
-                    .onSizeChanged { glassPrimaryRailHeightPx = it.height }
+                    .onSizeChanged {
+                        if (glassPrimaryRailHeightPx != it.height) glassPrimaryRailHeightPx = it.height
+                    }
                     .background(
                         com.android.purebilibili.core.ui.globalWallpaperAwareChromeColor(
                             MaterialTheme.colorScheme.surface
