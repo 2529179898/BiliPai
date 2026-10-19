@@ -222,12 +222,12 @@ class PlayerControlsUiRegressionTest {
     }
 
     @Test
-    fun nativeFullscreen_resizeAndLargeFontsKeepPrimaryActionsUsableAndToolsReachable() {
+    fun nativeFullscreen_rightAlignedFixedToolsAndResizeKeepPrimaryActionsUsable() {
         assertFullscreenResizeKeepsActionsReachable(liquidGlassEnabled = false)
     }
 
     @Test
-    fun glassFullscreen_fixedToolGapsAndResizeKeepPrimaryActionsUsable() {
+    fun glassFullscreen_rightAlignedFixedToolsAndResizeKeepPrimaryActionsUsable() {
         assertFullscreenResizeKeepsActionsReachable(liquidGlassEnabled = true)
     }
 
@@ -235,7 +235,7 @@ class PlayerControlsUiRegressionTest {
         val widthFraction = mutableStateOf(1f)
         val fontScale = mutableStateOf(1f)
         val calls = IntArray(6)
-        var previousGlassGapPx: Float? = null
+        var previousGapPx: Float? = null
         composeTestRule.setContent {
             // Keep a 960dp test viewport on any host display; shrink its content to
             // 624dp and 384dp without depending on the device's orientation or size.
@@ -266,7 +266,7 @@ class PlayerControlsUiRegressionTest {
                 }
             }
         }
-        // Native adapts spacing; glass keeps fixed gaps. Both must keep primary actions pinned.
+        // Both materials keep fixed, content-width tools beside the exit button.
         listOf(1f to 1f, 0.65f to 1f, 0.65f to 1.5f, 0.4f to 1.5f).forEachIndexed { index, (width, scale) ->
             composeTestRule.runOnIdle {
                 widthFraction.value = width
@@ -276,16 +276,26 @@ class PlayerControlsUiRegressionTest {
             if (liquidGlassEnabled) {
                 composeTestRule.onNodeWithTag("player_time_viewport").assertIsDisplayed()
             }
-            if (liquidGlassEnabled && index < 2) {
+            if (index < 2) {
                 composeTestRule.onNodeWithText("1080P").performScrollTo()
                 val tools = listOf("1080P", "分集", "倍速").map { label ->
                     composeTestRule.onNodeWithText(label).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
                 }
                 val gapPx = tools[1].left - tools[0].right
-                assertTrue("Glass tool gaps must remain positive", gapPx > 0f)
+                assertTrue("Tool gaps must remain positive", gapPx > 0f)
                 assertEquals(gapPx, tools[2].left - tools[1].right, 1f)
-                previousGlassGapPx?.let { assertEquals(it, gapPx, 1f) }
-                previousGlassGapPx = gapPx
+                previousGapPx?.let { assertEquals(it, gapPx, 1f) }
+                previousGapPx = gapPx
+                if (index == 0) {
+                    // Unused width belongs before the tools, not between them or after "更多".
+                    val send = composeTestRule.onNodeWithTag("player_danmaku_send").fetchSemanticsNode().boundsInRoot
+                    val more = composeTestRule.onNodeWithText("更多").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+                    val exit = composeTestRule.onNodeWithTag("player_fullscreen_toggle").fetchSemanticsNode().boundsInRoot
+                    assertTrue(
+                        "Fullscreen tools must stay right-aligned at content width",
+                        exit.left - more.right < tools[0].left - send.right,
+                    )
+                }
             }
             listOf(
                 "player_play_pause", "player_danmaku_toggle", "player_danmaku_settings",

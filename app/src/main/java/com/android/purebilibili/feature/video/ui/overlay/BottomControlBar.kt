@@ -817,8 +817,8 @@ fun BottomControlBar(
                 .padding(horizontal = layoutPolicy.horizontalPaddingDp.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Fullscreen actions share one layout; material differences stay inside the dock row.
-            // Native spacing, slots, insets, and defaults remain unchanged.
+            // Fullscreen actions share one layout: content-width tools stay right-aligned with
+            // fixed two-character gaps; glass-only width reserves are marked inline.
             if (isFullscreen) {
                 PlayerControlGlassDock(enabled = true, shape = CircleShape) {
                     AppIconButton(
@@ -956,10 +956,7 @@ fun BottomControlBar(
                         modifier = if (isFullscreen) Modifier.height(48.dp) else Modifier,
                     ) {
                         LandscapeDockActionRow(
-                            liquidGlassEnabled = liquidGlassEnabled,
-                            maxSpacing = if (liquidGlassEnabled) actionSpacing
-                                else actionSpacing * PlainFullscreenDockActionMaxSpacingFactor,
-                            minSpacing = PlainFullscreenDockActionMinSpacing,
+                            spacing = actionSpacing,
                             modifier = if (isFullscreen) Modifier
                                 .fillMaxHeight()
                                 .padding(horizontal = 10.dp)
@@ -1828,100 +1825,23 @@ private fun PlayerControlMiddleRow(
     }
 }
 
+/**
+ * 横屏功能组：两种材质共用两个中文字号的固定间隔，按内容宽度靠右显示，
+ * 放不下时横向滚动，不再拉伸填满底栏。
+ */
 @Composable
 private fun LandscapeDockActionRow(
-    liquidGlassEnabled: Boolean,
-    maxSpacing: Dp,
-    minSpacing: Dp,
+    spacing: Dp,
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
-    // Glass uses exact gaps and a content-width dock; native below keeps its adaptive row.
-    if (liquidGlassEnabled) {
-        Row(
-            modifier = modifier.horizontalScroll(rememberScrollState()),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(maxSpacing),
-            content = content,
-        )
-        return
-    }
-    // 该行只出现在原生（关闭液态玻璃）的全屏横屏里，这一排没有胶囊底色：
-    // 把行宽撑到视口，间距完全交给自适应策略，避免测量宽度把右侧按钮推远。
-    BoxWithConstraints(modifier = modifier) {
-        val viewportWidthPx = with(LocalDensity.current) { maxWidth.roundToPx() }
-        val arrangement = remember(maxSpacing, minSpacing, viewportWidthPx) {
-            adaptivePlainDockActionSpacing(
-                viewportWidthPx = viewportWidthPx,
-                maxSpacing = maxSpacing,
-                minSpacing = minSpacing,
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxHeight()
-                .horizontalScroll(rememberScrollState())
-                // 滚动会移除子项的最大宽度约束：只恢复视口最小宽度，
-                // 让测量宽度等于视口，实际位置仍由自适应间距决定。
-                .widthIn(min = maxWidth),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = arrangement,
-            content = content,
-        )
-    }
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing),
+        content = content,
+    )
 }
-
-/**
- * 原生全屏横屏这一排的间距策略：按可用宽度 [viewportWidthPx] 分配，
- * 宽裕时最多拉到 [maxSpacing] 铺开整排，空间不足时逐项收窄但不少于 [minSpacing]，
- * 让末端的“更多”留在胶囊内；极端窄屏仍保留 horizontalScroll 可拖动查看。
- */
-private fun adaptivePlainDockActionSpacing(
-    viewportWidthPx: Int,
-    maxSpacing: Dp,
-    minSpacing: Dp,
-): Arrangement.Horizontal = object : Arrangement.Horizontal {
-    // 测量按最小间距预留：实际位置在 arrange 里按视口分配，多出来的宽度留给行尾，
-    // 不能再按上限预留，否则测量宽度大于布局宽度会把右侧的退全屏按钮推远。
-    override val spacing: Dp = minSpacing
-
-    override fun Density.arrange(
-        totalSize: Int,
-        sizes: IntArray,
-        layoutDirection: LayoutDirection,
-        outPositions: IntArray,
-    ) {
-        val gaps = sizes.size - 1
-        if (gaps <= 0) {
-            if (sizes.isNotEmpty()) outPositions[0] = 0
-            return
-        }
-        val spacingPx = ((viewportWidthPx - sizes.sum()) / gaps)
-            .coerceIn(minSpacing.roundToPx(), maxSpacing.roundToPx())
-        var position = 0
-        sizes.forEachIndexed { index, size ->
-            outPositions[index] = position
-            position += size + spacingPx
-        }
-        if (layoutDirection == LayoutDirection.Rtl) {
-            for (index in sizes.indices) {
-                outPositions[index] = totalSize - outPositions[index] - sizes[index]
-            }
-        }
-    }
-}
-
-/**
- * 原生全屏横屏这一排的最小项间距：文字项已各自贴合文字宽，
- * 空间不足时可以把间距压到 0，避免整排被额外留白顶出可视区。
- */
-private val PlainFullscreenDockActionMinSpacing = 0.dp
-
-/**
- * 原生全屏横屏这一排的间距上限倍数：在原间距（字号的 2 倍）基础上再放宽一半，
- * 宽裕时把整排拉到接近胶囊末端，而不是全部靠左。
- */
-private val PlainFullscreenDockActionMaxSpacingFactor = 1.5f
 
 /** Preserve the existing compact inline action slots; fullscreen uses content-width actions. */
 private val InlineDockActionMinWidth = 40.dp
