@@ -3638,7 +3638,11 @@ internal fun VideoDetailScreenStateHolder(
         // 软折痕（FOLD）允许跨整窗，否则半开姿态下下半屏整块留黑。
         val fullscreenOccludingHingePresent = isFullscreenMode &&
             appWindowAdaptiveInfo.foldingFeature.layoutHinges().any { it.isOccluding }
-        if (isFullscreenMode) {
+        // 系统小窗只承接播放面：PiP 窗口尺寸与详情页排版无关，内联竖屏页、平板分栏和竖屏流
+        // 装饰塞进小窗都会错位，因此与横屏全屏共用同一层播放面。
+        // 竖屏全屏由 PortraitVideoPager 持有播放面，保持挂载、由 pager 自己隐藏装饰层。
+        val pipPlayerOnlyLayer = isPipMode && !isPortraitFullscreen
+        if (isFullscreenMode || pipPlayerOnlyLayer) {
                 val useInlineDanmakuComposer =
                     com.android.purebilibili.feature.video.ui.components.shouldUseInlineDanmakuComposer(
                         isFullscreenMode = isFullscreenMode
@@ -5651,6 +5655,8 @@ internal fun VideoDetailScreenStateHolder(
             uiState = uiState,
             portraitExperienceEnabled = portraitExperienceEnabled,
             isPortraitFullscreen = isPortraitFullscreen,
+            // 竖屏全屏持有时进入系统小窗：保持 pager 挂载以承接播放面，由 pager 隐藏装饰层。
+            isInPipMode = isPipMode,
             useOfficialInlinePortraitDetailExperience = useOfficialInlinePortraitDetailExperience,
             isLandscape = isLandscape,
             shouldAnimatePortraitPager = shouldAnimatePortraitPager,
@@ -5915,7 +5921,8 @@ internal fun VideoDetailScreenStateHolder(
     VideoDetailScreenContent(
         transitionState = transitionState,
         routeSheetMotion = routeSheetMotion,
-        isFullscreenMode = isFullscreenMode,
+        // 系统小窗整窗就是播放面，底板与全屏一致用黑色，避免窗口边缘露出页面底色。
+        isFullscreenMode = isFullscreenMode || isPipMode,
         backgroundColor = AppSurfaceTokens.background(),
         backgroundAlphaProvider = {
             if (!rootCardTransition.enabled || rootCardTransition.sourceChromeSnapshot?.isNowPlayingBar != true) {
