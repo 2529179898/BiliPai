@@ -235,7 +235,10 @@ fun CommentInputDialog(
     initialImageUris: List<Uri> = emptyList(),
     initialSyncToDynamic: Boolean = false,
     onDraftChange: (String, List<Uri>, Boolean) -> Unit = { _, _, _ -> },
-    emotePackages: List<com.android.purebilibili.data.model.response.EmotePackage> = emptyList() // [新增] 表情包列表
+    emotePackages: List<com.android.purebilibili.data.model.response.EmotePackage> = emptyList(), // [新增] 表情包列表
+    allowImageAttachment: Boolean = true,
+    showSyncToDynamic: Boolean = true,
+    showProgressInsert: Boolean = true,
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
@@ -331,7 +334,7 @@ fun CommentInputDialog(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         PickMultipleGalleryVisualMedia(maxItems = 9)
     ) { uris ->
-        if (uris.isNotEmpty() && imagePickerDraftKey == draftKey) {
+        if (allowImageAttachment && uris.isNotEmpty() && imagePickerDraftKey == draftKey) {
             selectedImageUris = (selectedImageUris + uris)
                 .distinct()
                 .take(9)
@@ -392,7 +395,7 @@ fun CommentInputDialog(
         showEmojiPanel = false
         showMentionPanel = false
         mentionSearchText = ""
-        selectedImageUris = initialImageUris
+        selectedImageUris = if (allowImageAttachment) initialImageUris else emptyList()
     }
 
 
@@ -586,7 +589,7 @@ fun CommentInputDialog(
                                 )
                             }
 
-                            if (selectedImageUris.isNotEmpty()) {
+                            if (allowImageAttachment && selectedImageUris.isNotEmpty()) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -665,34 +668,36 @@ fun CommentInputDialog(
                                     horizontalArrangement = Arrangement.spacedBy(layoutPolicy.toolbarToolSpacingDp.dp)
                                 ) {
                                     // 转发到动态
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .clip(AppShapes.container(ContainerLevel.Tag))
-                                            .clickable(enabled = canInputComment && !isSending) {
-                                                isForwardToDynamic = !isForwardToDynamic
-                                                onDraftChange(
-                                                    textFieldValue.text,
-                                                    selectedImageUris,
-                                                    isForwardToDynamic
-                                                )
-                                            }
-                                            .padding(horizontal = 4.dp, vertical = 4.dp)
-                                    ) {
-                                        // 模拟 RadioButton/Checkbox
-                                        AppIcon(
-                                            imageVector = if (isForwardToDynamic) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                                            contentDescription = null,
-                                            tint = if (isForwardToDynamic) AppContentColors.accent() else AppContentColors.secondaryText(),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        AppText(
-                                            text = "转发到动态",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = AppContentColors.secondaryText(),
-                                            maxLines = 1
-                                        )
+                                    if (showSyncToDynamic) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clip(AppShapes.container(ContainerLevel.Tag))
+                                                .clickable(enabled = canInputComment && !isSending) {
+                                                    isForwardToDynamic = !isForwardToDynamic
+                                                    onDraftChange(
+                                                        textFieldValue.text,
+                                                        selectedImageUris,
+                                                        isForwardToDynamic
+                                                    )
+                                                }
+                                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                        ) {
+                                            // 模拟 RadioButton/Checkbox
+                                            AppIcon(
+                                                imageVector = if (isForwardToDynamic) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                                                contentDescription = null,
+                                                tint = if (isForwardToDynamic) AppContentColors.accent() else AppContentColors.secondaryText(),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            AppText(
+                                                text = "转发到动态",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = AppContentColors.secondaryText(),
+                                                maxLines = 1
+                                            )
+                                        }
                                     }
 
                                     // 图标栏: 表情 @ 图片
@@ -736,39 +741,43 @@ fun CommentInputDialog(
                                         )
                                     }
 
-                                    AppIconButton(
-                                        onClick = {
-                                            insertTextAtCursor(resolveCommentProgressInsertText(currentVideoPositionMsProvider()))
-                                            showEmojiPanel = false
-                                            showMentionPanel = false
-                                        },
-                                        enabled = canInputComment && !isSending,
-                                        modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
-                                    ) {
-                                        AppIcon(
-                                            imageVector = Icons.Outlined.Schedule,
-                                            contentDescription = "插入当前播放进度",
-                                            tint = AppContentColors.secondaryText(),
-                                            modifier = Modifier.size(26.dp)
-                                        )
+                                    if (showProgressInsert) {
+                                        AppIconButton(
+                                            onClick = {
+                                                insertTextAtCursor(resolveCommentProgressInsertText(currentVideoPositionMsProvider()))
+                                                showEmojiPanel = false
+                                                showMentionPanel = false
+                                            },
+                                            enabled = canInputComment && !isSending,
+                                            modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
+                                        ) {
+                                            AppIcon(
+                                                imageVector = Icons.Outlined.Schedule,
+                                                contentDescription = "插入当前播放进度",
+                                                tint = AppContentColors.secondaryText(),
+                                                modifier = Modifier.size(26.dp)
+                                            )
+                                        }
                                     }
 
-                                    AppIconButton(
-                                        onClick = {
-                                            imagePickerDraftKey = draftKey
-                                            imagePickerLauncher.launch(
-                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    if (allowImageAttachment) {
+                                        AppIconButton(
+                                            onClick = {
+                                                imagePickerDraftKey = draftKey
+                                                imagePickerLauncher.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            },
+                                            enabled = canInputComment && !isSending,
+                                            modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
+                                        ) {
+                                            AppIcon(
+                                                imageVector = Icons.Outlined.Image,
+                                                contentDescription = "图片",
+                                                tint = AppContentColors.secondaryText(),
+                                                modifier = Modifier.size(26.dp)
                                             )
-                                        },
-                                        enabled = canInputComment && !isSending,
-                                        modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
-                                    ) {
-                                        AppIcon(
-                                            imageVector = Icons.Outlined.Image,
-                                            contentDescription = "图片",
-                                            tint = AppContentColors.secondaryText(),
-                                            modifier = Modifier.size(26.dp)
-                                        )
+                                        }
                                     }
                                 }
 

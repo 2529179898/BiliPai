@@ -78,6 +78,29 @@ class CommentInputDialogUiRegressionTest {
     }
 
     @Test
+    fun restrictedReplyComposer_hidesImagesSyncAndProgressActions() {
+        composeRule.setContent {
+            MaterialTheme {
+                CommentInputDialog(
+                    visible = true,
+                    draftKey = "dynamic-reply",
+                    replyToName = "小明",
+                    allowImageAttachment = false,
+                    showSyncToDynamic = false,
+                    showProgressInsert = false,
+                    onDismiss = {},
+                    onSend = { _, _, _ -> },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("comment_composer_input").assertExists()
+        composeRule.onNodeWithContentDescription("图片").assertDoesNotExist()
+        composeRule.onNodeWithText("转发到动态").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("插入当前播放进度").assertDoesNotExist()
+    }
+
+    @Test
     fun selectingEmotes_preservesChooserModeAndReturnsToEditingOnInputTap() {
         composeRule.setContent {
             MaterialTheme {

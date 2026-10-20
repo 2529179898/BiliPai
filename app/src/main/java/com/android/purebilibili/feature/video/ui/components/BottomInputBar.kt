@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
@@ -316,6 +317,35 @@ private fun DockedSolidBottomInputBar(
 }
 
 @Composable
+internal fun CommentEntryBarContent(
+    textColor: Color,
+    iconSize: Dp,
+    iconSpacing: Dp,
+    textStyle: TextStyle,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(iconSpacing),
+    ) {
+        AppIcon(
+            imageVector = Icons.Outlined.Edit,
+            contentDescription = null,
+            tint = textColor,
+            modifier = Modifier.size(iconSize),
+        )
+        AppText(
+            text = "发评论",
+            color = textColor,
+            style = textStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
 private fun FloatingLiquidBottomInputBar(
     modifier: Modifier,
     backdrop: Backdrop?,
@@ -381,28 +411,16 @@ private fun FloatingLiquidBottomInputBar(
                     shellLensIntensity = resolveFloatingDockGeometryScale(44f),
                     isScrollInProgressProvider = isScrollInProgressProvider,
                 ) {
-                    Row(
+                    CommentEntryBarContent(
+                        textColor = inputTextColor,
+                        iconSize = 20.dp,
+                        iconSpacing = 6.dp,
+                        textStyle = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier
                             .fillMaxSize()
                             .clickable(role = Role.Button) { onCommentClick() }
                             .padding(horizontal = if (showActionButtons) 12.dp else 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        AppIcon(
-                            imageVector = Icons.Outlined.Edit,
-                            contentDescription = null,
-                            tint = inputTextColor,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        AppText(
-                            text = "发评论",
-                            color = inputTextColor,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
+                    )
                 }
 
                 if (showActionButtons) {
@@ -487,24 +505,12 @@ private fun BottomInputBarContentRow(
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    AppIcon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = null,
-                        tint = inputTextColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    AppText(
-                        text = "发评论",
-                        color = inputTextColor,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                CommentEntryBarContent(
+                    textColor = inputTextColor,
+                    iconSize = 18.dp,
+                    iconSpacing = 8.dp,
+                    textStyle = MaterialTheme.typography.bodySmall,
+                )
             }
 
             if (showActionButtons) {

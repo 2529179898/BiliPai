@@ -42,6 +42,10 @@ import com.android.purebilibili.feature.dynamic.components.DynamicReserveResult
 import com.android.purebilibili.feature.dynamic.components.buildDynamicVisibilityObjectId
 import com.android.purebilibili.feature.dynamic.components.resolveDynamicVisibilityAction
 import com.android.purebilibili.feature.dynamic.notification.LiveReserveReminderScheduler
+import com.android.purebilibili.feature.video.viewmodel.CommentComposerDraft
+import com.android.purebilibili.feature.video.viewmodel.CommentComposerDraftState
+import com.android.purebilibili.feature.video.viewmodel.CommentMentionSearchUiState
+import com.android.purebilibili.feature.video.viewmodel.commentComposerDraftKey
 import com.android.purebilibili.feature.video.viewmodel.resolveRoutedCommentRootReply
 import com.android.purebilibili.feature.video.viewmodel.resolveSubReplyLoadedTotalCount
 import com.android.purebilibili.feature.video.viewmodel.isSortedSubReplyPageEnd
@@ -1227,6 +1231,32 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
     private val _commentReplyTarget = MutableStateFlow<DynamicCommentComposerTarget?>(null)
     internal val commentReplyTarget: StateFlow<DynamicCommentComposerTarget?> = _commentReplyTarget.asStateFlow()
 
+    private val _commentComposerVisible = MutableStateFlow(false)
+    internal val commentComposerVisible: StateFlow<Boolean> = _commentComposerVisible.asStateFlow()
+
+    private val _commentComposerDrafts = MutableStateFlow(CommentComposerDraftState())
+    internal val commentComposerDrafts: StateFlow<CommentComposerDraftState> =
+        _commentComposerDrafts.asStateFlow()
+
+    private val _isSendingComment = MutableStateFlow(false)
+    internal val isSendingComment: StateFlow<Boolean> = _isSendingComment.asStateFlow()
+
+    private val _commentMentionSearchState = MutableStateFlow(CommentMentionSearchUiState())
+    val commentMentionSearchState: StateFlow<CommentMentionSearchUiState> =
+        _commentMentionSearchState.asStateFlow()
+
+    private var commentMentionSearchJob: Job? = null
+
+    private fun resetCommentComposerState() {
+        _commentComposerVisible.value = false
+        _commentReplyTarget.value = null
+        // 保留自增后的 sessionId，避免在途发送的成功回调误关掉重置后新开的输入会话。
+        _commentComposerDrafts.value = CommentComposerDraftState(
+            sessionId = _commentComposerDrafts.value.sessionId
+        )
+        clearCommentMentionSearch()
+    }
+
     // 进程内首页评论缓存：重进同一条动态先秒出旧内容，再后台静默刷新。
     private val commentCache = DynamicCommentCache()
 
@@ -1306,6 +1336,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
      *  打开评论弹窗
      */
     fun openCommentSheet(dynamicId: String) {
+        resetCommentComposerState()
         val item = findDynamicById(dynamicId)
         _selectedDynamic.value = item
         if (item != null) {
@@ -1318,6 +1349,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
         rootReplyId: Long = 0L,
         targetReplyId: Long = 0L
     ) {
+        resetCommentComposerState()
         _selectedDynamic.value = item
         loadCommentsForDynamic(
             item = item,
@@ -1347,7 +1379,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
         subReplyLoadRequestId++
         subReplyLoadJob?.cancel()
         _subReplyState.value = SubReplyUiState()
-        _commentReplyTarget.value = null
+        resetCommentComposerState()
         commentGrpcNextOffset = null
         commentContinuation = null
         _dynamicCommentSortMode.value = CommentSortMode.HOT
@@ -2036,23 +2068,111 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
     }
     
     /**
+     *  打开根评论输入弹层
+     */
+    fun openCommentComposer() {
+        _commentReplyTarget.value = null
+        _commentComposerDrafts.update { it.open() }
+        clearCommentMentionSearch()
+        _commentComposerVisible.value = true
+    }
+
+    /**
+     *  回复指定评论：统一打开共享输入弹层，不再聚焦内联输入框。
+     */
+    fun startCommentReply(reply: ReplyItem) {
+        _commentReplyTarget.value = resolveDynamicCommentReplyTarget(reply)
+        _commentComposerDrafts.update { it.open() }
+        clearCommentMentionSearch()
+        _commentComposerVisible.value = true
+    }
+
+    fun dismissCommentComposer() {
+        _commentComposerVisible.value = false
+        _commentReplyTarget.value = null
+        clearCommentMentionSearch()
+    }
+
+    fun updateCommentDraft(
+        sessionId: Long,
+        replyRpid: Long?,
+        text: String,
+        imageUris: List<Uri>,
+        syncToDynamic: Boolean,
+    ) {
+        _commentComposerDrafts.update { state ->
+            if (state.sessionId != sessionId || sessionId <= state.completedSessionId) {
+                state
+            } else {
+                state.update(
+                    sessionId = sessionId,
+                    replyRpid = replyRpid,
+                    draft = CommentComposerDraft(text, imageUris, syncToDynamic),
+                )
+            }
+        }
+    }
+
+    fun searchCommentMentionUsers(query: String) {
+        if (_commentMentionSearchState.value.query == query && commentMentionSearchJob?.isActive == true) {
+            return
+        }
+        commentMentionSearchJob?.cancel()
+        _commentMentionSearchState.update {
+            it.copy(query = query, isLoading = true, errorMessage = null)
+        }
+        commentMentionSearchJob = viewModelScope.launch {
+            if (query.isNotBlank()) {
+                delay(250L)
+            }
+            CommentRepository.searchMentionUsers(query)
+                .onSuccess { users ->
+                    _commentMentionSearchState.update {
+                        if (it.query == query) {
+                            it.copy(users = users, isLoading = false, errorMessage = null)
+                        } else {
+                            it
+                        }
+                    }
+                }
+                .onFailure { error ->
+                    _commentMentionSearchState.update {
+                        if (it.query == query) {
+                            it.copy(
+                                users = emptyList(),
+                                isLoading = false,
+                                errorMessage = error.message ?: "搜索@好友失败"
+                            )
+                        } else {
+                            it
+                        }
+                    }
+                }
+        }
+    }
+
+    fun clearCommentMentionSearch() {
+        commentMentionSearchJob?.cancel()
+        _commentMentionSearchState.value = CommentMentionSearchUiState()
+    }
+
+    /**
      *  发表评论
      */
-    fun startCommentReply(reply: com.android.purebilibili.data.model.response.ReplyItem) {
-        _commentReplyTarget.value = resolveDynamicCommentReplyTarget(reply)
-    }
-
-    fun clearCommentReplyTarget() {
-        _commentReplyTarget.value = null
-    }
-
     fun postComment(
         dynamicId: String,
         message: String,
         imageUris: List<Uri> = emptyList(),
         onResult: (Boolean, String) -> Unit,
     ) {
-        launchAccount {
+        if (_isSendingComment.value) return
+
+        val draftSessionId = _commentComposerDrafts.value.sessionId
+        val replyRpid = _commentReplyTarget.value?.parentRpid
+        val sentDraft = _commentComposerDrafts.value.drafts[commentComposerDraftKey(replyRpid)]
+        _isSendingComment.value = true
+
+        val job = launchAccount {
             try {
                 val csrf = com.android.purebilibili.core.store.TokenManager.csrfCache
                 if (csrf.isNullOrEmpty()) {
@@ -2089,7 +2209,17 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
                     pictures = pictures,
                 )
                 if (response.isSuccess) {
-                    _commentReplyTarget.value = null
+                    if (
+                        _commentComposerVisible.value &&
+                        _commentComposerDrafts.value.sessionId == draftSessionId
+                    ) {
+                        _commentReplyTarget.value = null
+                        _commentComposerVisible.value = false
+                        clearCommentMentionSearch()
+                    }
+                    _commentComposerDrafts.update {
+                        it.complete(draftSessionId, replyRpid, sentDraft)
+                    }
                     onResult(true, "评论成功")
                     loadComments(dynamicId)
                 } else {
@@ -2101,6 +2231,7 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
                 onResult(false, e.message ?: "网络错误")
             }
         }
+        job.invokeOnCompletion { _isSendingComment.value = false }
     }
 
     private suspend fun uploadCommentPictures(imageUris: List<Uri>): List<ReplyPicture> =

@@ -6,9 +6,7 @@ import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 
-import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import com.android.purebilibili.core.ui.AppSpacingTokens
-import com.android.purebilibili.core.ui.isMiuixNonGlassEnabled
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
 import com.android.purebilibili.core.ui.AppAlertDialog
 import com.android.purebilibili.core.ui.AppDialogAction
@@ -20,7 +18,6 @@ import com.android.purebilibili.core.ui.AdaptivePullToRefreshBox
 import com.android.purebilibili.core.ui.skeleton.CommentListItemSkeleton
 
 import android.content.Context
-import android.net.Uri
 import android.os.Build
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -34,18 +31,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import com.android.purebilibili.core.ui.components.AppLazyColumn as LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import com.android.purebilibili.core.ui.components.AppIconButton
 import com.android.purebilibili.core.ui.components.resolveUpNameColor
 import com.android.purebilibili.core.ui.components.AppTextButton
@@ -55,15 +46,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.android.purebilibili.data.model.response.DynamicItem
 import com.android.purebilibili.data.model.response.ReplyItem
@@ -71,11 +59,9 @@ import com.android.purebilibili.feature.dynamic.DynamicViewModel
 import com.android.purebilibili.feature.dynamic.DynamicStatusPalette
 import com.android.purebilibili.feature.dynamic.canOpenDynamicSubReplies
 import com.android.purebilibili.feature.dynamic.isDynamicCommentLiked
-import com.android.purebilibili.feature.dynamic.resolveDynamicCommentComposerHint
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentCountLabel
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentEmptyLabel
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentLocationLabel
-import com.android.purebilibili.feature.dynamic.resolveDynamicCommentImeSubmission
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentSheetTotalCount
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentSheetHostContent
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentSkeletonSlotCount
@@ -83,9 +69,6 @@ import com.android.purebilibili.feature.dynamic.DYNAMIC_COMMENT_SKELETON_MIN_SLO
 import com.android.purebilibili.feature.dynamic.resolveDynamicSubReplyCount
 import com.android.purebilibili.feature.dynamic.shouldOpenDynamicCommentThreadOnTap
 import com.android.purebilibili.feature.dynamic.DynamicCommentSheetHostContent
-import com.android.purebilibili.feature.home.components.BottomBarMatchedReusableLiquidDock
-import com.android.purebilibili.feature.home.components.resolveFloatingDockGeometryScale
-import com.android.purebilibili.feature.home.components.resolveSharedBottomBarCapsuleShape
 import com.android.purebilibili.feature.video.ui.components.CommentPictures
 import com.android.purebilibili.feature.video.ui.components.RichCommentText
 import com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled
@@ -123,24 +106,13 @@ import com.android.purebilibili.core.ui.rememberAppMoreIcon
 import com.android.purebilibili.core.store.TokenManager
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Reply
-import androidx.compose.material.icons.outlined.Image
-import coil3.compose.AsyncImage
-import com.android.purebilibili.core.util.PickMultipleGalleryVisualMedia
 import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.core.ui.LocalDetailedCommentTimeEnabled
 import com.android.purebilibili.core.ui.AppModalBottomSheet
-import com.android.purebilibili.core.ui.components.AppTextField
-import com.android.purebilibili.core.ui.components.AppOutlinedTextField
 import top.yukonga.miuix.kmp.blur.Backdrop as MiuixBackdrop
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import com.android.purebilibili.core.ui.CommentWindowNavigation
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.TextStyle
-import kotlinx.coroutines.delay
 
 @Composable
 fun DynamicCommentOverlayHost(
@@ -161,7 +133,6 @@ fun DynamicCommentOverlayHost(
     val liveCommentCount = commentUiState.totalCount
     val subReplyState by viewModel.subReplyState.collectAsStateWithLifecycle()
     val sortMode by viewModel.dynamicCommentSortMode.collectAsStateWithLifecycle()
-    val replyTarget by viewModel.commentReplyTarget.collectAsStateWithLifecycle()
     val inspectionMode = LocalInspectionMode.current
 
     LaunchedEffect(commentsRefreshError, inspectionMode) {
@@ -184,7 +155,6 @@ fun DynamicCommentOverlayHost(
                 fallbackCount = fallbackCount
             )
         }
-
         DynamicCommentSheet(
             comments = comments,
             totalCount = totalCount,
@@ -198,14 +168,7 @@ fun DynamicCommentOverlayHost(
             onDismiss = { viewModel.closeCommentSheet() },
             onRefresh = viewModel::refreshComments,
             onSortModeChange = { viewModel.setDynamicCommentSortMode(it) },
-            onPostComment = { message, images, onResult ->
-                viewModel.postComment(dynamicId, message, images) { success, msg ->
-                    if (!inspectionMode) {
-                        android.widget.Toast.makeText(toastContext, msg, android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                    onResult(success)
-                }
-            },
+            onOpenComposer = viewModel::openCommentComposer,
             onViewReplies = { reply -> viewModel.openSubReply(reply) },
             onReply = { reply -> viewModel.startCommentReply(reply) },
             onLike = { reply -> viewModel.likeComment(reply.rpid) },
@@ -231,8 +194,6 @@ fun DynamicCommentOverlayHost(
                     if (!inspectionMode) android.widget.Toast.makeText(toastContext, message, android.widget.Toast.LENGTH_SHORT).show()
                 }
             },
-            replyTargetUname = replyTarget?.uname,
-            onClearReplyTarget = { viewModel.clearCommentReplyTarget() },
             onLoadMore = { viewModel.loadMoreComments() },
             onUserClick = onUserClick,
             subReplyState = subReplyState,
@@ -261,6 +222,17 @@ fun DynamicCommentOverlayHost(
                 }
             },
         )
+        DynamicCommentInputHost(
+            draftKeyPrefix = "dynamic-sheet:$dynamicId",
+            viewModel = viewModel,
+        ) { message, images, onResult ->
+            viewModel.postComment(dynamicId, message, images) { success, msg ->
+                if (!inspectionMode) {
+                    android.widget.Toast.makeText(toastContext, msg, android.widget.Toast.LENGTH_SHORT).show()
+                }
+                onResult(success)
+            }
+        }
     }
 }
 
@@ -280,7 +252,7 @@ fun DynamicCommentSheet(
     onDismiss: () -> Unit,
     onRefresh: () -> Unit,
     onSortModeChange: (CommentSortMode) -> Unit = {},
-    onPostComment: (String, List<Uri>, (Boolean) -> Unit) -> Unit,
+    onOpenComposer: () -> Unit,
     onViewReplies: (ReplyItem) -> Unit = {},
     onReply: (ReplyItem) -> Unit = {},
     onLike: (ReplyItem) -> Unit = {},
@@ -290,8 +262,6 @@ fun DynamicCommentSheet(
     onDelete: (ReplyItem) -> Unit = {},
     onToggleTop: (ReplyItem) -> Unit = {},
     onReport: (ReplyItem, Int) -> Unit = { _, _ -> },
-    replyTargetUname: String? = null,
-    onClearReplyTarget: () -> Unit = {},
     onLoadMore: () -> Unit = {},
     onUserClick: (Long) -> Unit,
     subReplyState: SubReplyUiState = SubReplyUiState(),
@@ -307,10 +277,6 @@ fun DynamicCommentSheet(
     nextPage: Int = 1,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var commentText by remember { mutableStateOf("") }
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
     val listState = rememberLazyListState()
     val avatarPushEnabled = rememberCommentAvatarPushEnabled()
     // 骨架槽位数按可视高度估算：铺满首屏，数据到达时列表不会被撑长或缩短。
@@ -318,15 +284,6 @@ fun DynamicCommentSheet(
         viewportHeightDp = LocalConfiguration.current.screenHeightDp,
     )
 
-    LaunchedEffect(replyTargetUname) {
-        if (!replyTargetUname.isNullOrBlank()) {
-            delay(50L)
-            try {
-                focusRequester.requestFocus()
-                keyboardController?.show()
-            } catch (_: Exception) {}
-        }
-    }
     // 服务端分页状态与显示计数分离；最新值由稳定的触底监听读取。
     val canLoadMore by rememberUpdatedState(hasMore && !isLoading && !isRefreshing && !hasRefreshError && !isLoadingMore)
     val latestNextPage by rememberUpdatedState(nextPage)
@@ -703,23 +660,11 @@ fun DynamicCommentSheet(
                 }
                 }
 
-                DynamicCommentComposer(
-                    value = commentText,
-                    onValueChange = { commentText = it },
-                    onSubmit = { message, images, onResult ->
-                        onPostComment(message, images) { success ->
-                            if (success) {
-                                commentText = ""
-                                if (!replyTargetUname.isNullOrBlank()) onClearReplyTarget()
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                            }
-                            onResult(success)
-                        }
-                    },
-                    hint = resolveDynamicCommentComposerHint(replyTargetUname),
-                    onClearReplyTarget = if (replyTargetUname.isNullOrBlank()) null else onClearReplyTarget,
-                    focusRequester = focusRequester,
+                val liquidGlassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
+                DynamicCommentEntryBar(
+                    onClick = onOpenComposer,
+                    liquidGlassEnabled = liquidGlassEnabled,
+                    backdrop = commentChromeBackdrop,
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(AppSurfaceTokens.surfaceContainer())
@@ -977,258 +922,6 @@ fun LazyListScope.dynamicInlineCommentItems(
                 contentAlignment = Alignment.Center,
             ) {
                 AdaptiveLoadingIndicator(size = AppSpacingTokens.ExtraLarge)
-            }
-        }
-    }
-}
-
-@Composable
-fun DynamicInlineCommentComposer(
-    onPostComment: (String, List<Uri>, (Boolean) -> Unit) -> Unit,
-    replyTargetUname: String? = null,
-    onClearReplyTarget: () -> Unit = {},
-    liquidGlassEnabled: Boolean = false,
-    backdrop: MiuixBackdrop? = null,
-    modifier: Modifier = Modifier,
-) {
-    var commentText by remember { mutableStateOf("") }
-    val focusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
-
-    LaunchedEffect(replyTargetUname) {
-        if (!replyTargetUname.isNullOrBlank()) {
-            delay(50L)
-            try {
-                focusRequester.requestFocus()
-                keyboardController?.show()
-            } catch (_: Exception) {}
-        }
-    }
-
-    DynamicCommentComposer(
-        value = commentText,
-        onValueChange = { commentText = it },
-        onSubmit = { message, images, onResult ->
-            onPostComment(message, images) { success ->
-                if (success) {
-                    commentText = ""
-                    if (!replyTargetUname.isNullOrBlank()) onClearReplyTarget()
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
-                }
-                onResult(success)
-            }
-        },
-        hint = resolveDynamicCommentComposerHint(replyTargetUname),
-        onClearReplyTarget = if (replyTargetUname.isNullOrBlank()) null else onClearReplyTarget,
-        liquidGlassEnabled = liquidGlassEnabled,
-        backdrop = backdrop,
-        focusRequester = focusRequester,
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun DynamicCommentComposer(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onSubmit: (String, List<Uri>, (Boolean) -> Unit) -> Unit,
-    hint: String = resolveDynamicCommentComposerHint(),
-    onClearReplyTarget: (() -> Unit)? = null,
-    liquidGlassEnabled: Boolean = false,
-    backdrop: MiuixBackdrop? = null,
-    focusRequester: FocusRequester? = null,
-    modifier: Modifier = Modifier,
-) {
-    var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var isSending by remember { mutableStateOf(false) }
-    val picker = rememberLauncherForActivityResult(PickMultipleGalleryVisualMedia(maxItems = 9)) { uris ->
-        if (!isSending && onClearReplyTarget == null) {
-            selectedImages = (selectedImages + uris).distinct().take(9)
-        }
-    }
-    LaunchedEffect(onClearReplyTarget != null) {
-        if (onClearReplyTarget != null) selectedImages = emptyList()
-    }
-    val canSend = !isSending && (value.isNotBlank() || selectedImages.isNotEmpty())
-    fun submit() {
-        if (!canSend) return
-        isSending = true
-        onSubmit(value.trim(), selectedImages) { success ->
-            if (success) selectedImages = emptyList()
-            isSending = false
-        }
-    }
-    val useMiuixNonGlassInput = isMiuixNonGlassEnabled()
-    val dockShape = resolveSharedBottomBarCapsuleShape()
-    val composerHeight = AppSpacingTokens.TripleExtraLarge + AppSpacingTokens.Small
-    val composerLensIntensity = resolveFloatingDockGeometryScale(composerHeight.value)
-    Column(
-        modifier = modifier,
-    ) {
-        if (selectedImages.isNotEmpty()) {
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = AppSpacingTokens.Small),
-                horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
-            ) {
-                items(selectedImages, key = { it.toString() }) { uri ->
-                    Box {
-                        AsyncImage(
-                            model = uri,
-                            contentDescription = "已选图片",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clip(AppShapes.container(ContainerLevel.Chip)),
-                        )
-                        AppIconButton(
-                            onClick = { selectedImages = selectedImages - uri },
-                            enabled = !isSending,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(AppChromeSizeTokens.MinimumTouchTarget),
-                        ) {
-                            AppIcon(rememberAppClearIcon(), contentDescription = "移除图片")
-                        }
-                    }
-                }
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            val commentFieldContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-            BottomBarMatchedReusableLiquidDock(
-                shape = dockShape,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(composerHeight)
-                    .then(
-                        if (!liquidGlassEnabled) {
-                            Modifier
-                                .clip(dockShape)
-                                .background(commentFieldContainerColor)
-                        } else {
-                            Modifier
-                        }
-                    ),
-                reuseEnabled = liquidGlassEnabled,
-                backdrop = backdrop,
-                drawShellLens = true,
-                shellLensIntensity = composerLensIntensity,
-            ) { liquidChromeActive ->
-                val fieldColor = if (liquidChromeActive) Color.Transparent else commentFieldContainerColor
-                val fieldTextColor = AppContentColors.primaryText()
-                val placeholderColor = if (liquidChromeActive) {
-                    fieldTextColor.copy(alpha = 0.82f)
-                } else {
-                    AppContentColors.secondaryText()
-                }
-                val keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send)
-                val keyboardActions = KeyboardActions(
-                    onSend = {
-                        if (resolveDynamicCommentImeSubmission(value) != null || selectedImages.isNotEmpty()) submit()
-                    },
-                )
-                if (useMiuixNonGlassInput) {
-                    AppOutlinedTextField(
-                        value = value,
-                        onValueChange = { if (!isSending) onValueChange(it) },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-                        placeholderText = hint,
-                        singleLine = true,
-                        keyboardOptions = keyboardOptions,
-                        keyboardActions = keyboardActions,
-                        shape = dockShape,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = fieldTextColor
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = fieldColor,
-                            unfocusedContainerColor = fieldColor,
-                            disabledContainerColor = fieldColor,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            disabledBorderColor = Color.Transparent,
-                            focusedTextColor = fieldTextColor,
-                            unfocusedTextColor = fieldTextColor,
-                            disabledTextColor = fieldTextColor.copy(alpha = 0.72f),
-                            focusedPlaceholderColor = placeholderColor,
-                            unfocusedPlaceholderColor = placeholderColor,
-                            disabledPlaceholderColor = placeholderColor,
-                            cursorColor = fieldTextColor,
-                        ),
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = value,
-                        onValueChange = { if (!isSending) onValueChange(it) },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-                        placeholder = {
-                            AppText(
-                                text = hint,
-                                color = placeholderColor,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
-                        singleLine = true,
-                        keyboardOptions = keyboardOptions,
-                        keyboardActions = keyboardActions,
-                        shape = dockShape,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = fieldTextColor
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = fieldColor,
-                            unfocusedContainerColor = fieldColor,
-                            disabledContainerColor = fieldColor,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            disabledBorderColor = Color.Transparent,
-                            focusedTextColor = fieldTextColor,
-                            unfocusedTextColor = fieldTextColor,
-                            disabledTextColor = fieldTextColor.copy(alpha = 0.72f),
-                            focusedPlaceholderColor = placeholderColor,
-                            unfocusedPlaceholderColor = placeholderColor,
-                            disabledPlaceholderColor = placeholderColor,
-                            cursorColor = fieldTextColor,
-                        ),
-                    )
-                }
-            }
-            if (onClearReplyTarget == null) {
-                AppIconButton(
-                    onClick = {
-                        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    },
-                    enabled = !isSending && selectedImages.size < 9,
-                    modifier = Modifier.size(AppChromeSizeTokens.MinimumTouchTarget),
-                ) {
-                    AppIcon(
-                        Icons.Outlined.Image,
-                        contentDescription = "添加图片，已选 ${selectedImages.size}/9 张",
-                    )
-                }
-            }
-            AppTextButton(
-                onClick = ::submit,
-                enabled = canSend,
-                modifier = Modifier.heightIn(min = AppChromeSizeTokens.MinimumTouchTarget),
-            ) { AppText("发送") }
-            if (onClearReplyTarget != null) {
-                AppIconButton(onClick = onClearReplyTarget, enabled = !isSending) {
-                    AppIcon(
-                        rememberAppClearIcon(),
-                        contentDescription = "取消回复",
-                        modifier = Modifier.size(AppSpacingTokens.Large)
-                    )
-                }
             }
         }
     }
