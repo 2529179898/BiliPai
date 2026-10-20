@@ -10,6 +10,7 @@ import io.mockk.every
 import io.mockk.mockk
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.EventListener
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
@@ -193,6 +194,7 @@ class CdnPlaybackDataSourceTest {
         }
         override fun isExecuted(): Boolean = callback != null
         override fun isCanceled(): Boolean = canceled
+        override fun addEventListener(eventListener: EventListener) = Unit
         override fun timeout(): Timeout = Timeout()
         override fun <T : Any> tag(type: KClass<T>): T? = tag(type.java)
         override fun <T> tag(type: Class<out T>): T? {
