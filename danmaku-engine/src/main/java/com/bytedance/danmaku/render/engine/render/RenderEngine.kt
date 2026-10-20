@@ -23,6 +23,7 @@ import com.bytedance.danmaku.render.engine.render.cache.DrawCachePool
 import com.bytedance.danmaku.render.engine.render.draw.DrawItem
 import com.bytedance.danmaku.render.engine.render.draw.IDrawItemFactory
 import com.bytedance.danmaku.render.engine.render.draw.bitmap.BitmapDrawItemFactory
+import com.bytedance.danmaku.render.engine.render.draw.mask.MaskDrawItem
 import com.bytedance.danmaku.render.engine.render.draw.mask.MaskDanmakuFactory
 import com.bytedance.danmaku.render.engine.render.draw.text.TextDrawItemFactory
 import com.bytedance.danmaku.render.engine.render.layer.bottom.BottomCenterLayer
@@ -46,7 +47,7 @@ class RenderEngine(private val mController: DanmakuController) : ITouchDelegate 
     private var mHeight = 0
     private var mSaveLayerValue = 0
     private val mDrawItems = ArrayList<DrawItem<DanmakuData>>()
-    private val mIncomingItems = ArrayList<DrawItem<DanmakuData>>()
+    private val mIncomingData = ArrayList<DanmakuData>()
     private val mDrawOrderComparator = compareBy<DrawItem<DanmakuData>>(
         { it.data?.drawOrder },
         { it.layerZIndex },
@@ -94,22 +95,17 @@ class RenderEngine(private val mController: DanmakuController) : ITouchDelegate 
     }
 
     fun addItems(playTime: Long, items: List<DanmakuData>) {
-        mRenderLayers.forEach { layer ->
-            // Built-in layers synchronously copy/consume the batch. Custom layers retain the
-            // original independently owned list contract.
-            if (layer is ScrollLayer || layer is TopCenterLayer || layer is BottomCenterLayer || layer is MaskLayer) {
-                try {
-                    for (data in items) {
-                        if (data.layerType == layer.getLayerType()) mIncomingItems.add(wrapData(layer, data))
-                    }
-                    if (mIncomingItems.isNotEmpty()) layer.addItems(playTime, mIncomingItems)
-                } finally {
-                    mIncomingItems.clear()
+        if (items.isEmpty()) return
+        for (layer in mRenderLayers) {
+            try {
+                for (data in items) {
+                    if (data.layerType == layer.getLayerType()) mIncomingData.add(data)
                 }
-            } else {
-                items.filter { it.layerType == layer.getLayerType() }.takeIf { it.isNotEmpty() }?.let { list ->
-                    layer.addItems(playTime, list.map { wrapData(layer, it) })
+                if (mIncomingData.isNotEmpty()) {
+                    layer.addData(playTime, mIncomingData) { wrapData(layer, it) }
                 }
+            } finally {
+                mIncomingData.clear()
             }
         }
     }
@@ -137,19 +133,23 @@ class RenderEngine(private val mController: DanmakuController) : ITouchDelegate 
 
         sortOnlyIfOutOfOrder(mDrawItems, mDrawOrderComparator)
 
-        if (mController.config.mask.enable) {
+        val hasActiveMask = mController.config.mask.enable &&
+            mDrawItems.any { it.data?.layerType != LAYER_TYPE_MASK && it.isVisible } &&
+            mDrawItems.any { (it as? MaskDrawItem)?.drawPath?.isEmpty == false }
+        if (hasActiveMask) {
             @Suppress("DEPRECATION")
             mSaveLayerValue = canvas.saveLayer(0F, 0F, mWidth.toFloat(), mHeight.toFloat(), null, Canvas.ALL_SAVE_FLAG)
         }
 
         mDrawItems.forEach {
+            if (it.data?.layerType == LAYER_TYPE_MASK && !hasActiveMask) return@forEach
             it.draw(canvas, mController.config)
             if (mController.config.debug.showBounds) {
                 it.drawBounds(canvas)
             }
         }
 
-        if (mController.config.mask.enable) {
+        if (hasActiveMask) {
             canvas.restoreToCount(mSaveLayerValue)
         }
         mDrawItems.clear()

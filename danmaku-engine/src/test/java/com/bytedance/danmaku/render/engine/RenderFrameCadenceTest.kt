@@ -7,8 +7,8 @@ import kotlin.test.assertFalse
 
 class RenderFrameCadenceTest {
     @Test
-    fun `60 90 and 120Hz displays produce 60 renderer frames per second`() {
-        listOf(60, 90, 120).forEach { hz ->
+    fun `native refresh cadence has no skipped vsyncs on 60 90 120 and 144Hz`() {
+        listOf(60, 90, 120, 144).forEach { hz ->
             val cadence = RenderFrameCadence()
             var rendered = 0
             repeat(hz * 10) { tick ->
@@ -18,18 +18,19 @@ class RenderFrameCadenceTest {
                     rendered++
                 }
             }
-            assertEquals(600, rendered, "display=$hz Hz")
+            assertEquals(hz * 10, rendered, "display=$hz Hz")
         }
     }
 
     @Test
-    fun `resume has no delayed or accumulated frame debt`() {
+    fun `duplicate callbacks are suppressed and resume has no frame debt`() {
         val cadence = RenderFrameCadence()
         cadence.onFrame(1_000_000_000L)
-        assertFalse(cadence.shouldRender(1_008_333_333L))
+        assertFalse(cadence.shouldRender(1_000_000_000L))
+        assertTrue(cadence.shouldRender(1_008_333_333L))
         cadence.onFrame(9_000_000_000L)
-        assertFalse(cadence.shouldRender(9_008_333_333L))
+        assertFalse(cadence.shouldRender(9_000_000_000L))
         cadence.reset()
-        assertTrue(cadence.shouldRender(9_008_333_333L))
+        assertTrue(cadence.shouldRender(9_000_000_000L))
     }
 }

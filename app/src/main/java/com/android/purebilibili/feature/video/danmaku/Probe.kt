@@ -33,6 +33,8 @@ fun createBitmapDanmaku(
     showAtTime: Long,
     enableEmoticon: Boolean = true,
     typeface: Typeface = Typeface.DEFAULT,
+    // Worker rasterization defers image callbacks until the base bitmap is fully painted.
+    deferredImageRequests: MutableList<() -> Unit>? = null,
     onUpdate: () -> Unit
 ): DanmakuItem {
     // 1. 解析文本
@@ -89,7 +91,7 @@ fun createBitmapDanmaku(
     
     // 4. 绘制内容
     try {
-        drawContent(context, canvas, segments, paint, iconSize, heightInt, onUpdate, bitmap)
+        drawContent(context, canvas, segments, paint, iconSize, heightInt, onUpdate, bitmap, deferredImageRequests)
     } catch (e: Exception) {
         android.util.Log.e("Probe", "❌ Draw content failed: ${e.message}")
     }
@@ -157,7 +159,8 @@ private fun drawContent(
     iconSize: Int,
     canvasHeight: Int,
     onUpdate: () -> Unit,
-    targetBitmap: Bitmap // 用于重绘
+    targetBitmap: Bitmap, // 用于重绘
+    deferredImageRequests: MutableList<() -> Unit>?,
 ) {
     val strokePaint = TextPaint(paint).apply {
         style = Paint.Style.STROKE
@@ -216,7 +219,11 @@ private fun drawContent(
                         onUpdate()
                     }
                     .build()
-                imageLoader.enqueue(request)
+                if (deferredImageRequests == null) imageLoader.enqueue(request)
+                else deferredImageRequests.add {
+                    imageLoader.enqueue(request)
+                    Unit
+                }
                 
                 xOffset += iconSize + 4
             } else {

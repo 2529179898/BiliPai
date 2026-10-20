@@ -981,12 +981,12 @@ enum class DanmakuSettingsScope(
     PORTRAIT(
         keyPrefix = "portrait",
         badgeLabel = "竖屏专用",
-        subtitle = "开关、字号、行距和区域与横屏同步，其余样式独立"
+        subtitle = "开关、行距和区域与横屏同步，字号及其余样式独立"
     ),
     LANDSCAPE(
         keyPrefix = "landscape",
         badgeLabel = "横屏专用",
-        subtitle = "开关、字号、行距和区域与竖屏同步，其余样式独立"
+        subtitle = "开关、行距和区域与竖屏同步，字号及其余样式独立"
     )
 }
 
@@ -4872,7 +4872,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         suffix: String
     ): String {
         // Keep the existing fullscreen values authoritative across playback modes.
-        val shared = suffix == "enabled" || suffix == "font_scale" ||
+        val shared = suffix == "enabled" ||
             suffix == "line_height" || suffix == "area"
         val prefix = if (shared) DanmakuSettingsScope.LANDSCAPE.keyPrefix else scope.keyPrefix
         return "danmaku_${prefix}_$suffix"
@@ -4942,8 +4942,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         floatPreferencesKey(buildScopedDanmakuKeyName(scope, "scroll_duration_seconds"))
     private fun keyDanmakuLegacyPortraitEnabled() =
         booleanPreferencesKey("danmaku_portrait_enabled")
-    private fun keyDanmakuLegacyPortraitFontScale() =
-        floatPreferencesKey("danmaku_portrait_font_scale")
     private fun keyDanmakuLegacyPortraitLineHeight() =
         floatPreferencesKey("danmaku_portrait_line_height")
     private fun keyDanmakuLegacyPortraitArea() =
@@ -4960,6 +4958,33 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             ?: preferences[legacyPortraitKey]
             ?: preferences[legacyKey]
             ?: defaultValue
+    }
+
+    private fun oppositeDanmakuScope(scope: DanmakuSettingsScope): DanmakuSettingsScope =
+        if (scope == DanmakuSettingsScope.PORTRAIT) DanmakuSettingsScope.LANDSCAPE
+        else DanmakuSettingsScope.PORTRAIT
+
+    private fun readDanmakuFontScale(preferences: Preferences, scope: DanmakuSettingsScope): Float =
+        normalizeDanmakuFontScale(
+            preferences[keyDanmakuFontScale(scope)]
+                ?: preferences[keyDanmakuFontScale(oppositeDanmakuScope(scope))]
+                ?: preferences[KEY_DANMAKU_FONT_SCALE]
+                ?: DEFAULT_DANMAKU_FONT_SCALE
+        )
+
+    internal fun updateDanmakuFontScalePreferences(
+        preferences: MutablePreferences,
+        value: Float,
+        scope: DanmakuSettingsScope,
+    ) {
+        // Old installs may only have a shared/fullscreen value. Freeze the other
+        // orientation's effective value before changing this one, in the same edit.
+        val oppositeScope = oppositeDanmakuScope(scope)
+        val oppositeKey = keyDanmakuFontScale(oppositeScope)
+        if (preferences[oppositeKey] == null) {
+            preferences[oppositeKey] = readDanmakuFontScale(preferences, oppositeScope)
+        }
+        preferences[keyDanmakuFontScale(scope)] = normalizeDanmakuFontScale(value)
     }
 
     private fun keyDanmakuStaticDurationSeconds(scope: DanmakuSettingsScope) =
@@ -5026,15 +5051,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                     defaultValue = DEFAULT_DANMAKU_OPACITY
                 )
             ),
-            fontScale = normalizeDanmakuFontScale(
-                readSharedDanmakuPreference(
-                    preferences = preferences,
-                    scopeKey = keyDanmakuFontScale(scope),
-                    legacyPortraitKey = keyDanmakuLegacyPortraitFontScale(),
-                    legacyKey = KEY_DANMAKU_FONT_SCALE,
-                    defaultValue = DEFAULT_DANMAKU_FONT_SCALE
-                )
-            ),
+            fontScale = readDanmakuFontScale(preferences, scope),
             speed = readScopedDanmakuPreference(
                 preferences = preferences,
                 scopeKey = keyDanmakuSpeed(scope),
@@ -5255,15 +5272,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         scope: DanmakuSettingsScope = DanmakuSettingsScope.PORTRAIT
     ): Flow<Float> = context.settingsDataStore.data
         .map { preferences ->
-            normalizeDanmakuFontScale(
-                readSharedDanmakuPreference(
-                    preferences = preferences,
-                    scopeKey = keyDanmakuFontScale(scope),
-                    legacyPortraitKey = keyDanmakuLegacyPortraitFontScale(),
-                    legacyKey = KEY_DANMAKU_FONT_SCALE,
-                    defaultValue = DEFAULT_DANMAKU_FONT_SCALE
-                )
-            )
+            readDanmakuFontScale(preferences, scope)
         }
 
     suspend fun setDanmakuFontScale(
@@ -5272,7 +5281,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         scope: DanmakuSettingsScope = DanmakuSettingsScope.PORTRAIT
     ) {
         context.settingsDataStore.edit { preferences ->
-            preferences[keyDanmakuFontScale(scope)] = normalizeDanmakuFontScale(value)
+            updateDanmakuFontScalePreferences(preferences, value, scope)
         }
     }
     

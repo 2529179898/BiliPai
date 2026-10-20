@@ -35,6 +35,8 @@ import com.android.purebilibili.feature.video.danmaku.resolveDanmakuVisibleLineC
 import com.android.purebilibili.feature.video.danmaku.shouldBlockDanmakuByRules
 import com.android.purebilibili.feature.video.danmaku.shouldDisplayStandardDanmaku
 import java.util.ArrayDeque
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.isActive
@@ -151,23 +153,33 @@ fun LiveDanmakuOverlay(
                 }
 
                 if (pendingItems.isNotEmpty()) {
-                    val batch = ArrayList<DanmakuItem>(pendingItems.size)
-                    while (pendingItems.isNotEmpty()) {
-                        val pending = pendingItems.removeFirst()
-                        createLiveDanmakuItem(
-                            item = pending.item,
-                            currentTime = pending.queuedAtTime,
-                            context = context,
-                            engine = currentEngine,
-                            textSize = textSize,
-                            fontWeight = settings.fontWeight,
-                            staticDanmakuToScroll = settings.staticDanmakuToScroll
-                        ).also {
-                            batch += it
-                            activeItems.addLast(it)
+                    // Drain on Main; the collector can keep filling its bounded queue while
+                    // bitmap text/emoji preparation runs on a worker.
+                    val pendingBatch = ArrayList<PendingLiveDanmakuItem>(pendingItems.size)
+                    while (pendingItems.isNotEmpty()) pendingBatch.add(pendingItems.removeFirst())
+                    val deferredImages = ArrayList<() -> Unit>()
+                    val batch = withContext(Dispatchers.Default) {
+                        pendingBatch.map { pending ->
+                            createLiveDanmakuItem(
+                                item = pending.item,
+                                currentTime = pending.queuedAtTime,
+                                context = context,
+                                engine = currentEngine,
+                                textSize = textSize,
+                                fontWeight = settings.fontWeight,
+                                staticDanmakuToScroll = settings.staticDanmakuToScroll,
+                                deferredImageRequests = deferredImages,
+                            )
                         }
                     }
+                    // Never append already elapsed timestamps after asynchronous preparation.
+                    val readyTime = SystemClock.elapsedRealtime() - startTime + 50L
+                    batch.forEach {
+                        it.showAtTime = maxOf(it.showAtTime, readyTime)
+                        activeItems.addLast(it)
+                    }
                     appendLiveDanmakuBatch(batch, currentEngine::append)
+                    deferredImages.forEach { it() }
                 }
 
                 var trimBefore = currentTime - LIVE_HISTORY_MS
@@ -242,7 +254,8 @@ private fun createLiveDanmakuItem(
     engine: DanmakuEngine,
     textSize: Float,
     fontWeight: Int,
-    staticDanmakuToScroll: Boolean
+    staticDanmakuToScroll: Boolean,
+    deferredImageRequests: MutableList<() -> Unit>,
 ): DanmakuItem {
     val layerType = resolveDanmakuRenderLayerType(item.mode, staticDanmakuToScroll)
     val textColor = if (item.color == 0) AndroidColor.WHITE else (0xFF000000 or item.color.toLong()).toInt()
@@ -268,6 +281,7 @@ private fun createLiveDanmakuItem(
         showAtTime = showAtTime,
         enableEmoticon = !item.emoticonUrl.isNullOrBlank(),
         typeface = resolveDanmakuTypeface(fontWeight),
+        deferredImageRequests = deferredImageRequests,
         onUpdate = engine::invalidate
     ).apply { isSelf = item.isSelf }
 }

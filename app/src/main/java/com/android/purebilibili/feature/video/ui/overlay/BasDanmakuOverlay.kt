@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
+import com.android.purebilibili.danmaku.parser.TimedDanmakuWindow
 import com.android.purebilibili.danmaku.parser.bas.BasDanmaku
 import com.android.purebilibili.danmaku.parser.bas.BasTarget
 import com.android.purebilibili.feature.video.danmaku.DanmakuViewport
@@ -70,7 +71,7 @@ fun BasDanmakuOverlay(
             } else if (view.hasActiveScene) {
                 withFrameNanos { }
             } else {
-                val next = items.asSequence().map { it.startTimeMs }.filter { it > position }.minOrNull()
+                val next = view.nextSceneTimeMs
                 if (next == null) wake.receive()
                 else {
                     val speed = player.playbackParameters.speed.coerceAtLeast(0.01f)
@@ -92,6 +93,13 @@ fun BasDanmakuOverlay(
 
 private class BasOverlayView(context: Context, private val player: Player) : View(context) {
     private var items: List<BasDanmaku> = emptyList()
+    private var window = sceneWindow(items)
+    val nextSceneTimeMs: Long? get() = window.nextStartTimeMs
+
+    private fun sceneWindow(items: List<BasDanmaku>) = TimedDanmakuWindow(items,
+        startTimeMs = { it.startTimeMs },
+        endTimeMs = { it.startTimeMs + it.durationMs - 1L },
+    )
     private val painters = java.util.IdentityHashMap<BasDanmaku, BasScenePainter>()
     private val active = ArrayList<BasScenePainter>()
     private var viewport: DanmakuViewport? = null
@@ -111,10 +119,13 @@ private class BasOverlayView(context: Context, private val player: Player) : Vie
     fun configure(items: List<BasDanmaku>, viewport: DanmakuViewport, opacity: Float, fontScale: Float, fontWeight: Int) {
         if (this.items !== items) {
             this.items = items
+            window = sceneWindow(items)
+            val retained = java.util.IdentityHashMap<BasDanmaku, Boolean>()
+            items.forEach { retained[it] = true }
             val iterator = painters.keys.iterator()
             while (iterator.hasNext()) {
                 val cached = iterator.next()
-                if (items.none { it === cached }) iterator.remove()
+                if (!retained.containsKey(cached)) iterator.remove()
             }
         }
         this.viewport = viewport
@@ -126,10 +137,8 @@ private class BasOverlayView(context: Context, private val player: Player) : Vie
     fun frame(positionMs: Long) {
         val stage = viewport ?: return
         active.clear()
-        for (index in items.indices) {
-            val item = items[index]
+        for (item in window.update(positionMs)) {
             val relative = positionMs - item.startTimeMs
-            if (relative < 0L || relative >= item.durationMs) continue
             val painter = painters.getOrPut(item) { BasScenePainter(item) }
             painter.update(relative, stage.widthPx.toFloat(), stage.heightPx.toFloat(), opacity, fontScale, fontWeight)
             active.add(painter)

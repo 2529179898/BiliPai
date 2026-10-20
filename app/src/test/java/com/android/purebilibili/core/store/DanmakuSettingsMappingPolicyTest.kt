@@ -223,7 +223,7 @@ class DanmakuSettingsMappingPolicyTest {
     }
 
     @Test
-    fun sharedPreferences_useLandscapeValueForBothScopes() {
+    fun sharedPreferences_keepFontScaleIndependentWhileSharingEnabledLineHeightAndArea() {
         val prefs = mutablePreferencesOf(
             booleanPreferencesKey("danmaku_portrait_enabled") to true,
             booleanPreferencesKey("danmaku_landscape_enabled") to false,
@@ -247,7 +247,7 @@ class DanmakuSettingsMappingPolicyTest {
 
         assertFalse(portrait.enabled)
         assertFalse(landscape.enabled)
-        assertEquals(1.6f, portrait.fontScale)
+        assertEquals(0.9f, portrait.fontScale)
         assertEquals(1.6f, landscape.fontScale)
         assertEquals(1.1f, portrait.lineHeight)
         assertEquals(1.1f, landscape.lineHeight)
@@ -259,6 +259,40 @@ class DanmakuSettingsMappingPolicyTest {
         assertEquals(3.8f, propertyValue<Float>(landscape, "strokeWidth"))
         assertEquals(listOf("竖屏"), portrait.blockRules)
         assertEquals(listOf("横屏"), landscape.blockRules)
+    }
+
+    @Test
+    fun firstFontScaleEditPreservesTheOtherOrientationForEveryLegacySource() {
+        for (editedScope in DanmakuSettingsScope.entries) {
+            for (legacyKey in listOf(
+                "danmaku_font_scale",
+                "danmaku_portrait_font_scale",
+                "danmaku_landscape_font_scale",
+            )) {
+                val prefs = mutablePreferencesOf(floatPreferencesKey(legacyKey) to 1.4f)
+                SettingsManager.updateDanmakuFontScalePreferences(prefs, 0.8f, editedScope)
+                val otherScope = if (editedScope == portraitScope) landscapeScope else portraitScope
+                assertEquals(0.8f, mapDanmakuSettingsFromPreferences(prefs, editedScope).fontScale)
+                assertEquals(1.4f, mapDanmakuSettingsFromPreferences(prefs, otherScope).fontScale)
+                SettingsManager.updateDanmakuFontScalePreferences(prefs, 1.7f, otherScope)
+                assertEquals(0.8f, mapDanmakuSettingsFromPreferences(prefs, editedScope).fontScale)
+                assertEquals(1.7f, mapDanmakuSettingsFromPreferences(prefs, otherScope).fontScale)
+            }
+        }
+    }
+
+    @Test
+    fun firstFontScaleEditKeepsDefaultForUntouchedOrientationAndClampsEditedValue() {
+        for (editedScope in DanmakuSettingsScope.entries) {
+            val prefs = mutablePreferencesOf()
+            val otherScope = if (editedScope == portraitScope) landscapeScope else portraitScope
+            SettingsManager.updateDanmakuFontScalePreferences(prefs, 5f, editedScope)
+            assertEquals(2f, mapDanmakuSettingsFromPreferences(prefs, editedScope).fontScale)
+            assertEquals(1f, mapDanmakuSettingsFromPreferences(prefs, otherScope).fontScale)
+            SettingsManager.updateDanmakuFontScalePreferences(prefs, Float.NaN, editedScope)
+            assertEquals(1f, mapDanmakuSettingsFromPreferences(prefs, editedScope).fontScale)
+            assertEquals(1f, mapDanmakuSettingsFromPreferences(prefs, otherScope).fontScale)
+        }
     }
 
     @Test

@@ -145,6 +145,19 @@ class DanmakuController(private var mDanmakuView: View): ConfigChangeListener, I
         if (mIsPlaying) mDanmakuView.postInvalidateCompat()
     }
 
+    /** Replace only mask data; active ordinary lines and their cursor stay untouched. */
+    fun replaceMaskData(dataList: List<DanmakuData>, playTime: Long) {
+        mRenderEngine.clear(LAYER_TYPE_MASK)
+        mDataManager.replaceMasks(dataList, playTime)
+        mRenderEngine.addItems(playTime, mDataManager.queryMasks(playTime))
+        mDanmakuView.postInvalidateCompat()
+    }
+
+    fun seekTimeline(playTime: Long) {
+        mDataManager.seekTo(playTime)
+        mDanmakuView.postInvalidateCompat()
+    }
+
     /** Reanchors the media clock while preserving the active render lines. */
     fun synchronizeTo(playTime: Long) {
         mDataManager.synchronizePlayTime(playTime)
@@ -242,7 +255,13 @@ class DanmakuController(private var mDanmakuView: View): ConfigChangeListener, I
         mDanmakuView.postInvalidateCompat()
     }
 
+    private var lastLayoutWidth = -1
+    private var lastLayoutHeight = -1
+
     internal fun onLayoutSizeChanged(width: Int, height: Int) {
+        if (width == lastLayoutWidth && height == lastLayoutHeight) return
+        lastLayoutWidth = width
+        lastLayoutHeight = height
         mRenderEngine.onLayoutSizeChanged(width, height)
         mRenderEngine.typesetting(mDataManager.queryPlayTime(), false, true)
         mDanmakuView.postInvalidateCompat()

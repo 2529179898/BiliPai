@@ -18,7 +18,6 @@ package com.bytedance.danmaku.render.engine
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
-import android.os.Build
 import android.os.Looper
 import android.os.SystemClock
 import android.view.Choreographer
@@ -55,12 +54,6 @@ class DanmakuView @JvmOverloads constructor(context: Context,
                 cadence.onFrame(timeNs)
                 invalidate()
             } else enqueueFrame()
-        }
-    }
-
-    init {
-        if (Build.VERSION.SDK_INT >= 35) {
-            requestedFrameRate = View.REQUESTED_FRAME_RATE_CATEGORY_NORMAL
         }
     }
 
