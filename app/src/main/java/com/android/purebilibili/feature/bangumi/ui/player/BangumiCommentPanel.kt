@@ -198,7 +198,6 @@ internal fun BangumiCommentPanel(
                         liquidGlassEnabled = liquidGlassEnabled,
                         listAtTop = listAtTop,
                         motionEnabled = motionEnabled,
-                        showNativeTitle = listAtTop,
                         compactTitleTypography = true,
                         modifier = Modifier.fillMaxWidth(),
                     )

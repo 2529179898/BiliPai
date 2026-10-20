@@ -913,6 +913,7 @@ internal fun VideoCommentMainList(
             },
             onSearchClick = { showCommentSearchSheet = true },
             compactTypography = true,
+            scrollState = listState,
             modifier = Modifier
                 .fillMaxWidth()
                 .then(headerDragModifier),

@@ -2202,6 +2202,8 @@ SettingsItemAnchor("playback.portrait_player_collapse_mode") {
                 title = playbackSettingTitle("playback.video_detail_chrome_scroll_hide_enabled"),
                 subtitle = if (videoDetailChromeScrollHideEnabled) {
                     "浏览下方评论时收起顶栏，回到顶部恢复"
+                } else if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+                    "顶栏始终显示，玻璃评论栏仍随滚动收起"
                 } else {
                     "顶栏和评论排序始终显示"
                 },

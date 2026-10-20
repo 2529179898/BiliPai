@@ -711,13 +711,13 @@ internal fun VideoContentSection(
         scrollableState = commentListState,
         stateName = "video_detail:comment_scroll"
     )
-    val isIntroListScrolling by remember {
+    val isIntroListScrolling by remember(introListState) {
         derivedStateOf { introListState.isScrollInProgress }
     }
-    val isCommentListScrolling by remember {
+    val isCommentListScrolling by remember(commentListState) {
         derivedStateOf { commentListState.isScrollInProgress }
     }
-    val videoDetailMotionBudget by remember {
+    val videoDetailMotionBudget by remember(pagerState, introListState, commentListState) {
         derivedStateOf {
             resolveVideoDetailMotionBudget(
                 isTabSwitching = pagerState.isScrollInProgress,
@@ -726,7 +726,7 @@ internal fun VideoContentSection(
         }
     }
     val animateVideoDetailLayout = shouldAnimateVideoDetailLayout(videoDetailMotionBudget)
-    val lightweightCommentRendering by remember {
+    val lightweightCommentRendering by remember(pagerState, isVideoPlaying, commentListState) {
         derivedStateOf {
             shouldUseLightweightCommentRendering(
                 selectedTabIndex = pagerState.currentPage,
@@ -817,8 +817,8 @@ internal fun VideoContentSection(
     // 评论 Tab：「简介|评论」分段 nestedScroll 跟手折叠/展开，反向滑动立即打断。
     val density = LocalDensity.current
     var tabBarMaxHeightPx by remember { mutableFloatStateOf(0f) }
-    var tabBarCollapsePx by remember { mutableFloatStateOf(0f) }
-    val commentListAtTop by remember {
+    var tabBarCollapsePx by remember(commentListState) { mutableFloatStateOf(0f) }
+    val commentListAtTop by remember(commentListState) {
         derivedStateOf {
             isVideoContentCommentListAtTop(
                 firstVisibleItemIndex = commentListState.firstVisibleItemIndex,
@@ -846,7 +846,7 @@ internal fun VideoContentSection(
     val tabBarScrollHideEnabled by SettingsManager
         .getVideoDetailChromeScrollHideEnabled(context)
         .collectAsStateWithLifecycle(initialValue = false)
-    val tabBarCollapseEnabled by remember(tabBarScrollHideEnabled) {
+    val tabBarCollapseEnabled by remember(tabBarScrollHideEnabled, pagerState) {
         derivedStateOf {
             shouldKeepVideoContentTabBarCollapse(
                 settingEnabled = tabBarScrollHideEnabled,
@@ -855,7 +855,7 @@ internal fun VideoContentSection(
         }
     }
     // 离开评论列表顶部时钳到全收；回到简介 Tab 时复位展开。
-    LaunchedEffect(tabBarCollapseEnabled, commentListAtTop, tabBarMaxHeightPx) {
+    LaunchedEffect(commentListState, tabBarCollapseEnabled, commentListAtTop, tabBarMaxHeightPx) {
         tabBarCollapsePx = resolveVideoContentTabBarCollapsePxWhenListLeavesTop(
             collapsePx = tabBarCollapsePx,
             maxCollapsePx = tabBarMaxHeightPx,
@@ -864,6 +864,8 @@ internal fun VideoContentSection(
         )
     }
     val tabBarCollapseConnection = remember(
+        pagerState,
+        commentListState,
         tabBarCollapseEnabled,
         commentListAtTop,
         tabBarMaxHeightPx,
@@ -911,7 +913,7 @@ internal fun VideoContentSection(
     val tabBarVisibleHeightPx = {
         (tabBarMaxHeightPx - tabBarCollapsePx).coerceAtLeast(0f)
     }
-    val pageContentPadding = remember(density, bottomContentPadding, immersiveVideoContentChromeEnabled) {
+    val pageContentPadding = remember(density, bottomContentPadding, immersiveVideoContentChromeEnabled, commentListState) {
         videoContentPadding(
             topPx = { if (immersiveVideoContentChromeEnabled) tabBarVisibleHeightPx() else 0f },
             bottom = bottomContentPadding,
@@ -1217,7 +1219,6 @@ internal fun VideoContentSection(
                     liquidGlassEnabled = liquidGlassEnabled,
                     listAtTop = commentListAtTop,
                     motionEnabled = commentChromeMotionEnabled,
-                    showNativeTitle = immersiveVideoContentChromeEnabled && commentListAtTop,
                     compactTitleTypography = true,
                 )
             }
@@ -1494,9 +1495,6 @@ private fun VideoIntroTab(
                 animateVideoDetailLayout = animateVideoDetailLayout
             )
         }
-        item(key = "video_related_header", contentType = "video_related_header") {
-            VideoRecommendationHeader()
-        }
 
         // Keep loaded rows and their keys even while expensive images/shared bounds wait
         // for the entry handoff. Network loading uses the same card geometry per lazy row.
@@ -1652,12 +1650,14 @@ internal fun VideoCommentTab(
                     onSortModeChange = onSortModeChange,
                     onSearchClick = onSearchClick,
                     compactTypography = compactSortHeader,
+                    scrollState = listState,
                 )
             } else {
                 CommentListHeader(
                     count = replyCount,
                     title = "${sortMode.label}评论",
                     compactTypography = compactSortHeader,
+                    scrollState = listState,
                 )
             }
         } else if (showHeader) {
@@ -1665,6 +1665,7 @@ internal fun VideoCommentTab(
                 count = replyCount,
                 title = "${sortMode.label}评论",
                 compactTypography = compactSortHeader,
+                scrollState = listState,
             )
         }
         val commentContentPadding = remember(contentPadding, floatingHeaderContentPadding) {
@@ -1927,6 +1928,7 @@ internal fun LandscapeCommentPanel(
                         }
                     }
                     CommentSortFilterBar(
+                        scrollState = listState,
                         sortMode = sortMode,
                         onSortModeChange = onSortModeChange,
                         modifier = Modifier
@@ -2322,33 +2324,6 @@ internal fun VideoContentTabBar(
                     )
                 }
             }
-        }
-    }
-}
-
-/**
- * 推荐视频标题
- */
-@Composable
-private fun VideoRecommendationHeader() {
-    val isMaterial3 = LocalAppUiStyle.current == AppUiStyle.MATERIAL3
-    val horizontalPadding = if (isMaterial3) 16.dp else 12.dp
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(
-                start = horizontalPadding,
-                end = horizontalPadding,
-                top = if (isMaterial3) 8.dp else 6.dp,
-                bottom = 4.dp,
-            ),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AppText(
-                text = "相关推荐",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = AppContentColors.primaryText()
-            )
         }
     }
 }

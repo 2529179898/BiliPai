@@ -63,9 +63,6 @@ fun AppLiquidAwareSearchField(
         ),
         isScrollInProgressProvider = isScrollInProgressProvider,
     ) { liquidChromeActive ->
-        // Material boundary: compact geometry belongs only to enabled liquid chrome.
-        // Disabled MD3/Miuix must always use their original input and default dimensions,
-        // even when a page supplies a glass-specific compactHeight override.
         if (liquidChromeActive) {
             CompactLiquidSearchInput(
                 query = query,
@@ -81,23 +78,29 @@ fun AppLiquidAwareSearchField(
                 leadingIconHorizontalOffset = leadingIconHorizontalOffset,
             )
         } else {
-            AppSearchField(
-                query = query,
-                onQueryChange = onQueryChange,
+            // All three materials now share compact inline geometry. Theme colors and
+            // native MD3/Miuix shapes remain owned by the compact input renderer.
+            AppCompactInputField(
+                value = query,
+                onValueChange = onQueryChange,
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = placeholder,
-                onSearch = onSearch,
-                onClear = onClear,
-                presentation = presentation,
-                autoFocusEnabled = autoFocusEnabled,
+                height = liquidHeight,
+                containerColor = com.android.purebilibili.core.ui.AppSurfaceTokens.searchContainer(),
                 focusRequester = focusRequester,
+                autoFocusEnabled = autoFocusEnabled,
                 interactionSource = interactionSource,
-                leadingIconHorizontalOffset = leadingIconHorizontalOffset,
-                containerColor = if (liquidChromeActive) {
-                    liquidContentContainerColor
-                } else {
-                    Color.Unspecified
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                leadingIcon = {
+                    AppIcon(Icons.Default.Search, contentDescription = null,
+                        modifier = Modifier.padding(start = leadingIconHorizontalOffset).size(22.dp))
                 },
+                trailingIcon = if (presentation != AppSearchFieldPresentation.TOP_BAR && query.isNotEmpty()) {
+                    { AppIconButton(onClick = onClear, modifier = Modifier.size(32.dp)) {
+                        AppIcon(Icons.Default.Clear, contentDescription = "清除搜索内容")
+                    } }
+                } else null,
             )
         }
     }

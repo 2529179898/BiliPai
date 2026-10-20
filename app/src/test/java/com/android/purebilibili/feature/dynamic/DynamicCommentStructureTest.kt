@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 class DynamicCommentStructureTest {
 
     @Test
-    fun `comment input uses Miuix text field only in non glass mode`() {
+    fun `comment input is compact across materials and guards IME submission`() {
         val source = File(
             "src/main/java/com/android/purebilibili/feature/dynamic/components/DynamicCommentSheet.kt"
         ).readText()
@@ -15,14 +15,16 @@ class DynamicCommentStructureTest {
             .substringAfter("private fun DynamicCommentComposer(")
             .substringBefore("/**\n *  单条评论项")
 
-        assertTrue(composer.contains("val useMiuixNonGlassInput = isMiuixNonGlassEnabled()"))
-        assertTrue(composer.contains("if (useMiuixNonGlassInput)"))
-        assertTrue(composer.contains("AppOutlinedTextField("))
-        assertTrue(composer.contains("placeholderText = hint"))
-        assertTrue(composer.contains("OutlinedTextField("))
-        assertTrue(composer.contains("focusedContainerColor = fieldColor"))
+        assertTrue(composer.contains("AppCompactInputField("))
+        assertTrue(composer.contains("height = 40.dp"))
+        assertTrue(!composer.contains("OutlinedTextField("))
+        assertTrue(composer.contains("BasicTextField("))
+        assertTrue(composer.contains("focusRequester = focusRequester"))
         assertTrue(composer.contains("KeyboardOptions(imeAction = ImeAction.Send)"))
-        assertTrue(composer.contains("resolveDynamicCommentImeSubmission(value)?.let(onSubmit)"))
+        assertTrue(composer.contains("KeyboardActions(onSend = { submit() })"))
+        assertTrue(composer.contains("if (isSending || (value.isBlank() && selectedImages.isEmpty())) return"))
+        assertTrue(composer.contains("AppFilledIconButton("))
+        assertTrue(composer.contains("stateDescription = \"正在发送\""))
     }
 
     @Test
@@ -87,11 +89,10 @@ class DynamicCommentStructureTest {
         assertTrue(composer.contains("liquidGlassEnabled = liquidGlassEnabled"))
         assertTrue(source.contains("shouldUseFloatingLiquidBottomInputBar("))
         assertTrue(source.contains("resolveBottomInputBarContentBottomPadding("))
-        assertTrue(source.contains("val detailCommentBackdrop = rememberLayerBackdrop()"))
-        assertTrue(source.contains(".layerBackdrop(detailCommentBackdrop)"))
-        assertTrue(source.contains("contentPadding = PaddingValues(bottom = commentContentBottomPadding)"))
-        assertTrue(source.contains("widthIn(max = 360.dp)"))
-        assertTrue(!source.contains(".weight(1f)"))
+        assertTrue(source.contains("if (liquidGlassEnabled) rememberChromeBackdropSource() else null"))
+        assertTrue(source.contains("detailCommentSource.modifier.sharedGlobalWallpaperBackground(MaterialTheme.colorScheme.background)"))
+        assertTrue(!source.contains(".layerBackdrop(detailCommentBackdrop)"))
+        assertTrue(source.contains("bottom = commentContentBottomPadding"))
 
         val componentSource = File(
             "src/main/java/com/android/purebilibili/feature/dynamic/components/DynamicCommentSheet.kt"
@@ -100,17 +101,16 @@ class DynamicCommentStructureTest {
             .substringAfter("private fun DynamicCommentComposer(")
             .substringBefore("/**\n *  单条评论项")
         assertTrue(inputComposer.split("BottomBarMatchedReusableLiquidDock(").size - 1 == 2)
-        assertTrue(inputComposer.contains("reuseEnabled = liquidGlassEnabled"))
+        assertTrue(inputComposer.contains("reuseEnabled = useLiquidGlassComposer"))
         assertTrue(inputComposer.contains("backdrop = backdrop"))
         assertTrue(inputComposer.contains("drawShellLens = true"))
-        assertTrue(!inputComposer.contains("drawShellLens = false"))
         assertTrue(inputComposer.contains("shellLensIntensity = composerLensIntensity"))
-        assertTrue(inputComposer.contains("resolveSharedBottomBarCapsuleShape()"))
-        assertTrue(inputComposer.contains("containerColor = Color.Transparent"))
-        assertTrue(inputComposer.contains("fieldTextColor.copy(alpha = 0.82f)"))
-        assertTrue(inputComposer.contains("focusedTextColor = fieldTextColor"))
-        assertTrue(inputComposer.contains("disabledContentColor = AppContentColors.primaryText().copy("))
-        assertTrue(inputComposer.contains("AppSpacingTokens.TripleExtraLarge + AppSpacingTokens.Small"))
+        assertTrue(!inputComposer.contains("protectTextInputBackground"))
+        assertTrue(inputComposer.contains("AppFilledIconButton("))
+        assertTrue(inputComposer.contains("AppCircularProgressIndicator("))
+        assertTrue(inputComposer.contains("leadingIcon = photoAction"))
+        assertTrue(inputComposer.contains("readOnly = isSending"))
+
     }
 
     @Test

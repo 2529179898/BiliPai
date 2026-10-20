@@ -100,8 +100,8 @@ import com.android.purebilibili.feature.video.ui.components.shouldUseFloatingLiq
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import com.android.purebilibili.core.ui.blur.rememberChromeBackdropSource
+import com.android.purebilibili.core.ui.wallpaper.sharedGlobalWallpaperBackground
 
 internal fun resolveDynamicDetailBottomBarColor(
     uiStyle: AppUiStyle,
@@ -156,7 +156,17 @@ fun DynamicDetailScreen(
     val liquidGlassEnabled = homeSettings.androidNativeLiquidGlassEnabled
     // Only scrolling content captures this backdrop. The comment controls remain sibling
     // overlays, matching video detail and preventing a RenderNode backdrop cycle.
-    val detailCommentBackdrop = if (liquidGlassEnabled) rememberLayerBackdrop() else null
+    // Record a complete viewport, including its background. Capturing only the transparent
+    // LazyColumn leaves sparse glyph/image bounds as filter input; edge-clamped sampling
+    // can then stretch those bounds into rectangular bands inside the glass.
+    // The composer stays outside this source to prevent sampling itself.
+    val detailCommentSource = if (liquidGlassEnabled) rememberChromeBackdropSource() else null
+    val detailCommentBackdrop = detailCommentSource?.backdrop
+    val detailCommentSourceModifier = if (detailCommentSource != null) {
+        detailCommentSource.modifier.sharedGlobalWallpaperBackground(MaterialTheme.colorScheme.background)
+    } else {
+        Modifier
+    }
     val gifImageLoader = context.imageLoader
     val defaultDetailImageLayout by SettingsManager.getDynamicDetailImageLayout(context)
         .collectAsStateWithLifecycle(
@@ -571,7 +581,7 @@ fun DynamicDetailScreen(
                                                     .fillMaxSize()
                                                     .then(
                                                         if (detailCommentBackdrop != null) {
-                                                            Modifier.layerBackdrop(detailCommentBackdrop)
+                                                            detailCommentSourceModifier
                                                         } else {
                                                             Modifier
                                                         }
@@ -660,7 +670,7 @@ fun DynamicDetailScreen(
                                         .fillMaxSize()
                                         .then(
                                             if (floatingCommentComposer && detailCommentBackdrop != null) {
-                                                Modifier.layerBackdrop(detailCommentBackdrop)
+                                                detailCommentSourceModifier
                                             } else {
                                                 Modifier
                                             }

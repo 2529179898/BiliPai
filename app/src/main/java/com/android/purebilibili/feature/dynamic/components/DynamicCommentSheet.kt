@@ -40,6 +40,13 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.foundation.shape.CircleShape
+import com.android.purebilibili.core.ui.components.AppFilledIconButton
+import com.android.purebilibili.core.ui.components.AppIconButtonDefaults
+import com.android.purebilibili.core.ui.components.AppCircularProgressIndicator
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -52,6 +59,10 @@ import com.android.purebilibili.core.ui.components.AppTextButton
 import com.android.purebilibili.core.ui.components.AppDropdownMenu
 import com.android.purebilibili.core.ui.components.AppDropdownMenuItem
 import androidx.compose.runtime.*
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,7 +86,6 @@ import com.android.purebilibili.feature.dynamic.resolveDynamicCommentComposerHin
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentCountLabel
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentEmptyLabel
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentLocationLabel
-import com.android.purebilibili.feature.dynamic.resolveDynamicCommentImeSubmission
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentSheetTotalCount
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentSheetHostContent
 import com.android.purebilibili.feature.dynamic.resolveDynamicCommentSkeletonSlotCount
@@ -139,7 +149,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.TextStyle
 import kotlinx.coroutines.delay
 
 @Composable
@@ -1053,17 +1062,23 @@ private fun DynamicCommentComposer(
     }
     val canSend = !isSending && (value.isNotBlank() || selectedImages.isNotEmpty())
     fun submit() {
-        if (!canSend) return
+        // Read current state again: two IME/tap events can arrive before recomposition.
+        if (isSending || (value.isBlank() && selectedImages.isEmpty())) return
         isSending = true
         onSubmit(value.trim(), selectedImages) { success ->
             if (success) selectedImages = emptyList()
             isSending = false
         }
     }
-    val useMiuixNonGlassInput = isMiuixNonGlassEnabled()
     val dockShape = resolveSharedBottomBarCapsuleShape()
-    val composerHeight = AppSpacingTokens.TripleExtraLarge + AppSpacingTokens.Small
-    val composerLensIntensity = resolveFloatingDockGeometryScale(composerHeight.value)
+    val useLiquidGlassComposer = liquidGlassEnabled && LocalAppThemeConfig.current.liquidGlassEnabled
+    // All materials use a 40dp visible input inside a 48dp interaction row.
+    // Native inputs use compact decoration instead of clipping a full-height field.
+    val composerHeight = 48.dp
+    val glassControlSize = 40.dp
+    val composerLensIntensity = resolveFloatingDockGeometryScale(
+        if (useLiquidGlassComposer) glassControlSize.value else composerHeight.value
+    )
     Column(
         modifier = modifier,
     ) {
@@ -1097,112 +1112,30 @@ private fun DynamicCommentComposer(
                 }
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            val commentFieldContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-            BottomBarMatchedReusableLiquidDock(
-                shape = dockShape,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(composerHeight)
-                    .then(
-                        if (!liquidGlassEnabled) {
-                            Modifier
-                                .clip(dockShape)
-                                .background(commentFieldContainerColor)
-                        } else {
-                            Modifier
-                        }
-                    ),
-                reuseEnabled = liquidGlassEnabled,
-                backdrop = backdrop,
-                drawShellLens = true,
-                shellLensIntensity = composerLensIntensity,
-            ) { liquidChromeActive ->
-                val fieldColor = if (liquidChromeActive) Color.Transparent else commentFieldContainerColor
-                val fieldTextColor = AppContentColors.primaryText()
-                val placeholderColor = if (liquidChromeActive) {
-                    fieldTextColor.copy(alpha = 0.82f)
-                } else {
-                    AppContentColors.secondaryText()
-                }
-                val keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send)
-                val keyboardActions = KeyboardActions(
-                    onSend = {
-                        if (resolveDynamicCommentImeSubmission(value) != null || selectedImages.isNotEmpty()) submit()
-                    },
+        if (onClearReplyTarget != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppText(
+                    text = hint,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = AppContentColors.secondaryText(),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                if (useMiuixNonGlassInput) {
-                    AppOutlinedTextField(
-                        value = value,
-                        onValueChange = { if (!isSending) onValueChange(it) },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-                        placeholderText = hint,
-                        singleLine = true,
-                        keyboardOptions = keyboardOptions,
-                        keyboardActions = keyboardActions,
-                        shape = dockShape,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = fieldTextColor
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = fieldColor,
-                            unfocusedContainerColor = fieldColor,
-                            disabledContainerColor = fieldColor,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            disabledBorderColor = Color.Transparent,
-                            focusedTextColor = fieldTextColor,
-                            unfocusedTextColor = fieldTextColor,
-                            disabledTextColor = fieldTextColor.copy(alpha = 0.72f),
-                            focusedPlaceholderColor = placeholderColor,
-                            unfocusedPlaceholderColor = placeholderColor,
-                            disabledPlaceholderColor = placeholderColor,
-                            cursorColor = fieldTextColor,
-                        ),
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = value,
-                        onValueChange = { if (!isSending) onValueChange(it) },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-                        placeholder = {
-                            AppText(
-                                text = hint,
-                                color = placeholderColor,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
-                        singleLine = true,
-                        keyboardOptions = keyboardOptions,
-                        keyboardActions = keyboardActions,
-                        shape = dockShape,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = fieldTextColor
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = fieldColor,
-                            unfocusedContainerColor = fieldColor,
-                            disabledContainerColor = fieldColor,
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            disabledBorderColor = Color.Transparent,
-                            focusedTextColor = fieldTextColor,
-                            unfocusedTextColor = fieldTextColor,
-                            disabledTextColor = fieldTextColor.copy(alpha = 0.72f),
-                            focusedPlaceholderColor = placeholderColor,
-                            unfocusedPlaceholderColor = placeholderColor,
-                            disabledPlaceholderColor = placeholderColor,
-                            cursorColor = fieldTextColor,
-                        ),
-                    )
+                AppIconButton(
+                    onClick = onClearReplyTarget,
+                    enabled = !isSending,
+                    modifier = Modifier.size(AppChromeSizeTokens.MinimumTouchTarget),
+                ) {
+                    AppIcon(rememberAppClearIcon(), contentDescription = "取消回复")
                 }
             }
-            if (onClearReplyTarget == null) {
+        }
+        val photoAction: (@Composable () -> Unit)? = if (onClearReplyTarget == null) {
+            {
                 AppIconButton(
                     onClick = {
                         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -1213,21 +1146,160 @@ private fun DynamicCommentComposer(
                     AppIcon(
                         Icons.Outlined.Image,
                         contentDescription = "添加图片，已选 ${selectedImages.size}/9 张",
+                        modifier = Modifier.size(22.dp),
                     )
                 }
             }
-            AppTextButton(
-                onClick = ::submit,
-                enabled = canSend,
-                modifier = Modifier.heightIn(min = AppChromeSizeTokens.MinimumTouchTarget),
-            ) { AppText("发送") }
-            if (onClearReplyTarget != null) {
-                AppIconButton(onClick = onClearReplyTarget, enabled = !isSending) {
-                    AppIcon(
-                        rememberAppClearIcon(),
-                        contentDescription = "取消回复",
-                        modifier = Modifier.size(AppSpacingTokens.Large)
+        } else null
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BottomBarMatchedReusableLiquidDock(
+                shape = dockShape,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(composerHeight)
+                    .padding(vertical = 4.dp),
+                reuseEnabled = useLiquidGlassComposer,
+                backdrop = backdrop,
+                drawShellLens = true,
+                shellLensIntensity = composerLensIntensity,
+            ) { liquidChromeActive ->
+                val fieldTextColor = AppContentColors.primaryText()
+                val placeholderColor = AppContentColors.secondaryText()
+                val keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send)
+                val keyboardActions = KeyboardActions(onSend = { submit() })
+                // Glass owns its shell; MD3/Miuix use compact themed inputs without
+                // imposing a stock 56dp field inside the smaller 40dp geometry.
+                if (liquidChromeActive) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = AppSpacingTokens.Small),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        photoAction?.invoke()
+                        BasicTextField(
+                            value = value,
+                            onValueChange = { if (!isSending) onValueChange(it) },
+                            readOnly = isSending,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
+                                .padding(horizontal = AppSpacingTokens.Small),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = fieldTextColor),
+                            cursorBrush = SolidColor(AppContentColors.accent()),
+                            keyboardOptions = keyboardOptions,
+                            keyboardActions = keyboardActions,
+                            decorationBox = { innerTextField ->
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.CenterStart,
+                                ) {
+                                    if (value.isEmpty()) {
+                                        AppText(
+                                            text = hint,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = placeholderColor,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            },
+                        )
+                    }
+                } else {
+                    com.android.purebilibili.core.ui.components.AppCompactInputField(
+                        value = value,
+                        onValueChange = { if (!isSending) onValueChange(it) },
+                        modifier = Modifier.fillMaxSize(),
+                        placeholder = hint,
+                        height = 40.dp,
+                        focusRequester = focusRequester,
+                        readOnly = isSending,
+                        leadingIcon = photoAction,
+                        keyboardOptions = keyboardOptions,
+                        keyboardActions = keyboardActions,
                     )
+                }
+            }
+            if (useLiquidGlassComposer) {
+                // A separate circular glass shell samples the page directly, not the input.
+                // Its 48dp click target stays fixed while the visible surface is only 40dp.
+                Box(
+                    modifier = Modifier
+                        .size(AppChromeSizeTokens.MinimumTouchTarget)
+                        .semantics {
+                            contentDescription = "发送评论"
+                            if (isSending) stateDescription = "正在发送"
+                        }
+                        .clickable(enabled = canSend, role = Role.Button, onClick = ::submit),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    BottomBarMatchedReusableLiquidDock(
+                        shape = CircleShape,
+                        modifier = Modifier.size(glassControlSize),
+                        reuseEnabled = useLiquidGlassComposer,
+                        backdrop = backdrop,
+                        drawShellLens = true,
+                        shellLensIntensity = resolveFloatingDockGeometryScale(glassControlSize.value),
+                        elasticFeedbackEnabled = canSend,
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            if (isSending) {
+                                AppCircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = AppContentColors.accent(),
+                                )
+                            } else {
+                                AppIcon(
+                                    Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = null,
+                                    tint = if (canSend) AppContentColors.accent()
+                                        else AppContentColors.secondaryText().copy(alpha = 0.5f),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                AppFilledIconButton(
+                    onClick = ::submit,
+                    enabled = canSend,
+                    modifier = Modifier
+                        .size(AppChromeSizeTokens.MinimumTouchTarget)
+                        .semantics {
+                            contentDescription = "发送评论"
+                            if (isSending) stateDescription = "正在发送"
+                        },
+                    colors = AppIconButtonDefaults.colors(
+                        disabledContainerColor = if (isSending) AppContentColors.accent()
+                            else MaterialTheme.colorScheme.surfaceContainerHighest,
+                        disabledContentColor = if (isSending) AppContentColors.onAccent()
+                            else AppContentColors.secondaryText(),
+                    ),
+                ) {
+                    if (isSending) {
+                        AppCircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = AppContentColors.onAccent(),
+                        )
+                    } else {
+                        AppIcon(
+                            Icons.AutoMirrored.Filled.Send,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
             }
         }

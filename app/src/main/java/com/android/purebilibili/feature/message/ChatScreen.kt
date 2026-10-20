@@ -21,6 +21,8 @@ import com.android.purebilibili.core.ui.components.AppLazyColumn as LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.appendInlineContent
@@ -679,12 +681,14 @@ fun ChatInputBar(
 
     val liquidGlassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
     val dockShape = resolveSharedBottomBarCapsuleShape()
-    val shellLensIntensity = resolveFloatingDockGeometryScale(CHAT_INPUT_DOCK_HEIGHT.value)
+    // All materials use compact input geometry; multiline messages can grow on demand.
+    val visibleDockHeight = 40.dp
+    val shellLensIntensity = resolveFloatingDockGeometryScale(visibleDockHeight.value)
     val panelColor = com.android.purebilibili.core.ui.globalWallpaperAwareChromeColor(
         AppSurfaceTokens.surface()
     )
     val keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send)
-    val keyboardActions = KeyboardActions(onSend = { onSend() })
+    val keyboardActions = KeyboardActions(onSend = { if (!isBusy && text.isNotBlank()) onSend() })
 
     Row(
         modifier = modifier
@@ -698,16 +702,7 @@ fun ChatInputBar(
             shape = dockShape,
             modifier = Modifier
                 .weight(1f)
-                .height(CHAT_INPUT_DOCK_HEIGHT)
-                .then(
-                    if (!liquidGlassEnabled) {
-                        Modifier
-                            .clip(dockShape)
-                            .background(panelColor)
-                    } else {
-                        Modifier
-                    }
-                ),
+                .heightIn(min = 40.dp, max = 112.dp),
             backdrop = backdrop,
             reuseEnabled = liquidGlassEnabled,
             drawShellLens = true,
@@ -720,48 +715,54 @@ fun ChatInputBar(
             } else {
                 AppContentColors.secondaryText()
             }
-            AppOutlinedTextField(
-                value = text,
-                onValueChange = onTextChange,
-                modifier = Modifier.fillMaxSize(),
-                placeholderText = "输入消息...",
-                maxLines = 4,
-                keyboardOptions = keyboardOptions,
-                keyboardActions = keyboardActions,
-                shape = dockShape,
-                miuixCornerRadius = CHAT_INPUT_DOCK_HEIGHT / 2,
-                miuixContainerColor = Color.Transparent,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(color = fieldTextColor),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = fieldColor,
-                    unfocusedContainerColor = fieldColor,
-                    disabledContainerColor = fieldColor,
-                    focusedBorderColor = if (liquidChromeActive) {
-                        Color.Transparent
-                    } else {
-                        AppContentColors.accent()
+            if (liquidChromeActive) {
+                BasicTextField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    readOnly = isBusy,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 40.dp, max = 112.dp)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    maxLines = 4,
+                    keyboardOptions = keyboardOptions,
+                    keyboardActions = keyboardActions,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = fieldTextColor),
+                    cursorBrush = SolidColor(AppContentColors.accent()),
+                    decorationBox = { innerTextField ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (text.isEmpty()) {
+                                AppText(
+                                    "输入消息...",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = placeholderColor,
+                                    maxLines = 1,
+                                )
+                            }
+                            innerTextField()
+                        }
                     },
-                    unfocusedBorderColor = if (liquidChromeActive) {
-                        Color.Transparent
-                    } else {
-                        MaterialTheme.colorScheme.outline
-                    },
-                    disabledBorderColor = Color.Transparent,
-                    focusedTextColor = fieldTextColor,
-                    unfocusedTextColor = fieldTextColor,
-                    disabledTextColor = fieldTextColor.copy(alpha = 0.72f),
-                    focusedPlaceholderColor = placeholderColor,
-                    unfocusedPlaceholderColor = placeholderColor,
-                    disabledPlaceholderColor = placeholderColor,
-                    cursorColor = fieldTextColor,
-                ),
-            )
+                )
+            } else {
+                com.android.purebilibili.core.ui.components.AppCompactInputField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 112.dp),
+                    placeholder = "输入消息...",
+                    containerColor = panelColor,
+                    readOnly = isBusy,
+                    singleLine = false,
+                    maxLines = 4,
+                    keyboardOptions = keyboardOptions,
+                    keyboardActions = keyboardActions,
+                )
+            }
         }
 
         BottomBarMatchedReusableLiquidDock(
             shape = CircleShape,
             modifier = Modifier
-                .size(CHAT_INPUT_DOCK_HEIGHT)
+                .size(visibleDockHeight)
                 .then(
                     if (!liquidGlassEnabled) {
                         Modifier

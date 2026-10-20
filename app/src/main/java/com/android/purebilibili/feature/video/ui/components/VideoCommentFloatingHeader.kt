@@ -34,7 +34,6 @@ internal fun VideoCommentFloatingHeader(
     liquidGlassEnabled: Boolean,
     listAtTop: Boolean,
     motionEnabled: Boolean,
-    showNativeTitle: Boolean,
     /** 详情页可在玻璃关闭时也使用紧凑标题；番剧等宿主保持原生默认。 */
     compactTitleTypography: Boolean = false,
     modifier: Modifier = Modifier,
@@ -52,17 +51,16 @@ internal fun VideoCommentFloatingHeader(
         modifier = modifier,
     ) {
         Box(Modifier.fillMaxWidth().heightIn(min = 46.dp)) {
-            if (liquidGlassEnabled || showNativeTitle) {
-                CommentListHeader(
-                    count = count,
-                    title = "${sortMode.label}评论",
-                    liquidGlassEffectsEnabled = liquidGlassEnabled,
-                    compactTypography = compactTitleTypography,
-                    modifier = Modifier.align(
-                        if (liquidGlassEnabled) Alignment.CenterStart else Alignment.TopStart
-                    ),
-                )
-            }
+            // 整栏的显隐统一由外层决定，原生标题不能再单独绑定 listAtTop。
+            CommentListHeader(
+                count = count,
+                title = "${sortMode.label}评论",
+                liquidGlassEffectsEnabled = liquidGlassEnabled,
+                compactTypography = compactTitleTypography,
+                modifier = Modifier.align(
+                    if (liquidGlassEnabled) Alignment.CenterStart else Alignment.TopStart
+                ),
+            )
             CommentSortFilterBar(
                 sortMode = sortMode,
                 onSortModeChange = onSortModeChange,

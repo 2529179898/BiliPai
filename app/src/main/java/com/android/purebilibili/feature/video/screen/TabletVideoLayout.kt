@@ -1158,6 +1158,7 @@ internal fun TabletSecondaryContent(
                                 },
                                 onSearchClick = { showCommentSearchSheet = true },
                                 compactTypography = true,
+                                scrollState = listState,
                             )
                             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             AdaptivePullToRefreshBox(
