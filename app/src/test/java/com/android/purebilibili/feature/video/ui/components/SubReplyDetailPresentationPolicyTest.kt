@@ -20,8 +20,6 @@ class SubReplyDetailPresentationPolicyTest {
     fun `sub reply prefetch continues when list cannot scroll but more replies remain`() {
         assertTrue(
             shouldPrefetchSubRepliesWhenListNotScrollable(
-                loadedReplyCount = 20,
-                totalReplyCount = 157,
                 isLoading = false,
                 isEnd = false,
                 canScrollForward = false
@@ -29,8 +27,6 @@ class SubReplyDetailPresentationPolicyTest {
         )
         assertFalse(
             shouldPrefetchSubRepliesWhenListNotScrollable(
-                loadedReplyCount = 20,
-                totalReplyCount = 157,
                 isLoading = false,
                 isEnd = false,
                 canScrollForward = true
@@ -39,21 +35,17 @@ class SubReplyDetailPresentationPolicyTest {
     }
 
     @Test
-    fun `sub reply manual load more appears while declared total exceeds loaded count`() {
+    fun `sub reply manual load more follows server end independently of display totals`() {
         assertTrue(
             shouldShowSubReplyManualLoadMore(
-                loadedReplyCount = 20,
-                totalReplyCount = 157,
                 isLoading = false,
                 isEnd = false
             )
         )
         assertFalse(
             shouldShowSubReplyManualLoadMore(
-                loadedReplyCount = 157,
-                totalReplyCount = 157,
                 isLoading = false,
-                isEnd = false
+                isEnd = true
             )
         )
     }

@@ -1,10 +1,12 @@
 package com.android.purebilibili.feature.dynamic
 
+import com.android.purebilibili.data.model.response.CommentMainListContinuation
 import com.android.purebilibili.data.model.response.DynamicItem
 import com.android.purebilibili.data.model.response.ReplyData
 import com.android.purebilibili.data.model.response.ReplyItem
 import com.android.purebilibili.feature.dynamic.components.DynamicCardPrimaryAction
 import com.android.purebilibili.feature.dynamic.components.resolveDynamicCardPrimaryAction
+import com.android.purebilibili.feature.video.viewmodel.SubReplyPageRequest
 import com.android.purebilibili.feature.video.viewmodel.SubReplyUiState
 import kotlinx.collections.immutable.toImmutableList
 import kotlin.math.ceil
@@ -28,7 +30,8 @@ internal data class DynamicCommentLoadAttempt(
     val candidateIndex: Int,
     val nextPage: Int = 2,
     val isEnd: Boolean = true,
-    val grpcNextOffset: String? = null
+    val grpcNextOffset: String? = null,
+    val mainListContinuation: CommentMainListContinuation? = null,
 )
 
 internal data class DynamicDetailInteractionModel(
@@ -82,30 +85,17 @@ internal fun selectPreferredDynamicCommentAttempt(
     )
 }
 
-internal fun resolveDynamicMainCommentPageEnd(
-    cursorIsEnd: Boolean,
-    fetchedReplyCount: Int,
-    loadedReplyCount: Int,
-    totalCount: Int
-): Boolean {
-    if (fetchedReplyCount <= 0) return true
-    if (totalCount > loadedReplyCount.coerceAtLeast(0)) {
-        return false
-    }
-    return cursorIsEnd
-}
-
 internal fun shouldLoadMoreDynamicDetailComments(
     lastVisibleIndex: Int,
     itemCount: Int,
-    loadedCount: Int,
-    totalCount: Int,
+    hasMore: Boolean,
     isLoading: Boolean,
     isLoadingMore: Boolean,
 ): Boolean {
     if (isLoading || isLoadingMore) return false
     if (itemCount <= 0 || lastVisibleIndex < 0) return false
-    if (loadedCount >= totalCount) return false
+    // 显示总数可能未知、滞后或包含楼中楼，不能充当分页边界。
+    if (!hasMore) return false
     return lastVisibleIndex >= itemCount - 4
 }
 
@@ -138,6 +128,7 @@ internal fun resolveDynamicSubReplyStateAfterSuccess(
         page = page,
         isEnd = isEnd,
         error = null,
+        retryRequest = null,
         baseItems = mergedItems.toImmutableList(),
         basePage = page,
         baseIsEnd = isEnd,
@@ -148,11 +139,13 @@ internal fun resolveDynamicSubReplyStateAfterSuccess(
 
 internal fun resolveDynamicSubReplyStateAfterFailure(
     currentState: SubReplyUiState,
-    errorMessage: String?
+    errorMessage: String?,
+    failedRequest: SubReplyPageRequest? = currentState.retryRequest,
 ): SubReplyUiState {
     return currentState.copy(
         isLoading = false,
-        error = errorMessage
+        error = errorMessage,
+        retryRequest = failedRequest,
     )
 }
 
@@ -171,6 +164,8 @@ internal data class DynamicCommentUiState(
     val isLoadingMore: Boolean = false,
     val refreshError: String? = null,
     val dynamicId: String? = null,
+    val hasMore: Boolean = false,
+    val nextPage: Int = 1,
 )
 
 /**
@@ -204,6 +199,7 @@ internal data class DynamicCommentCacheSnapshot(
     val grpcNextOffset: String?,
     val target: DynamicCommentTarget,
     val cachedAtMs: Long,
+    val mainListContinuation: CommentMainListContinuation? = null,
 )
 
 /**

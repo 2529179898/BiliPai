@@ -1095,6 +1095,7 @@ internal fun TabletSecondaryContent(
                         repliesError,
                         commentState.isRepliesEnd,
                         commentState.replies.size,
+                        commentState.nextPage,
                     ) {
                         if (
                             shouldLoadMore &&
@@ -1198,7 +1199,11 @@ internal fun TabletSecondaryContent(
                                             modifier = Modifier.weight(1f),
                                             style = MaterialTheme.typography.bodySmall,
                                         )
-                                        AppTextButton(onClick = commentActions.refreshComments) {
+                                        AppTextButton(onClick = {
+                                            if (commentState.replies.isNotEmpty() && !commentState.isRepliesEnd) {
+                                                commentActions.loadComments()
+                                            } else commentActions.refreshComments()
+                                        }) {
                                             AppText("重试")
                                         }
                                     }

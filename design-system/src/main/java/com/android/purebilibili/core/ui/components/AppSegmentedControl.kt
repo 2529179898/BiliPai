@@ -26,6 +26,8 @@ data class AppSegmentOption<T>(
     val label: String,
     /** 下拉 / 弹窗里的补充说明；分段控件忽略该字段。 */
     val description: String? = null,
+    /** Optional stable label used only to reserve glass geometry for asynchronous metadata. */
+    val measurementLabel: String? = null,
 )
 
 /**

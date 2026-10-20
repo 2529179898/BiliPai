@@ -22,15 +22,12 @@ fun QualitySelectionMenu(
         qualities.forEachIndexed { index, quality ->
             val qualityId = qualityIds.getOrNull(index) ?: 0
             val selected = quality == currentQuality
-            val hint = when {
-                (qualityId == 100 || qualityId >= 112) && !isVip -> "需要大会员"
-                qualityId >= 80 && !isLoggedIn -> "登录后可用"
-                // Some portrait playback paths do not provide the optional
-                // switchable list even though the API returned valid tracks.
-                // An empty list means "unknown", not "nothing is selectable".
-                switchableQualityIds.isNotEmpty() && qualityId !in switchableQualityIds -> "当前视频不可切换"
-                else -> null
-            }
+            val hint = qualityUnavailableReason(
+                qualityId = qualityId,
+                playableQualityIds = switchableQualityIds,
+                isLoggedIn = isLoggedIn,
+                isVip = isVip
+            )
             DropdownImpl(
                 item = DropdownItem(text = quality, summary = hint),
                 optionSize = qualities.size, isSelected = selected, index = index,

@@ -98,7 +98,7 @@ import com.android.purebilibili.feature.dynamic.components.RepostDialog
 import com.android.purebilibili.feature.video.ui.components.resolveBottomInputBarContentBottomPadding
 import com.android.purebilibili.feature.video.ui.components.shouldUseFloatingLiquidBottomInputBar
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -322,17 +322,18 @@ fun DynamicDetailScreen(
                         val activeState = if (useSplitLayout) commentListState else detailListState
                         val lastVisibleIndex = activeState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
                         val itemCount = activeState.layoutInfo.totalItemsCount
-                        shouldLoadMoreDynamicDetailComments(
-                            lastVisibleIndex = lastVisibleIndex,
-                            itemCount = itemCount,
-                            loadedCount = comments.size,
-                            totalCount = commentTotalCount,
-                            isLoading = commentsLoading || commentsRefreshing || commentsRefreshError != null,
-                            isLoadingMore = commentsLoadingMore,
-                        )
+                        // 在 snapshotFlow 内直接读最新 State，避免捕获入场时的 loading/列表快照。
+                        val current = commentUiState
+                        if (shouldLoadMoreDynamicDetailComments(
+                                lastVisibleIndex = lastVisibleIndex,
+                                itemCount = itemCount,
+                                hasMore = current.hasMore,
+                                isLoading = current.isLoading || current.isRefreshing || current.refreshError != null,
+                                isLoadingMore = current.isLoadingMore,
+                            )) current.nextPage else null
                     }
                         .distinctUntilChanged()
-                        .filter { it }
+                        .filterNotNull()
                         .collect {
                             interactionViewModel.loadMoreComments()
                         }

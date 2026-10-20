@@ -1,6 +1,7 @@
 package com.android.purebilibili.feature.home.components
 
 import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.ui.components.liquidDockViewport
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
@@ -255,19 +256,34 @@ internal fun HomeTopTabFloatingDock(
     )
     // Text-only glass shares segmented capsule geometry; native and icon navigation keep their original insets.
     val useTextSegmentedGeometry = liquidGlassEffectsEnabled && showText && !showIcon
+    val geometryMode = if (useTextSegmentedGeometry) {
+        FloatingBottomBarGeometryMode.Segmented
+    } else {
+        FloatingBottomBarGeometryMode.TopNavigation
+    }
+    val viewportModifier = if (liquidGlassEffectsEnabled && scrollState != null) {
+        // Own the optical clip at the page viewport, with the same press/velocity margins
+        // as the renderer. Native toolbar placement and clipping retain their existing path.
+        val captureInsets = resolveFloatingDockCaptureInsets(
+            shellHeightDp = dockHeight.value,
+            requestedIndicatorHeightDp = (dockHeight - AppSpacingTokens.ExtraSmall * 2).coerceAtLeast(0.dp).value,
+            indicatorWidthDp = (itemWidth ?: dockHeight).value,
+            geometryMode = geometryMode,
+        )
+        Modifier.liquidDockViewport(
+            verticalOverflow = captureInsets.verticalDp.dp,
+            horizontalOverflow = captureInsets.horizontalDp.dp,
+        )
+    } else Modifier
     BottomBarFloatingSegmentedControl(
         items = categories,
         selectedIndex = selectedIndex,
         onSelected = onSelected,
-        modifier = modifier,
+        modifier = modifier.then(viewportModifier),
         enabled = true,
         itemWidth = itemWidth,
         height = dockHeight,
-        geometryMode = if (useTextSegmentedGeometry) {
-            FloatingBottomBarGeometryMode.Segmented
-        } else {
-            FloatingBottomBarGeometryMode.TopNavigation
-        },
+        geometryMode = geometryMode,
         indicatorHeight = (dockHeight - AppSpacingTokens.ExtraSmall * 2).coerceAtLeast(0.dp),
         labelFontSize = labelFontSize,
         containerHorizontalPadding = horizontalPadding,

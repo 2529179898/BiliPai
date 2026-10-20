@@ -32,7 +32,7 @@ class DynamicCommentStructureTest {
 
         assertTrue(source.contains("val dynamicCommentSortMode: StateFlow<CommentSortMode>"))
         assertTrue(source.contains("fun setDynamicCommentSortMode(mode: CommentSortMode)"))
-        assertTrue(source.contains("commentNextPage = 1"))
+        assertTrue(source.contains("hasMore = false, nextPage = 1"))
         assertTrue(source.contains("commentGrpcNextOffset = null"))
         assertTrue(source.contains("loadCommentsForDynamic(item)"))
     }
@@ -42,8 +42,8 @@ class DynamicCommentStructureTest {
         val source = File("src/main/java/com/android/purebilibili/feature/dynamic/DynamicViewModel.kt")
             .readText()
 
-        assertTrue(source.contains("paginationOffset = state.grpcNextOffset"))
-        assertTrue(source.contains("CommentRepository.getSortedSubCommentsForSubject("))
+        assertTrue(source.contains("paginationOffset = request.offset"))
+        assertTrue(source.contains("CommentRepository.getMobileSortedSubCommentsForSubject("))
         assertTrue(source.contains("mode = sortMode.apiMode"))
         assertTrue(source.contains("grpcNextOffset = data.grpcNextOffset"))
     }

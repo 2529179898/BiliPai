@@ -478,6 +478,7 @@ internal class VideoContentCommentState(
     val dissolvingIds: Set<Long>,
     val likedComments: Set<Long>,
     val hatedComments: Set<Long>,
+    val nextPage: Int,
 )
 
 internal class VideoContentNoteState(
@@ -1044,6 +1045,7 @@ internal fun VideoContentSection(
                         isRepliesRefreshing = isRepliesRefreshing,
                         repliesError = repliesError,
                         isRepliesEnd = isRepliesEnd,
+                        paginationPage = commentState.nextPage,
                         voteCard = voteCard,
                         onUpClick = onUpClick,
                         onSubReplyClick = onSubReplyClick,
@@ -1146,6 +1148,12 @@ internal fun VideoContentSection(
         ) {
             VideoContentTabBar(
                 tabs = tabs,
+                measurementLabels = listOf(
+                    "简介",
+                    if (showVideoDetailCommentCount) {
+                        "评论 ${FormatUtils.formatStat(info.stat.reply.coerceAtLeast(0).toLong())}"
+                    } else "评论",
+                ),
                 replyCount = replyCount,
                 selectedTabIndex = pagerState.currentPage,
                 onTabSelected = onTabSelected,
@@ -1603,6 +1611,7 @@ internal fun VideoCommentTab(
     onSearchClick: (() -> Unit)? = null,
     pullToRefreshEnabled: Boolean = true,
     pinnedReplyIds: Set<Long> = emptySet(),
+    paginationPage: Int = 1,
 ) {
     val commentAppearance = rememberVideoCommentAppearance()
     val avatarPushEnabled = com.android.purebilibili.feature.video.ui.components.rememberCommentAvatarPushEnabled()
@@ -1629,7 +1638,7 @@ internal fun VideoCommentTab(
             )
         }
     }
-    LaunchedEffect(shouldLoadMore, isRepliesRefreshing, repliesError) {
+    LaunchedEffect(shouldLoadMore, isRepliesRefreshing, repliesError, paginationPage) {
         if (shouldLoadMore && !isRepliesRefreshing && repliesError == null) {
             onLoadMoreReplies()
         }
@@ -1688,7 +1697,9 @@ internal fun VideoCommentTab(
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        AppTextButton(onClick = onRefreshReplies) {
+                        AppTextButton(onClick = {
+                            if (replies.isNotEmpty() && !isRepliesEnd) onLoadMoreReplies() else onRefreshReplies()
+                        }) {
                             AppText("重试")
                         }
                     }
@@ -1848,6 +1859,7 @@ internal fun LandscapeCommentPanel(
     closeProgress: androidx.compose.runtime.MutableFloatState,
     threadContent: (@Composable ((List<String>, Int, ImagePreviewSourceAnchor?, ImagePreviewTextContent?) -> Unit) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    paginationPage: Int = 1,
 ) {
     var previewImages by remember { mutableStateOf(emptyList<String>()) }
     var previewInitialIndex by remember { mutableIntStateOf(0) }
@@ -1945,6 +1957,7 @@ internal fun LandscapeCommentPanel(
                             isRepliesRefreshing = isRepliesRefreshing,
                             repliesError = repliesError,
                             isRepliesEnd = isRepliesEnd,
+                            paginationPage = paginationPage,
                             voteCard = voteCard,
                             onUpClick = onUpClick,
                             onSubReplyClick = onSubReplyClick,
@@ -2196,6 +2209,7 @@ internal fun VideoContentTabBar(
     indicatorPositionProvider: (() -> Float)? = null,
     isScrollInProgressProvider: () -> Boolean = { false },
     showDanmakuActions: Boolean = true,
+    measurementLabels: List<String>? = null,
 ) {
     val liquidGlassEnabledForTabBar = LocalAppThemeConfig.current.liquidGlassEnabled
     val configuration = LocalConfiguration.current
@@ -2251,8 +2265,12 @@ internal fun VideoContentTabBar(
             AppThemeAdaptiveTabRow(
                 role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
                 centerContent = false,
-                options = tabs.mapIndexed { index, label -> AppSegmentOption(index, label) },
-                liquidGlassAnimateLabelWidthChanges = true,
+                options = tabs.mapIndexed { index, label ->
+                    AppSegmentOption(index, label, measurementLabel = measurementLabels?.getOrNull(index))
+                },
+                // Counts have a metadata reservation before comment loading starts. Data arrival
+                // updates text only, rather than starting a second width spring during entry.
+                liquidGlassAnimateLabelWidthChanges = false,
                 // Count-bearing detail tabs keep compact glass spacing; native layouts ignore this override.
                 liquidGlassLabelHorizontalPadding = 10.dp,
                 selectedValue = selectedTabIndex,

@@ -104,6 +104,7 @@ fun SubReplySheet(
                     isLoading = state.isLoading,
                     isRefreshing = state.isRefreshing,
                     isEnd = state.isEnd,
+                    paginationPage = state.page,
                     emoteMap = emoteMap,
                     onLoadMore = onLoadMore,
                     onRefresh = onRefresh,

@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.search
 
+import com.android.purebilibili.core.util.LocalWindowSizeClass
 import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.foundation.horizontalScroll
@@ -83,12 +84,15 @@ fun SearchVideoFilterBar(
     miuixBackdrop: MiuixBackdrop? = null,
 ): Unit = AppExactTouchTargets {
     val orderOptions = remember { resolveSearchVideoOrderOptions() }
+    val centerWideFilters = LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet }
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(bottom = 4.dp)
             .horizontalScroll(rememberScrollState()),
+        // Row's viewport minimum centers fitting content; overflowing labels still scroll from the start.
+        horizontalArrangement = if (centerWideFilters) Arrangement.Center else Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         orderOptions.forEach { order ->
@@ -414,6 +418,10 @@ private fun SearchFilterSelectableChip(
     center: Boolean = false
 ) {
     val glassEnabled = LocalAppThemeConfig.current.liquidGlassEnabled
+    val selectedColors = resolveSearchSelectionChipColors(
+        isSelected = true,
+        colorScheme = MaterialTheme.colorScheme,
+    )
     AppFilterChip(
         selected = selected,
         onClick = onClick,
@@ -421,9 +429,9 @@ private fun SearchFilterSelectableChip(
         label = {
             AppText(
                 text = label,
-                // Miuix owns its native chip fill and ignores Material chip colors.
-                // Set the selection accent on the label for both renderers.
-                color = if (selected) AppContentColors.accent() else AppContentColors.secondaryText(),
+                // Inherit the renderer's paired content color: Miuix owns its native fill,
+                // while MD3 receives the readable selection pair below. An accent override
+                // becomes invisible on Miuix's accent-filled selected chip, in either glass mode.
                 style = MaterialTheme.typography.labelMedium,
                 maxLines = 1,
                 textAlign = if (center) TextAlign.Center else TextAlign.Start,
@@ -431,8 +439,8 @@ private fun SearchFilterSelectableChip(
             )
         },
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-            selectedLabelColor = AppContentColors.accent(),
+            selectedContainerColor = selectedColors.backgroundColor,
+            selectedLabelColor = selectedColors.textColor,
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(
                 alpha = if (glassEnabled) 0.88f else 0.55f
             ),

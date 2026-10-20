@@ -163,25 +163,20 @@ internal fun shouldLoadMoreSubReplyList(
 }
 
 internal fun shouldPrefetchSubRepliesWhenListNotScrollable(
-    loadedReplyCount: Int,
-    totalReplyCount: Int,
     isLoading: Boolean,
     isEnd: Boolean,
     canScrollForward: Boolean
 ): Boolean {
     if (isLoading || isEnd) return false
-    if (totalReplyCount <= loadedReplyCount.coerceAtLeast(0)) return false
     return !canScrollForward
 }
 
 internal fun shouldShowSubReplyManualLoadMore(
-    loadedReplyCount: Int,
-    totalReplyCount: Int,
     isLoading: Boolean,
     isEnd: Boolean
 ): Boolean {
     if (isLoading || isEnd) return false
-    return totalReplyCount > loadedReplyCount.coerceAtLeast(0)
+    return true
 }
 
 internal fun resolveSubReplyDetailDisplayCount(
@@ -322,6 +317,7 @@ internal fun VideoInlineSubReplyDetailContent(
         isLoading = state.isLoading,
         isRefreshing = state.isRefreshing,
         isEnd = state.isEnd,
+        paginationPage = state.page,
         emoteMap = emoteMap,
         onLoadMore = onLoadMore,
         onRefresh = onRefresh,
@@ -418,6 +414,7 @@ internal fun SubReplyDetailContent(
     // 嵌入楼中楼的列表先还原播放器，再将剩余下拉交给刷新和拖拽关闭；窗口弹层保持默认。
     listModifier: Modifier = Modifier,
     modifier: Modifier = Modifier,
+    paginationPage: Int = 1,
 ) {
     val layoutPolicy = remember {
         resolveSubReplyDetailLayoutPolicy()
@@ -523,8 +520,6 @@ internal fun SubReplyDetailContent(
         derivedStateOf {
             error == null && !localConversationMode &&
                 shouldPrefetchSubRepliesWhenListNotScrollable(
-                    loadedReplyCount = visibleReplies.size,
-                    totalReplyCount = detailReplyDisplayCount,
                     isLoading = isLoading,
                     isEnd = isEnd,
                     canScrollForward = canScrollForwardState.value
@@ -540,16 +535,14 @@ internal fun SubReplyDetailContent(
     ) {
         !localConversationMode &&
             shouldShowSubReplyManualLoadMore(
-                loadedReplyCount = visibleReplies.size,
-                totalReplyCount = detailReplyDisplayCount,
                 isLoading = isLoading,
                 isEnd = isEnd
             )
     }
-    LaunchedEffect(shouldLoadMore) {
+    LaunchedEffect(shouldLoadMore, paginationPage) {
         if (shouldLoadMore) onLoadMore()
     }
-    LaunchedEffect(shouldPrefetchShortList, visibleReplies.size, detailReplyDisplayCount) {
+    LaunchedEffect(shouldPrefetchShortList, visibleReplies.size, detailReplyDisplayCount, paginationPage) {
         if (shouldPrefetchShortList) onLoadMore()
     }
     LaunchedEffect(listScrollResetKey, sortMode) {
@@ -587,7 +580,7 @@ internal fun SubReplyDetailContent(
         }
         previousConversationMode = currentMode
     }
-    LaunchedEffect(rootReply.rpid, targetReplyId, visibleReplies, isLoading, isEnd, effectiveConversationMode) {
+    LaunchedEffect(rootReply.rpid, targetReplyId, visibleReplies, isLoading, isEnd, effectiveConversationMode, error, paginationPage) {
         if (targetReplyId <= 0L) {
             highlightedTargetId = 0L
             return@LaunchedEffect
@@ -608,7 +601,7 @@ internal fun SubReplyDetailContent(
                 highlightedTargetId = targetReplyId
                 listState.animateScrollToItem(targetIndex)
             }
-            targetReplyId > 0L && !isLoading && !isEnd && !effectiveConversationMode -> onLoadMore()
+            targetReplyId > 0L && error == null && !isLoading && !isEnd && !effectiveConversationMode -> onLoadMore()
         }
     }
 

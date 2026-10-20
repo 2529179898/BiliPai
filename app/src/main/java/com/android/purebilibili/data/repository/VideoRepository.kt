@@ -255,7 +255,6 @@ object VideoRepository {
         val bvid: String,
         val cid: Long,
         val quality: Int,
-        val autoHighest: Boolean,
         val audioLang: String?
     )
     private val initialPlayUrlRequests = OnDemandRequestCache<InitialPlayUrlKey, PlayUrlData?>(
@@ -447,27 +446,10 @@ object VideoRepository {
         if (bvid.isBlank() || cid <= 0L) return@withContext null
         TokenManager.awaitRestore()
         val isAutoHighestQuality = targetQuality != null && targetQuality >= 127
-        val isLogin = resolveVideoPlaybackAuthState(
-            hasSessionCookie = hasPlaybackSessionCookie(),
-            hasAccessToken = !playbackAccessToken().isNullOrEmpty()
-        )
         val isVip = isPlaybackVip()
-        val auto1080pEnabled = try {
-            NetworkModule.appContext
-                ?.getSharedPreferences("settings_prefs", android.content.Context.MODE_PRIVATE)
-                ?.getBoolean("exp_auto_1080p", true) ?: true
-        } catch (_: Exception) {
-            true
-        }
-        val startQuality = resolveInitialStartQuality(
-            targetQuality = targetQuality,
-            isAutoHighestQuality = isAutoHighestQuality,
-            isLogin = isLogin,
-            isVip = isVip,
-            auto1080pEnabled = auto1080pEnabled
-        )
+        val startQuality = resolveInitialStartQuality()
         val accountScope = videoPlaybackAccountScope()
-        val key = InitialPlayUrlKey(accountScope, bvid, cid, startQuality, isAutoHighestQuality, audioLang)
+        val key = InitialPlayUrlKey(accountScope, bvid, cid, startQuality, audioLang)
         val result = initialPlayUrlRequests.getOrLoad(key) {
             if (!shouldSkipPlayUrlCache(isAutoHighestQuality, isVip, audioLang)) {
                 val cached = PlayUrlCache.get(
@@ -477,12 +459,7 @@ object VideoRepository {
                     audioLang = audioLang,
                     accountScope = accountScope
                 )
-                if (cached != null && shouldAcceptCachedPlayUrlForAutoHighest(
-                        isAutoHighestQuality = isAutoHighestQuality,
-                        isVip = isVip,
-                        cachedDashVideoIds = cached.dash?.video?.map { it.id }.orEmpty()
-                    )
-                ) return@getOrLoad cached
+                if (cached != null) return@getOrLoad cached
             }
             val fetched = fetchPlayUrlRecursive(
                 bvid = bvid,
@@ -494,24 +471,36 @@ object VideoRepository {
             if (accountScope != videoPlaybackAccountScope()) {
                 throw CancellationException("Playback account changed")
             }
+            val discoveredData = supplementPlaybackQualities(fetched.data) { missingQuality ->
+                if (accountScope != videoPlaybackAccountScope()) {
+                    throw CancellationException("Playback account changed")
+                }
+                // Match PiliPlus: one WBI request for the highest missing tier below the
+                // actual maximum. A failed supplement must preserve the first playable result.
+                fetchPlayUrlWithWbiInternal(bvid, cid, missingQuality, audioLang)
+            }
+            if (accountScope != videoPlaybackAccountScope()) {
+                throw CancellationException("Playback account changed")
+            }
             if (shouldCachePlayUrlResult(
                     source = fetched.source,
                     audioLang = audioLang,
                     requestedQuality = startQuality,
-                    returnedQuality = fetched.data.quality,
-                    dashVideoIds = fetched.data.dash?.video?.map { it.id }.orEmpty()
+                    returnedQuality = discoveredData.quality,
+                    dashVideoIds = discoveredData.dash?.video?.map { it.id }.orEmpty(),
+                    requestKind = PlayUrlRequestKind.INITIAL
                 )
             ) {
                 PlayUrlCache.put(
                     bvid = bvid,
                     cid = cid,
-                    data = fetched.data,
+                    data = discoveredData,
                     quality = startQuality,
                     audioLang = audioLang,
                     accountScope = accountScope
                 )
             }
-            fetched.data
+            discoveredData
         }
         if (accountScope != videoPlaybackAccountScope()) {
             throw CancellationException("Playback account changed")
@@ -1235,13 +1224,7 @@ object VideoRepository {
         qn: Int,
         audioLang: String? = null
     ): PlayUrlData? = withContext(Dispatchers.IO) {
-        fetchPlayUrlRecursive(
-            bvid = bvid,
-            cid = cid,
-            targetQn = qn,
-            audioLang = audioLang,
-            requestKind = PlayUrlRequestKind.PLAYBACK_TRANSITION
-        )?.data
+        getInitialPlayUrlData(bvid, cid, targetQuality = qn, audioLang = audioLang)
     }
 
     /**
@@ -1688,6 +1671,8 @@ object VideoRepository {
                             com.android.purebilibili.core.util.Logger.d("VideoRepo", " [Guest] DASH success: quality=${dashData.quality}")
                             return PlayUrlFetchResult(dashData, PlayUrlSource.DASH)
                         }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
                     } catch (e: Exception) {
                         android.util.Log.w("VideoRepo", "[Guest] DASH failed: ${e.message}")
                     }
@@ -1720,6 +1705,8 @@ object VideoRepository {
                         } else {
                             android.util.Log.w("VideoRepo", "Legacy API returned code=${legacyResult.code}, msg=${legacyResult.message}")
                         }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
                     } catch (e: Exception) {
                         android.util.Log.w("VideoRepo", "[Guest] Legacy API failed: ${e.message}")
                     }

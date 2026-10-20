@@ -38,82 +38,6 @@ class VideoLoadPolicyTest {
     }
 
     @Test
-    fun `resolveInitialStartQuality uses stable quality for non vip auto highest`() {
-        val quality = resolveInitialStartQuality(
-            targetQuality = 127,
-            isAutoHighestQuality = true,
-            isLogin = true,
-            isVip = false,
-            auto1080pEnabled = true
-        )
-
-        assertEquals(80, quality)
-    }
-
-    @Test
-    fun `resolveInitialStartQuality requests documented highest qn for vip auto highest`() {
-        val quality = resolveInitialStartQuality(
-            targetQuality = 127,
-            isAutoHighestQuality = true,
-            isLogin = true,
-            isVip = true,
-            auto1080pEnabled = true
-        )
-
-        assertEquals(127, quality)
-    }
-
-    @Test
-    fun `resolveInitialStartQuality keeps auto highest at entitlement ceiling`() {
-        assertEquals(
-            127,
-            resolveInitialStartQuality(
-                targetQuality = 127,
-                isAutoHighestQuality = true,
-                isLogin = true,
-                isVip = true,
-                auto1080pEnabled = true
-            )
-        )
-        assertEquals(
-            80,
-            resolveInitialStartQuality(
-                targetQuality = 127,
-                isAutoHighestQuality = true,
-                isLogin = true,
-                isVip = false,
-                auto1080pEnabled = true
-            )
-        )
-    }
-
-    @Test
-    fun `resolveInitialStartQuality respects explicit low preference`() {
-        val quality = resolveInitialStartQuality(
-            targetQuality = 32,
-            isAutoHighestQuality = false,
-            isLogin = false,
-            isVip = false,
-            auto1080pEnabled = false
-        )
-
-        assertEquals(32, quality)
-    }
-
-    @Test
-    fun `resolveInitialStartQuality respects explicit premium preference for vip`() {
-        val quality = resolveInitialStartQuality(
-            targetQuality = 120,
-            isAutoHighestQuality = false,
-            isLogin = true,
-            isVip = true,
-            auto1080pEnabled = true
-        )
-
-        assertEquals(120, quality)
-    }
-
-    @Test
     fun `shouldSkipPlayUrlCache only skips non default audio language`() {
         assertFalse(
             shouldSkipPlayUrlCache(
@@ -127,31 +51,6 @@ class VideoLoadPolicyTest {
                 isAutoHighestQuality = true,
                 isVip = true,
                 audioLang = "ai-zh"
-            )
-        )
-    }
-
-    @Test
-    fun `shouldAcceptCachedPlayUrlForAutoHighest requires premium dash for vip`() {
-        assertTrue(
-            shouldAcceptCachedPlayUrlForAutoHighest(
-                isAutoHighestQuality = true,
-                isVip = true,
-                cachedDashVideoIds = listOf(120, 80)
-            )
-        )
-        assertFalse(
-            shouldAcceptCachedPlayUrlForAutoHighest(
-                isAutoHighestQuality = true,
-                isVip = true,
-                cachedDashVideoIds = listOf(80, 64)
-            )
-        )
-        assertTrue(
-            shouldAcceptCachedPlayUrlForAutoHighest(
-                isAutoHighestQuality = true,
-                isVip = false,
-                cachedDashVideoIds = listOf(64)
             )
         )
     }

@@ -16,6 +16,9 @@ import com.android.purebilibili.core.theme.LocalAppUiStyle
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.overscroll
+import androidx.compose.foundation.rememberOverscrollEffect
+import androidx.compose.foundation.withoutVisualEffect
 import androidx.compose.foundation.layout.*
 import com.android.purebilibili.core.ui.components.AppLazyColumn as LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -634,6 +637,10 @@ private fun PartitionSideRail(
     onPartitionSelected: (PartitionCategory) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val railOverscrollEffect = rememberOverscrollEffect()
+    val listOverscrollEffect = remember(railOverscrollEffect) {
+        railOverscrollEffect?.withoutVisualEffect()
+    }
     val selectedIndex = partitions.indexOfFirst { it.id == selectedId }.coerceAtLeast(0)
     val density = LocalDensity.current
     val animationScope = rememberCoroutineScope()
@@ -714,7 +721,14 @@ private fun PartitionSideRail(
         dampedDragAnimation.animateToValue(selectedIndex.toFloat(), animatePress = false)
     }
 
-    BoxWithConstraints(modifier = modifier.fillMaxHeight()) {
+    // Overscroll stretches drawing without changing LazyList layout offsets. Render it once
+    // around the list, indicator and glyph source so they cannot separate during edge pulls.
+    // This shared placement applies to glass and native MD3/Miuix; their styling stays separate.
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxHeight()
+            .overscroll(railOverscrollEffect),
+    ) {
         val itemHeightPx = with(density) { PartitionSideRailItemHeight.toPx() }
         val itemSlotHeightPx = with(density) { (PartitionSideRailItemHeight + PartitionSideRailItemSpacing).toPx() }
         val contentTopPaddingPx = with(density) { contentPadding.calculateTopPadding().toPx() }
@@ -811,6 +825,8 @@ private fun PartitionSideRail(
         }
         LazyColumn(
             state = listState,
+            // The list still handles scroll/fling events; only the outer rail renders overscroll.
+            overscrollEffect = listOverscrollEffect,
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(if (liquidGlassIndicatorEnabled) 0f else 2f),

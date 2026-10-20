@@ -1,6 +1,8 @@
 // 文件路径: feature/bangumi/ui/player/BangumiPlayerContent.kt
 package com.android.purebilibili.feature.bangumi.ui.player
 
+import com.android.purebilibili.feature.video.viewmodel.CommentSubjectKey
+import com.android.purebilibili.feature.video.viewmodel.resolveReplyCount
 import com.android.purebilibili.core.ui.AppContentColors
 
 import com.android.purebilibili.navigation.animatePagerSelection
@@ -114,11 +116,18 @@ fun BangumiPlayerContent(
     val commentState by commentViewModel.commentState.collectAsStateWithLifecycle()
     val showCommentCount by com.android.purebilibili.core.store.SettingsManager
         .getShowVideoDetailCommentCount(context).collectAsStateWithLifecycle(initialValue = true)
-    val commentTabTitle = if (showCommentCount) {
-        "评论 ${FormatUtils.formatStat(commentState.replyCount.coerceAtLeast(0).toLong())}"
+    val commentSubject = if (isCourse) CommentSubjectKey(currentEpisode.id, 33) else CommentSubjectKey(currentEpisode.aid)
+    val detailReplyCount = detail.stat?.reply?.coerceIn(0L, Int.MAX_VALUE.toLong())?.toInt()
+    val displayedReplyCount = commentState.resolveReplyCount(commentSubject, detailReplyCount)
+    val commentTabTitle = if (showCommentCount && displayedReplyCount != null) {
+        "评论 ${FormatUtils.formatStat(displayedReplyCount.toLong())}"
     } else {
         "评论"
     }
+    // Seed geometry from detail metadata, not from later comment-state emissions.
+    val commentMeasurementTitle = if (showCommentCount && detailReplyCount != null) {
+        "评论 ${FormatUtils.formatStat(detailReplyCount.toLong())}"
+    } else commentTabTitle
     val tabs = if (commentsOnly) listOf(commentTabTitle) else listOf("简介", commentTabTitle)
     val commentListState = key(currentEpisode.id) { rememberLazyListState() }
 
@@ -160,7 +169,8 @@ fun BangumiPlayerContent(
     val tabBarContent: @Composable (Modifier) -> Unit = { tabModifier ->
         VideoContentTabBar(
             tabs = tabs,
-            replyCount = commentState.replyCount,
+            measurementLabels = if (commentsOnly) listOf(commentMeasurementTitle) else listOf("简介", commentMeasurementTitle),
+            replyCount = displayedReplyCount ?: 0,
             selectedTabIndex = pagerState.currentPage,
             onTabSelected = { index ->
                 scope.launch { animatePagerSelection(pagerState, index) }

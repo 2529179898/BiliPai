@@ -81,7 +81,7 @@ internal fun resolveSpaceContributionTabChromeSpec(
 }
 
 internal fun resolveSpaceSecondarySwitchChromeSpec(
-    items: List<SpaceContributionTab>,
+    items: List<SpaceSecondarySwitchItem>,
     selectedId: String,
     uiStyle: AppUiStyle = AppUiStyle.MIUIX,
 ): SpaceSegmentedTabChromeSpec {

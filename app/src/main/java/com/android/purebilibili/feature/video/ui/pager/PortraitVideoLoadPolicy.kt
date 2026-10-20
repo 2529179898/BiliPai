@@ -16,6 +16,7 @@ import com.android.purebilibili.data.model.response.PlayUrlData
 import com.android.purebilibili.data.model.response.RelatedVideo
 import com.android.purebilibili.data.model.response.ViewInfo
 import com.android.purebilibili.data.model.response.getBestVideo
+import com.android.purebilibili.data.repository.playableVideoQualityIds
 import com.android.purebilibili.feature.plugin.PlaybackCdnPlugin
 import com.android.purebilibili.feature.video.playback.audio.AudioSelectionDecision
 import com.android.purebilibili.feature.video.playback.audio.resolveAudioStreamSelection
@@ -85,7 +86,7 @@ internal fun resolvePortraitQualityLabel(qualityId: Int): String {
 
 /**
  * Qualities shown in the portrait quality menu.
- * Prefer DASH track ids (switchable now); union accept_quality so higher tiers remain requestable.
+ * Advertised tiers remain visible; the menu separately enables only actual playable DASH ids.
  */
 internal fun resolvePortraitAvailableQualityIds(
     acceptQualities: List<Int>,
@@ -132,9 +133,12 @@ internal fun resolvePortraitDisplayedQualityId(
     returnedQuality: Int,
     dashVideoIds: List<Int>
 ): Int {
-    if (requestedQuality > 0 && requestedQuality in dashVideoIds) return requestedQuality
-    if (returnedQuality > 0) return returnedQuality
-    return dashVideoIds.maxOrNull() ?: requestedQuality.takeIf { it > 0 } ?: PORTRAIT_PLAYBACK_TARGET_QUALITY
+    val available = dashVideoIds.filter { it > 0 }
+    if (requestedQuality >= 127) return available.maxOrNull() ?: returnedQuality
+    return available.filter { it <= requestedQuality }.maxOrNull()
+        ?: available.minOrNull()
+        ?: returnedQuality.takeIf { it > 0 }
+        ?: PORTRAIT_PLAYBACK_TARGET_QUALITY
 }
 
 internal fun shouldUsePortraitParallelPlaybackBootstrap(
@@ -266,7 +270,11 @@ internal fun resolvePortraitPlaybackStreamUrls(
     val dash = playData.dash
     if (dash != null) {
         val dashVideo = dash.getBestVideo(
-            targetQn = targetQuality,
+            targetQn = resolvePortraitDisplayedQualityId(
+                requestedQuality = targetQuality,
+                returnedQuality = playData.quality,
+                dashVideoIds = playData.playableVideoQualityIds()
+            ),
             isHevcSupported = isHevcSupported,
             isAv1Supported = isAv1Supported
         )
@@ -304,11 +312,16 @@ internal fun resolvePortraitPlaybackCdnUrls(
     targetQuality: Int = PORTRAIT_PLAYBACK_TARGET_QUALITY,
     cdnPlugin: PlaybackCdnPlugin?
 ): PortraitPlaybackStreamUrls {
+    // Discovery can select a different quality (or codec) than the preference.
+    // Only take backups from that exact URL's track, never from the requested tier.
+    val selectedTrack = cachedDashVideos.find {
+        it.id == targetQuality && it.getValidUrl() == streamUrls.videoUrl
+    } ?: cachedDashVideos.find {
+        it.getValidUrl() == streamUrls.videoUrl || streamUrls.videoUrl in it.backupUrl.orEmpty()
+    }
     val rawVideoUrls = buildList {
         add(streamUrls.videoUrl)
-        cachedDashVideos
-            .find { it.id == targetQuality }
-            ?.backupUrl
+        selectedTrack?.backupUrl
             .orEmpty()
             .filter { it.isNotBlank() }
             .let(::addAll)

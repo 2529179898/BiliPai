@@ -1341,15 +1341,12 @@ private fun CinemaCommentsPane(
     var previewInitialIndex by remember { mutableIntStateOf(0) }
     var sourceRect by remember { mutableStateOf<ImagePreviewSourceAnchor?>(null) }
     var previewTextContent by remember { mutableStateOf<ImagePreviewTextContent?>(null) }
-    val shouldLoadMore by remember {
+    // 这里只观察列表位置；加载、错误和末页状态由下面带 key 的 effect 读取最新参数。
+    val shouldLoadMore by remember(listState) {
         derivedStateOf {
             val totalItems = listState.layoutInfo.totalItemsCount
-            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            totalItems > 0 &&
-                lastVisibleItem >= totalItems - 3 &&
-                !commentState.isRepliesLoading &&
-                !commentState.isRepliesRefreshing &&
-                commentState.repliesError == null
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            totalItems > 0 && lastVisibleItem >= totalItems - 3
         }
     }
 
@@ -1360,6 +1357,7 @@ private fun CinemaCommentsPane(
         commentState.repliesError,
         commentState.isRepliesEnd,
         commentState.replies.size,
+        commentState.nextPage,
     ) {
         if (
             shouldLoadMore &&
@@ -1474,7 +1472,11 @@ private fun CinemaCommentsPane(
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        AppTextButton(onClick = commentActions.refreshComments) {
+                        AppTextButton(onClick = {
+                            if (commentState.replies.isNotEmpty() && !commentState.isRepliesEnd) {
+                                commentActions.loadComments()
+                            } else commentActions.refreshComments()
+                        }) {
                             AppText("重试")
                         }
                     }

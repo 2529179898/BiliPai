@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.video.screen
 
+import com.android.purebilibili.feature.video.viewmodel.CommentSubjectKey
+import com.android.purebilibili.feature.video.viewmodel.resolveReplyCount
 import com.android.purebilibili.core.ui.AppContentColors
 
 import android.content.Context
@@ -246,7 +248,10 @@ internal fun VideoDetailPhoneSuccessContentLayer(
                                     relatedVideos = success.related,
                                     relatedLoadState = success.relatedLoadState,
                                     replies = commentState.replies,
-                                    replyCount = commentState.replyCount,
+                                    replyCount = commentState.resolveReplyCount(
+                                        subject = CommentSubjectKey(engagementSuccess.info.aid),
+                                        detailCount = engagementSuccess.info.stat.reply,
+                                    ) ?: engagementSuccess.info.stat.reply,
                                     emoteMap = success.emoteMap,
                                     followingMids = engagementState.followingMids,
                                     videoTags = success.videoTags,
@@ -279,6 +284,7 @@ internal fun VideoDetailPhoneSuccessContentLayer(
                                     dissolvingIds = commentState.dissolvingIds,
                                     likedComments = commentState.likedComments,
                                     hatedComments = commentState.hatedComments,
+                                    nextPage = commentState.nextPage,
                                 ),
                                 noteState = VideoContentNoteState(
                                     aiSummary = success.aiSummary,

@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.live
 
+import com.android.purebilibili.core.ui.components.appCountedTabOption
 import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.foundation.clickable
@@ -185,8 +186,8 @@ fun LiveSearchScreen(
         }
     }
     val tabs = listOf(
-        AppSegmentOption(0, "正在直播" + (liveTotal?.let { " $it" } ?: "")),
-        AppSegmentOption(1, "主播" + (userTotal?.let { " $it" } ?: "")),
+        appCountedTabOption(0, "正在直播", liveTotal),
+        appCountedTabOption(1, "主播", userTotal),
     )
     AppScaffold(
         blurContentReady = !liveLoading || !userLoading,
@@ -222,7 +223,7 @@ fun LiveSearchScreen(
                 }
                 if (submitted) {
                     AppThemeAdaptiveTabRow(
-                        liquidGlassAnimateLabelWidthChanges = true,
+                        liquidGlassAnimateLabelWidthChanges = false,
                         role = AppTabRowRole.SECONDARY,
                         options = tabs,
                         selectedValue = pager.currentPage,

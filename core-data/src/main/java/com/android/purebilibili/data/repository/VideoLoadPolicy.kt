@@ -71,26 +71,8 @@ fun resolveRequestedVideoCid(
     return normalizedInfoCid ?: normalizedRequestCid ?: 0L
 }
 
-fun resolveInitialStartQuality(
-    targetQuality: Int?,
-    isAutoHighestQuality: Boolean,
-    isLogin: Boolean,
-    isVip: Boolean,
-    auto1080pEnabled: Boolean
-): Int {
-    return when {
-        // The API documents 127 as the highest qn and 126/125 as separate Dolby/HDR
-        // tiers. Requesting 125 here can omit the Dolby track until a manual switch.
-        isAutoHighestQuality && isVip -> 127
-        isAutoHighestQuality && isLogin -> 80
-        isAutoHighestQuality -> 64
-        targetQuality != null -> targetQuality
-        isVip -> 116
-        isLogin && auto1080pEnabled -> 80
-        isLogin -> 64
-        else -> 32
-    }
-}
+/** Probe every account at the highest tier; select the user's preference after discovery. */
+fun resolveInitialStartQuality(): Int = 129
 
 fun resolveVideoPlaybackAuthState(
     hasSessionCookie: Boolean,
@@ -105,23 +87,9 @@ fun shouldSkipPlayUrlCache(
     audioLang: String?
 ): Boolean {
     // Language-specific streams must not reuse the default-language cache entry.
-    // VIP auto-highest used to always skip cache and hurt re-open TTFF; accept cache
-    // when [shouldAcceptCachedPlayUrlForAutoHighest] says the payload is good enough.
+    // Highest-tier discovery caches the account's returned catalogue, including
+    // legitimate lower-quality results for videos without premium representations.
     return audioLang != null
-}
-
-/**
- * VIP auto-highest can reuse a cached playurl when it already contains a premium track.
- * Thin/low-quality cache entries are ignored so we still re-negotiate high quality.
- */
-fun shouldAcceptCachedPlayUrlForAutoHighest(
-    isAutoHighestQuality: Boolean,
-    isVip: Boolean,
-    cachedDashVideoIds: List<Int>,
-    minPremiumQuality: Int = 112
-): Boolean {
-    if (!isAutoHighestQuality || !isVip) return true
-    return cachedDashVideoIds.any { it >= minPremiumQuality }
 }
 
 /**
@@ -329,11 +297,13 @@ fun shouldCachePlayUrlResult(
     audioLang: String?,
     requestedQuality: Int = 0,
     returnedQuality: Int = 0,
-    dashVideoIds: List<Int> = emptyList()
+    dashVideoIds: List<Int> = emptyList(),
+    requestKind: PlayUrlRequestKind = PlayUrlRequestKind.EXPLICIT
 ): Boolean {
     if (audioLang != null) return false
     if (source == PlayUrlSource.GUEST) return false
-    if (requestedQuality >= 80 && !isRequestedQualitySatisfied(
+    // A discovery request may legitimately return a lower tier for this account/video.
+    if (requestKind == PlayUrlRequestKind.EXPLICIT && requestedQuality >= 80 && !isRequestedQualitySatisfied(
             requestedQuality = requestedQuality,
             returnedQuality = returnedQuality,
             dashVideoIds = dashVideoIds
@@ -383,7 +353,7 @@ fun isExactRequestedQualitySelected(
  * 3. User is VIP (premium account)
  * 4. Not on mobile data (Wi-Fi only)
  * 5. Valid access_token available
- * 6. Current DASH does not already include HDR track 125
+ * 6. Current DASH does not already include HDR or a higher tier (125–129)
  * 7. User hasn't made an explicit quality selection
  * 8. Upgrade hasn't already been attempted for this playback session
  */
@@ -402,7 +372,7 @@ fun shouldScheduleHdrAutoUpgrade(
         isVip &&
         !isMobileData &&
         hasAccessToken &&
-        125 !in currentPlayableDashVideoIds &&
+        currentPlayableDashVideoIds.none { it >= 125 } &&
         !userHasExplicitQualitySelection &&
         !upgradeAlreadyAttempted
 }

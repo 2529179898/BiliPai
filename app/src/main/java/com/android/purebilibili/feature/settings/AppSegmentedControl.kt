@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.util.LocalWindowSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -82,6 +83,9 @@ private fun <T> AppSegmentedControlHost(
     BottomBarLiquidSegmentedControl(
         // Glass indicator fills the measured slot; native geometry keeps its defaults.
         liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
+        // Wide-device placement is requested separately for native and glass; compact windows keep their layout.
+        centerGlassContent = LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet },
+        centerNativeContent = LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet },
         items = options.map { it.label },
         selectedIndex = selectedIndex,
         onSelected = { index ->

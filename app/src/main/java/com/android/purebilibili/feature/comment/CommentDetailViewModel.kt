@@ -11,6 +11,8 @@ import com.android.purebilibili.feature.video.viewmodel.CommentComposerDraft
 import com.android.purebilibili.feature.video.viewmodel.CommentComposerDraftState
 import com.android.purebilibili.feature.video.viewmodel.commentComposerDraftKey
 import com.android.purebilibili.feature.video.viewmodel.SubReplySortMode
+import com.android.purebilibili.feature.video.viewmodel.SubReplyPageRequest
+import com.android.purebilibili.feature.video.viewmodel.resolveSubReplyNextRequest
 import com.android.purebilibili.feature.video.viewmodel.SubReplyUiState
 import com.android.purebilibili.feature.video.viewmodel.isSortedSubReplyPageEnd
 import com.android.purebilibili.feature.video.viewmodel.resetForSort
@@ -153,9 +155,9 @@ class CommentDetailViewModel : ViewModel() {
     fun loadMore() {
         val state = _subReplyState.value
         if (state.isLoading || state.isEnd || state.rootReply == null) return
-        val nextPage = if (state.error != null && state.items.isEmpty()) 1 else state.page + 1
+        val request = resolveSubReplyNextRequest(state)
         _subReplyState.value = state.copy(isLoading = true, error = null)
-        loadSubReplies(page = nextPage, paginationOffset = state.grpcNextOffset)
+        loadSubReplies(page = request.page, paginationOffset = request.offset)
     }
 
     private fun loadSubReplies(page: Int, paginationOffset: String?) {
@@ -167,7 +169,7 @@ class CommentDetailViewModel : ViewModel() {
 
         subReplyLoadJob?.cancel()
         subReplyLoadJob = viewModelScope.launch {
-            CommentRepository.getSortedSubCommentsForSubject(
+            CommentRepository.getMobileSortedSubCommentsForSubject(
                 oid = oid,
                 type = type,
                 rootId = rootId,
@@ -224,14 +226,16 @@ class CommentDetailViewModel : ViewModel() {
                     baseIsEnd = isEnd,
                     grpcNextOffset = data.grpcNextOffset,
                     baseGrpcNextOffset = data.grpcNextOffset,
-                    error = null
+                    error = null,
+                    retryRequest = null,
                 )
             }.onFailure { error ->
                 if (currentOid != oid || currentRootId != rootId || currentType != type) return@onFailure
                 _subReplyState.value = _subReplyState.value.copy(
                     isLoading = false,
                     isRefreshing = false,
-                    error = error.message ?: "回复加载失败"
+                    error = error.message ?: "回复加载失败",
+                    retryRequest = SubReplyPageRequest(page, paginationOffset),
                 )
             }
         }

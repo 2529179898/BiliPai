@@ -809,6 +809,7 @@ fun VideoCommentSheetHost(
                                         remoteReplyCount = subReplyState.totalCount,
                                         isLoading = subReplyState.isLoading,
                                         isEnd = subReplyState.isEnd,
+                                        paginationPage = subReplyState.page,
                                         emoteMap = emoteMap,
                                         onLoadMore = { commentViewModel.loadMoreSubReplies() },
                                         onRefresh = commentViewModel::refreshSubReplies,
@@ -974,7 +975,9 @@ internal fun VideoCommentMainList(
                                     style = MaterialTheme.typography.bodySmall,
                                     modifier = Modifier.weight(1f),
                                 )
-                                AppTextButton(onClick = onRefresh) {
+                                AppTextButton(onClick = {
+                                    if (state.replies.isNotEmpty() && !state.isRepliesEnd) viewModel.loadComments() else onRefresh()
+                                }) {
                                     AppText("重试")
                                 }
                             }
@@ -1043,6 +1046,7 @@ internal fun VideoCommentMainList(
                                 if (!state.isRepliesLoading) {
                                     LaunchedEffect(
                                         state.replies.size,
+                                        state.nextPage,
                                         state.isRepliesLoading,
                                         state.isRepliesRefreshing,
                                         repliesError,

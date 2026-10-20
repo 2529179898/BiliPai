@@ -138,6 +138,7 @@ internal fun BangumiCommentPanel(
                 isRepliesRefreshing = state.isRepliesRefreshing,
                 repliesError = state.repliesError,
                 isRepliesEnd = state.isRepliesEnd,
+                paginationPage = state.nextPage,
                 voteCard = state.voteCard,
                 onUpClick = onUserClick,
                 onSubReplyClick = viewModel::openSubReply,

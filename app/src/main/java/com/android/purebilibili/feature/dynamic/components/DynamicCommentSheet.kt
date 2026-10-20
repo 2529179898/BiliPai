@@ -113,8 +113,7 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.filterNotNull
 import com.android.purebilibili.core.ui.AdaptiveLoadingIndicator
 import com.android.purebilibili.core.ui.rememberAppClearIcon
 import com.android.purebilibili.core.ui.rememberAppCommentIcon
@@ -194,6 +193,8 @@ fun DynamicCommentOverlayHost(
             isRefreshing = commentsRefreshing,
             hasRefreshError = commentsRefreshError != null,
             isLoadingMore = commentsLoadingMore,
+            hasMore = commentUiState.hasMore,
+            nextPage = commentUiState.nextPage,
             onDismiss = { viewModel.closeCommentSheet() },
             onRefresh = viewModel::refreshComments,
             onSortModeChange = { viewModel.setDynamicCommentSortMode(it) },
@@ -302,6 +303,8 @@ fun DynamicCommentSheet(
     onThreadCommentHate: (Long) -> Unit = {},
     onThreadCommentDelete: (Long) -> Unit = {},
     onThreadCommentReport: (Long, Int) -> Unit = { _, _ -> },
+    hasMore: Boolean = false,
+    nextPage: Int = 1,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var commentText by remember { mutableStateOf("") }
@@ -324,7 +327,10 @@ fun DynamicCommentSheet(
             } catch (_: Exception) {}
         }
     }
-    val canLoadMore = comments.size < totalCount && !isLoading && !isRefreshing && !hasRefreshError && !isLoadingMore
+    // 服务端分页状态与显示计数分离；最新值由稳定的触底监听读取。
+    val canLoadMore by rememberUpdatedState(hasMore && !isLoading && !isRefreshing && !hasRefreshError && !isLoadingMore)
+    val latestNextPage by rememberUpdatedState(nextPage)
+    val latestOnLoadMore by rememberUpdatedState(onLoadMore)
     var showImagePreview by remember { mutableStateOf(false) }
     var previewImages by remember { mutableStateOf<List<String>>(emptyList()) }
     var previewInitialIndex by remember { mutableIntStateOf(0) }
@@ -349,17 +355,16 @@ fun DynamicCommentSheet(
         )
     }
 
-    LaunchedEffect(listState, comments.size, totalCount, isLoading, isRefreshing, hasRefreshError, isLoadingMore) {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
-            .map { lastVisibleIndex ->
-                val itemCount = listState.layoutInfo.totalItemsCount
-                itemCount > 0 && lastVisibleIndex >= itemCount - 4
-            }
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            val itemCount = listState.layoutInfo.totalItemsCount
+            // 返回页码，使空页/重复页后仍可消费已前进的游标，不依赖评论条数改变。
+            if (canLoadMore && itemCount > 0 && lastVisibleIndex >= itemCount - 4) latestNextPage else null
+        }
             .distinctUntilChanged()
-            .filter { it }
-            .collect {
-                if (canLoadMore) onLoadMore()
-            }
+            .filterNotNull()
+            .collect { latestOnLoadMore() }
     }
     val emoteCatalogSessionKey = DynamicEmoteCatalog.currentSessionKey()
     var emoteMap by remember(emoteCatalogSessionKey) {
@@ -668,6 +673,7 @@ fun DynamicCommentSheet(
                                 isLoading = subReplyState.isLoading,
                                 isRefreshing = subReplyState.isRefreshing,
                                 isEnd = subReplyState.isEnd,
+                                paginationPage = subReplyState.page,
                                 emoteMap = emoteMap,
                                 onLoadMore = onLoadMoreSubReplies,
                                 onRefresh = onRefreshSubReplies,

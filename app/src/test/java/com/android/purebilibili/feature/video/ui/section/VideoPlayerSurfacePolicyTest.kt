@@ -153,7 +153,6 @@ class VideoPlayerSurfacePolicyTest {
         )
 
         assertEquals(0f, spec.alpha)
-        assertEquals(0.985f, spec.scale)
     }
 
     @Test
@@ -165,7 +164,6 @@ class VideoPlayerSurfacePolicyTest {
         )
 
         assertEquals(1f, spec.alpha)
-        assertEquals(1f, spec.scale)
     }
 
     @Test
@@ -182,9 +180,7 @@ class VideoPlayerSurfacePolicyTest {
         )
 
         assertEquals(0f, forcedReturnSpec.alpha)
-        assertEquals(1f, forcedReturnSpec.scale)
         assertEquals(0f, manualStartSpec.alpha)
-        assertEquals(1f, manualStartSpec.scale)
     }
 
     @Test

@@ -104,7 +104,7 @@ class VideoCommentViewModelTest {
         val loadingSource = viewModelSource.substringAfter("private fun loadSubReplies(")
             .substringBefore("private fun loadConversationReplies(")
 
-        assertTrue(loadingSource.contains("CommentRepository.getSortedSubCommentsForSubject("))
+        assertTrue(loadingSource.contains("CommentRepository.getMobileSortedSubCommentsForSubject("))
         assertTrue(loadingSource.contains("mode = sortMode.apiMode"))
         assertTrue(loadingSource.contains("paginationOffset = paginationOffset"))
         assertTrue(loadingSource.contains("grpcNextOffset = data.grpcNextOffset"))

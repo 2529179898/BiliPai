@@ -251,6 +251,7 @@ import dev.chrisbanes.haze.HazeState
 import com.android.purebilibili.core.ui.blur.hazeSourceCompat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -3674,28 +3675,34 @@ private fun VideoPlayerSectionContent(
         )
         // 勿把 currentPosition 放进 remember key：进度推进会反复重建 bootstrap，打乱揭开状态机。
         val coverBootstrapState = remember(
-            bvid,
+            currentPlaybackIdentity,
+            playerState.player,
             forceCoverDuringReturnAnimation,
             persistedRenderedFirstFrame,
+            shouldUseAnime4kPipeline,
+            anime4kFrameVisible,
             keepCoverForManualStart,
             preserveCurrentFrameOnFullscreenChange,
         ) {
             resolveVideoPlayerCoverBootstrapState(
                 forceCoverDuringReturnAnimation = forceCoverDuringReturnAnimation,
                 shouldKeepCoverForManualStart = keepCoverForManualStart,
-                hasPersistedRenderedFirstFrame = persistedRenderedFirstFrame,
+                // Decoder output alone does not prove that the Anime4K display surface
+                // has presented a frame. Its own callback remains the reveal authority.
+                hasPersistedRenderedFirstFrame = persistedRenderedFirstFrame &&
+                    (!shouldUseAnime4kPipeline || anime4kFrameVisible),
                 preserveCurrentFrameOnFullscreenChange = preserveCurrentFrameOnFullscreenChange,
             )
         }
-        var isFirstFrameRendered by remember(bvid) {
+        var isFirstFrameRendered by remember(currentPlaybackIdentity, playerState.player) {
             mutableStateOf(coverBootstrapState.isFirstFrameRendered)
         }
-        var hasStartedSmoothReveal by remember(bvid) {
+        var hasStartedSmoothReveal by remember(currentPlaybackIdentity, playerState.player) {
             mutableStateOf(coverBootstrapState.hasStartedSmoothReveal)
         }
         // 揭开动画是否已完全落定（视频 surface 不透明）。落定前封面保持不透明垫底，
         // 落定后移除封面是不可见操作；全屏切换 bootstrap 直接以揭开态进场，无需垫底窗口。
-        var hasSurfaceRevealSettled by remember(bvid) {
+        var hasSurfaceRevealSettled by remember(currentPlaybackIdentity, playerState.player) {
             mutableStateOf(coverBootstrapState.hasStartedSmoothReveal)
         }
         val reduceRevealMotion = rememberSystemReduceMotion()
@@ -3706,25 +3713,21 @@ private fun VideoPlayerSectionContent(
             forceCoverDuringReturnAnimation,
             keepCoverForManualStart,
             hasStartedSmoothReveal,
-            revealMotionSpec.surfaceRevealInitialScale
         ) {
             resolveVideoPlayerSurfaceRevealSpec(
                 forceCoverDuringReturnAnimation = forceCoverDuringReturnAnimation,
                 shouldKeepCoverForManualStart = keepCoverForManualStart,
                 hasStartedSmoothReveal = hasStartedSmoothReveal,
-                surfaceRevealInitialScale = revealMotionSpec.surfaceRevealInitialScale
             )
         }
-        val playerSurfaceAlpha = animateFloatAsState(
-            targetValue = surfaceRevealSpec.alpha,
-            animationSpec = tween(revealMotionSpec.surfaceRevealDurationMillis),
-            label = "playerSurfaceAlpha",
-        )
-        val playerSurfaceScale = animateFloatAsState(
-            targetValue = surfaceRevealSpec.scale,
-            animationSpec = tween(revealMotionSpec.surfaceRevealDurationMillis),
-            label = "playerSurfaceScale",
-        )
+        // A new video/player must not inherit the previous video's opaque animation value.
+        val playerSurfaceAlpha = key(currentPlaybackIdentity, playerState.player) {
+            animateFloatAsState(
+                targetValue = surfaceRevealSpec.alpha,
+                animationSpec = tween(revealMotionSpec.surfaceRevealDurationMillis),
+                label = "playerSurfaceAlpha",
+            )
+        }
 
         // 1. PlayerView (底层) - key 触发 graphicsLayer 强制更新
         //  [修复] 添加 isPortraitFullscreen 到 key，确保从全屏返回时重建 PlayerView 并重新绑定 Surface (解决黑屏问题)
@@ -3782,6 +3785,12 @@ private fun VideoPlayerSectionContent(
                 modifier = playerContentModifier
                     .clipToBounds()
                     .then(if (capturePlayerPage) playerPageBackdrop.video.modifier else Modifier)
+                    // Fade the entire video plane, including its black backing. Fading only
+                    // PlayerView leaves this backing opaque over the source-cover underlay.
+                    // Shared by glass, MD3 and Miuix; their viewport geometry stays unchanged.
+                    .graphicsLayer {
+                        alpha = if (isPlayerSurfaceReady) playerSurfaceAlpha.value else 0f
+                    }
                     .background(Color.Black),
                 contentAlignment = Alignment.Center
             ) {
@@ -3931,11 +3940,8 @@ private fun VideoPlayerSectionContent(
                         sizeModifier
                             .onSizeChanged { measuredPlayerViewportSize = it }
                             .graphicsLayer {
-                                alpha = playerSurfaceAlpha.value
-                                val revealAwareScaleX = scale * playerSurfaceScale.value
-                                val revealAwareScaleY = scale * playerSurfaceScale.value
-                                scaleX = if (isFlippedHorizontal) -revealAwareScaleX else revealAwareScaleX
-                                scaleY = if (isFlippedVertical) -revealAwareScaleY else revealAwareScaleY
+                                scaleX = if (isFlippedHorizontal) -scale else scale
+                                scaleY = if (isFlippedVertical) -scale else scale
                                 translationX = panX
                                 translationY = panY
                             }
@@ -3993,10 +3999,8 @@ private fun VideoPlayerSectionContent(
                                     height = viewportLayout.height.toDp()
                                 )
                                 .graphicsLayer {
-                                    alpha = playerSurfaceAlpha.value
-                                    val revealAwareScale = scale * playerSurfaceScale.value
-                                    scaleX = revealAwareScale
-                                    scaleY = revealAwareScale
+                                    scaleX = scale
+                                    scaleY = scale
                                     translationX = panX
                                     translationY = panY
                                 }
@@ -4012,28 +4016,10 @@ private fun VideoPlayerSectionContent(
             }
         }
 
-        DisposableEffect(playerState.player) {
+        DisposableEffect(playerState.player, currentPlaybackIdentity) {
+            val player = playerState.player
             val listener = object : Player.Listener {
                 override fun onRenderedFirstFrame() {
-                android.util.Log.d("VideoPlayerCover", "🎬 onRenderedFirstFrame triggered")
-                if (!latestAnime4kPipelineRequested || latestAnime4kDisplayedFirstFrame) {
-                    isFirstFrameRendered = true
-                }
-                if (!hasRenderedFirstFrameSinceForegroundRecovery) {
-                    hasRenderedFirstFrameSinceForegroundRecovery = true
-                    val costMs = (android.os.SystemClock.elapsedRealtime() - foregroundRecoveryStartedAtMs)
-                        .coerceAtLeast(0L)
-                    Logger.d("VideoPlayerSection") {
-                        "✅ Foreground recovery first frame rendered in ${costMs}ms: " +
-                            "pos=${playerState.player.currentPosition}, buffered=${playerState.player.bufferedPosition}"
-                    }
-                }
-            }
-
-            // 兼容性：同时也监听 Events
-            override fun onEvents(player: Player, events: Player.Events) {
-                if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
-                    android.util.Log.d("VideoPlayerCover", "🎬 EVENT_RENDERED_FIRST_FRAME triggered")
                     if (!latestAnime4kPipelineRequested || latestAnime4kDisplayedFirstFrame) {
                         isFirstFrameRendered = true
                     }
@@ -4042,52 +4028,29 @@ private fun VideoPlayerSectionContent(
                         val costMs = (android.os.SystemClock.elapsedRealtime() - foregroundRecoveryStartedAtMs)
                             .coerceAtLeast(0L)
                         Logger.d("VideoPlayerSection") {
-                            "✅ Foreground recovery first frame event received in ${costMs}ms: " +
-                                "pos=${playerState.player.currentPosition}, buffered=${playerState.player.bufferedPosition}"
+                            "✅ Foreground recovery first frame rendered in ${costMs}ms: " +
+                                "pos=${player.currentPosition}, buffered=${player.bufferedPosition}"
                         }
                     }
                 }
             }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED) {
-                    // 播放结束显示重播状态（通常由上层逻辑处理，这里不复位封面以免闪烁）
-                    // isFirstFrameRendered = false
-                }
-            }
+            player.addListener(listener)
+            onDispose { player.removeListener(listener) }
         }
 
-        playerState.player.addListener(listener)
-
-        // 初始化检查：如果播放器已经开始播放且有进度，可能错过了事件
-        // [Debug] Log initial check
-        if (playerState.player.isPlaying && playerState.player.currentPosition > 0) {
-             android.util.Log.d("VideoPlayerCover", "⚠️ Initial check: Already playing at ${playerState.player.currentPosition}, hiding cover. (Might be previous video?)")
-             isFirstFrameRendered = true
-        } else {
-             android.util.Log.d("VideoPlayerCover", "✅ Initial check: Not playing or at start. Keeping cover.")
-        }
-
-        onDispose {
-            playerState.player.removeListener(listener)
-        }
-        }
-
-        LaunchedEffect(coverBootstrapState) {
+        // A persisted render event recovers callbacks missed while this section was absent.
+        // Reset and bootstrap share one effect so they cannot overwrite each other. In
+        // particular, fullscreen frame preservation must survive an empty debug marker.
+        LaunchedEffect(
+            currentPlaybackIdentity,
+            playerState.player,
+            coverBootstrapState,
+            persistedRenderedFirstFrame,
+        ) {
             if (coverBootstrapState.isFirstFrameRendered) {
                 isFirstFrameRendered = true
-            }
-        }
-        // Media swap 会清空 debug firstFrame；同步清掉揭开状态，避免旧首帧标志立刻揭开成黑屏。
-        LaunchedEffect(persistedRenderedFirstFrame, bvid) {
-            if (!persistedRenderedFirstFrame) {
+            } else if (!persistedRenderedFirstFrame) {
                 isFirstFrameRendered = false
-                hasStartedSmoothReveal = false
-            }
-        }
-        // 换片或返回强制封面时清掉揭开标记，保证下次进场重新走封面→画面。
-        LaunchedEffect(bvid, forceCoverDuringReturnAnimation) {
-            if (forceCoverDuringReturnAnimation) {
                 hasStartedSmoothReveal = false
             }
         }
@@ -4113,40 +4076,15 @@ private fun VideoPlayerSectionContent(
         FormatUtils.fixImageUrl(rawCoverUrl)
     }
 
-    LaunchedEffect(playerState.player, bvid, forceCoverDuringReturnAnimation) {
-        if (forceCoverDuringReturnAnimation || isFirstFrameRendered) return@LaunchedEffect
-        while (isActive && !isFirstFrameRendered) {
-            val player = playerState.player
-            if (shouldPromoteFirstFrameByPlaybackFallback(
-                    isFirstFrameRendered = isFirstFrameRendered,
-                    forceCoverDuringReturnAnimation = forceCoverDuringReturnAnimation,
-                    playbackState = player.playbackState,
-                    playWhenReady = player.playWhenReady,
-                    currentPositionMs = player.currentPosition,
-                    videoWidth = player.videoSize.width,
-                    videoHeight = player.videoSize.height
-                )
-            ) {
-                android.util.Log.d(
-                    "VideoPlayerCover",
-                    "🎬 Fallback promoted first-frame state by playback progress"
-                )
-                isFirstFrameRendered = true
-                break
-            }
-            delay(120L)
-        }
-    }
     // 封面揭开状态机：仅在 forceCover / 手动起播垫底时回退；首帧抖动不得清掉揭开。
     LaunchedEffect(
-        bvid,
+        currentPlaybackIdentity,
+        playerState.player,
         isPlayerSurfaceReady,
         isFirstFrameRendered,
         forceCoverDuringReturnAnimation,
         keepCoverForManualStart,
-        revealMotionSpec,
     ) {
-        if (!isPlayerSurfaceReady) return@LaunchedEffect
         if (
             shouldResetSmoothCoverReveal(
                 forceCoverDuringReturnAnimation = forceCoverDuringReturnAnimation,
@@ -4156,6 +4094,7 @@ private fun VideoPlayerSectionContent(
             hasStartedSmoothReveal = false
             return@LaunchedEffect
         }
+        if (!isPlayerSurfaceReady) return@LaunchedEffect
         if (!isFirstFrameRendered) {
             // 等首帧；不要把 hasStartedSmoothReveal 清掉（避免与 bootstrap 竞态）
             return@LaunchedEffect
@@ -4164,9 +4103,6 @@ private fun VideoPlayerSectionContent(
         // Let the rendered first frame reach a draw boundary instead of adding an
         // arbitrary 96ms hold on top of the card's spatial motion.
         withFrameNanos { }
-        if (revealMotionSpec.coverRevealHoldDelayMillis > 0) {
-            delay(revealMotionSpec.coverRevealHoldDelayMillis.toLong())
-        }
         if (
             shouldCommitSmoothCoverReveal(
                 isFirstFrameRendered = isFirstFrameRendered,
@@ -4178,18 +4114,32 @@ private fun VideoPlayerSectionContent(
             android.util.Log.d("VideoPlayerCover", "✨ Smooth cover reveal committed for bvid=$bvid")
         }
     }
-    // 揭开动画落定前封面保持不透明垫底；落定后再移除（此时视频已完全盖住封面，移除不可见）。
-    LaunchedEffect(bvid, hasStartedSmoothReveal, revealMotionSpec.surfaceRevealDurationMillis) {
-        if (!hasStartedSmoothReveal) {
+    // Observe the animated alpha rather than a parallel timer. Cancellation, duration-scale
+    // changes and a late animation start must never uncover a partially transparent plane.
+    LaunchedEffect(
+        currentPlaybackIdentity,
+        playerState.player,
+        hasStartedSmoothReveal,
+        isPlayerSurfaceReady,
+        forceCoverDuringReturnAnimation,
+        keepCoverForManualStart,
+    ) {
+        if (!hasStartedSmoothReveal || !isPlayerSurfaceReady ||
+            forceCoverDuringReturnAnimation || keepCoverForManualStart
+        ) {
             hasSurfaceRevealSettled = false
             return@LaunchedEffect
         }
         if (hasSurfaceRevealSettled) return@LaunchedEffect
-        delay(
-            resolveVideoPlayerCoverRevealSettleDelayMillis(
-                revealMotionSpec.surfaceRevealDurationMillis
+        snapshotFlow {
+            shouldFinishVideoPlayerSurfaceReveal(
+                hasStartedSmoothReveal = hasStartedSmoothReveal,
+                isPlayerSurfaceReady = isPlayerSurfaceReady,
+                surfaceAlpha = playerSurfaceAlpha.value,
             )
-        )
+        }.first { it }
+        // Keep the underlay through the draw boundary that applies the opaque endpoint.
+        withFrameNanos { }
         hasSurfaceRevealSettled = true
     }
     val isSurfaceRevealSettling = hasStartedSmoothReveal && !hasSurfaceRevealSettled
@@ -4200,20 +4150,20 @@ private fun VideoPlayerSectionContent(
         hasStartedSmoothReveal = hasStartedSmoothReveal,
         isSurfaceRevealSettling = isSurfaceRevealSettling,
     )
-    val showCover = !isPlayerSurfaceReady || shouldShowCoverImage(
-        isFirstFrameRendered = isFirstFrameRendered,
-        forceCoverDuringReturnAnimation = forceCoverDuringReturnAnimation,
-        shouldKeepCoverForManualStart = keepCoverForManualStart,
-        hasStartedSmoothReveal = hasStartedSmoothReveal,
-        isSurfaceRevealSettling = isSurfaceRevealSettling,
-    )
+    val showCover = holdEntryCoverUnderlay
     val manualStartPlayButtonLayoutSpec = remember {
         resolveManualStartPlayButtonLayoutSpec()
     }
     val loadCoverImage = !isPlayerSurfaceReady || shouldLoadVideoPlayerCoverImage(
         isVerticalVideo = isVerticalVideo,
-        shouldKeepCoverForManualStart = keepCoverForManualStart,
         forceCoverDuringReturnAnimation = forceCoverDuringReturnAnimation,
+        // Large-screen layouts own the shared shell outside this section and publish the
+        // source through the local; phone layouts also provide it explicitly in state.
+        hasSharedCardTransition = transitionEnabled &&
+            com.android.purebilibili.core.ui.LocalSharedTransitionEnabled.current &&
+            !(sourceRouteForSharedElement
+                ?: com.android.purebilibili.core.ui.transition.LocalVideoCardSharedElementSourceRoute.current)
+                .isNullOrBlank(),
     )
 
     LaunchedEffect(

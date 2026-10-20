@@ -109,7 +109,7 @@ enum class CommentSearchScope(val label: String) {
 /**
  * 本视频评论区搜索抽屉
  * 支持在当前已加载的评论（包括主评论与楼中楼子评论）中快速模糊搜索关键字，
- * 打开抽屉会后台拉取全量评论后在其全集上搜索；
+ * 打开抽屉会后台分页补拉根评论和楼中楼，并区分完整与部分结果；
  * 高亮显示匹配内容、UP主专属标记、发布时间、楼层与点赞数，点击可定位或跳转回复。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,13 +132,13 @@ fun CommentSearchSheet(
     var searchScope by remember { mutableStateOf(CommentSearchScope.ALL) }
     var sortMode by remember { mutableStateOf(CommentSearchSortMode.HOT) }
 
-    // 打开抽屉时自动开始全量拉取（ViewModel 内部有防重入；失败后用重试按钮再次触发）
+    // 打开抽屉时自动补拉评论，失败后保留已取得的结果。
     LaunchedEffect(Unit) {
         onLoadAllComments()
     }
 
-    // 全量拉取完成后用全集搜索，否则退回已加载部分
-    val searchPool = if (fullSearchState.isReady) fullReplies else replies
+    // 加载中和失败时也使用已补拉的部分结果；不丢弃已取得的楼中楼。
+    val searchPool = if (fullSearchState.isReady || fullReplies.isNotEmpty()) fullReplies else replies
 
     // 扁平化收集所有评论（主评论 + 二级子评论）
     val allEntries = remember(searchPool) {
@@ -200,7 +200,10 @@ fun CommentSearchSheet(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         AppText(
                             text = "搜索评论",
                             style = MaterialTheme.typography.titleMedium,
@@ -210,23 +213,34 @@ fun CommentSearchSheet(
                         if (searchQuery.isNotBlank()) {
                             Spacer(modifier = Modifier.width(8.dp))
                             AppText(
-                                text = "找到 ${filteredResults.size} 条",
+                                text = if (fullSearchState.isComplete) "找到 ${filteredResults.size} 条"
+                                    else "部分结果 · ${filteredResults.size} 条",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppContentColors.secondaryText(),
+                                modifier = Modifier.weight(1f, fill = false),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         } else if (fullSearchState.isLoading) {
                             Spacer(modifier = Modifier.width(8.dp))
                             AppText(
-                                text = "全量加载中 ${fullSearchState.loadedCount}/${fullSearchState.totalCount}",
+                                text = "加载中 ${fullSearchState.loadedCount} 条",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppContentColors.secondaryText(),
+                                modifier = Modifier.weight(1f, fill = false),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         } else if (fullSearchState.isReady) {
                             Spacer(modifier = Modifier.width(8.dp))
                             AppText(
-                                text = "已全量加载 ${fullSearchState.loadedCount} 条",
+                                text = if (fullSearchState.isComplete) "已加载 ${fullSearchState.loadedCount} 条"
+                                    else "部分结果 · ${fullSearchState.loadedCount} 条",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppContentColors.secondaryText(),
+                                modifier = Modifier.weight(1f, fill = false),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                         if (fullSearchState.error != null) {
@@ -235,7 +249,11 @@ fun CommentSearchSheet(
                                 text = "加载失败，点此重试",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppContentColors.error(),
-                                modifier = Modifier.clickable { onLoadAllComments() },
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .clickable { onLoadAllComments() },
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }

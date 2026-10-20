@@ -1050,7 +1050,8 @@ internal fun LiveSortTagChipRow(
         // Glass indicator fills the measured slot; native geometry keeps its defaults.
         liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         role = com.android.purebilibili.core.ui.components.AppTabRowRole.FILTER,
-        centerContent = false,
+        // This filter owns the full row. The category row beside action buttons keeps its start anchor.
+        centerContent = LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet },
         options = options,
         selectedValue = selectedValue,
         onSelectionChange = { value ->

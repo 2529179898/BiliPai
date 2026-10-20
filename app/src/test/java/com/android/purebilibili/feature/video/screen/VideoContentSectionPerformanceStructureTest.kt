@@ -28,7 +28,7 @@ class VideoContentSectionPerformanceStructureTest {
         val commentTabSource = source.substringAfter("internal fun VideoCommentTab(")
 
         assertTrue(commentTabSource.contains("val shouldLoadMore by remember("))
-        assertTrue(commentTabSource.contains("LaunchedEffect(shouldLoadMore, isRepliesRefreshing, repliesError)"))
+        assertTrue(commentTabSource.contains("LaunchedEffect(shouldLoadMore, isRepliesRefreshing, repliesError, paginationPage)"))
         assertFalse(
             commentTabSource.contains(
                 "item {\n                    val shouldLoadMore by remember("

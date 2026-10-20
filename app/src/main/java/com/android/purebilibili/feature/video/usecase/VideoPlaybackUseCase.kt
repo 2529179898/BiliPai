@@ -30,6 +30,8 @@ import com.android.purebilibili.core.player.policy.PlaybackQualityMode
 import com.android.purebilibili.feature.video.playback.policy.buildAdaptiveDashTrackSet
 import com.android.purebilibili.data.repository.ActionRepository
 import com.android.purebilibili.data.repository.VideoRepository
+import com.android.purebilibili.data.repository.advertisedVideoQualityIds
+import com.android.purebilibili.data.repository.playableVideoQualityIds
 import com.android.purebilibili.core.player.PlaybackProgressManager
 import com.android.purebilibili.feature.video.controller.QualityManager
 import com.android.purebilibili.feature.video.playback.session.PlaybackUserActionTracker
@@ -572,16 +574,15 @@ class VideoPlaybackUseCase(
                     }
 
                     //  [网络感知] 使用 API 返回的画质或传入的默认画质
-                    // 🚀 [修复] 当 defaultQuality >= 127 时（自动最高画质），选择 accept_quality 中的最高画质
+                    // 自动最高从实际可播放流中选择，避免声明画质或本地会员缓存影响结果。
                     val targetQn = if (defaultQuality >= 127) {
                         val isHdrSupported = isHdrSupportedOverride
                             ?: com.android.purebilibili.core.util.MediaUtils.isHdrSupported()
                         val isDolbyVisionSupported = isDolbyVisionSupportedOverride
                             ?: com.android.purebilibili.core.util.MediaUtils.isDolbyVisionSupported()
                         val maxAccept = resolveAutoHighestTargetQuality(
-                            acceptQualities = playData.accept_quality,
-                            isLoggedIn = isLogin,
-                            isVip = isVip,
+                            playableQualities = playData.playableVideoQualityIds()
+                                .ifEmpty { listOf(playData.quality) },
                             isHdrSupported = isHdrSupported,
                             isDolbyVisionSupported = isDolbyVisionSupported
                         )
@@ -627,8 +628,8 @@ class VideoPlaybackUseCase(
                     // if (isUnlockHighQuality) ...
                     
                     //  [修复] 画质列表优先使用 DASH 实际轨道，避免展示“可选但不可切”的画质。
-                    val apiQualities = playData.accept_quality
-                    val dashVideoIds = playData.dash?.video?.map { it.id }?.distinct() ?: emptyList()
+                    val apiQualities = playData.advertisedVideoQualityIds()
+                    val dashVideoIds = playData.playableVideoQualityIds()
 
                     val allowPremiumApiOnlyQualities = !VideoRepository.isAppApiCoolingDown()
                     val qualityMergeResult = mergeQualityOptions(
@@ -875,7 +876,8 @@ class VideoPlaybackUseCase(
         }
         
         //  [调试] 输出缓存中的所有画质
-        val availableIds = cachedVideos.map { it.id }.distinct().sortedDescending()
+        val availableIds = cachedVideos.filter { it.getValidUrl().isNotBlank() }
+            .map { it.id }.distinct().sortedDescending()
         Logger.d("VideoPlaybackUseCase", " changeQualityFromCache: target=$qualityId, available=$availableIds")
 
         val requestedQuality = qualityId.takeIf { it > 0 } ?: availableIds.firstOrNull() ?: return null
@@ -1130,8 +1132,8 @@ class VideoPlaybackUseCase(
         if (videoUrl.isBlank()) return null
 
         val qualitySelectionState = buildQualitySelectionState(
-            apiQualities = playUrlData.accept_quality,
-            dashVideoIds = playUrlData.dash?.video?.map { it.id }?.distinct() ?: emptyList(),
+            apiQualities = playUrlData.advertisedVideoQualityIds(),
+            dashVideoIds = playUrlData.playableVideoQualityIds(),
             allowPremiumApiOnlyQualities = !VideoRepository.isAppApiCoolingDown()
         )
         val adaptiveDashSource = buildAdaptiveDashPlaybackSource(
@@ -1367,27 +1369,19 @@ class VideoPlaybackUseCase(
     }
 
     internal fun resolveAutoHighestTargetQuality(
-        acceptQualities: List<Int>,
-        isLoggedIn: Boolean,
-        isVip: Boolean,
+        playableQualities: List<Int>,
         isHdrSupported: Boolean,
         isDolbyVisionSupported: Boolean
     ): Int {
-        val capabilityCeiling = when {
-            isVip -> 129
-            isLoggedIn -> 80
-            else -> 64
-        }
-        val deviceSafeQualities = acceptQualities.filter { qn ->
+        // Discovery already carries the authenticated account's actual streams.
+        // Local VIP/login caches must not cap an exact playable representation.
+        return playableQualities.filter { qn ->
             when (qn) {
                 126 -> isDolbyVisionSupported
-                125 -> isHdrSupported
-                else -> true
+                125, 129 -> isHdrSupported
+                else -> qn > 0
             }
-        }
-        val playable = deviceSafeQualities.filter { it <= capabilityCeiling }
-        return playable.maxOrNull()
-            ?: if (isLoggedIn) 80 else 64
+        }.maxOrNull() ?: 64
     }
 
     internal fun buildPlaybackSelectionSummary(

@@ -25,11 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.addOutline
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -221,22 +217,12 @@ internal fun BottomBarFloatingSegmentedControl(
     val onSelectedState = rememberUpdatedState(onSelected)
     val enabledState = rememberUpdatedState(enabled)
     val onItemReselectedState = rememberUpdatedState(onItemReselected)
-    // Scrollable glass uses the fixed shell's rounded viewport. Non-scrolling docks
-    // retain their press overflow; neither branch changes layout or pointer bounds.
+    // Glass callers own the expanded rounded liquidDockViewport, and the scroll node
+    // below reserves captureInsets for press/velocity bloom. Clipping again to the resting
+    // shell here cuts off that bloom. Keep native clipping and all layout/hit bounds intact.
     BoxWithConstraints(
         modifier = rootModifier.height(effectiveHeight).then(
-            if (scrollState != null && liquidGlassEnabled) Modifier.drawWithCache {
-                // A rectangular edge slices partially visible indicators into a flat cap.
-                // Match the stationary shell instead of clipping against the moving rail.
-                val viewportPath = Path().apply {
-                    addOutline(
-                        resolveSharedBottomBarCapsuleShape().createOutline(size, layoutDirection, this@drawWithCache)
-                    )
-                }
-                onDrawWithContent {
-                    clipPath(viewportPath) { this@onDrawWithContent.drawContent() }
-                }
-            } else if (scrollState != null) Modifier.drawWithContent {
+            if (scrollState != null && !liquidGlassEnabled) Modifier.drawWithContent {
                 clipRect(top = -size.height, bottom = size.height * 2f) {
                     this@drawWithContent.drawContent()
                 }

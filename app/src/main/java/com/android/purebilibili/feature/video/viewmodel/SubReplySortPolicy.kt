@@ -22,6 +22,7 @@ internal fun SubReplyUiState.resetForSort(mode: SubReplySortMode): SubReplyUiSta
     isLoading = true,
     isRefreshing = false,
     error = null,
+    retryRequest = null,
 )
 
 internal fun isSortedSubReplyPageEnd(cursorIsEnd: Boolean, nextOffset: String?): Boolean =

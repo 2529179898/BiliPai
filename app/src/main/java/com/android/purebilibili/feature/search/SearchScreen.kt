@@ -1,6 +1,8 @@
 // 文件路径: feature/search/SearchScreen.kt
 package com.android.purebilibili.feature.search
 
+import com.android.purebilibili.core.ui.components.resolveAppCountedTabLabel
+import com.android.purebilibili.core.ui.components.appCountedTabOption
 import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.ui.draw.drawWithContent
@@ -3446,16 +3448,11 @@ fun SearchHotSection(
  * and can be interrupted mid-swipe / mid-animate.
  */
 /** PiliPlus 同款分类计数标签:未加载(-1/null)只显示名称,超过 99 显示 99+。 */
-internal fun resolveSearchTypeTabLabel(displayName: String, count: Int?): String {
-    if (count == null || count < 0) return displayName
-    return "$displayName ${if (count > 99) "99+" else count}"
-}
+internal fun resolveSearchTypeTabLabel(displayName: String, count: Int?): String =
+    resolveAppCountedTabLabel(displayName, count)
 
 internal fun resolveSearchTypeTabMeasurementLabel(type: SearchType, count: Int?): String =
-    if (type == SearchType.ALL) {
-        // 综合 is the initial result tab. Reserve its capped count before the API responds.
-        resolveSearchTypeTabLabel(type.displayName, 100)
-    } else resolveSearchTypeTabLabel(type.displayName, count)
+    requireNotNull(appCountedTabOption(type, type.displayName, count).measurementLabel)
 
 @Composable
 private fun SearchResultTypeTabRow(
@@ -3521,7 +3518,10 @@ private fun SearchResultTypeTabRow(
         BottomBarLiquidSegmentedControl(
             items = tabLabels,
             liquidGlassMeasurementLabels = glassMeasurementLabels,
-            liquidGlassAnimateLabelWidthChanges = true,
+            liquidGlassAnimateLabelWidthChanges = false,
+            // Both renderers center on wide devices; each keeps its own sizing and indicator style.
+            centerGlassContent = LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet },
+            centerNativeContent = LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet },
             selectedIndex = selectedIndex,
             onSelected = { index ->
                 tabs.getOrNull(index)?.let { onTabClick(index, it) }
@@ -3668,13 +3668,18 @@ fun SearchFilterBar(
         Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
     }
     val chipSpacing = if (useMiuixPresentation) 9.dp else 10.dp
+    val centerWideFilters = LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet }
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .then(filterRowPadding)
     ) {
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(chipSpacing),
+                modifier = if (centerWideFilters) Modifier.fillMaxWidth() else Modifier,
+                horizontalArrangement = Arrangement.spacedBy(
+                    chipSpacing,
+                    if (centerWideFilters) Alignment.CenterHorizontally else Alignment.Start,
+                ),
                 verticalArrangement = Arrangement.spacedBy(if (useMiuixPresentation) AppSpacingTokens.Small else 8.dp)
             ) {
                 if (SearchFilterControl.VIDEO_ORDER in filterControls) {

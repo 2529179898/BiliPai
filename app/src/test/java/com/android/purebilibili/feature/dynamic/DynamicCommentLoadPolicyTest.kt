@@ -82,26 +82,13 @@ class DynamicCommentLoadPolicyTest {
     }
 
     @Test
-    fun `dynamic main comments continue when total count exceeds loaded replies`() {
-        val isEnd = resolveDynamicMainCommentPageEnd(
-            cursorIsEnd = true,
-            fetchedReplyCount = 20,
-            loadedReplyCount = 20,
-            totalCount = 138
-        )
-
-        assertEquals(false, isEnd)
-    }
-
-    @Test
     fun `detail comments load more only when near end and not already loading`() {
         assertEquals(
             true,
             shouldLoadMoreDynamicDetailComments(
                 lastVisibleIndex = 18,
                 itemCount = 20,
-                loadedCount = 20,
-                totalCount = 138,
+                hasMore = true,
                 isLoading = false,
                 isLoadingMore = false,
             )
@@ -111,8 +98,7 @@ class DynamicCommentLoadPolicyTest {
             shouldLoadMoreDynamicDetailComments(
                 lastVisibleIndex = 18,
                 itemCount = 20,
-                loadedCount = 20,
-                totalCount = 138,
+                hasMore = true,
                 isLoading = false,
                 isLoadingMore = true,
             )
@@ -122,8 +108,7 @@ class DynamicCommentLoadPolicyTest {
             shouldLoadMoreDynamicDetailComments(
                 lastVisibleIndex = 10,
                 itemCount = 20,
-                loadedCount = 20,
-                totalCount = 138,
+                hasMore = true,
                 isLoading = false,
                 isLoadingMore = false,
             )
@@ -133,8 +118,7 @@ class DynamicCommentLoadPolicyTest {
             shouldLoadMoreDynamicDetailComments(
                 lastVisibleIndex = 18,
                 itemCount = 20,
-                loadedCount = 138,
-                totalCount = 138,
+                hasMore = false,
                 isLoading = false,
                 isLoadingMore = false,
             )
@@ -142,15 +126,24 @@ class DynamicCommentLoadPolicyTest {
     }
 
     @Test
-    fun `dynamic main comments end after empty page without larger total`() {
-        val isEnd = resolveDynamicMainCommentPageEnd(
-            cursorIsEnd = false,
-            fetchedReplyCount = 0,
-            loadedReplyCount = 20,
-            totalCount = 138
-        )
-
-        assertEquals(true, isEnd)
+    fun `unknown or underestimated count cannot block an available next page`() {
+        for (displayCount in listOf(0, 1, 20)) {
+            val state = DynamicCommentUiState(
+                comments = List(20) { ReplyItem(rpid = it.toLong() + 1) },
+                totalCount = displayCount,
+                hasMore = true,
+                nextPage = 2,
+            )
+            assertEquals(true, shouldLoadMoreDynamicDetailComments(
+                lastVisibleIndex = 19, itemCount = 21, hasMore = state.hasMore,
+                isLoading = state.isLoading, isLoadingMore = state.isLoadingMore,
+            ))
+        }
+        val ended = DynamicCommentUiState(totalCount = 100, hasMore = false)
+        assertEquals(false, shouldLoadMoreDynamicDetailComments(
+            lastVisibleIndex = 19, itemCount = 21, hasMore = ended.hasMore,
+            isLoading = false, isLoadingMore = false,
+        ))
     }
 
     @Test

@@ -131,6 +131,12 @@ internal fun mergeCommentReplyLocations(
     return data.copy(
         root = data.root?.let(::merge),
         replies = data.replies?.map(::merge),
+        hots = data.hots?.map(::merge),
+        topReplies = data.topReplies?.map(::merge),
+        top = data.top?.let { it.copy(
+            upper = it.upper?.let(::merge), admin = it.admin?.let(::merge), vote = it.vote?.let(::merge),
+        ) },
+        upper = data.upper?.let { it.copy(top = it.top?.let(::merge)) },
     )
 }
 

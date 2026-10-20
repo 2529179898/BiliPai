@@ -5,6 +5,8 @@
 
 package com.android.purebilibili.feature.video.ui.pager
 
+import com.android.purebilibili.data.repository.playableVideoQualityIds
+import com.android.purebilibili.data.repository.advertisedVideoQualityIds
 import com.android.purebilibili.feature.video.ui.overlay.NextWatchOverlay
 
 import androidx.compose.foundation.Canvas
@@ -503,6 +505,7 @@ fun PortraitVideoPager(
     var portraitSelectedQuality by remember { mutableIntStateOf(0) }
     var portraitDisplayedQuality by remember { mutableIntStateOf(0) }
     var portraitAvailableQualityIds by remember { mutableStateOf(listOf<Int>()) }
+    var portraitSwitchableQualityIds by remember { mutableStateOf(listOf<Int>()) }
     LaunchedEffect(context) {
         val defaultQuality = withContext(Dispatchers.IO) {
             NetworkUtils.getPlayableDefaultQualityId(
@@ -1244,6 +1247,8 @@ fun PortraitVideoPager(
         danmakuManager.clearForVideoChange()
         isLoading = true
         currentPlayingBvid = bvid
+        portraitAvailableQualityIds = emptyList()
+        portraitSwitchableQualityIds = emptyList()
         currentPlayingCid = 0L
         currentPlayingAid = 0L
         onPlaybackIdentityChange(bvid, requestedCid, targetCover)
@@ -1288,9 +1293,10 @@ fun PortraitVideoPager(
                             targetQuality = targetQuality,
                             cdnPlugin = portraitPlaybackCdnPlugin
                         )
-                        val dashVideoIds = playData.dash?.video?.map { it.id }?.distinct().orEmpty()
+                        val dashVideoIds = playData.playableVideoQualityIds()
+                        portraitSwitchableQualityIds = dashVideoIds
                         val availableQualityIds = resolvePortraitAvailableQualityIds(
-                            acceptQualities = playData.accept_quality,
+                            acceptQualities = playData.advertisedVideoQualityIds(),
                             dashVideoIds = dashVideoIds
                         )
                         if (availableQualityIds.isNotEmpty()) {
@@ -1889,6 +1895,7 @@ fun PortraitVideoPager(
                 qualityLabel = portraitQualityLabel,
                 selectedQualityId = portraitSelectedQuality,
                 availableQualityIds = portraitAvailableQualityIds,
+                switchableQualityIds = portraitSwitchableQualityIds,
                 requestedAudioQuality = portraitRequestedAudioQuality,
                 selectedAudioQuality = portraitSelectedAudioQuality,
                 availableAudioQualities = portraitAvailableAudioQualities,
@@ -2118,6 +2125,7 @@ private fun VideoPageItem(
     qualityLabel: String,
     selectedQualityId: Int,
     availableQualityIds: List<Int>,
+    switchableQualityIds: List<Int>,
     requestedAudioQuality: Int,
     selectedAudioQuality: Int,
     availableAudioQualities: List<AudioQualityOption>,
@@ -4031,7 +4039,7 @@ private fun VideoPageItem(
             QualitySelectionMenu(
                 qualities = resolvePortraitQualityMenuLabels(qualityIds),
                 qualityIds = qualityIds,
-                switchableQualityIds = qualityIds,
+                switchableQualityIds = switchableQualityIds,
                 currentQuality = qualityLabel,
                 isLoggedIn = isLoggedIn,
                 isVip = isVip,

@@ -3,6 +3,7 @@
 // UserState 定义在 HomeViewModel.kt 中
 package com.android.purebilibili.feature.home
 
+import com.android.purebilibili.core.util.LocalWindowSizeClass
 import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.resolveFilledButtonContainerColor
 import com.android.purebilibili.core.ui.resolveFilledButtonContentColor
@@ -104,7 +105,8 @@ fun LiveSubCategoryRow(
         // Glass indicator fills the measured slot; native geometry keeps its defaults.
         liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
-        centerContent = false,
+        // Standalone rails center on wide devices in both materials; compact windows keep their anchor.
+        centerContent = LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet },
         options = options,
         selectedValue = selectedSubCategory,
         onSelectionChange = onSubCategorySelected,

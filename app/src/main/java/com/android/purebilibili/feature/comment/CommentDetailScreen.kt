@@ -185,6 +185,7 @@ fun CommentDetailScreen(
                         isLoading = subReplyState.isLoading,
                         isRefreshing = subReplyState.isRefreshing,
                         isEnd = subReplyState.isEnd,
+                        paginationPage = subReplyState.page,
                         emoteMap = emptyMap(),
                         onLoadMore = viewModel::loadMore,
                         onRefresh = viewModel::refresh,

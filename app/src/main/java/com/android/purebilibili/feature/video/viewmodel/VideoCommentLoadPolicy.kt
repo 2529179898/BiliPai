@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.video.viewmodel
 
+import com.android.purebilibili.data.model.response.CommentMainListContinuation
 import com.android.purebilibili.data.model.response.ReplyItem
 import kotlin.math.ceil
 
@@ -60,6 +61,7 @@ internal data class VideoCommentCacheSnapshot(
     val pinnedReplyIds: Set<Long>,
     val subject: CommentSubjectKey,
     val cachedAtMs: Long,
+    val mainListContinuation: CommentMainListContinuation? = null,
 )
 
 /**

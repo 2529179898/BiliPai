@@ -436,6 +436,8 @@ fun BottomBarLiquidSegmentedControl(
     // Geometry-only labels for asynchronous badges. Native renderers and visible text ignore them.
     liquidGlassMeasurementLabels: List<String>? = null,
     liquidGlassAnimateLabelWidthChanges: Boolean = false,
+    // Explicit native placement opt-in, independent from glass-only geometry and shared defaults.
+    centerNativeContent: Boolean = false,
 ): Unit = AppExactTouchTargets {
     if (items.isEmpty()) return@AppExactTouchTargets
     val effectiveLabelFontSize = com.android.purebilibili.core.ui.appTabLabelFontSize(labelFontSize)
@@ -451,6 +453,7 @@ fun BottomBarLiquidSegmentedControl(
             onSelectionChange = onSelected,
             modifier = modifier,
             enabled = enabled,
+            centerContent = centerNativeContent,
             scrollable = !nativeSegmentedControl && !forceEqualWidth &&
                 (scrollState != null || items.size > 2),
             forceEqualWidth = forceEqualWidth,
@@ -499,7 +502,8 @@ fun BottomBarLiquidSegmentedControl(
             }
             val nativeItemWidth = renderedItemWidth ?:
                 (maxWidth - horizontalPadding * 2).coerceAtLeast(0.dp) / items.size
-            val nativeModifier = if (renderedItemWidth == null) Modifier.fillMaxWidth() else Modifier
+            val nativeModifier = (if (renderedItemWidth == null) Modifier.fillMaxWidth() else Modifier)
+                .then(if (centerNativeContent) Modifier.align(Alignment.Center) else Modifier)
             if (nativeSegmentedControl) {
                 AppNativeSegmentedControl(
                     options = nativeOptions,
@@ -520,6 +524,7 @@ fun BottomBarLiquidSegmentedControl(
                     onSelectionChange = onSelected,
                     modifier = nativeModifier,
                     enabled = enabled,
+                    centerContent = centerNativeContent,
                     scrollable = scrollState != null,
                     forceEqualWidth = forceEqualWidth,
                     fixedItemWidth = nativeItemWidth,

@@ -291,14 +291,6 @@ fun VideoSettingsPanel(
     // 关闭面板
     onDismiss: () -> Unit
 ) {
-    fun hasPermissionForQuality(qualityId: Int): Boolean {
-        return when {
-            qualityId >= 112 -> isVip
-            qualityId >= 80 -> isLoggedIn
-            else -> true
-        }
-    }
-
     val controlCenterMotion = rememberVideoControlCenterMotion()
     // Glass opens fully so its header can stretch the groups upward without competing
     // with a half-expanded anchor. Non-glass retains the original partial-sheet behavior.
@@ -704,8 +696,9 @@ fun VideoSettingsPanel(
                                 val isSelected = label == currentQualityLabel
                                 val qualityId = qualityIds.getOrNull(index) ?: 0
                                 val isSwitchable = qualityId in switchableQualityIds
-                                val hasPermission = hasPermissionForQuality(qualityId)
-                                val isEnabled = isSwitchable && hasPermission
+                                // Shared by glass, MD3 and Miuix: an actual server stream
+                                // remains selectable even when local membership is stale.
+                                val isEnabled = isSwitchable
                                 val containerColor = when {
                                     isSelected -> videoSettingsChipContainerColor(true)
                                     isEnabled -> videoSettingsChipContainerColor(false)

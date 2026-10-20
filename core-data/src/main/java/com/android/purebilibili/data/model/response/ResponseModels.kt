@@ -66,7 +66,9 @@ data class ReplyData(
     @SerialName("vote_card")
     val voteCard: ReplyVoteCard? = null,
     @SerialName("grpc_next_offset")
-    val grpcNextOffset: String = ""
+    val grpcNextOffset: String = "",
+    // 手机主评论的分页来源与游标；楼中楼继续使用 grpcNextOffset。
+    val mainListContinuation: CommentMainListContinuation? = null
 ) {
     //  统一获取总评论数
     fun getAllCount(): Int = when {

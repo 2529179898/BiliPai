@@ -1,5 +1,6 @@
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.util.LocalWindowSizeClass
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -147,13 +148,14 @@ fun <T> AppLiquidAwareTabRow(
         return
     }
     val labels = remember(options) { options.map { it.label } }
+    val measurementLabels = if (liquidGlassEnabled) options.map { it.measurementLabel ?: it.label } else labels
     val resolvedMinTabWidth = resolveAppAdaptiveTabMinWidth(minTabWidth)
     val resolvedLabelFontSize = com.android.purebilibili.core.ui.appTabLabelFontSize(labelFontSize)
     // Measure once before choosing the material. Glass and native renderers own
     // the same slots, including font scaling and long labels.
     val measuredTabWidth = rememberMeasuredTabMinWidth(
         requestedMinWidth = resolvedMinTabWidth,
-        labels = labels,
+        labels = measurementLabels,
         textStyle = MaterialTheme.typography.labelLarge.copy(
             fontSize = resolvedLabelFontSize,
             fontWeight = FontWeight.SemiBold,
@@ -166,7 +168,9 @@ fun <T> AppLiquidAwareTabRow(
     val resolvedDragSelectionEnabled = dragSelectionEnabled ?: (enabled && options.size > 1)
     // Data-driven width changes are opt-in and glass-only. Native MD3/Miuix keep
     // their measured slots and defaults, even when a caller enables this hint.
+    // A reservation is a geometry contract: metadata updates must not start width animations.
     val animateLabelWidths = liquidGlassEnabled && liquidGlassAnimateLabelWidthChanges &&
+        options.none { it.measurementLabel != null } &&
         com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current &&
         !com.android.purebilibili.core.ui.LocalSystemReduceMotion.current
     val readableTabWidth = if (animateLabelWidths) {
@@ -228,7 +232,8 @@ fun <T> AppLiquidAwareTabRow(
                 )
                 BottomBarLiquidSegmentedControl(
                     items = labels,
-                    liquidGlassAnimateLabelWidthChanges = liquidGlassAnimateLabelWidthChanges,
+                    liquidGlassMeasurementLabels = measurementLabels,
+                    liquidGlassAnimateLabelWidthChanges = animateLabelWidths,
                     liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
                     liquidGlassAdaptIndicatorToLabel = liquidGlassAdaptIndicatorToLabel,
                     selectedIndex = selectedIndex,
@@ -299,7 +304,8 @@ fun <T> AppLiquidAwareTabRow(
             }
             BottomBarLiquidSegmentedControl(
                 items = labels,
-                liquidGlassAnimateLabelWidthChanges = liquidGlassAnimateLabelWidthChanges,
+                liquidGlassMeasurementLabels = measurementLabels,
+                liquidGlassAnimateLabelWidthChanges = animateLabelWidths,
                 liquidGlassLabelHorizontalPadding = liquidGlassLabelHorizontalPadding,
                 liquidGlassAdaptIndicatorToLabel = liquidGlassAdaptIndicatorToLabel,
                 selectedIndex = selectedIndex,
@@ -307,6 +313,12 @@ fun <T> AppLiquidAwareTabRow(
                     options.getOrNull(index)?.let { onSelectionChange(it.value) }
                 },
                 modifier = rowModifier,
+                // Full-width primary shells also contain a compact glass child. Honor the caller's
+                // centering intent only in wide windows, with separate native and glass opt-ins.
+                centerGlassContent = centerContent &&
+                    LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet },
+                centerNativeContent = centerContent &&
+                    LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet },
                 enabled = enabled,
                 itemWidth = rowItemWidth,
                 height = height,
