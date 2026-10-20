@@ -96,6 +96,30 @@ class VideoCardTransitionBackgroundPolicyTest {
     }
 
     @Test
+    fun blurEffectsSurviveGestureReversalAndTheClearEndpoint() {
+        val cache = VideoCardTransitionBlurEffectCache()
+        val first = kotlin.test.assertNotNull(cache.resolve(12f, sdkInt = 35))
+        cache.resolve(24f, sdkInt = 35)
+        assertEquals(null, cache.resolve(0f, sdkInt = 35))
+        kotlin.test.assertSame(first, cache.resolve(12f, sdkInt = 35))
+        assertEquals(null, cache.resolve(Float.NaN, sdkInt = 35))
+        assertEquals(null, cache.resolve(Float.POSITIVE_INFINITY, sdkInt = 35))
+        assertEquals(null, cache.resolve(12f, sdkInt = 30))
+        cache.clear()
+        kotlin.test.assertNotSame(first, cache.resolve(12f, sdkInt = 35))
+    }
+
+    @Test
+    fun blurEffectCacheEvictsOldRadiiWhenItsCapacityIsExceeded() {
+        val cache = VideoCardTransitionBlurEffectCache()
+        val first = kotlin.test.assertNotNull(cache.resolve(1f, sdkInt = 35))
+        for (radius in 2..257) cache.resolve(radius.toFloat(), sdkInt = 35)
+        val recent = cache.resolve(257f, sdkInt = 35)
+        kotlin.test.assertNotSame(first, cache.resolve(1f, sdkInt = 35))
+        kotlin.test.assertSame(recent, cache.resolve(257f, sdkInt = 35))
+    }
+
+    @Test
     fun blurEffectsAreCachedForTheSnapshotSessionAndReleasedWithIt() {
         val state = VideoCardTransitionSnapshotLayerState()
         val first = state.blurEffect(12f, sdkInt = 35)

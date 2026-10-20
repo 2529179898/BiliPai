@@ -1294,7 +1294,7 @@ fun WatchLaterScreen(
                             modifier = Modifier.fillMaxSize(),
                         ) {
                             items(skeletonColumns * 6) {
-                                PersonalMediaCardSkeleton(blockColor = skeletonBlockColor)
+                                PersonalMediaCardSkeleton(blockColor = skeletonBlockColor, stacked = skeletonColumns > 1)
                             }
                         }
                     }

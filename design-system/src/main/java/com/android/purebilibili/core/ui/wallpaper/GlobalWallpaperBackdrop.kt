@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -29,15 +30,29 @@ private data class WallpaperReplayPlacement(
 
 /** Replay in screen coordinates, so retained entries never reveal the previous page. */
 @Composable
-fun Modifier.sharedGlobalWallpaperBackground(fallbackColor: Color): Modifier {
+fun Modifier.sharedGlobalWallpaperBackground(
+    fallbackColor: Color,
+    fallbackColorProvider: (() -> Color)? = null,
+): Modifier {
+    // Existing constant-color callers retain their background modifier. Moving surfaces
+    // can provide a color read in draw, without subscribing composition to their position.
+    fun Modifier.fallbackBackground(opaque: Boolean): Modifier =
+        if (fallbackColorProvider == null) {
+            background(if (opaque) fallbackColor.copy(alpha = 1f) else fallbackColor)
+        } else {
+            drawBehind {
+                val color = fallbackColorProvider()
+                drawRect(if (opaque) color.copy(alpha = 1f) else color)
+            }
+        }
     val visible = LocalGlobalWallpaperBackdropVisible.current
     val source = LocalGlobalWallpaperBackdropSource.current
         ?.takeIf { visible && it.isReady }
-        ?: return background(fallbackColor)
+        ?: return fallbackBackground(opaque = false)
     // Replay directly: drawBackdrop's effect modifier requires Android 13 even when effects
     // are empty. Drawing the recorded layer itself also supports older Android versions.
     val placement = remember(source) { mutableStateOf<WallpaperReplayPlacement?>(null) }
-    return background(fallbackColor.copy(alpha = 1f))
+    return fallbackBackground(opaque = true)
         .onGloballyPositioned {
             placement.value = WallpaperReplayPlacement(it, it.positionInWindow())
         }

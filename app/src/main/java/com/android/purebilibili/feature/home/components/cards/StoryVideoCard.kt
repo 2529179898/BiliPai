@@ -117,7 +117,7 @@ internal fun StoryVideoCard(
     showUpBadge: Boolean? = null,
     showUpAvatar: Boolean? = null,
     homeDurationStyle: HomeDurationStyle = HomeDurationStyle.OUTSIDE_COVER,
-    coverAspectRatio: Float = 4f / 3f,
+    coverAspectRatio: Float = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
     cardHorizontalPadding: Dp = AppSpacingTokens.None,
     compactMetadata: Boolean = true,
     titleMinLines: Int = 1,
@@ -311,12 +311,14 @@ internal fun StoryVideoCard(
     }
 
     val cardShellShape = cardShape
+    val homeCardScrolling = LocalHomeCardScrolling.current
     val enterAnimationEnabledAtMount = remember(video.bvid) {
         resolveHomeCardEnterAnimationEnabledAtMount(
             baseAnimationEnabled = animationEnabled,
             isReturningFromDetail = isReturningFromVideoDetail,
             isSwitchingCategory = CardPositionManager.isSwitchingCategory,
-            isScrollInProgress = scrollLiteModeEnabled
+            // Sample once; a card mounted while scrolling stays visible after settling.
+            isScrollInProgress = scrollLiteModeEnabled || homeCardScrolling?.value == true
         )
     }
     val coordinateEnterWithTransition = remember(animationEnabled, transitionEnabled) {

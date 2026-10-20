@@ -19,6 +19,14 @@ class HorizontalVideoCardLayoutPolicyTest {
     }
 
     @Test
+    fun minimumHeightAccommodatesSelectedCoverAndLargeText() {
+        assertEquals(105f, resolveHorizontalVideoCardMinimumHeightDp(1f, 4f / 3f))
+        assertEquals(90f, resolveHorizontalVideoCardMinimumHeightDp(1f, 16f / 10f))
+        assertEquals(90f, resolveHorizontalVideoCardMinimumHeightDp(1f, 16f / 9f))
+        assertEquals(180f, resolveHorizontalVideoCardMinimumHeightDp(2f, 4f / 3f))
+    }
+
+    @Test
     fun horizontalCardDoesNotLockInfoColumnToCoverHeight() {
         val cardSource = java.io.File(
             "src/main/java/com/android/purebilibili/feature/home/components/cards/HomeStyleSingleColumnVideoCard.kt",

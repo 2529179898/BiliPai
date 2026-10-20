@@ -2848,24 +2848,15 @@ internal fun CommonListContent(
     val context = LocalContext.current
     val isHistoryPersonalList = resolveHistoryItem != null
     val isPersonalList = isHistoryPersonalList || isFavoritePersonalList
-    val homeFeedCardStyle = if (isPersonalList) {
-        HomeFeedCardStyle.BILIPAI
-    } else {
-        SettingsManager
-            .getHomeFeedCardStyle(context)
-            .collectAsStateWithLifecycle(initialValue = HomeFeedCardStyle.BILIPAI)
-            .value
-    }
+    val homeFeedCardStyle by SettingsManager
+        .getHomeFeedCardStyle(context)
+        .collectAsStateWithLifecycle(initialValue = HomeFeedCardStyle.BILIPAI)
     val cardLayout = remember(homeFeedCardStyle) {
         com.android.purebilibili.feature.home.resolveHomeFeedCardLayout(homeFeedCardStyle)
     }
     val gridOuterPaddingDp = if (isPersonalList) 12 else cardLayout.outerPaddingDp
     val gridItemSpacingDp = if (isPersonalList) 12 else cardLayout.itemSpacingDp
-    val skeletonCoverAspectRatio = if (isPersonalList) {
-        com.android.purebilibili.feature.personal.PERSONAL_LIST_HORIZONTAL_COVER_ASPECT_RATIO
-    } else {
-        cardLayout.coverAspectRatio
-    }
+    val skeletonCoverAspectRatio = cardLayout.coverAspectRatio
     val resolvedGridState = gridState ?: rememberLazyGridState()
     val fixedHeaderInset = resolveCommonListViewportTopPadding(padding.calculateTopPadding())
     val scrollableHeaderInset = if (scrollUnderHeader) fixedHeaderInset else AppSpacingTokens.None
@@ -3062,6 +3053,7 @@ internal fun CommonListContent(
                     ) { _ ->
                         if (isHistoryPersonalList) {
                             HistoryPersonalCardSkeleton(
+                                stacked = columns > 1,
                                 modifier = Modifier.animateItem(),
                                 blockColor = historySkeletonBlockColor,
                             )

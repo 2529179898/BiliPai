@@ -20,9 +20,9 @@ class HomeTopContentSpacingPolicyTest {
     }
 
     @Test
-    fun hiddenTopTabsStillRespectDisabledKeepTopSearch() {
+    fun hiddenTopTabsReserveAvatarAndSettingsWithoutSearchSpacing() {
         assertEquals(
-            HomeTopSearchRowMetrics(0.dp, 0.dp),
+            HomeTopSearchRowMetrics(48.dp, 0.dp),
             resolveHomeTopSearchRowMetrics(
                 configuredHeight = 48.dp,
                 configuredTabsSpacing = 6.dp,
@@ -33,12 +33,14 @@ class HomeTopContentSpacingPolicyTest {
     }
 
     @Test
-    fun searchVisibilityDoesNotDependOnTabsForAnySwitchCombination() {
+    fun controlsReservationCoversEverySearchAndTabsSwitchCombination() {
         for (bottomSearch in listOf(false, true)) {
             for (keepSearch in listOf(false, true)) {
                 for (hideTabs in listOf(false, true)) {
                     val expected = if (!bottomSearch || keepSearch) {
                         HomeTopSearchRowMetrics(48.dp, 6.dp)
+                    } else if (hideTabs) {
+                        HomeTopSearchRowMetrics(48.dp, 0.dp)
                     } else HomeTopSearchRowMetrics(0.dp, 0.dp)
                     assertEquals(
                         expected,

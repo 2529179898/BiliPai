@@ -41,6 +41,9 @@ val LocalHomeScrollTickProvider = staticCompositionLocalOf<(() -> Int)?> { null 
 val LocalHomeCardScrolling = compositionLocalOf<State<Boolean>?> { null }
 val LocalHomeCardTransitionRunning = compositionLocalOf<State<Boolean>?> { null }
 
+/** Only home defers optional network/color work; other card callers keep normal behavior. */
+internal val LocalHomeCardAuxiliaryWorkAllowed = compositionLocalOf { true }
+
 /**
  * 纯 Kotlin 采样区域定义（无 Android 运行库依赖，便于快速单元测试）
  */

@@ -861,9 +861,12 @@ fun HomeScreen(
         }
     }
     // Retained home must not issue scroll/chrome/image work while another page or morph owns the UI.
-    val homeFeedWorkAllowed = isTopLevelActive &&
-        hasSyncedPagerWithState && pendingFeedScrollAnchor == null &&
+    val homeFeedUpdatesAllowed = isTopLevelActive &&
         !isReturningFromVideoDetail && !deferHomeHeavyWork
+    // Data may be needed to restore a pending scroll anchor. Only navigation freezes
+    // displayed feed data; pager synchronization and anchor recovery gate work below.
+    val homeFeedWorkAllowed = homeFeedUpdatesAllowed &&
+        hasSyncedPagerWithState && pendingFeedScrollAnchor == null
     val videoCardReturnGestureInProgress =
         videoCardTransitionBackgroundState.isReturnGestureInProgressProvider()
     var settledShowHomeUpAvatars by rememberSaveable {
@@ -883,7 +886,7 @@ fun HomeScreen(
         }
     }
     val dissolvingVideos by viewModel.dissolvingVideos.collectAsStateWithLifecycle()
-    val followingMids by viewModel.followingMids.collectAsStateWithLifecycle()
+    val followingMids by viewModel.followingMids.collectAsHomeFeedState(homeFeedUpdatesAllowed)
     val showOnlineCount by SettingsManager
         .getShowOnlineCount(context)
         .collectAsStateWithLifecycle(initialValue = false)
@@ -1146,7 +1149,7 @@ fun HomeScreen(
             viewModel.getCategoryState(currentCategory)
         }
     }
-    val chromeCategoryState by chromeCategoryStateFlow.collectAsStateWithLifecycle()
+    val chromeCategoryState by chromeCategoryStateFlow.collectAsHomeFeedState(homeFeedUpdatesAllowed)
     val chromeContentReady = !(chromeCategoryState.isLoading &&
         chromeCategoryState.videos.isEmpty() && chromeCategoryState.liveRooms.isEmpty())
     val homeChromeBlurEnabled = isLiquidGlassEnabled || isHeaderBlurEnabled ||
@@ -2107,7 +2110,7 @@ fun HomeScreen(
                                 viewModel.getCategoryState(category)
                             }
                         }
-                        val categoryState by categoryStateFlow.collectAsStateWithLifecycle()
+                        val categoryState by categoryStateFlow.collectAsHomeFeedState(homeFeedUpdatesAllowed)
 
                         //  独立的 PullToRefreshState，避免所有页面共享一个状态导致冲突
                         val pullRefreshState = rememberPullToRefreshState()
@@ -2539,14 +2542,10 @@ fun HomeScreen(
                                  )
                                  }
                                  if (category == HomeCategory.POPULAR) {
-                                     val subCategoryStateFlow = remember(viewModel, popularSubCategory) {
-                                         viewModel.getPopularCategoryState(popularSubCategory)
-                                     }
-                                     val subCategoryState by subCategoryStateFlow.collectAsStateWithLifecycle()
                                      val subCategoryGridState =
                                          popularGridStates[popularSubCategory] ?: rememberHomeStaggeredGridState()
                                      renderHomeCategoryPage(
-                                         subCategoryState,
+                                         categoryState,
                                          subCategoryGridState,
                                          popularSubCategory,
                                          onLoadMoreCallback
@@ -3185,7 +3184,9 @@ fun HomeScreen(
                     // Cancel the previous batch immediately when scrolling starts. Debouncing
                     // upstream would keep that batch alive until the next settled emission.
                     if (isScrollInProgress) return@collectLatest
-                    kotlinx.coroutines.delay(180)
+                    // Visible cover work goes first, then card color/online work. Give
+                    // those a separate window before starting off-screen decodes.
+                    kotlinx.coroutines.delay(HOME_COVER_PRELOAD_SETTLE_MS)
                     val videos = viewModel.getPreloadVideosSnapshot(
                         category = currentCategory,
                         popularSubCategory = popularSubCategory

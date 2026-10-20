@@ -310,8 +310,10 @@ internal fun Modifier.videoCardTransitionChromeReveal(
     }
     .layout { measurable, constraints ->
         val placeable = measurable.measure(constraints)
-        val reveal = revealProvider().coerceIn(0f, 1f)
         layout(placeable.width, placeable.height) {
+            // Progress changes placement, not constraints or size. Keep the read here
+            // so predictive-back frames do not remeasure the dock and its children.
+            val reveal = revealProvider().coerceIn(0f, 1f)
             val dy = ((1f - reveal) * placeable.height).roundToInt()
             placeable.place(0, if (slideDown) dy else -dy)
         }
@@ -329,6 +331,7 @@ internal fun Modifier.videoCardTransitionOverlayDepthEffect(
     // to the modifier, outside snapshot state, so layer updates do not trigger composition.
     var cachedBlurRadiusPx = Float.NaN
     var cachedBlurEffect: BlurEffect? = null
+    val blurEffects = VideoCardTransitionBlurEffectCache()
     return this.graphicsLayer {
         val progress = progressProvider()
         val phase = phaseProvider()
@@ -360,11 +363,7 @@ internal fun Modifier.videoCardTransitionOverlayDepthEffect(
         transformOrigin = TransformOrigin(pivot.x, pivot.y)
         if (frame.blurRadiusPx != cachedBlurRadiusPx) {
             cachedBlurRadiusPx = frame.blurRadiusPx
-            cachedBlurEffect = if (frame.blurRadiusPx > 0.01f) {
-                BlurEffect(frame.blurRadiusPx, frame.blurRadiusPx, TileMode.Clamp)
-            } else {
-                null
-            }
+            cachedBlurEffect = blurEffects.resolve(frame.blurRadiusPx)
         }
         renderEffect = cachedBlurEffect
     }
@@ -743,6 +742,8 @@ internal fun Modifier.videoCardTransitionLiveBackgroundEffect(
     // every device: blur stays enabled, only redundant allocations are avoided.
     var cachedLiveBlurRadiusPx = Float.NaN
     var cachedLiveBlurEffect: BlurEffect? = null
+    // Retain quantized radii across gesture reversals and ordinary recompositions.
+    val liveBlurEffects = remember { VideoCardTransitionBlurEffectCache() }
     var cachedLiveCornerRadiusPx = Float.NaN
     var cachedLiveClipShape: RoundedCornerShape? = null
 
@@ -799,15 +800,7 @@ internal fun Modifier.videoCardTransitionLiveBackgroundEffect(
             }
             if (liveBlurRadiusPx != cachedLiveBlurRadiusPx) {
                 cachedLiveBlurRadiusPx = liveBlurRadiusPx
-                cachedLiveBlurEffect = if (liveBlurRadiusPx > 0.01f) {
-                    BlurEffect(
-                        radiusX = liveBlurRadiusPx,
-                        radiusY = liveBlurRadiusPx,
-                        edgeTreatment = TileMode.Clamp,
-                    )
-                } else {
-                    null
-                }
+                cachedLiveBlurEffect = liveBlurEffects.resolve(liveBlurRadiusPx)
             }
             renderEffect = cachedLiveBlurEffect
         }
@@ -999,6 +992,21 @@ internal class VideoCardTransitionBackgroundFrameCache {
     }
 }
 
+/** Bounded per-owner cache so reversing a gesture can reuse previously visited blur radii. */
+internal class VideoCardTransitionBlurEffectCache {
+    private val effects = LinkedHashMap<Float, BlurEffect>()
+
+    fun resolve(radiusPx: Float, sdkInt: Int = Build.VERSION.SDK_INT): BlurEffect? {
+        if (radiusPx <= 0.01f || !radiusPx.isFinite() || sdkInt < 31) return null
+        return effects.getOrPut(radiusPx) {
+            if (effects.size >= 256) effects.remove(effects.keys.first())
+            BlurEffect(radiusX = radiusPx, radiusY = radiusPx, edgeTreatment = TileMode.Clamp)
+        }
+    }
+
+    fun clear() = effects.clear()
+}
+
 /**
  * 冻结层状态：开场首帧 record 后停止重录 feed，只对静态 display list
  * 更新 scale / BlurEffect / scrim，实现「看起来实时的动态模糊」与稳帧共存。
@@ -1016,14 +1024,9 @@ internal class VideoCardTransitionSnapshotLayerState {
     }
 
     // Reused by both source and host renderers for the lifetime of the captured display list.
-    private val blurEffects = LinkedHashMap<Float, BlurEffect>()
-    fun blurEffect(radiusPx: Float, sdkInt: Int = Build.VERSION.SDK_INT): BlurEffect? {
-        if (radiusPx <= 0.01f || !radiusPx.isFinite() || sdkInt < 31) return null
-        return blurEffects.getOrPut(radiusPx) {
-            if (blurEffects.size >= 256) blurEffects.remove(blurEffects.keys.first())
-            BlurEffect(radiusX = radiusPx, radiusY = radiusPx, edgeTreatment = TileMode.Clamp)
-        }
-    }
+    private val blurEffects = VideoCardTransitionBlurEffectCache()
+    fun blurEffect(radiusPx: Float, sdkInt: Int = Build.VERSION.SDK_INT): BlurEffect? =
+        blurEffects.resolve(radiusPx, sdkInt)
     val frameCache = VideoCardTransitionBackgroundFrameCache()
     var freezeRecording: Boolean = false
     var hasRecordedContent: Boolean = false

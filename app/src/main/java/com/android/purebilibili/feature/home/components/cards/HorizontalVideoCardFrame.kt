@@ -40,16 +40,15 @@ internal fun HorizontalVideoCardFrame(
     infoModifier: Modifier = Modifier,
     coverOverlayContent: (@Composable BoxScope.() -> Unit)? = null,
     trailingContent: (@Composable BoxScope.() -> Unit)? = null,
-    coverAspectRatio: Float = HORIZONTAL_VIDEO_CARD_COVER_ASPECT_RATIO,
+    coverAspectRatio: Float = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
     stacked: Boolean = false,
 ) {
-    // Horizontal geometry is shared across every material and page. Grid/stacked callers
-    // retain their own cover ratio; glass-only tuning must not change these native metrics.
-    val effectiveAspectRatio = if (stacked) {
-        coverAspectRatio.takeIf { it > 1f } ?: HORIZONTAL_VIDEO_CARD_COVER_ASPECT_RATIO
-    } else HORIZONTAL_VIDEO_CARD_COVER_ASPECT_RATIO
+    // This is shared behavior for MD3, Miuix and glass. Both horizontal and stacked
+    // video cards honor the selected ratio; material-specific effects do not change geometry.
+    val effectiveAspectRatio = coverAspectRatio.takeIf { it.isFinite() && it > 1f }
+        ?: HORIZONTAL_VIDEO_CARD_COVER_ASPECT_RATIO
     val coverWidth = HORIZONTAL_VIDEO_CARD_COVER_WIDTH_DP.dp
-    val resolvedMinimumHeight = resolveHorizontalVideoCardMinimumHeightDp(LocalDensity.current.fontScale).dp
+    val resolvedMinimumHeight = resolveHorizontalVideoCardMinimumHeightDp(LocalDensity.current.fontScale, effectiveAspectRatio).dp
     val infoPadding = HORIZONTAL_VIDEO_CARD_INFO_PADDING_DP.dp
     val infoEndPadding = if (trailingContent == null) infoPadding else
         (HORIZONTAL_VIDEO_CARD_ACTION_SIZE_DP + HORIZONTAL_VIDEO_CARD_ACTION_INSET_DP +

@@ -82,7 +82,6 @@ import com.android.purebilibili.data.model.response.HistoryBusiness
 import com.android.purebilibili.data.model.response.HistoryItem
 import com.android.purebilibili.feature.home.components.cards.resolveVideoCardCoverOverlayTextShadow
 import com.android.purebilibili.feature.home.components.cards.HorizontalVideoCardFrame
-import com.android.purebilibili.feature.personal.PERSONAL_LIST_HORIZONTAL_COVER_ASPECT_RATIO
 import com.android.purebilibili.feature.personal.PersonalCardSelectMask
 
 internal fun resolveHistoryKindLabel(business: HistoryBusiness): String = when (business) {
@@ -104,12 +103,14 @@ internal fun canAddHistoryToWatchLater(item: HistoryItem): Boolean =
 internal fun HistoryPersonalCardSkeleton(
     modifier: Modifier = Modifier,
     blockColor: Color? = null,
+    stacked: Boolean = false,
 ) {
     val pulse = if (blockColor == null) rememberContentSkeletonPulse() else 0f
     val color = blockColor ?: rememberContentSkeletonBlockColor(pulse)
     val blockShape = AppShapes.container(ContainerLevel.Card)
 
     HorizontalVideoCardFrame(
+        stacked = stacked,
         modifier = modifier
             .fillMaxWidth(),
         coverContent = {
@@ -303,7 +304,7 @@ internal fun HistoryPersonalCard(
                 transition.bounds.coverBounds = it.boundsInRoot()
             },
             headlineContent = {
-                AppText(text = video.title, style = contentTypography.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                AppText(text = video.title, style = contentTypography.title, maxLines = titleMaxLines, overflow = com.android.purebilibili.core.ui.videoCardTitleOverflow())
             },
             supportingContent = {
                 AppText(text = owner, style = contentTypography.author, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -349,7 +350,7 @@ internal fun HistoryPersonalCard(
                 onLongClick = onLongClick,
             )
             .onGloballyPositioned { transition.bounds.cardBounds = it.boundsInRoot() },
-        coverAspectRatio = PERSONAL_LIST_HORIZONTAL_COVER_ASPECT_RATIO,
+        coverAspectRatio = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
         coverModifier = Modifier.onGloballyPositioned {
             transition.bounds.coverBounds = it.boundsInRoot()
         },

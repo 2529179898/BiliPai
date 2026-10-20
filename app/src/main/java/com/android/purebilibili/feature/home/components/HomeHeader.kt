@@ -2743,90 +2743,96 @@ fun HomeHeader(
 
                             Spacer(modifier = Modifier.width(resolveHomeTopEdgeControlGap(topChromePolicy)))
 
-                            BottomBarMatchedReusableLiquidDock(
-                                shape = resolveHomeTopSearchContainerShape(topChromePolicy),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .widthIn(max = AppSpacingTokens.TripleExtraLarge * 13 + AppSpacingTokens.Large)
-                                    // 搜索胶囊与头像/消息按钮共用 36dp 边缘控件高度；关闭液态玻璃时
-                                    // 不再回退到库组件原生高度（48/56dp）。
-                                    .height(resolveHomeTopEdgeControlHeight())
-                                    .then(
-                                        if (useTopControlBlur && !useBottomBarMatchedTopControls) {
-                                            Modifier.homeTopChromeSurface(
-                                                renderMode = HomeTopChromeRenderMode.BLUR,
-                                                shape = resolveHomeTopSearchContainerShape(topChromePolicy),
-                                                surfaceColor = resolveHomeTopUnifiedSearchContainerColor(
-                                                    isLightMode = isLightMode,
+                            // Search placement only hides the middle pill. With tabs hidden,
+                            // this row still owns the avatar and settings in both materials.
+                            if (bottomBarSearchEnabled) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            } else {
+                                BottomBarMatchedReusableLiquidDock(
+                                    shape = resolveHomeTopSearchContainerShape(topChromePolicy),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .widthIn(max = AppSpacingTokens.TripleExtraLarge * 13 + AppSpacingTokens.Large)
+                                        // 搜索胶囊与头像/消息按钮共用 36dp 边缘控件高度；关闭液态玻璃时
+                                        // 不再回退到库组件原生高度（48/56dp）。
+                                        .height(resolveHomeTopEdgeControlHeight())
+                                        .then(
+                                            if (useTopControlBlur && !useBottomBarMatchedTopControls) {
+                                                Modifier.homeTopChromeSurface(
                                                     renderMode = HomeTopChromeRenderMode.BLUR,
-                                                ),
-                                                hazeState = hazeState,
-                                                miuixBackdrop = miuixBackdrop,
-                                                liquidStyle = liquidStyle,
-                                                liquidGlassTuning = liquidGlassTuning,
-                                                liquidGlassPreset = bottomBarLiquidGlassPreset,
-                                                motionTier = motionTier,
-                                                isScrolling = topChromeMotionPolicy.isScrolling,
-                                                isTransitionRunning = topChromeMotionPolicy.isTransitionRunning,
-                                                forceLowBlurBudget = forceLowBlurBudget,
-                                            )
-                                        } else {
-                                            Modifier
-                                        }
+                                                    shape = resolveHomeTopSearchContainerShape(topChromePolicy),
+                                                    surfaceColor = resolveHomeTopUnifiedSearchContainerColor(
+                                                        isLightMode = isLightMode,
+                                                        renderMode = HomeTopChromeRenderMode.BLUR,
+                                                    ),
+                                                    hazeState = hazeState,
+                                                    miuixBackdrop = miuixBackdrop,
+                                                    liquidStyle = liquidStyle,
+                                                    liquidGlassTuning = liquidGlassTuning,
+                                                    liquidGlassPreset = bottomBarLiquidGlassPreset,
+                                                    motionTier = motionTier,
+                                                    isScrolling = topChromeMotionPolicy.isScrolling,
+                                                    isTransitionRunning = topChromeMotionPolicy.isTransitionRunning,
+                                                    forceLowBlurBudget = forceLowBlurBudget,
+                                                )
+                                            } else {
+                                                Modifier
+                                            }
+                                        ),
+                                    backdrop = miuixBackdrop,
+                                    reuseEnabled = true,
+                                    elasticFeedbackEnabled = true,
+                                    elasticFeedbackStrength = com.android.purebilibili.core.ui.components.APP_SEARCH_ELASTIC_FEEDBACK_STRENGTH,
+                                    liquidGlassEffectsEnabled =
+                                        searchChromeMaterialMode == TopTabMaterialMode.LIQUID_GLASS,
+                                    useNeutralLiquidContainer = true,
+                                    drawShellLens = true,
+                                    shellLensIntensity = resolveFloatingDockGeometryScale(
+                                        resolveHomeTopEdgeControlHeight().value
                                     ),
-                                backdrop = miuixBackdrop,
-                                reuseEnabled = true,
-                                elasticFeedbackEnabled = true,
-                                elasticFeedbackStrength = com.android.purebilibili.core.ui.components.APP_SEARCH_ELASTIC_FEEDBACK_STRENGTH,
-                                liquidGlassEffectsEnabled =
-                                    searchChromeMaterialMode == TopTabMaterialMode.LIQUID_GLASS,
-                                useNeutralLiquidContainer = true,
-                                drawShellLens = true,
-                                shellLensIntensity = resolveFloatingDockGeometryScale(
-                                    resolveHomeTopEdgeControlHeight().value
-                                ),
-                                isScrollInProgressProvider = { topChromeMotionPolicy.isScrolling },
-                            ) { liquidChromeActive ->
-                                if (liquidChromeActive) {
-                                    val searchPillInteractionSource = remember { MutableInteractionSource() }
-                                    val searchPillPressed by searchPillInteractionSource.collectIsPressedAsState()
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clickable(
-                                                interactionSource = searchPillInteractionSource,
-                                                role = Role.Button,
-                                            ) {
+                                    isScrollInProgressProvider = { topChromeMotionPolicy.isScrolling },
+                                ) { liquidChromeActive ->
+                                    if (liquidChromeActive) {
+                                        val searchPillInteractionSource = remember { MutableInteractionSource() }
+                                        val searchPillPressed by searchPillInteractionSource.collectIsPressedAsState()
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clickable(
+                                                    interactionSource = searchPillInteractionSource,
+                                                    role = Role.Button,
+                                                ) {
+                                                    haptic(HapticType.LIGHT)
+                                                    onSearchClick()
+                                                }
+                                                .padding(horizontal = resolveHomeTopSearchContentHorizontalPadding(topChromePolicy)),
+                                            contentAlignment = Alignment.CenterStart,
+                                        ) {
+                                            HomeTopSearchPillContent(
+                                                searchIcon = topActionIcons.search,
+                                                contentColor = topForegroundColor,
+                                                textFontSize = MaterialTheme.typography.bodyLarge.fontSize,
+                                                iconTextGap = resolveHomeTopSearchIconTextGap(topChromePolicy),
+                                                modifier = Modifier.fillMaxWidth(),
+                                                pressed = searchPillPressed,
+                                            )
+                                        }
+                                    } else {
+                                        AppSearchEntry(
+                                            onClick = {
                                                 haptic(HapticType.LIGHT)
                                                 onSearchClick()
-                                            }
-                                            .padding(horizontal = resolveHomeTopSearchContentHorizontalPadding(topChromePolicy)),
-                                        contentAlignment = Alignment.CenterStart,
-                                    ) {
-                                        HomeTopSearchPillContent(
-                                            searchIcon = topActionIcons.search,
-                                            contentColor = topForegroundColor,
-                                            textFontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                                            iconTextGap = resolveHomeTopSearchIconTextGap(topChromePolicy),
+                                            },
+                                            placeholder = "搜索视频、UP主...",
+                                            centeredContent = true,
+                                            containerColor = if (useTopControlBlur) {
+                                                Color.Transparent
+                                            } else {
+                                                Color.Unspecified
+                                            },
                                             modifier = Modifier.fillMaxWidth(),
-                                            pressed = searchPillPressed,
                                         )
                                     }
-                                } else {
-                                    AppSearchEntry(
-                                        onClick = {
-                                            haptic(HapticType.LIGHT)
-                                            onSearchClick()
-                                        },
-                                        placeholder = "搜索视频、UP主...",
-                                        centeredContent = true,
-                                        containerColor = if (useTopControlBlur) {
-                                            Color.Transparent
-                                        } else {
-                                            Color.Unspecified
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
                                 }
                             }
 

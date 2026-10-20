@@ -366,7 +366,7 @@ internal fun resolveSearchChromeVisualSpec(
 ): SearchChromeVisualSpec {
     val compactChrome = chromePolicy.compactChromeSpec
     return SearchChromeVisualSpec(
-        inputHeightDp = minOf(compactChrome.primaryHeightDp, 48),
+        inputHeightDp = minOf(compactChrome.primaryHeightDp, 40),
         actionShapeLevel = ContainerLevel.Pill,
         useFilledSearchAction = chromePolicy.tabPresentation != AppTopTabPresentation.MOVING_CAPSULE,
         suggestionShapeLevel = ContainerLevel.Card,
@@ -1950,7 +1950,7 @@ fun SearchScreen(
                                                                 showCoverGlassBadges = videoCardAppearance.showCoverGlassBadges,
                                                                 showInfoGlassBadges = videoCardAppearance.showInfoGlassBadges,
                                                                 homeDurationStyle = homeDurationStyle,
-                                                                coverAspectRatio = 16f / 9f,
+                                                                coverAspectRatio = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
                                                                 highlightedTitle = rememberSearchHighlightedTitle(video),
                                                             ) { _, _ ->
                                                                 when (

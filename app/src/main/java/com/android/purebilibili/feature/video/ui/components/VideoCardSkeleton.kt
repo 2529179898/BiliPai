@@ -11,7 +11,7 @@ import com.android.purebilibili.feature.home.rememberHomeFeedSkeletonPulseState
 fun VideoCardSkeleton(
     modifier: Modifier = Modifier,
     @Suppress("UNUSED_PARAMETER") index: Int = 0,
-    coverAspectRatio: Float = 4f / 3f,
+    coverAspectRatio: Float = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
     compactMetadata: Boolean = false,
 ) {
     val pulse = rememberHomeFeedSkeletonPulseState()

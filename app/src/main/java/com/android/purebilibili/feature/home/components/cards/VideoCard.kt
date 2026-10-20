@@ -529,8 +529,8 @@ internal fun ElegantVideoCard(
     showUpBadge: Boolean? = null,
     showUpAvatar: Boolean? = null,
     homeDurationStyle: HomeDurationStyle = HomeDurationStyle.OUTSIDE_COVER,
-    // 默认跟官方双列 4:3；首页会传入 resolveHomeFeedCardLayout 的比例覆盖
-    coverAspectRatio: Float = 4f / 3f,
+    // All video cards follow the selected ratio; callers can explicitly override artwork geometry.
+    coverAspectRatio: Float = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
     compactMetadata: Boolean = true,
     titleMinLines: Int = 2,
     titleMaxLines: Int = 2,
@@ -1030,12 +1030,14 @@ internal fun ElegantVideoCard(
         }
         onClick(video.bvid, video.cid)
     }
+    val homeCardScrolling = LocalHomeCardScrolling.current
     val enterAnimationEnabledAtMount = remember(video.bvid) {
         resolveHomeCardEnterAnimationEnabledAtMount(
             baseAnimationEnabled = animationEnabled,
             isReturningFromDetail = isReturningFromVideoDetail,
             isSwitchingCategory = CardPositionManager.isSwitchingCategory,
-            isScrollInProgress = scrollLiteModeEnabled
+            // Read only at mount: stopping a scroll must not replay skipped entrances.
+            isScrollInProgress = scrollLiteModeEnabled || homeCardScrolling?.value == true
         )
     }
     val coordinateEnterWithTransition = remember(animationEnabled, transitionEnabled) {
@@ -1298,7 +1300,8 @@ internal fun ElegantVideoCard(
                     .build()
             }
             var loadedCoverCacheKey by remember(requestCoverCacheKey) { mutableStateOf<String?>(null) }
-            val coverWorkAllowed = LocalPageImageLoadingAllowed.current
+            val coverWorkAllowed = LocalPageImageLoadingAllowed.current &&
+                LocalHomeCardAuxiliaryWorkAllowed.current
             LaunchedEffect(
                 loadedCoverCacheKey,
                 requestCoverCacheKey,
@@ -1637,7 +1640,10 @@ internal fun ElegantVideoCard(
                 .then(
                     if (resolvedWallpaperTintEnabled) {
                         Modifier.sharedGlobalWallpaperBackground(
-                            fallbackColor = resolvedInfoBackingColor(cardYFraction.floatValue),
+                            fallbackColor = resolvedInfoBackingColor(0.5f),
+                            fallbackColorProvider = {
+                                resolvedInfoBackingColor(cardYFraction.floatValue)
+                            },
                         )
                     } else Modifier
                 )

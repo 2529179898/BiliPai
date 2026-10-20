@@ -61,7 +61,7 @@ class RelatedVideoItemPolicyTest {
             .readText()
 
         assertTrue(source.contains("RELATED_VIDEO_CARD_COVER_ASPECT_RATIO"))
-        assertTrue(source.contains("coverAspectRatio: Float = RELATED_VIDEO_CARD_COVER_ASPECT_RATIO"))
+        assertTrue(source.contains("coverAspectRatio: Float = com.android.purebilibili.core.ui.videoCardCoverAspectRatio()"))
         assertTrue(source.contains("HorizontalVideoCardFrame("))
         assertTrue(source.contains("VideoStatRow("))
         assertTrue(source.contains(".align(Alignment.BottomEnd)"))

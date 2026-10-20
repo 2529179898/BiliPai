@@ -186,7 +186,7 @@ fun RelatedVideoItem(
     video: RelatedVideo,
     isFollowed: Boolean = false,
     showUpBadge: Boolean = true,
-    coverAspectRatio: Float = RELATED_VIDEO_CARD_COVER_ASPECT_RATIO,
+    coverAspectRatio: Float = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
     stacked: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,

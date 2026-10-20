@@ -181,7 +181,7 @@ private fun rememberActiveVideoCardOnlineCount(
             cid = cid
         )
     }
-    val workAllowed = LocalPageImageLoadingAllowed.current
+    val workAllowed = LocalPageImageLoadingAllowed.current && LocalHomeCardAuxiliaryWorkAllowed.current
     // Keep the last displayed text while home is covered or morphing. Dropping only the
     // subscription avoids applying another visible card's shared request result mid-flight.
     val updates = remember(onlineCountFlow, workAllowed) {

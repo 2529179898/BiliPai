@@ -30,7 +30,7 @@ class VideoDetailSkeletonStructureTest {
         assertTrue(source.contains("VideoDetailUpInfoSkeleton()"))
         assertTrue(source.contains("VideoDetailActionButtonsSkeleton()"))
         assertTrue(source.contains("HorizontalVideoCardFrame("))
-        assertTrue(source.contains("RELATED_VIDEO_CARD_COVER_ASPECT_RATIO"))
+        assertTrue(source.contains("videoCardCoverAspectRatio()"))
         assertTrue(source.contains("coverAspectRatio = cardLayout.coverAspectRatio"))
         assertTrue(source.contains("cardLayout.outerPaddingDp.dp"))
         assertTrue(source.contains("RoundedCornerShape(12.dp)"))

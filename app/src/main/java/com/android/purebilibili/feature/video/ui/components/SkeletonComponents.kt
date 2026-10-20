@@ -328,7 +328,7 @@ internal fun RelatedVideoGridRowSkeleton(
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 private fun RelatedVideoItemSkeleton(
     modifier: Modifier = Modifier,
-    coverAspectRatio: Float = RELATED_VIDEO_CARD_COVER_ASPECT_RATIO,
+    coverAspectRatio: Float = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
     stacked: Boolean = false,
     title: String? = null,
 ) {

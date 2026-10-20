@@ -35,6 +35,9 @@ import org.junit.Assert.assertSame
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
+import top.yukonga.miuix.kmp.blur.blur
+import com.android.purebilibili.core.ui.effect.lens
+import androidx.compose.foundation.shape.RoundedCornerShape
 import top.yukonga.miuix.kmp.blur.drawBackdrop
 
 class ChromeBackdropSourceUiRegressionTest {
@@ -58,6 +61,64 @@ class ChromeBackdropSourceUiRegressionTest {
     @Test
     fun themeBackgroundUpdatesKeepHiddenCaptureAndModifierStable() =
         verifyRecordingBackground(drawContentToScreen = false)
+
+    @Test
+    fun sparseGlyphAndImageSourceKeepsAnOpaqueBackgroundThroughBlurAndLens() {
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+        composeRule.setContent {
+            CompositionLocalProvider(LocalGlobalWallpaperBackdropVisible provides false) {
+                val source = rememberChromeBackdropSource()
+                // Magenta exposes accidental transparency. Sparse white strokes and a blue
+                // image stand in for an article list with no painted background of its own.
+                Box(Modifier.size(160.dp).background(Color.Magenta)) {
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .then(source.modifier)
+                            .sharedGlobalWallpaperBackground(Color.Black)
+                            .drawBehind {
+                                repeat(4) { index ->
+                                    drawRect(
+                                        Color.White,
+                                        topLeft = Offset(size.width * (0.1f + index * 0.12f), size.height * 0.08f),
+                                        size = Size(size.width * 0.04f, size.height * 0.08f),
+                                    )
+                                }
+                                drawRect(
+                                    Color.Blue,
+                                    topLeft = Offset(0f, size.height * 0.8f),
+                                    size = Size(size.width, size.height * 0.2f),
+                                )
+                            },
+                    )
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .testTag("sparse-glass-result")
+                            .drawBackdrop(
+                                backdrop = source.backdrop,
+                                shape = { RoundedCornerShape(28.dp) },
+                                effects = {
+                                    blur(4.dp.toPx())
+                                    lens(20.dp.toPx(), 20.dp.toPx())
+                                },
+                            ),
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        val pixels = composeRule.onNodeWithTag("sparse-glass-result").captureToImage().toPixelMap()
+        // The middle is far from the glyph/image footprints. It must stay opaque black,
+        // rather than showing the magenta underlay or an expanded white/blue edge texel.
+        for (fraction in listOf(0.3f, 0.5f, 0.7f)) {
+            val color = pixels[(pixels.width * fraction).toInt(), pixels.height / 2]
+            assertEquals(1f, color.alpha, 0.02f)
+            assertEquals(0f, color.red, 0.05f)
+            assertEquals(0f, color.green, 0.05f)
+            assertEquals(0f, color.blue, 0.05f)
+        }
+    }
 
     private fun verifyRecordingBackground(drawContentToScreen: Boolean) {
         assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)

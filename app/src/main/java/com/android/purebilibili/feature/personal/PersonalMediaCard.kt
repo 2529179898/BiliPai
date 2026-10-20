@@ -70,7 +70,7 @@ internal fun PersonalMediaCardFrame(
     selected: Boolean = false,
     stacked: Boolean = false,
     enabled: Boolean = true,
-    coverAspectRatio: Float = PERSONAL_LIST_HORIZONTAL_COVER_ASPECT_RATIO,
+    coverAspectRatio: Float = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
     supportingContent: (@Composable () -> Unit)? = null,
     overlineContent: (@Composable () -> Unit)? = null,
     coverOverlayContent: (@Composable BoxScope.() -> Unit)? = null,
@@ -215,6 +215,7 @@ internal fun PersonalCardSelectMask(
 internal fun PersonalMediaCardSkeleton(
     modifier: Modifier = Modifier,
     blockColor: Color? = null,
+    stacked: Boolean = false,
 ) {
     val pulse = if (blockColor == null) rememberContentSkeletonPulse() else 0f
     val color = blockColor ?: rememberContentSkeletonBlockColor(pulse)
@@ -227,6 +228,7 @@ internal fun PersonalMediaCardSkeleton(
         color = AppSurfaceTokens.cardContainer(),
     ) {
         HorizontalVideoCardFrame(
+            stacked = stacked,
             coverContent = {
                 ContentSkeletonBlock(
                     color = color,

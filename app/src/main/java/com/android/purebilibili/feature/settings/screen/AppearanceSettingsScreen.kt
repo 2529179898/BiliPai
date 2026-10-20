@@ -1720,7 +1720,7 @@ fun AppearanceSettingsContent(
                         SettingsItemAnchor("appearance.home_feed_card_style") {
                             SettingsSingleChoicePreference(
                                 title = settingItemTitle("appearance.home_feed_card_style"),
-                                subtitle = homeFeedCardStyle.subtitle + "（首页、搜索、列表、相关推荐等同步）",
+                                subtitle = homeFeedCardStyle.subtitle + "（首页、搜索、相关推荐、历史、收藏和稍后再看等视频卡片同步）",
                                 options = HomeFeedCardStyle.entries.map {
                                     AppSegmentOption(it, it.label)
                                 },

@@ -14,13 +14,16 @@ internal fun resolveHomeTopSearchRowMetrics(
     configuredHeight: Dp,
     configuredTabsSpacing: Dp,
     bottomBarSearchEnabled: Boolean,
-    @Suppress("UNUSED_PARAMETER") hideTopTabs: Boolean,
+    hideTopTabs: Boolean,
     keepTopSearch: Boolean = false,
 ): HomeTopSearchRowMetrics {
-    // Category visibility must not override the user's independent search placement choice.
+    // Hiding the search pill must not remove avatar/settings when there is no tab row
+    // to host them. Both native and glass chrome reserve the same controls-only row.
     val searchLivesInTopChrome = !bottomBarSearchEnabled || keepTopSearch
     return if (searchLivesInTopChrome) {
         HomeTopSearchRowMetrics(configuredHeight, configuredTabsSpacing)
+    } else if (hideTopTabs) {
+        HomeTopSearchRowMetrics(configuredHeight, 0.dp)
     } else {
         HomeTopSearchRowMetrics(0.dp, 0.dp)
     }

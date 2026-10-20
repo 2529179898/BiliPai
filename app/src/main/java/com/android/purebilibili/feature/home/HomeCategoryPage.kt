@@ -73,6 +73,7 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import com.android.purebilibili.feature.home.components.cards.ElegantVideoCard
 import com.android.purebilibili.feature.home.components.cards.LocalHomeScrollTickProvider
 import com.android.purebilibili.feature.home.components.cards.LocalHomeCardScrolling
+import com.android.purebilibili.feature.home.components.cards.LocalHomeCardAuxiliaryWorkAllowed
 import com.android.purebilibili.feature.home.components.cards.LocalHomeCardTransitionRunning
 import com.android.purebilibili.core.ui.LocalSharedTransitionScope
 import com.android.purebilibili.core.ui.LocalAnimatedVisibilityScope
@@ -414,6 +415,11 @@ internal fun HomeCategoryPageContent(
     val visibleLazyItemKeys = remember(gridState) {
         derivedStateOf { gridState.layoutInfo.visibleItemsInfo.mapTo(HashSet()) { it.key } }
     }
+    val pageImageWorkAllowed = LocalPageImageLoadingAllowed.current && isActive
+    val auxiliaryWorkAllowed = rememberHomeCardAuxiliaryWorkAllowed(
+        pageActive = pageImageWorkAllowed,
+        isScrolling = gridState.isScrollInProgress || pageScrollInProgress?.value == true,
+    )
     val renderVideoCard: @Composable (Int, VideoItem, Modifier, String) -> Unit = { index, video, itemModifier, lazyItemKey ->
         val cardVisible by remember(visibleLazyItemKeys, lazyItemKey) {
             derivedStateOf { lazyItemKey in visibleLazyItemKeys.value }
@@ -480,7 +486,10 @@ internal fun HomeCategoryPageContent(
                 }
                 .then(if (index == 0) firstGridItemModifier else Modifier)
         ) {
-            CompositionLocalProvider(LocalPageImageLoadingAllowed provides cardImageWorkAllowed) {
+            CompositionLocalProvider(
+                LocalPageImageLoadingAllowed provides cardImageWorkAllowed,
+                LocalHomeCardAuxiliaryWorkAllowed provides (cardImageWorkAllowed && auxiliaryWorkAllowed),
+            ) {
                 when (displayMode) {
                     1 -> StoryVideoCard(
                         video = video,

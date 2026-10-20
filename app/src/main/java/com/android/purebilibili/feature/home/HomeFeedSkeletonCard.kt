@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -40,7 +41,6 @@ import com.android.purebilibili.core.store.HomeWallpaperEffectMode
 import com.android.purebilibili.core.ui.AppSurfaceTokens
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.ContainerLevel
-import com.android.purebilibili.core.ui.transition.VIDEO_SHARED_COVER_ASPECT_RATIO
 
 /**
  * 首页骨架脉冲的唯一读口。返回 [State] 而非裸 Float:
@@ -74,7 +74,7 @@ internal fun HomeFeedSkeletonCard(
     wallpaperTintEnabled: Boolean,
     wallpaperEffectMode: HomeWallpaperEffectMode,
     isDataSaverActive: Boolean,
-    coverAspectRatio: Float = VIDEO_SHARED_COVER_ASPECT_RATIO,
+    coverAspectRatio: Float = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
     modifier: Modifier = Modifier,
     compactMetadata: Boolean = false,
     compactStatsOnCover: Boolean = false,

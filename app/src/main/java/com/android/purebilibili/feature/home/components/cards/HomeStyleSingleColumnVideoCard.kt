@@ -91,7 +91,7 @@ import kotlin.math.roundToInt
 internal fun HomeStyleSingleColumnVideoCard(
     video: VideoItem,
     sourceRoute: String,
-    @Suppress("UNUSED_PARAMETER") coverAspectRatio: Float,
+    coverAspectRatio: Float,
     transitionEnabled: Boolean,
     sharedTransitionEnabled: Boolean = transitionEnabled,
     isFollowing: Boolean = false,
@@ -232,6 +232,7 @@ internal fun HomeStyleSingleColumnVideoCard(
     }
     val moreHaptic = rememberHapticFeedback()
     HorizontalVideoCardFrame(
+        coverAspectRatio = coverAspectRatio,
         modifier = modifier
             .adaptiveCardHoverEffect(shape = cardShape)
             .onGloballyPositioned { coordinates ->
