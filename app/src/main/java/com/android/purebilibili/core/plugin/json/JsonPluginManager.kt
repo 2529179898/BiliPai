@@ -450,6 +450,24 @@ object JsonPluginManager {
         file.writeText(json.encodeToString(JsonRulePlugin.serializer(), plugin))
     }
     
+    /** Import through the live store so preference caches and rule consumers update together. */
+    internal fun importTransferredRules(files: Map<String, String>, enabledStates: Map<String, Boolean>) {
+        check(isInitialized) { "规则管理器尚未初始化" }
+        val imported = files.map { (name, content) ->
+            val plugin = json.decodeFromString<JsonRulePlugin>(content)
+            validatePlugin(plugin)?.let { error(it) }
+            require(name == "${plugin.id}.json" && !plugin.id.contains("..")) { "规则文件名无效：$name" }
+            plugin
+        }
+        require(imported.map { it.id }.distinct().size == imported.size) { "规则 ID 重复" }
+        imported.forEach { savePlugin(it) }
+        val editor = appContext.getSharedPreferences(ENABLED_PREFS, Context.MODE_PRIVATE).edit()
+        imported.forEach { editor.putBoolean("$ENABLED_PREFIX${it.id}", enabledStates[it.id] ?: true) }
+        check(editor.commit()) { "规则启用状态保存失败" }
+        loadSavedPlugins()
+        PluginManager.notifyDanmakuPluginsUpdated()
+    }
+
     private fun loadSavedPlugins() {
         val dir = getPluginDir()
         if (!dir.exists()) return

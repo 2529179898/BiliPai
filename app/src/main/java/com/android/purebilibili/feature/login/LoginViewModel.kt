@@ -868,6 +868,20 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Finish the already imported session using the same post-login flow as other methods. */
+    fun completeTransferredLogin() {
+        viewModelScope.launch {
+            _state.value = LoginState.Loading
+            try {
+                finishLogin("bilipai_transfer", hasHighQualityCredential = TokenManager.accessTokenCache.orEmpty().isNotBlank())
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _state.value = LoginState.Error(error.message ?: "账号已导入，完成登录失败，请重试")
+            }
+        }
+    }
+
     fun continueWithStandardSession() {
         _state.value = LoginState.Success
     }
