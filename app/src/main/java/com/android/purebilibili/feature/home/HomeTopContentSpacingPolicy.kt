@@ -14,10 +14,11 @@ internal fun resolveHomeTopSearchRowMetrics(
     configuredHeight: Dp,
     configuredTabsSpacing: Dp,
     bottomBarSearchEnabled: Boolean,
-    hideTopTabs: Boolean,
+    @Suppress("UNUSED_PARAMETER") hideTopTabs: Boolean,
     keepTopSearch: Boolean = false,
 ): HomeTopSearchRowMetrics {
-    val searchLivesInTopChrome = !bottomBarSearchEnabled || hideTopTabs || keepTopSearch
+    // Category visibility must not override the user's independent search placement choice.
+    val searchLivesInTopChrome = !bottomBarSearchEnabled || keepTopSearch
     return if (searchLivesInTopChrome) {
         HomeTopSearchRowMetrics(configuredHeight, configuredTabsSpacing)
     } else {

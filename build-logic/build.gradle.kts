@@ -14,6 +14,14 @@ dependencies {
 
 gradlePlugin {
     plugins {
+        create("navigationEventDisposalGuard") {
+            id = "com.android.bilipai.navigationevent-disposal-guard"
+            implementationClass = "com.android.purebilibili.build.NavigationEventDisposalGuardPlugin"
+        }
+        create("composeDragStartGuard") {
+            id = "com.android.bilipai.compose-drag-start-guard"
+            implementationClass = "com.android.purebilibili.build.ComposeDragStartGuardPlugin"
+        }
         create("composeDetachedOwnerGuard") {
             id = "com.android.bilipai.compose-detached-owner-guard"
             implementationClass = "com.android.purebilibili.build.ComposeDetachedOwnerGuardPlugin"

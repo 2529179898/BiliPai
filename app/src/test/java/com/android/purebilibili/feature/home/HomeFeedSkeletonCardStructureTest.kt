@@ -35,14 +35,12 @@ class HomeFeedSkeletonCardStructureTest {
         assertTrue(source.contains("VIDEO_SHARED_COVER_ASPECT_RATIO"))
         // 骨架几何与真实视频卡共享 Card 语义，且卡片自身不再叠加底部 padding
         //（间距统一由网格 verticalItemSpacingDp 决定）。
-        assertTrue(source.contains("cardCornerRadius = AppShapes.containerCornerDp(ContainerLevel.Card)"))
-        assertTrue(source.contains("cardShape = AppShapes.container(ContainerLevel.Card)"))
+        assertTrue(source.contains("cardCornerRadius = AppShapes.containerCornerDp(cardLevel)"))
+        assertTrue(source.contains("cardShape = AppShapes.container(cardLevel)"))
         assertFalse(source.contains(".padding(bottom = AppSpacingTokens.Medium)"))
-        assertTrue(
-            source.contains(
-                ".padding(horizontal = AppSpacingTokens.Small + AppSpacingTokens.Micro, vertical = AppSpacingTokens.Small)"
-            )
-        )
+        assertTrue(source.contains("ContentSkeletonText("))
+        assertTrue(source.contains("start = if (storyStyle) 0.dp else 10.dp"))
+        assertTrue(source.contains("compactStatsOnCover"))
     }
 
     private fun loadSource(path: String): String {

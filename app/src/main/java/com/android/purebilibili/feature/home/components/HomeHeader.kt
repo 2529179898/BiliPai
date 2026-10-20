@@ -1882,7 +1882,7 @@ fun HomeHeader(
     }
 
     val hideTopTabs = homeSettings?.hideTopTabs == true
-    val bottomBarSearchEnabled = homeSettings?.isBottomBarSearchEnabled == true && !hideTopTabs &&
+    val bottomBarSearchEnabled = homeSettings?.isBottomBarSearchEnabled == true &&
         homeSettings?.keepHomeTopSearchWithBottomSearch != true
     val topSearchMetrics = resolveHomeTopSearchRowMetrics(
         configuredHeight = resolveHomeTopSearchBarHeight(topChromePolicy),

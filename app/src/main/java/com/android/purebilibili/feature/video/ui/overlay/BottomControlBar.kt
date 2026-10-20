@@ -1909,10 +1909,9 @@ private fun InlineDockActionRow(
             }
         } else Arrangement.spacedBy(minimumSpacing)
     }
-    // 只修正 Miuix 液态玻璃胶囊：外层的最小高度可能高于文字行，
-    // 让整行在胶囊内居中；关闭玻璃后的原生布局与 MD3 默认行为保持不变。
-    val centerGlassActions = LocalAppUiStyle.current == AppUiStyle.MIUIX &&
-        LocalAppThemeConfig.current.liquidGlassEnabled
+    // Both glass styles can reserve a taller capsule than the text row. Center its
+    // contents on the same axis as play/time/fullscreen; native keeps its original layout.
+    val centerGlassActions = LocalAppThemeConfig.current.liquidGlassEnabled
     BoxWithConstraints(
         contentAlignment = if (centerGlassActions) Alignment.CenterStart else Alignment.TopStart,
         modifier = modifier

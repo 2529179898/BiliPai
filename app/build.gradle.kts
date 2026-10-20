@@ -9,6 +9,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
     // Compose 预组合兼容补丁：guard LayoutNodeSubcompositionsState 的 detached-root owner 查找
     id("com.android.bilipai.compose-detached-owner-guard")
+    // Foundation 拖拽兼容补丁：在进入拖拽状态前过滤不受支持的输入类型。
+    id("com.android.bilipai.compose-drag-start-guard")
+    // 导航分发器被父级级联释放后，容忍子页面重复清理及延后的启用状态更新。
+    id("com.android.bilipai.navigationevent-disposal-guard")
     id("com.android.bilipai.workmanager-namespace-guard")
     // Miuix 0.9.4 的取色字节码适配 MaterialKolor 6，保留 SPEC_2026 / CMF。
     id("com.android.bilipai.miuix-materialkolor-compat")
@@ -125,7 +129,7 @@ android {
         targetSdk = 37
         // 版本名按发行计划确定；versionCode 每次发布单调 +1
         // 规范：docs/wiki/VERSIONING.md · 更新日志：CHANGELOG.md
-        versionCode = 492
+        versionCode = 493
         versionName = "0.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

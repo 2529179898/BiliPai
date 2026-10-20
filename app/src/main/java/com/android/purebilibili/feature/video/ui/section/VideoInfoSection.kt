@@ -2149,12 +2149,14 @@ private fun BgmRecommendVideoSkeletonRow(
         VideoCardSkeleton(
             modifier = Modifier.weight(1f),
             index = indexBase,
-            coverAspectRatio = cardLayout.coverAspectRatio
+            coverAspectRatio = cardLayout.coverAspectRatio,
+            compactMetadata = cardLayout.compactMetadata
         )
         VideoCardSkeleton(
             modifier = Modifier.weight(1f),
             index = indexBase + 1,
-            coverAspectRatio = cardLayout.coverAspectRatio
+            coverAspectRatio = cardLayout.coverAspectRatio,
+            compactMetadata = cardLayout.compactMetadata
         )
     }
 }

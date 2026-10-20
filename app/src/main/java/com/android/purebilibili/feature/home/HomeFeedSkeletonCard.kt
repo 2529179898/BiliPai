@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -69,16 +68,24 @@ internal fun rememberHomeFeedSkeletonPulseState(): State<Float> {
 }
 
 @Composable
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 internal fun HomeFeedSkeletonCard(
     pulse: () -> Float,
     wallpaperTintEnabled: Boolean,
     wallpaperEffectMode: HomeWallpaperEffectMode,
     isDataSaverActive: Boolean,
     coverAspectRatio: Float = VIDEO_SHARED_COVER_ASPECT_RATIO,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    compactMetadata: Boolean = false,
+    compactStatsOnCover: Boolean = false,
+    titleMinLines: Int = 2,
+    showPublishTime: Boolean = true,
+    storyStyle: Boolean = false,
+    storyHorizontalPadding: androidx.compose.ui.unit.Dp = 0.dp,
 ) {
-    val cardCornerRadius = AppShapes.containerCornerDp(ContainerLevel.Card)
-    val cardShape = AppShapes.container(ContainerLevel.Card)
+    val cardLevel = if (storyStyle) ContainerLevel.ProminentCard else ContainerLevel.Card
+    val cardCornerRadius = AppShapes.containerCornerDp(cardLevel)
+    val cardShape = AppShapes.container(cardLevel)
     val isDarkCardTheme = AppSurfaceTokens.chromeBackground().luminance() < 0.5f
     val infoSurfaceAppearance = remember(
         wallpaperTintEnabled,
@@ -94,12 +101,9 @@ internal fun HomeFeedSkeletonCard(
         )
     }
     val blockBaseColor = AppContentColors.primaryText()
-    val coverShape = remember(cardCornerRadius, infoSurfaceAppearance.useTintedSurface) {
-        if (infoSurfaceAppearance.useTintedSurface) {
-            resolveHomeSkeletonCoverShape(cardCornerRadius)
-        } else {
-            cardShape
-        }
+    // Same top-only cover and outer material-aware clip as VideoCard, even without wallpaper.
+    val coverShape = if (storyStyle) cardShape else remember(cardCornerRadius) {
+        resolveHomeSkeletonCoverShape(cardCornerRadius)
     }
     val infoSurfaceShape = remember(cardCornerRadius) {
         resolveHomeSkeletonInfoShape(cardCornerRadius)
@@ -108,6 +112,10 @@ internal fun HomeFeedSkeletonCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .then(
+                if (storyStyle) Modifier.padding(horizontal = storyHorizontalPadding, vertical = 8.dp)
+                else Modifier.clip(cardShape)
+            )
     ) {
         Box(
             modifier = Modifier
@@ -117,7 +125,7 @@ internal fun HomeFeedSkeletonCard(
                 .homeFeedSkeletonBlockBackground(pulse, blockBaseColor, isDarkCardTheme)
         )
 
-        val infoModifier = if (infoSurfaceAppearance.useTintedSurface) {
+        val infoModifier = if (!storyStyle && infoSurfaceAppearance.useTintedSurface) {
             Modifier
                 .fillMaxWidth()
                 .background(
@@ -133,97 +141,80 @@ internal fun HomeFeedSkeletonCard(
                     ),
                     shape = infoSurfaceShape
                 )
-                .padding(horizontal = AppSpacingTokens.Small + AppSpacingTokens.Micro, vertical = AppSpacingTokens.Small)
         } else {
             Modifier.fillMaxWidth()
         }
 
-        Column(modifier = infoModifier) {
-            if (!infoSurfaceAppearance.useTintedSurface) {
-                Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
+        val typography = com.android.purebilibili.core.ui.feedContentTypography(
+            if (storyStyle && !compactMetadata) com.android.purebilibili.core.ui.FeedTitleHierarchy.Standard
+            else com.android.purebilibili.core.ui.FeedTitleHierarchy.Compact,
+        )
+        val bottomPadding = if (compactMetadata) 6.dp else 8.dp
+        val blockColor = { blockBaseColor.copy(alpha = homeFeedSkeletonBlockAlpha(pulse(), isDarkCardTheme)) }
+        Column(
+            modifier = infoModifier.padding(
+                start = if (storyStyle) 0.dp else 10.dp,
+                end = if (storyStyle) 0.dp else 10.dp,
+                top = if (storyStyle) 0.dp else bottomPadding,
+                bottom = if (storyStyle) 0.dp else bottomPadding,
+            ),
+        ) {
+            com.android.purebilibili.core.ui.skeleton.ContentSkeletonText(
+                text = List(titleMinLines.coerceAtLeast(1)) { "推荐视频标题占位" }.joinToString("\n"),
+                style = typography.title,
+                colorProvider = blockColor,
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 2,
+                minLines = titleMinLines,
+            )
+            val titleToMetadataSpacing = if (storyStyle) {
+                if (compactMetadata) 6.dp else 8.dp
+            } else {
+                if (compactMetadata) 4.dp else 6.dp
             }
-            HomeFeedSkeletonTitleRow(
-                pulse = pulse,
-                baseColor = blockBaseColor,
-                isDarkTheme = isDarkCardTheme
-            )
-            Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro))
-            HomeFeedSkeletonMetaRow(
-                pulse = pulse,
-                baseColor = blockBaseColor,
-                isDarkTheme = isDarkCardTheme
-            )
-        }
-    }
-}
-
-@Composable
-private fun HomeFeedSkeletonTitleRow(
-    pulse: () -> Float,
-    baseColor: Color,
-    isDarkTheme: Boolean
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            HomeFeedSkeletonBlock(
-                pulse = pulse,
-                baseColor = baseColor,
-                isDarkTheme = isDarkTheme,
+            Spacer(Modifier.height(titleToMetadataSpacing))
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(AppSpacingTokens.Large)
-            )
-            Spacer(modifier = Modifier.height(AppSpacingTokens.Small))
-            HomeFeedSkeletonBlock(
-                pulse = pulse,
-                baseColor = baseColor,
-                isDarkTheme = isDarkTheme,
-                modifier = Modifier
-                    .fillMaxWidth(0.72f)
-                    .height(AppSpacingTokens.Large)
-            )
+                    .padding(end = if (storyStyle) 0.dp else 24.dp),
+            ) {
+                if (storyStyle || !compactStatsOnCover) {
+                    androidx.compose.foundation.layout.FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        com.android.purebilibili.core.ui.skeleton.ContentSkeletonText(
+                            "▷ 00.0万", typography.statistic, blockColor,
+                        )
+                        com.android.purebilibili.core.ui.skeleton.ContentSkeletonText(
+                            "▤ 0000", typography.statistic, blockColor,
+                        )
+                    }
+                }
+                if (storyStyle) Spacer(Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    if (com.android.purebilibili.core.ui.LocalUpBadgeVisibility.current.showAvatars) {
+                        HomeFeedSkeletonBlock(
+                            pulse, blockBaseColor, isDarkCardTheme,
+                            Modifier.size(if (storyStyle) 24.dp else 18.dp), CircleShape,
+                        )
+                    }
+                    com.android.purebilibili.core.ui.skeleton.ContentSkeletonText(
+                        "UP 主名称", typography.author, blockColor,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (showPublishTime && !storyStyle) {
+                    Spacer(Modifier.height(if (compactMetadata) 4.dp else 6.dp))
+                    com.android.purebilibili.core.ui.skeleton.ContentSkeletonText(
+                        "00-00", typography.statistic, blockColor,
+                    )
+                }
+            }
         }
-        Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
-        HomeFeedSkeletonBlock(
-            pulse = pulse,
-            baseColor = baseColor,
-            isDarkTheme = isDarkTheme,
-            modifier = Modifier.size(AppSpacingTokens.Large + AppSpacingTokens.ExtraSmall),
-            shape = CircleShape
-        )
-    }
-}
-
-@Composable
-private fun HomeFeedSkeletonMetaRow(
-    pulse: () -> Float,
-    baseColor: Color,
-    isDarkTheme: Boolean
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro)
-    ) {
-        HomeFeedSkeletonBlock(
-            pulse = pulse,
-            baseColor = baseColor,
-            isDarkTheme = isDarkTheme,
-            modifier = Modifier
-                .width(AppSpacingTokens.ExtraLarge + AppSpacingTokens.ExtraSmall)
-                .height(AppSpacingTokens.Medium + AppSpacingTokens.Micro)
-        )
-        HomeFeedSkeletonBlock(
-            pulse = pulse,
-            baseColor = baseColor,
-            isDarkTheme = isDarkTheme,
-            modifier = Modifier
-                .width(AppSpacingTokens.TripleExtraLarge * 2)
-                .height(AppSpacingTokens.Medium + AppSpacingTokens.Micro)
-        )
     }
 }
 
@@ -233,13 +224,12 @@ private fun HomeFeedSkeletonBlock(
     baseColor: Color,
     isDarkTheme: Boolean,
     modifier: Modifier,
-    shape: androidx.compose.ui.graphics.Shape? = null
+    shape: androidx.compose.ui.graphics.Shape,
 ) {
-    val resolvedShape = shape ?: AppShapes.container(ContainerLevel.Tag)
     Box(
         modifier = modifier
-            .clip(resolvedShape)
-            .homeFeedSkeletonBlockBackground(pulse, baseColor, isDarkTheme)
+            .clip(shape)
+            .homeFeedSkeletonBlockBackground(pulse, baseColor, isDarkTheme),
     )
 }
 

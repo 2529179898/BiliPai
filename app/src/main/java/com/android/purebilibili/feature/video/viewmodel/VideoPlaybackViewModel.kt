@@ -1429,6 +1429,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
     private val videoNetworkPressureObserver = VideoNetworkPressureObserver(application)
     private var relatedPlaybackPreparedToken = -1L
     private var relatedFirstFrameToken = -1L
+    private var pendingPlaybackResumeNotice: PlaybackResumeNotice? = null
     private val videoLoadTimeline = VideoLoadTimeline(android.os.SystemClock::elapsedRealtime)
 
     private fun logVideoLoadStage(stage: VideoLoadStage, requestToken: Long) {
@@ -1441,6 +1442,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun cancelPendingVideoLoad() {
+        pendingPlaybackResumeNotice = null
         activeLoadJob?.cancel()
         activeLoadJob = null
         relatedLoadJob?.cancel()
@@ -2342,6 +2344,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                 )
             }
             if (playbackState == Player.STATE_READY) {
+                maybeAnnounceRestoredPlaybackPosition()
                 cancelPlaybackStallRecovery()
                 markPlaybackCdnReadyIfMediaReady()
                 recordCurrentCdnHealthEvent(CdnHealthEvent.PLAYBACK_READY)
@@ -2453,6 +2456,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         }
 
         override fun onRenderedFirstFrame() {
+            maybeAnnounceRestoredPlaybackPosition()
             playbackStallRecoveryFirstFrameRendered = true
             if (_uiState.value is VideoPlaybackUiState.Success) {
                 if (relatedPlaybackPreparedToken == currentLoadRequestToken) {
@@ -3353,6 +3357,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         lastCreatorSignalPositionSec = requestedStartPositionMs / 1000L
         val loadRequestContext = playbackSessionStore.beginLoadRequest(playbackRequest)
         val requestToken = loadRequestContext.requestToken
+        pendingPlaybackResumeNotice = null
         videoLoadTimeline.start(requestToken)
         relatedPlaybackPreparedToken = -1L
         relatedFirstFrameToken = -1L
@@ -3593,6 +3598,17 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                                 (cdnSelection.regionLabel?.let { ", 属地优选=$it" } ?: "")
                         )
                         
+                        pendingPlaybackResumeNotice = if (shouldAnnounceSavedPlaybackPosition(
+                                cachedPositionMs = loadResult.cachedPositionMs,
+                                startPositionMs = startPos,
+                                fallbackResumePositionMs = fallbackResumePositionMs,
+                                ignoreSavedProgress = ignoreSavedProgress,
+                                skipPlayerPrepare = shouldSkipPlayerPrepare,
+                            )
+                        ) {
+                            PlaybackResumeNotice(requestToken, result.info.bvid, result.info.cid, startPos)
+                        } else null
+
                         val readyState = VideoPlaybackUiState.Success(
                             info = result.info,
                             playUrl = cdnSelection.playUrl,
@@ -3639,6 +3655,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                         )
                         _uiState.value = readyState
                         publishSubjectSnapshot(readyState)
+                        maybeAnnounceRestoredPlaybackPosition()
                         // Do not wait for the foreground Compose collector to mirror this state.
                         // Background collection is lifecycle-paused, while playback can still
                         // advance through a UGC season.
@@ -7780,6 +7797,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         pageSwitchJob?.cancel()
         val switchGeneration = ++pageSwitchGeneration
         pendingPageSwitchCid = page.cid
+        pendingPlaybackResumeNotice = null
         playbackCoordinator.dismissResumeSuggestion()
         subtitleLoadToken += 1
         val subtitleClearedState = clearTransientPlaybackPreviewData(clearSubtitleFields(current))
@@ -7928,6 +7946,37 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                     pendingPageSwitchCid = null
                     pageSwitchJob = null
                 }
+            }
+        }
+    }
+
+    private fun maybeAnnounceRestoredPlaybackPosition() {
+        val notice = pendingPlaybackResumeNotice ?: return
+        val current = _uiState.value as? VideoPlaybackUiState.Success ?: return
+        if (notice.requestToken != currentLoadRequestToken ||
+            notice.bvid != currentBvid || notice.cid != currentCid
+        ) {
+            pendingPlaybackResumeNotice = null
+            return
+        }
+        if (current.info.bvid != notice.bvid || current.info.cid != notice.cid) return
+        val player = exoPlayer ?: return
+        if (!hasReachedSavedPlaybackPosition(
+                targetPositionMs = notice.positionMs,
+                currentPositionMs = player.currentPosition,
+                playerReady = player.playbackState == Player.STATE_READY,
+            )
+        ) return
+        // Clear before sending so READY/first-frame callbacks cannot show the same notice twice.
+        pendingPlaybackResumeNotice = null
+        viewModelScope.launch {
+            if (notice.requestToken == currentLoadRequestToken) {
+                _toastEvent.send(
+                    PlayerToastMessage(
+                        message = buildPlaybackResumeNoticeMessage(notice.positionMs),
+                        mediaKey = notice.mediaKey,
+                    ),
+                )
             }
         }
     }

@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -269,6 +270,22 @@ fun GestureIndicator(
         }
         else -> {}
     }
+}
+
+/**
+ * A stable Compose hit target above passive Android rendering views. It does not consume
+ * events: the parent owns tap/drag/long-press recognition. Interactive overlays are placed
+ * above this surface, so their buttons and BAS links keep priority over player gestures.
+ */
+@Composable
+internal fun PlayerGestureInputSurface(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.pointerInput(Unit) {
+            awaitPointerEventScope {
+                while (true) awaitPointerEvent()
+            }
+        },
+    )
 }
 
 /**

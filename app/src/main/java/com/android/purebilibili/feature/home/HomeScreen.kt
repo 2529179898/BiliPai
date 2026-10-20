@@ -2317,6 +2317,10 @@ fun HomeScreen(
                                   homeSettings.homeWallpaperEffectMode,
                                   isDataSaverActive,
                                   homeFeedCoverAspectRatio,
+                                  homeFeedCardLayout,
+                                  displayMode,
+                                  homeSettings.compactVideoStatsOnCover,
+                                  homeSettings.showHomePublishTime,
                                   skeletonPulseState,
                               ) {
                                   if (!showInitialSkeleton) return@remember null
@@ -2347,7 +2351,13 @@ fun HomeScreen(
                                               wallpaperTintEnabled = homeWallpaperBackdropAppearance.visible,
                                               wallpaperEffectMode = homeSettings.homeWallpaperEffectMode,
                                               isDataSaverActive = isDataSaverActive,
-                                              coverAspectRatio = homeFeedCoverAspectRatio
+                                              coverAspectRatio = homeFeedCoverAspectRatio,
+                                              compactMetadata = homeFeedCardLayout.compactMetadata,
+                                              compactStatsOnCover = homeSettings.compactVideoStatsOnCover || homeFeedCardLayout.compactStatsOnCover,
+                                              titleMinLines = homeFeedCardLayout.titleMinLines,
+                                              showPublishTime = homeSettings.showHomePublishTime,
+                                              storyStyle = displayMode == 1,
+                                              storyHorizontalPadding = homeFeedCardLayout.storyCardHorizontalPaddingDp.dp,
                                           )
                                       }
                                   }

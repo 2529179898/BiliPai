@@ -1407,7 +1407,11 @@ internal fun TabletSecondaryContent(
                             if (success.relatedLoadState == VideoPlaybackUiState.RelatedLoadState.LOADING) {
                                 item(key = "tablet_related_loading") {
                                     Column {
-                                        repeat(3) { com.android.purebilibili.core.ui.skeleton.MediaListRowSkeleton() }
+                                        repeat(3) {
+                                            com.android.purebilibili.feature.video.ui.components.RelatedVideoGridRowSkeleton(
+                                                cardLayout = relatedVideoCardLayout,
+                                            )
+                                        }
                                     }
                                 }
                             } else if (visibleRelatedVideos.isEmpty()) {
@@ -1771,7 +1775,7 @@ private fun ScrollableVideoInfoSection(
 
         if (showRelatedVideos && relatedLoadState == VideoPlaybackUiState.RelatedLoadState.LOADING) {
             item(key = "tablet_intro_related_loading") {
-                com.android.purebilibili.core.ui.skeleton.MediaListRowSkeleton()
+                TabletRelatedCarouselSkeleton()
             }
         } else if (showRelatedVideos && relatedVideos.isEmpty()) {
             item(key = "tablet_intro_related_empty") {
@@ -1965,5 +1969,52 @@ private fun TabletVideoInfoStaggeredItem(
         ),
     ) {
         content()
+    }
+}
+
+
+@Composable
+private fun TabletRelatedCarouselSkeleton(modifier: Modifier = Modifier) {
+    val color = com.android.purebilibili.core.ui.skeleton.rememberContentSkeletonBlockColor(
+        com.android.purebilibili.core.ui.skeleton.rememberContentSkeletonPulse(),
+    )
+    Column(modifier = modifier) {
+        Spacer(Modifier.height(24.dp))
+        AppText(
+            text = "更多推荐",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            color = AppContentColors.primaryText(),
+        )
+        Spacer(Modifier.height(12.dp))
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(end = 4.dp),
+            userScrollEnabled = false,
+        ) {
+            items(3) {
+                Column(Modifier.width(160.dp)) {
+                    com.android.purebilibili.core.ui.skeleton.ContentSkeletonBlock(
+                        color = color,
+                        shape = AppShapes.container(ContainerLevel.Chip),
+                        modifier = Modifier.fillMaxWidth().aspectRatio(1.6f),
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    com.android.purebilibili.core.ui.skeleton.ContentSkeletonText(
+                        text = "推荐视频标题占位\n第二行标题占位",
+                        style = MaterialTheme.typography.bodySmall,
+                        colorProvider = { color },
+                        maxLines = 2,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    com.android.purebilibili.core.ui.skeleton.ContentSkeletonText(
+                        text = "UP 主名称",
+                        style = MaterialTheme.typography.labelSmall,
+                        colorProvider = { color },
+                    )
+                }
+            }
+        }
     }
 }

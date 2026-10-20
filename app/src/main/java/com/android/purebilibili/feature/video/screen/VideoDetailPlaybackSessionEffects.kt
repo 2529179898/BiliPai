@@ -36,6 +36,12 @@ internal fun VideoDetailPlaybackEventEffects(
 ) {
     LaunchedEffect(viewModel, state) {
         viewModel.toastEvent.collect { message ->
+            if (message.mediaKey != null) {
+                val current = viewModel.subjectSnapshot.value
+                if (current == null || message.mediaKey != "${current.bvid}:${current.cid}") {
+                    return@collect
+                }
+            }
             state.popupMessage = message
             delay(2_000)
             state.popupMessage = null

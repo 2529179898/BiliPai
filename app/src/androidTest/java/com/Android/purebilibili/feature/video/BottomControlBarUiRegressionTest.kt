@@ -4,6 +4,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import com.android.purebilibili.core.theme.AppUiStyle
+import com.android.purebilibili.core.theme.LocalAppUiStyle
+import com.android.purebilibili.core.ui.AppThemeConfig
+import com.android.purebilibili.core.ui.LocalAppThemeConfig
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -47,6 +55,62 @@ class BottomControlBarUiRegressionTest {
     @Test
     fun hiResWithLargerFont_keepsFullscreenInsidePlayer() {
         verifyFullscreenOnCompactPhone(fontScale = 1.5f)
+    }
+
+    @Test
+    fun portraitActionLabelsSharePlayAndFullscreenCenterAcrossStylesAndMaterials() {
+        val style = mutableStateOf(AppUiStyle.MATERIAL3)
+        val glass = mutableStateOf(true)
+        val width = mutableStateOf(360)
+        val fontScale = mutableStateOf(1f)
+        composeTestRule.setContent {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val density = LocalDensity.current.density * maxWidth.value / 720f
+                CompositionLocalProvider(
+                    LocalDensity provides Density(density, fontScale.value),
+                    LocalAppUiStyle provides style.value,
+                    LocalAppThemeConfig provides AppThemeConfig(liquidGlassEnabled = glass.value),
+                ) {
+                    MaterialTheme {
+                        MiuixTheme {
+                        BottomControlBar(
+                            isPlaying = true,
+                            progress = PlayerProgress(current = 436_000L, duration = 854_000L),
+                            isFullscreen = false,
+                            isVerticalVideo = true,
+                            viewportWidthDpOverride = width.value,
+                            currentAudioQualityLabel = "AAC",
+                            currentQualityLabel = "480P",
+                            onPlayPauseClick = {},
+                            onSeek = {},
+                            onToggleFullscreen = {},
+                            modifier = Modifier.width(width.value.dp),
+                        )
+                        }
+                    }
+                }
+            }
+        }
+        for (uiStyle in AppUiStyle.entries) {
+            for (glassEnabled in listOf(true, false)) {
+                for ((widthDp, scale) in listOf(320 to 1f, 420 to 1.4f, 700 to 1f)) {
+                    composeTestRule.runOnIdle {
+                        style.value = uiStyle
+                        glass.value = glassEnabled
+                        width.value = widthDp
+                        fontScale.value = scale
+                    }
+                    val play = composeTestRule.onNodeWithTag("player_play_pause").fetchSemanticsNode().boundsInRoot
+                    val fullscreen = composeTestRule.onNodeWithTag("player_fullscreen_toggle").fetchSemanticsNode().boundsInRoot
+                    assertEquals(play.center.y, fullscreen.center.y, 1f)
+                    for (label in listOf("AAC", "480P", "倍速", "竖屏")) {
+                        val bounds = composeTestRule.onNodeWithText(label, useUnmergedTree = true)
+                            .fetchSemanticsNode().boundsInRoot
+                        assertEquals("$uiStyle glass=$glassEnabled width=$widthDp label=$label", play.center.y, bounds.center.y, 1f)
+                    }
+                }
+            }
+        }
     }
 
     @Test

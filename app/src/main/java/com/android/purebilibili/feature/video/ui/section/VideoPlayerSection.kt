@@ -112,6 +112,7 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
+import com.android.purebilibili.feature.video.ui.gesture.PlayerGestureInputSurface
 import androidx.compose.foundation.clickable
 import com.android.purebilibili.feature.video.ambient.AmbientPresentation
 import com.android.purebilibili.feature.video.ambient.AmbientFrameController
@@ -4010,6 +4011,9 @@ private fun VideoPlayerSectionContent(
             }
         }
 
+        // Keep the parent gesture stream reachable with hidden controls and native video output.
+        PlayerGestureInputSurface(modifier = Modifier.matchParentSize())
+
         LaunchedEffect(anime4kSurfaceReady, anime4kDisplayedFirstFrame) {
             if (anime4kSurfaceReady && anime4kDisplayedFirstFrame) {
                 isFirstFrameRendered = true
@@ -4582,6 +4586,8 @@ private fun VideoPlayerSectionContent(
                         modifier = Modifier.fillMaxSize()
                     )
                 }
+                // Above the passive renderer, below BAS links and interactive command danmaku.
+                PlayerGestureInputSurface(modifier = Modifier.fillMaxSize())
                 com.android.purebilibili.feature.video.ui.overlay.AdvancedDanmakuOverlay(
                     viewport = viewport,
                     danmakuList = advancedDanmakuList,

@@ -7,7 +7,8 @@ enum class PlayerToastPresentation {
 
 data class PlayerToastMessage(
     val message: String,
-    val presentation: PlayerToastPresentation = PlayerToastPresentation.Standard
+    val presentation: PlayerToastPresentation = PlayerToastPresentation.Standard,
+    val mediaKey: String? = null,
 )
 
 internal fun buildPlayerToastMessage(message: String): PlayerToastMessage {

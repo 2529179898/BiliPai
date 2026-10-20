@@ -32,6 +32,6 @@ internal fun FavoritePersonalCardSkeleton(stacked: Boolean, blockColor: Color, m
                 TextPlaceholder("播放量 · 弹幕量", MaterialTheme.typography.labelSmall)
             }
         },
-        coverContent = { ContentSkeletonBlock(blockColor, Modifier.fillMaxSize()) },
+        coverContent = { ContentSkeletonBlock(blockColor, Modifier.fillMaxSize(), androidx.compose.ui.graphics.RectangleShape) },
     )
 }

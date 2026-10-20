@@ -1,8 +1,13 @@
 package com.android.purebilibili.feature.video
 
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.viewinterop.AndroidView
+import com.android.purebilibili.feature.video.ui.gesture.PlayerGestureInputSurface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -37,7 +42,13 @@ class PlayerTapGesturesUiRegressionTest {
     private var playbackSpeed = 1f
     private var longPressStarts = 0
 
-    private fun setPlayerSurface(captureSingleTap: (Offset) -> (() -> Unit)? = { null }) {
+    private var overlayButtonClicks = 0
+    private var nativeTouches = 0
+
+    private fun setPlayerSurface(
+        captureSingleTap: (Offset) -> (() -> Unit)? = { null },
+        nativeRenderer: Boolean = false,
+    ) {
         rule.setContent {
             viewConfiguration = LocalViewConfiguration.current
             Box(
@@ -68,13 +79,88 @@ class PlayerTapGesturesUiRegressionTest {
                             }
                         )
                     }
-            )
+            ) {
+                if (nativeRenderer) {
+                    // Simulate a rendering View taking touches when no Compose controls cover it.
+                    AndroidView(
+                        factory = { context ->
+                            android.view.View(context).apply {
+                                setOnTouchListener { _, _ -> nativeTouches += 1; true }
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                    PlayerGestureInputSurface(modifier = Modifier.fillMaxSize())
+                    Box(
+                        Modifier.align(Alignment.BottomStart)
+                            .size(48.dp)
+                            .testTag("player-overlay-button")
+                            .clickable { overlayButtonClicks += 1 },
+                    )
+                }
+            }
         }
     }
 
     private fun finishTapWindow() {
         rule.mainClock.advanceTimeBy(viewConfiguration.doubleTapTimeoutMillis + 100L)
         rule.waitForIdle()
+    }
+
+    @Test
+    fun nativeRendererWithHiddenControls_doubleTapPausesWithoutShowingControls() {
+        setPlayerSurface(nativeRenderer = true)
+        rule.onNodeWithTag("player-tap-surface").performTouchInput {
+            click(center)
+            advanceEventTime(viewConfiguration.doubleTapMinTimeMillis + 20L)
+            click(center)
+        }
+        finishTapWindow()
+        rule.runOnIdle {
+            assertTrue(paused)
+            assertFalse(controlsVisible)
+            assertEquals(1, doubleTaps.size)
+            assertTrue(taps.isEmpty())
+            assertEquals(0, nativeTouches)
+        }
+    }
+
+    @Test
+    fun nativeRenderer_singleTapThenDoubleTapKeepsControlsAndPlaybackIndependent() {
+        setPlayerSurface(nativeRenderer = true)
+        rule.onNodeWithTag("player-tap-surface").performTouchInput { click(center) }
+        finishTapWindow()
+        rule.runOnIdle { assertTrue(controlsVisible) }
+        rule.onNodeWithTag("player-tap-surface").performTouchInput {
+            click(center)
+            advanceEventTime(viewConfiguration.doubleTapMinTimeMillis + 20L)
+            click(center)
+        }
+        finishTapWindow()
+        rule.runOnIdle {
+            assertTrue(paused)
+            assertTrue(controlsVisible)
+            assertEquals(1, taps.size)
+            assertEquals(1, doubleTaps.size)
+            assertEquals(0, nativeTouches)
+        }
+    }
+
+    @Test
+    fun overlayButtonAboveGestureSurface_keepsTouchPriority() {
+        setPlayerSurface(nativeRenderer = true)
+        rule.onNodeWithTag("player-overlay-button").performTouchInput {
+            click(center)
+            advanceEventTime(viewConfiguration.doubleTapMinTimeMillis + 20L)
+            click(center)
+        }
+        finishTapWindow()
+        rule.runOnIdle {
+            assertEquals(2, overlayButtonClicks)
+            assertTrue(taps.isEmpty())
+            assertTrue(doubleTaps.isEmpty())
+            assertFalse(paused)
+        }
     }
 
     @Test

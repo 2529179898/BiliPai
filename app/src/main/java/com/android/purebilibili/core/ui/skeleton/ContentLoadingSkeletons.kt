@@ -35,6 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
@@ -95,6 +97,50 @@ fun ContentSkeletonBlock(
         modifier = modifier
             .clip(shape)
             .background(color),
+    )
+}
+
+/** Keep the real font metrics and wrapping; paint one placeholder per measured text line. */
+@Composable
+internal fun ContentSkeletonText(
+    text: String,
+    style: androidx.compose.ui.text.TextStyle,
+    colorProvider: () -> Color,
+    modifier: Modifier = Modifier,
+    maxLines: Int = 1,
+    minLines: Int = 1,
+) {
+    val textLayout = remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null) }
+    com.android.purebilibili.core.ui.components.AppText(
+        text = text,
+        style = style,
+        maxLines = maxLines,
+        minLines = minLines,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        tapToCopyEnabled = false,
+        color = Color.Transparent,
+        onTextLayout = { textLayout.value = it },
+        modifier = modifier
+            .clearAndSetSemantics { }
+            .drawWithContent {
+                // Measurements are written during layout and read only during drawing.
+                val layout = textLayout.value ?: return@drawWithContent
+                val color = colorProvider()
+                for (line in 0 until layout.lineCount) {
+                    val top = layout.getLineTop(line)
+                    val bottom = layout.getLineBottom(line)
+                    val inset = (bottom - top) * 0.18f
+                    drawRoundRect(
+                        color = color,
+                        topLeft = androidx.compose.ui.geometry.Offset(layout.getLineLeft(line), top + inset),
+                        size = androidx.compose.ui.geometry.Size(
+                            (layout.getLineRight(line) - layout.getLineLeft(line)).coerceAtLeast(0f),
+                            (bottom - top - inset * 2f).coerceAtLeast(0f),
+                        ),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()),
+                    )
+                }
+            },
     )
 }
 
@@ -179,7 +225,7 @@ fun ContentVideoGridItemSkeleton(
     ) {
         ContentSkeletonBlock(
             color = blockColor,
-            shape = AppShapes.container(ContainerLevel.Chip),
+            shape = AppShapes.mediaCover(),
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(coverAspectRatio),
@@ -221,7 +267,7 @@ fun MediaListRowSkeleton(
     ) {
         ContentSkeletonBlock(
             color = color,
-            shape = AppShapes.container(ContainerLevel.Chip),
+            shape = AppShapes.mediaCover(),
             modifier = Modifier
                 .width(coverWidth)
                 .aspectRatio(coverAspectRatio),
