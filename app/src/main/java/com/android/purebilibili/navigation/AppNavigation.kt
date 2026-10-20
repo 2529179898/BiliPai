@@ -2166,6 +2166,8 @@ fun AppNavigation(
                     showBadges = showUpBadges,
                     showAvatars = showUpAvatars
                 ),
+            com.android.purebilibili.core.ui.LocalVideoCardCoverAspectRatio provides
+                com.android.purebilibili.feature.home.resolveHomeFeedCoverAspectRatio(homeSettings.homeFeedCardStyle),
             com.android.purebilibili.core.ui.LocalFullVideoCardContentVisible provides
                 homeSettings.showFullVideoCardContent,
             com.android.purebilibili.core.ui.LocalVideoCardLongPressEnabled provides
@@ -5043,7 +5045,7 @@ fun AppNavigation(
                                             }
                                         },
                                         onPlayPause = {
-                                            if (!playbackManager.togglePlayPause()) {
+                                            if (!playbackManager.isActive || !playbackManager.togglePlayPause()) {
                                                 pushNavigation3Route(
                                                     ScreenRoutes.AudioMode.createRoute(
                                                         bvid = audioNowPlayingItem.bvid,
@@ -5294,7 +5296,7 @@ fun AppNavigation(
                         }
                     },
                     onPlayPause = {
-                        if (!playbackManager.togglePlayPause()) {
+                        if (!playbackManager.isActive || !playbackManager.togglePlayPause()) {
                             pushNavigation3Route(
                                 ScreenRoutes.AudioMode.createRoute(
                                     bvid = audioNowPlayingItem.bvid,

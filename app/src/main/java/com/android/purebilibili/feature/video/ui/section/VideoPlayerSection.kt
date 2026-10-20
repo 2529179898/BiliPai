@@ -4285,8 +4285,15 @@ private fun VideoPlayerSectionContent(
         shouldKeepCoverForManualStart = keepCoverForManualStart,
     )
 
+    val coverVisibility = remember(currentPlaybackIdentity) {
+        androidx.compose.animation.core.MutableTransitionState(
+            showCover && (currentCoverUrl.isNotEmpty() || entryPresentationSpec.showManualStartPlayButton),
+        )
+    }
+    coverVisibility.targetState = showCover &&
+        (currentCoverUrl.isNotEmpty() || entryPresentationSpec.showManualStartPlayButton)
     AnimatedVisibility(
-        visible = showCover && (currentCoverUrl.isNotEmpty() || entryPresentationSpec.showManualStartPlayButton),
+        visibleState = coverVisibility,
         enter = if (disableCoverFadeAnimation) {
             EnterTransition.None
         } else {
@@ -4451,6 +4458,15 @@ private fun VideoPlayerSectionContent(
             }
         }
     }
+
+    PlaybackResumeFeedback(
+        mediaKey = (uiState as? VideoPlaybackUiState.Success)?.info?.let { "${it.bvid}:${it.cid}" },
+        ready = !keepCoverForManualStart && !showCover &&
+            coverVisibility.isIdle && !coverVisibility.currentState &&
+            !suppressTransientOverlaysForTransition && !forceCoverDuringReturnAnimation &&
+            !isInPipMode && !isPortraitFullscreen,
+        fullscreen = isFullscreen,
+    )
 
     // 2. DanmakuView (使用 ByteDance DanmakuRenderEngine - 覆盖在 PlayerView 上方)
     val shouldShowDanmakuLayer = danmakuHostActive && !suppressTransientOverlaysForTransition &&

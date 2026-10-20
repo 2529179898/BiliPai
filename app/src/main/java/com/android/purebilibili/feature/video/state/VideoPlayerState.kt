@@ -989,6 +989,14 @@ fun rememberVideoPlayerState(
             requestCid = cid
         )
     }
+    // Capture before an outgoing/covered detail can mute or pause this same instance.
+    // Returning from the playback bar must preserve its play/pause intent rather than
+    // reapply the preference for opening a fresh video card.
+    val reusedPlaybackIntentAtEntry = remember(bvid, cid) {
+        if (reuseFromMiniPlayerAtEntry) miniPlayerManager.player?.let {
+            it.playWhenReady || it.isPlaying
+        } else null
+    }
     LaunchedEffect(bvid, cid, reuseFromMiniPlayerAtEntry) {
         Logger.d(
             "VideoPlayerState",
@@ -1636,7 +1644,8 @@ fun rememberVideoPlayerState(
             bvid = bvid,
             cid = cid,
             fallbackResumePositionMs = if (resumeSameRemoteItem) remoteResume?.positionMs ?: fallbackResumePositionMs else fallbackResumePositionMs,
-            autoPlay = if (resumeSameRemoteItem) remoteResume?.playing else SettingsManager.getClickToPlaySync(context),
+            autoPlay = if (resumeSameRemoteItem) remoteResume?.playing
+                else reusedPlaybackIntentAtEntry ?: SettingsManager.getClickToPlaySync(context),
         )
     }
 

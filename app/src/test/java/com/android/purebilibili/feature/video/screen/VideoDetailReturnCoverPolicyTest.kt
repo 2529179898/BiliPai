@@ -13,6 +13,76 @@ import java.io.File
 
 class VideoDetailReturnCoverPolicyTest {
     @Test
+    fun nativeCardInfoFillsTheBodyYieldDuringOpeningReturnAndCancel() {
+        for (layout in listOf(VideoCardSourceLayout.STACKED, VideoCardSourceLayout.SIDE_BY_SIDE)) {
+            for (phase in listOf(
+                VideoCardTransitionBackgroundPhase.OPENING,
+                VideoCardTransitionBackgroundPhase.RETURNING,
+                VideoCardTransitionBackgroundPhase.HELD,
+            )) {
+                var previousMedia: Float? = null
+                // Reverse direction without changing phase, as a cancelled or re-grabbed
+                // predictive gesture does. No frame may lose both information layers.
+                for (step in (0..100).toList() + (100 downTo 0).toList()) {
+                    val depth = step / 100f
+                    val gesture = phase == VideoCardTransitionBackgroundPhase.HELD
+                    val source = resolveVideoDetailFlyingSourceChromeAlpha(
+                        morphDepthProgress = depth,
+                        phase = phase,
+                        isReturnGestureInProgress = gesture,
+                        sourceLayout = layout,
+                        preserveNativeViewport = true,
+                    )
+                    val body = com.android.purebilibili.core.ui.transition
+                        .resolveVideoCardSecondaryContentVisualFrame(
+                            morphDepthProgress = depth,
+                            phase = phase,
+                            isReturnGestureInProgress = gesture,
+                            motionTier = com.android.purebilibili.core.ui.adaptive.MotionTier.Normal,
+                            sourceLayout = layout,
+                            preserveNativeViewport = true,
+                        )
+                    assertEquals("Missing information at $phase depth=$depth", 1f, source + body.alpha, .0001f)
+                    val media = com.android.purebilibili.core.ui.transition
+                        .resolveVideoDetailMediaLayoutHandoffProgress(
+                            morphDepthProgress = depth,
+                            phase = phase,
+                            isReturnGestureInProgress = gesture,
+                            sourceLayout = layout,
+                            sourceChromeAlpha = source,
+                            preserveNativeViewport = true,
+                        )
+                    assertEquals(source, media, .0001f)
+                    previousMedia?.let { assertTrue(kotlin.math.abs(media - it) < .025f) }
+                    previousMedia = media
+                }
+            }
+        }
+    }
+
+    @Test
+    fun nativeInfoHandoffKeepsTheLiveCoverSwapLateAndReleasesAfterCommit() {
+        val depth = .5f
+        assertTrue(resolveVideoDetailFlyingSourceChromeAlpha(
+            depth, VideoCardTransitionBackgroundPhase.RETURNING, false,
+            VideoCardSourceLayout.STACKED, preserveNativeViewport = true,
+        ) > 0f)
+        assertEquals(0f, com.android.purebilibili.core.ui.transition
+            .resolveVideoCardLiveReturnVisualHandoffAlpha(depth), .0001f)
+        assertEquals(0f, resolveVideoDetailFlyingSourceChromeAlpha(
+            0f, VideoCardTransitionBackgroundPhase.IDLE, false,
+            VideoCardSourceLayout.STACKED, isCommittedCardReturn = true,
+            preserveNativeViewport = true,
+        ), .0001f)
+        // Playback bars retain their separate capsule geometry and timing.
+        assertEquals(0f, resolveVideoDetailFlyingSourceChromeAlpha(
+            depth, VideoCardTransitionBackgroundPhase.RETURNING, false,
+            VideoCardSourceLayout.SIDE_BY_SIDE, isNowPlayingBar = true,
+            preserveNativeViewport = true,
+        ), .0001f)
+    }
+
+    @Test
     fun horizontalInfoIsClippedBehindTheExpandingMediaEdge() {
         // 800px viewport, 300px source cover + 500px info, compensated by 2x.
         fun clip(progress: Float, localScale: Float = 1f) =

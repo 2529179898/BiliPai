@@ -128,9 +128,9 @@ class VideoDetailFullscreenOrientationPolicyTest {
     }
 
     @Test
-    fun `system rotation lock prevents manual fullscreen side observation`() {
+    fun `app auto rotate remains available under system rotation lock`() {
         for (appAutoRotate in listOf(false, true)) {
-            assertFalse(shouldObservePhoneAutoRotate(
+            assertEquals(appAutoRotate, shouldObservePhoneAutoRotate(
                 autoRotateEnabled = appAutoRotate,
                 systemAutoRotateEnabled = false,
                 isCompactDevice = true,

@@ -31,8 +31,10 @@ internal fun shouldReclaimVideoPlaybackSession(
     pagePlayer: Any,
     pageBvid: String,
     pageCid: Long,
+    isLeavingByNavigation: Boolean = false,
 ): Boolean = isVisible && (
-    !isSessionActive ||
+    isLeavingByNavigation ||
+        !isSessionActive ||
         currentPlayer !== pagePlayer ||
         currentBvid != pageBvid ||
         currentCid != pageCid

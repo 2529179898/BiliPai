@@ -12,12 +12,20 @@ internal fun resolveVideoDetailMediaLayoutHandoffProgress(
     sourceLayout: VideoCardSourceLayout,
     sourceChromeAlpha: Float? = null,
     isCommittedCardReturn: Boolean = false,
+    preserveNativeViewport: Boolean = false,
 ): Float {
     val depth = morphDepthProgress.coerceIn(0f, 1f)
     // The clock can settle before navigation removes the outgoing entry.
     if (isCommittedCardReturn && !isReturnGestureInProgress &&
         phase == VideoCardTransitionBackgroundPhase.IDLE
     ) return 1f
+    // Native card chrome and the shell already follow body presence. Media geometry
+    // must seek the same envelope, including cancellation; the legacy HELD shortcut
+    // below would jump straight to source geometry as soon as early chrome appears.
+    if (preserveNativeViewport && sourceLayout != VideoCardSourceLayout.COVER_ONLY &&
+        (phase == VideoCardTransitionBackgroundPhase.OPENING ||
+            isVideoCardReturnContentYieldActive(phase, isReturnGestureInProgress, depth))
+    ) return 1f - resolveVideoCardNativeBodyPresence(depth)
     if (phase == VideoCardTransitionBackgroundPhase.OPENING && !isReturnGestureInProgress) {
         return sourceChromeAlpha?.coerceIn(0f, 1f) ?: (1f - resolveVideoCardDetailChromeAlpha(
             morphDepthProgress = depth,

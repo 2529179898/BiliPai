@@ -193,6 +193,7 @@ internal fun resolveVideoDetailFlyingSourceChromeAlpha(
      * 信息板凭空盖在卡槽上，正是「白色遮罩」。返回已提交时必须让两者**同时为 0**。
      */
     isCommittedCardReturn: Boolean = false,
+    preserveNativeViewport: Boolean = false,
 ): Float {
     // IDLE + 返回已提交：morph 已 settle，视觉所有权交回真正的列表卡，重建壳必须退场。
     // 预测返回手势进行中不算（那时 IDLE 只是手势起点，重建壳仍要参与合成）。
@@ -215,6 +216,16 @@ internal fun resolveVideoDetailFlyingSourceChromeAlpha(
                 phase, isReturnGestureInProgress, morphDepthProgress,
             ) -> resolveNowPlayingBarSourceChromeReveal(morphDepthProgress)
         else -> 0f
+    }
+    // Native navigation contracts the shell with this same reversible envelope.
+    // Waiting for the late media-cover swap leaves an empty info band; using the
+    // legacy opening window also makes a quick reverse switch content timelines.
+    if (preserveNativeViewport && sourceLayout != VideoCardSourceLayout.COVER_ONLY &&
+        (phase == VideoCardTransitionBackgroundPhase.OPENING ||
+            isVideoCardReturnContentYieldActive(phase, isReturnGestureInProgress, morphDepthProgress))
+    ) {
+        return 1f - com.android.purebilibili.core.ui.transition
+            .resolveVideoCardNativeBodyPresence(morphDepthProgress)
     }
     // Opening, settled-detail return, quick reverse, and predictive seek all hide the
     // list slot. The flying entry must keep the complementary info band or the morph
@@ -334,6 +345,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
             detailContentLoading = detailContentLoading,
             followProgressEnabled = followProgressEnabledProvider(),
             isCommittedCardReturn = isCommittedCardReturn,
+            preserveNativeViewport = miuixHost.enabled && miuixHost.motionSpec?.reducedMotion != true,
         )
         return resolveVideoDetailHorizontalInfoClipLeftPx(
             viewportWidthPx = viewportWidthPx,
@@ -391,6 +403,7 @@ internal fun BoxScope.VideoDetailReturnSourceCardChrome(
             isNowPlayingBar = isNowPlayingBar,
             followProgressEnabled = followProgressEnabledProvider(),
             isCommittedCardReturn = isCommittedCardReturn,
+            preserveNativeViewport = miuixHost.enabled && miuixHost.motionSpec?.reducedMotion != true,
         )
     }
 

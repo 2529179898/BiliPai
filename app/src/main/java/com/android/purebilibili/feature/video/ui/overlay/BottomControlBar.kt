@@ -1909,11 +1909,10 @@ private fun InlineDockActionRow(
             }
         } else Arrangement.spacedBy(minimumSpacing)
     }
-    // Both glass styles can reserve a taller capsule than the text row. Center its
-    // contents on the same axis as play/time/fullscreen; native keeps its original layout.
-    val centerGlassActions = LocalAppThemeConfig.current.liquidGlassEnabled
+    // The action viewport can be taller than its text in either material. Keep native
+    // MD3/Miuix and glass labels on the same axis as play/time/fullscreen.
     BoxWithConstraints(
-        contentAlignment = if (centerGlassActions) Alignment.CenterStart else Alignment.TopStart,
+        contentAlignment = Alignment.CenterStart,
         modifier = modifier
             .then(if (fillAvailableWidth) Modifier.fillMaxWidth() else Modifier)
             .then(if (fillAvailableWidth) Modifier.padding(horizontal = 2.dp) else Modifier),

@@ -1944,7 +1944,8 @@ internal fun VideoDetailScreenStateHolder(
         observer.onChange(false)
         onDispose { rotationResolver.unregisterContentObserver(observer) }
     }
-    val sensorAutoRotateEnabled = autoRotateEnabled && systemAutoRotateEnabled
+    // The app switch explicitly opts into sensor rotation, independently of the system lock.
+    val sensorAutoRotateEnabled = autoRotateEnabled
 
     DisposableEffect(Unit) {
         //  [沉浸式] 启用边到边显示，让内容延伸到状态栏下方
@@ -3264,6 +3265,7 @@ internal fun VideoDetailScreenStateHolder(
                     pagePlayer = playerState.player,
                     pageBvid = currentBvid,
                     pageCid = info.cid,
+                    isLeavingByNavigation = miniPlayerManager.isLeavingByNavigation,
                 )
                 if (shouldReclaimSession) {
                     miniPlayerManager.setVideoInfo(
@@ -4930,6 +4932,9 @@ internal fun VideoDetailScreenStateHolder(
                                 isNowPlayingBar =
                                     miuixLandingState.sourceChromeSnapshot?.isNowPlayingBar == true,
                                 isCommittedCardReturn = isCommittedCardReturn,
+                                preserveNativeViewport = scopedHeroDriver.enabled &&
+                                    videoCardDepthBackgroundState.motionTierProvider() !=
+                                        com.android.purebilibili.core.ui.adaptive.MotionTier.Reduced,
                             )
                         }
                         val returnMediaHandoffProgressProvider: () -> Float = {
@@ -4968,6 +4973,9 @@ internal fun VideoDetailScreenStateHolder(
                                                 ?: miuixLandingState.sourceLayout,
                                             sourceChromeAlpha = flyingSourceChromeAlphaProvider(),
                                             isCommittedCardReturn = isCommittedCardReturn,
+                                            preserveNativeViewport = scopedHeroDriver.enabled &&
+                                                videoCardDepthBackgroundState.motionTierProvider() !=
+                                                    com.android.purebilibili.core.ui.adaptive.MotionTier.Reduced,
                                         )
                                 }
                             }
@@ -5945,6 +5953,7 @@ internal fun VideoDetailScreenStateHolder(
     // 导致视频被拉伸；因此窗口内全屏仍使用正常布局，由播放器按视频比例适配窗口。
     val rootCardTransition = com.android.purebilibili.core.ui.transition
         .LocalMiuixVideoCardTransitionState.current
+    androidx.compose.runtime.CompositionLocalProvider(LocalPlaybackResumeFeedback provides playbackEventState) {
     VideoDetailScreenContent(
         transitionState = transitionState,
         routeSheetMotion = routeSheetMotion,
@@ -5981,4 +5990,5 @@ internal fun VideoDetailScreenStateHolder(
         mainContent = { VideoDetailRouteSheetMainContent() },
         overlayContent = { VideoDetailRouteSheetOverlayContent() }
     )
+    }
 }

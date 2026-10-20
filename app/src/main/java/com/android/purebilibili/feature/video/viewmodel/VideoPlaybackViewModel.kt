@@ -7974,6 +7974,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                 _toastEvent.send(
                     PlayerToastMessage(
                         message = buildPlaybackResumeNoticeMessage(notice.positionMs),
+                        presentation = PlayerToastPresentation.PlaybackResume,
                         mediaKey = notice.mediaKey,
                     ),
                 )

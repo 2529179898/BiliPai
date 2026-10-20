@@ -5,10 +5,6 @@ import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
-import android.database.ContentObserver
-import android.os.Handler
-import android.os.Looper
-import android.provider.Settings
 import com.android.purebilibili.feature.video.screen.resolvePhoneInlineVideoViewportHeightDp
 import com.android.purebilibili.feature.video.screen.resolveVideoDetailStableStatusBarHeightDp
 import com.android.purebilibili.feature.video.screen.resolveVideoDetailPortraitPlayerTopInsetDp
@@ -237,25 +233,8 @@ fun BangumiPlayerScreen(
     }
     val autoRotateEnabled by com.android.purebilibili.core.store.SettingsManager
         .getAutoRotateEnabled(context).collectAsStateWithLifecycle(initialValue = false)
-    val rotationResolver = context.applicationContext.contentResolver
-    var systemAutoRotateEnabled by remember(rotationResolver) {
-        mutableStateOf(Settings.System.getInt(rotationResolver, Settings.System.ACCELEROMETER_ROTATION, 0) != 0)
-    }
-    DisposableEffect(rotationResolver) {
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                systemAutoRotateEnabled = Settings.System.getInt(
-                    rotationResolver, Settings.System.ACCELEROMETER_ROTATION, 0
-                ) != 0
-            }
-        }
-        rotationResolver.registerContentObserver(
-            Settings.System.getUriFor(Settings.System.ACCELEROMETER_ROTATION), false, observer
-        )
-        observer.onChange(false)
-        onDispose { rotationResolver.unregisterContentObserver(observer) }
-    }
-    val sensorAutoRotateEnabled = autoRotateEnabled && systemAutoRotateEnabled
+    // The app switch explicitly opts into sensor rotation, independently of the system lock.
+    val sensorAutoRotateEnabled = autoRotateEnabled
 
     // 创建 ExoPlayer
     val exoPlayer = remember {

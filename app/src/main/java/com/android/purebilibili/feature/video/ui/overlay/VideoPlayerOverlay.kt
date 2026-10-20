@@ -425,10 +425,11 @@ internal fun FullscreenLockButton(
     }
     PlayerControlGlassDock(
         enabled = true,
+        modifier = modifier.size(PlayerChromeLayout.CircularButtonSizeDp.dp),
         shape = CircleShape,
-        minimumReadabilityScrimAlpha = 0.6f,
     ) {
-        // Glass owns the translucent backing; native mode retains its state inversion.
+        // Glass uses the same translucent shell as the other player controls; the native
+        // 60% black backing belongs only to the non-glass surface below.
         // Both glass states use media white, with the glyph and label conveying lock state.
         CompositionLocalProvider(
             com.android.purebilibili.core.ui.LocalAppButtonSlotColorCorrectionEnabled provides false,
@@ -438,7 +439,7 @@ internal fun FullscreenLockButton(
                 color = background,
                 contentColor = foreground,
                 shape = RoundedCornerShape(cornerRadiusDp.dp),
-                modifier = modifier.size(PlayerChromeLayout.CircularButtonSizeDp.dp),
+                modifier = Modifier.fillMaxSize(),
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     AppIcon(

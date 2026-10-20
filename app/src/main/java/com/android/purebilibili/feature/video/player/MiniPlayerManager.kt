@@ -1602,6 +1602,10 @@ class MiniPlayerManager private constructor(private val context: Context) :
 
     internal fun retainPlayerForPage(target: ExoPlayer) {
         remoteTransferJob?.cancel()
+        // A detail can reclaim the same instance from the bottom bar. Replacing the
+        // reference is then a no-op, so explicitly restore the saved video tracks and
+        // cancel delayed background jobs before the page binds its new video surface.
+        if (target === player) resetBackgroundOptimizationState()
         pageOwnership.retain(target)
     }
 
@@ -2018,7 +2022,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
         isPlaying = false
     }
 
-    /** Transfer the current detail player before any exit callback can pause or release it. */
+    /** Publish the current resume entry before exit cleanup, including stop-on-exit sessions. */
     fun prepareAudioNowPlayingForNavigationExit(expectedBvid: String? = null): Boolean {
         if (!isActive || player == null) return false
         if (!shouldHandleNavigationLeaveForBvid(expectedBvid, currentBvid)) return false
@@ -2088,7 +2092,10 @@ class MiniPlayerManager private constructor(private val context: Context) :
                 keepForAudioNowPlaying = keepForAudioNowPlaying,
             )
         ) {
-            AudioNowPlayingSession.dismiss()
+            // Keep the paused resume entry when its switch is on. This does not keep the
+            // player alive or override stop-on-exit; force-stop/replacement still clears it.
+            if (forceStop || !keepForAudioNowPlaying) AudioNowPlayingSession.dismiss()
+            isPlaying = false
             isMiniMode = false
             Logger.d(TAG, "🔇 ${mode.label}：通过导航离开，立即停止播放")
             // 停止所有播放器（外部和内部）

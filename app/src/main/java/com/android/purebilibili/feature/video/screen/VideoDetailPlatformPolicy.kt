@@ -663,7 +663,7 @@ internal fun resolvePhoneVideoRequestedOrientation(
                 resolveStableOrientationWhenAutoRotateDisabled(
                     requestedOrientation = fullscreenOrientation,
                     currentRequestedOrientation = currentRequestedOrientation,
-                    autoRotateEnabled = systemAutoRotateEnabled
+                    autoRotateEnabled = autoRotateEnabled || systemAutoRotateEnabled
                 )
             }
             autoRotateEnabled -> ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
@@ -727,7 +727,7 @@ internal fun resolvePhoneVideoRequestedOrientation(
         ) ?: ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         // The app switch controls portrait/fullscreen transitions. A manual fullscreen
         // still follows both landscape sides when system rotation is enabled.
-        if (systemAutoRotateEnabled) {
+        if (autoRotateEnabled || systemAutoRotateEnabled) {
             preserveCurrentExactLandscapeSideWhileFullscreen(
                 requestedOrientation = fullscreenOrientation,
                 currentRequestedOrientation = currentRequestedOrientation,
@@ -998,7 +998,7 @@ internal fun shouldObservePhoneAutoRotate(
     manualFullscreenRequested: Boolean = false,
     systemAutoRotateEnabled: Boolean = true,
 ): Boolean {
-    if (!systemAutoRotateEnabled) return false
+    if (!systemAutoRotateEnabled && !autoRotateEnabled) return false
     // A cover display may be classified as a compact phone when its metrics refresh.
     // Keep tracking both landscape sides throughout fullscreen, regardless of that label.
     // Even with the app's auto-rotate switch off, an explicit fullscreen exit holds

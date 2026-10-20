@@ -2,7 +2,8 @@ package com.android.purebilibili.feature.video.viewmodel
 
 enum class PlayerToastPresentation {
     Standard,
-    CenteredHighlight
+    CenteredHighlight,
+    PlaybackResume
 }
 
 data class PlayerToastMessage(

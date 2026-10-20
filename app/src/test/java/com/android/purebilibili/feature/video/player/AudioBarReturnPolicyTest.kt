@@ -50,8 +50,8 @@ class AudioBarReturnPolicyTest {
     }
 
     @Test
-    fun stopOnExitDoesNotActivateAudioBar() {
-        assertFalse(
+    fun stopOnExitStillPublishesThePausedResumeEntry() {
+        assertTrue(
             shouldActivateAudioBarOnVideoExit(
                 barEnabled = true,
                 hasVideoIdentity = true,
@@ -61,6 +61,20 @@ class AudioBarReturnPolicyTest {
                 stopPlaybackOnExit = true,
             )
         )
+    }
+
+    @Test
+    fun pausedResumeEntryDoesNotOverrideStopOnExitCleanup() {
+        assertTrue(shouldActivateAudioBarOnVideoExit(
+            barEnabled = true, hasVideoIdentity = true, isLive = false,
+            isMiniOrPip = false, isNavigatingToVideo = false,
+            stopPlaybackOnExit = true, inAppMiniPlayerEnabled = true,
+        ))
+        assertTrue(shouldClearPlaybackNotificationOnNavigationExit(
+            mode = com.android.purebilibili.core.store.SettingsManager.MiniPlayerMode.OFF,
+            stopPlaybackOnExit = true,
+            keepForAudioNowPlaying = true,
+        ))
     }
 
     private fun eligible(

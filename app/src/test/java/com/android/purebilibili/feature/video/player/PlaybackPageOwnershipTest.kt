@@ -147,4 +147,25 @@ class PlaybackPageOwnershipTest {
             )
         )
     }
+    @Test
+    fun returningFromBottomBarReclaimsTheSamePlayerAndClearsNavigationExit() {
+        val player = Any()
+        for (visible in listOf(false, true)) {
+            kotlin.test.assertEquals(
+                visible,
+                shouldReclaimVideoPlaybackSession(
+                    isVisible = visible,
+                    isSessionActive = true,
+                    currentPlayer = player,
+                    currentBvid = "BV_parent",
+                    currentCid = 10L,
+                    pagePlayer = player,
+                    pageBvid = "BV_parent",
+                    pageCid = 10L,
+                    isLeavingByNavigation = true,
+                ),
+            )
+        }
+    }
+
 }
