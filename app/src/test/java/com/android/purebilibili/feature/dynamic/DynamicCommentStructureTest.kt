@@ -130,6 +130,30 @@ class DynamicCommentStructureTest {
     }
 
     @Test
+    fun `dynamic sub reply keeps thread open while opening shared composer`() {
+        val detail = File(
+            "src/main/java/com/android/purebilibili/feature/dynamic/DynamicDetailScreen.kt"
+        ).readText()
+        val viewModel = File(
+            "src/main/java/com/android/purebilibili/feature/dynamic/DynamicViewModel.kt"
+        ).readText()
+
+        val replyHandler = detail
+            .substringAfter("DynamicSubReplyPreviewHost(")
+            .substringBefore("val postComment:")
+            .substringAfter("onReplyClick = { reply ->")
+            .substringBefore("},")
+
+        assertTrue(replyHandler.contains("startCommentReply(reply)"))
+        assertTrue(!replyHandler.contains("closeSubReply()"))
+
+        val postComment = viewModel
+            .substringAfter("fun postComment(")
+            .substringBefore("private suspend fun uploadCommentPictures")
+        assertTrue(postComment.contains("refreshSubReplies()"))
+    }
+
+    @Test
     fun `dynamic comment composer reuses shared draft state`() {
         val source = File("src/main/java/com/android/purebilibili/feature/dynamic/DynamicViewModel.kt")
             .readText()

@@ -2222,6 +2222,10 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
                     }
                     onResult(true, "评论成功")
                     loadComments(dynamicId)
+                    if (_subReplyState.value.visible) {
+                        // 楼中楼保持展开时直接刷新线程，发送后无需退回主评论再进入。
+                        refreshSubReplies()
+                    }
                 } else {
                     onResult(false, response.exceptionOrNull()?.message ?: "评论失败")
                 }

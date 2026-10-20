@@ -718,7 +718,7 @@ fun DynamicDetailScreen(
                     onSortModeChange = interactionViewModel::setSubReplySortMode,
                     onUserClick = onUserClick,
                     onReplyClick = { reply ->
-                        interactionViewModel.closeSubReply()
+                        // 保持楼中楼可见，避免输入弹层出现前先闪回主评论列表。
                         interactionViewModel.startCommentReply(reply)
                     },
                     onCommentLike = { rpid -> interactionViewModel.likeComment(rpid) },
