@@ -16,9 +16,9 @@ MAJOR.MINOR.PATCH
 | `MINOR` | 新功能 | 第二位 +1，`PATCH` 归零 |
 | `PATCH` | 修 bug / 小改进 | 第三位 +1 |
 
-当前版本：`0.5.0` / `versionCode 493`。
+当前版本：`0.5.1` / `versionCode 495`。
 
-本次版本按发行计划使用 `0.5.0`；`versionCode` 独立递增。
+本次版本按发行计划使用 `0.5.1`；`versionCode` 独立递增。
 
 - **不要**用日期充当 `versionName`（例如 `26.0805.1`）。
 - 应用 ID、签名和用户配置格式不变。
