@@ -75,6 +75,7 @@ internal fun LargeScreenVideoPlayerTransitionHost(
     coverSource: VideoDetailResidentCoverSource?,
     hasRenderedFirstFrame: Boolean,
     detailContentLoading: Boolean,
+    entryCoverAlphaProvider: () -> Float = { 0f },
     followProgressEnabledProvider: () -> Boolean = { true },
     modifier: Modifier = Modifier,
     content: @Composable (Dp) -> Unit,
@@ -237,7 +238,12 @@ internal fun LargeScreenVideoPlayerTransitionHost(
                     } else {
                         // Use the same handoff as the source information band; geometry
                         // completion alone must not expose the cover ahead of its chrome.
-                        sourceChromeAlpha()
+                        // Seek/return owns the pixels immediately if it interrupts entry.
+                        if (isCommittedReturn || isReturning() ||
+                            phaseProvider() == VideoCardTransitionBackgroundPhase.RETURNING
+                        ) sourceChromeAlpha() else {
+                            maxOf(sourceChromeAlpha(), entryCoverAlphaProvider())
+                        }
                     }
                 },
             )

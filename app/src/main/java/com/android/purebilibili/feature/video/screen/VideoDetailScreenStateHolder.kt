@@ -2169,6 +2169,12 @@ internal fun VideoDetailScreenStateHolder(
         initialValue = playerState.debugInfo.value.firstFrame.equals("rendered", ignoreCase = true),
         lifecycle = lifecycleOwner.lifecycle,
     )
+    val entryFirstFrameReveal = rememberVideoDetailFirstFrameReveal(
+        bvid = currentBvid,
+        cid = playbackTargetCid,
+        hasRenderedFirstFrame = hasRenderedFirstFrameForReturn,
+        enabled = transitionEnabled && hasResidentReturnCover,
+    )
     // 全量 Success 但无首帧 / 强制封面 UI 时禁止 LIVE，避免黑壳缩回。
     val hasRenderableLiveFrameForReturn = shouldTreatLiveSurfaceRenderableForReturnMorph(
         hasRenderedFirstFrame = hasRenderedFirstFrameForReturn,
@@ -4088,6 +4094,7 @@ internal fun VideoDetailScreenStateHolder(
                         returnMediaGeometry,
                         entryOwnsMiuixCardTransition, isCommittedCardReturn, residentCoverSource,
                         uiState is VideoPlaybackUiState.Loading, hasRenderedFirstFrameForReturn,
+                        entryFirstFrameReveal,
                     ) {
                         { playerModifier ->
                             LargeScreenVideoPlayerTransitionHost(
@@ -4104,6 +4111,7 @@ internal fun VideoDetailScreenStateHolder(
                                 isCommittedReturn = isCommittedCardReturn,
                                 coverSource = residentCoverSource,
                                 hasRenderedFirstFrame = hasRenderedFirstFrameForReturn,
+                                entryCoverAlphaProvider = { 1f - entryFirstFrameReveal.value },
                                 detailContentLoading = uiState is VideoPlaybackUiState.Loading,
                                 followProgressEnabledProvider = videoCardDepthBackgroundState
                                     .returnContentFollowProgressEnabledProvider,
@@ -5049,10 +5057,14 @@ internal fun VideoDetailScreenStateHolder(
                                 isReturnGestureInProgress = returnGestureInProgress,
                                 showResidentCoverUntilFirstFrame =
                                     (entryOwnsMiuixCardTransition ||
-                                        (!continuousPlayerHostMounted.value &&
-                                            deferVideoDetailEntryLoad && shellSharedBoundsLikely)) &&
+                                        (deferVideoDetailEntryLoad && shellSharedBoundsLikely)) &&
                                         currentBvid == bvid &&
                                         !hasRenderedFirstFrameForReturn,
+                                entryCoverAlpha = if (
+                                    currentBvid == bvid &&
+                                    (entryOwnsMiuixCardTransition ||
+                                        (deferVideoDetailEntryLoad && shellSharedBoundsLikely))
+                                ) 1f - entryFirstFrameReveal.value else 0f,
                             )
                         }
                         returnMediaGeometry.frameProvider = {
@@ -5503,6 +5515,10 @@ internal fun VideoDetailScreenStateHolder(
                                             suppressEnterFadeAfterBackPreview,
                                         isLeaving = isLeaving,
                                         rootTransitionOwnsContentAlpha = detailShellSharedBoundsEnabled,
+                                        animateLateEntryContent = currentBvid == bvid &&
+                                            isTransitionFinished && detailShellSharedBoundsEnabled &&
+                                            !keepLoadedContentForBackPreview &&
+                                            !suppressEnterFadeAfterBackPreview,
                                         keepContentVisibleAfterBackPreview =
                                             suppressEnterFadeAfterBackPreview ||
                                                 keepLoadedContentForBackPreview,

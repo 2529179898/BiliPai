@@ -52,6 +52,7 @@ import com.android.purebilibili.feature.video.share.buildVideoSharePayload
 import com.android.purebilibili.feature.video.danmaku.DanmakuManager
 import com.android.purebilibili.feature.video.state.VideoPlayerState
 import com.android.purebilibili.feature.video.ui.components.BottomInputBar
+import com.android.purebilibili.feature.video.ui.components.VideoDetailSkeleton
 import com.android.purebilibili.feature.video.ui.components.resolveBottomInputBarContentBottomPadding
 import com.android.purebilibili.feature.video.ui.components.shouldUseFloatingLiquidBottomInputBar
 import com.android.purebilibili.feature.home.components.BottomBarMatchedReusableLiquidDock
@@ -130,6 +131,7 @@ internal fun VideoDetailPhoneSuccessContentLayer(
     onShowExternalPlaylistQueueSheet: () -> Unit,
     commentThreadCoveredBlurProgressProvider: () -> Float = { 0f },
     commentPullToRefreshEnabled: Boolean = true,
+    animateLateEntryContent: Boolean = false,
 ) {
     val commentState by commentStateHandle
     val engagementSuccess = success.withEngagementUiState(engagementState)
@@ -138,6 +140,10 @@ internal fun VideoDetailPhoneSuccessContentLayer(
     // Android 16 ART 曾拒绝校验 VideoDetailScreen 中捕获过多状态的匿名 Compose lambda。
     // 保持这个成功态为命名边界，避免 R8/Compose 再生成单个超大内容块。
     key(success.info.bvid) {
+        val lateContentReveal = rememberVideoDetailLateContentReveal(animateLateEntryContent)
+        val showLoadingUnderlay by remember {
+            derivedStateOf { lateContentReveal.value < 1f }
+        }
         Box(modifier = Modifier.fillMaxSize().videoInputDiagnostics("detail_body") {
             "fullscreen=$isFullscreenMode portraitFs=$isPortraitFullscreen " +
                 "leaving=$isLeaving transitionFinished=$isTransitionFinished thread=$isCommentThreadVisible " +
@@ -148,6 +154,16 @@ internal fun VideoDetailPhoneSuccessContentLayer(
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
+                // Only late arrival adds an opacity handoff; root geometry and the
+                // glass / MD3 / Miuix layouts stay unchanged. Drop the static underlay
+                // once complete instead of leaving an invisible skeleton mounted.
+                if (showLoadingUnderlay) {
+                    Box(Modifier.fillMaxSize().graphicsLayer {
+                        alpha = 1f - lateContentReveal.value
+                    }) {
+                        VideoDetailSkeleton(animated = false)
+                    }
+                }
                 val detailContentRevealEnter = fadeIn(
                     tween(
                         motionSpec.contentRevealFadeDurationMillis,
@@ -162,6 +178,7 @@ internal fun VideoDetailPhoneSuccessContentLayer(
                     )
                 )
                 AnimatedVisibility(
+                    modifier = Modifier.graphicsLayer { alpha = lateContentReveal.value },
                     visible = shouldShowVideoDetailContent(
                         isTransitionFinished = isTransitionFinished,
                         isLeaving = isLeaving,
