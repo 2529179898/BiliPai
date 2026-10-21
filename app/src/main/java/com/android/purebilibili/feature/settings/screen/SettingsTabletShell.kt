@@ -64,6 +64,8 @@ import com.android.purebilibili.feature.settings.rememberSettingsSiblingIconTint
 import com.android.purebilibili.feature.settings.resolveSettingsRootCategoryOrder
 import com.android.purebilibili.feature.settings.resolveSettingsTabletLayoutPolicy
 import com.android.purebilibili.feature.settings.resolveSettingsVisualSpec
+import com.android.purebilibili.feature.settings.subtitleResource
+import com.android.purebilibili.feature.settings.titleResource
 import com.android.purebilibili.feature.settings.shouldRenderSettingsTabletDetailPane
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -221,9 +223,9 @@ fun SettingsTabletShell(
                             AppNavigationDrawerItem(
                                 label = {
                                     Column {
-                                        AppText(category.title, fontWeight = FontWeight.Medium)
+                                        AppText(stringResource(category.titleResource()), fontWeight = FontWeight.Medium)
                                         AppText(
-                                            text = category.subtitle,
+                                            text = stringResource(category.subtitleResource()),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = AppContentColors.secondaryText(),
                                             maxLines = 2,
@@ -277,12 +279,14 @@ fun SettingsTabletShell(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             AppText(
-                text = selectedCategory?.title ?: stringResource(R.string.settings_title),
+                text = selectedCategory?.let { stringResource(it.titleResource()) }
+                    ?: stringResource(R.string.settings_title),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
             AppText(
-                text = selectedCategory?.subtitle ?: "选择左侧分类以查看设置",
+                text = selectedCategory?.let { stringResource(it.subtitleResource()) }
+                    ?: stringResource(R.string.settings_category_select_hint),
                 style = MaterialTheme.typography.bodyLarge,
                 color = AppContentColors.secondaryText(),
             )

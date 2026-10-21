@@ -574,7 +574,9 @@ fun PartitionContent(
                 selectedId = state.selectedPartition.id,
                 labelMode = homeSettings.topTabLabelMode,
                 iconFamily = topChromeIconFamily,
-                modifier = Modifier.width(92.dp),
+                modifier = Modifier
+                    .width(92.dp)
+                    .zIndex(if (liquidGlassIndicatorEnabled) 1f else 0f),
                 contentPadding = PaddingValues(
                     start = startPadding,
                     top = topPadding + 8.dp,
@@ -728,8 +730,7 @@ private fun PartitionSideRail(
     // This shared placement applies to glass and native MD3/Miuix; their styling stays separate.
     BoxWithConstraints(
         modifier = modifier
-            .fillMaxHeight()
-            .overscroll(railOverscrollEffect),
+            .fillMaxHeight(),
     ) {
         val itemHeightPx = with(density) { PartitionSideRailItemHeight.toPx() }
         val itemSlotHeightPx = with(density) { (PartitionSideRailItemHeight + PartitionSideRailItemSpacing).toPx() }
@@ -754,141 +755,160 @@ private fun PartitionSideRail(
             panelOffsetDp = 0f,
             dragScaleTarget = indicatorGeometry.pressedScale,
         ).dp
-        val railPageBackdrop = rememberLayerBackdrop()
-        val railContentBackdrop = rememberLayerBackdrop()
-        val glassPageSource = if (liquidGlassIndicatorEnabled) {
-            rememberChromeBackdropSource(drawContentToScreen = false)
-        } else null
-        val glassContentSource = if (liquidGlassIndicatorEnabled) {
-            rememberChromeBackdropSource(drawContentToScreen = false)
-        } else null
-        val globalWallpaperSource = LocalGlobalWallpaperBackdropSource.current
-        val globalWallpaperVisible = LocalGlobalWallpaperBackdropVisible.current
-        val wallpaperBackdrop = if (liquidGlassIndicatorEnabled) {
-            globalWallpaperSource?.takeIf {
-                globalWallpaperVisible && it.isReady
-            }?.backdrop ?: LocalHomeWallpaperBackdrop.current
-        } else null
-        // Only wallpaper/background siblings are safe sources: the enclosing page records
-        // this indicator too. Keep the original native capture path when glass is disabled.
-        val sampledPageBackdrop = wallpaperBackdrop ?: glassPageSource?.backdrop ?: railPageBackdrop
-        val sampledContentBackdrop = glassContentSource?.backdrop ?: railContentBackdrop
-        val combinedBackdrop = rememberCombinedBackdrop(sampledPageBackdrop, sampledContentBackdrop)
-        // Reserve the same overflow as the home dock so the indicator lens can
-        // sample pixels just outside the rail bounds without clipping.
+        // 扩大滚动效果的横向绘制边界，再还原内部布局宽度；玻璃关闭时保持原生边界。
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .bottomBarMatchedCaptureOverflow(captureSafeInset)
                 .then(
-                    glassPageSource?.modifier ?: Modifier.alpha(0f).layerBackdrop(railPageBackdrop)
-                )
-                .background(AppSurfaceTokens.background())
-        )
-
-        if (liquidGlassIndicatorEnabled) {
-            // Export glyphs only. A capsule painted here would be refracted inside the
-            // visible capsule, producing a second inset pill. The lens owns all material.
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    // Match the visible LazyColumn's horizontal content bounds exactly.
-                    .padding(start = indicatorHorizontalPadding.start, end = indicatorHorizontalPadding.end)
-                    .wrapContentHeight(align = Alignment.Top, unbounded = true)
-                    .clearAndSetSemantics {}
-                    .graphicsLayer {
-                        translationY = railOffset(0f)
-                        clip = false
-                    }
-                    .then(requireNotNull(glassContentSource).modifier),
-                verticalArrangement = Arrangement.spacedBy(PartitionSideRailItemSpacing),
-            ) {
-                partitions.forEach { partition ->
-                    Box(
-                        Modifier.fillMaxWidth().height(PartitionSideRailItemHeight),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        PartitionSideRailItem(
-                            partition = partition,
-                            selected = true,
-                            selectionProgress = 1f,
-                            showIcon = showIcon,
-                            showText = showText,
-                            iconFamily = iconFamily,
-                            onClick = {},
-                            interactive = false,
-                            contentColorOverride = AppContentColors.selectionAccent(liquidGlassIndicatorEnabled),
-                            itemHeight = PartitionSideRailIndicatorHeight,
-                            modifier = Modifier.width(indicatorWidth),
+                    if (liquidGlassIndicatorEnabled) {
+                        Modifier.bottomBarMatchedCaptureOverflow(
+                            horizontalInset = captureSafeInset,
+                            verticalInset = 0.dp,
                         )
+                    } else Modifier
+                )
+                .overscroll(railOverscrollEffect)
+                .then(
+                    if (liquidGlassIndicatorEnabled) Modifier.padding(horizontal = captureSafeInset)
+                    else Modifier
+                ),
+        ) {
+            val railPageBackdrop = rememberLayerBackdrop()
+            val railContentBackdrop = rememberLayerBackdrop()
+            val glassPageSource = if (liquidGlassIndicatorEnabled) {
+                rememberChromeBackdropSource(drawContentToScreen = false)
+            } else null
+            val glassContentSource = if (liquidGlassIndicatorEnabled) {
+                rememberChromeBackdropSource(drawContentToScreen = false)
+            } else null
+            val globalWallpaperSource = LocalGlobalWallpaperBackdropSource.current
+            val globalWallpaperVisible = LocalGlobalWallpaperBackdropVisible.current
+            val wallpaperBackdrop = if (liquidGlassIndicatorEnabled) {
+                globalWallpaperSource?.takeIf {
+                    globalWallpaperVisible && it.isReady
+                }?.backdrop ?: LocalHomeWallpaperBackdrop.current
+            } else null
+            // Only wallpaper/background siblings are safe sources: the enclosing page records
+            // this indicator too. Keep the original native capture path when glass is disabled.
+            val sampledPageBackdrop = wallpaperBackdrop ?: glassPageSource?.backdrop ?: railPageBackdrop
+            val sampledContentBackdrop = glassContentSource?.backdrop ?: railContentBackdrop
+            val combinedBackdrop = rememberCombinedBackdrop(sampledPageBackdrop, sampledContentBackdrop)
+            // Reserve the same overflow as the home dock so the indicator lens can
+            // sample pixels just outside the rail bounds without clipping.
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .bottomBarMatchedCaptureOverflow(captureSafeInset)
+                    .then(
+                        glassPageSource?.modifier ?: Modifier.alpha(0f).layerBackdrop(railPageBackdrop)
+                    )
+                    .background(AppSurfaceTokens.background())
+            )
+
+            if (liquidGlassIndicatorEnabled) {
+                // Export glyphs only. A capsule painted here would be refracted inside the
+                // visible capsule, producing a second inset pill. The lens owns all material.
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // Match the visible LazyColumn's horizontal content bounds exactly.
+                        .padding(start = indicatorHorizontalPadding.start, end = indicatorHorizontalPadding.end)
+                        .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                        .clearAndSetSemantics {}
+                        .graphicsLayer {
+                            translationY = railOffset(0f)
+                            clip = false
+                        }
+                        .then(requireNotNull(glassContentSource).modifier),
+                    verticalArrangement = Arrangement.spacedBy(PartitionSideRailItemSpacing),
+                ) {
+                    partitions.forEach { partition ->
+                        Box(
+                            Modifier.fillMaxWidth().height(PartitionSideRailItemHeight),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            PartitionSideRailItem(
+                                partition = partition,
+                                selected = true,
+                                selectionProgress = 1f,
+                                showIcon = showIcon,
+                                showText = showText,
+                                iconFamily = iconFamily,
+                                onClick = {},
+                                interactive = false,
+                                contentColorOverride = AppContentColors.selectionAccent(liquidGlassIndicatorEnabled),
+                                itemHeight = PartitionSideRailIndicatorHeight,
+                                modifier = Modifier.width(indicatorWidth),
+                            )
+                        }
                     }
                 }
             }
-        }
-        LazyColumn(
-            state = listState,
-            // The list still handles scroll/fling events; only the outer rail renders overscroll.
-            overscrollEffect = listOverscrollEffect,
-            modifier = Modifier
-                .fillMaxSize()
-                .zIndex(if (liquidGlassIndicatorEnabled) 0f else 2f),
-            contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(PartitionSideRailItemSpacing)
-        ) {
-            itemsIndexed(
-                items = partitions,
-                key = { _, partition -> partition.id }
-            ) { index, partition ->
-                PartitionSideRailItem(
-                    partition = partition,
-                    selected = partition.id == selectedId,
-                    selectionProgress = resolvePartitionSideRailItemSelectionProgress(
-                        itemIndex = index,
-                        indicatorPosition = dampedDragAnimation.value
-                    ),
-                    showIcon = showIcon,
-                    showText = showText,
-                    iconFamily = iconFamily,
-                    selectedAccent = AppContentColors.selectionAccent(liquidGlassIndicatorEnabled),
-                    onClick = { onPartitionSelected(partition) }
-                )
-            }
-        }
-
-        PartitionSideRailMovingIndicator(
-            dragAnimation = dampedDragAnimation,
-            dragOffsetPx = offsetAnimation.value,
-            itemSlotHeightPx = itemSlotHeightPx,
-            itemHeightPx = itemHeightPx,
-            indicatorHeight = PartitionSideRailIndicatorHeight,
-            dragScaleTarget = indicatorGeometry.pressedScale,
-            indicatorOffsetPxProvider = currentIndicatorOffsetPxProvider,
-            indicatorWidth = indicatorWidth,
-            liquidGlassIndicatorEnabled = liquidGlassIndicatorEnabled,
-            liquidGlassPreset = liquidGlassPreset,
-            liquidGlassTuning = liquidGlassTuning,
-            contentBackdrop = combinedBackdrop,
-            backdrop = sampledPageBackdrop,
-            maxVideoPushPx = maxVideoPushPx,
-            horizontalPadding = indicatorHorizontalPadding,
-            onVideoListPushChanged = onVideoListPushChanged,
-            interactionModifier = Modifier
-                .then(dampedDragAnimation.modifier)
-                .clickable(
-                    interactionSource = null,
-                    indication = null,
-                    role = Role.Tab,
-                    onClick = {
-                        partitions.getOrNull(selectedIndex)?.let(onPartitionSelected)
-                    },
-                )
-                .clearAndSetSemantics {},
-            modifier = Modifier.matchParentSize().drawWithContent {
-                clipRect(left = -size.width, right = size.width * 2f) {
-                    this@drawWithContent.drawContent()
+            LazyColumn(
+                state = listState,
+                // The list still handles scroll/fling events; only the outer rail renders overscroll.
+                overscrollEffect = listOverscrollEffect,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(if (liquidGlassIndicatorEnabled) 0f else 2f),
+                contentPadding = contentPadding,
+                verticalArrangement = Arrangement.spacedBy(PartitionSideRailItemSpacing)
+            ) {
+                itemsIndexed(
+                    items = partitions,
+                    key = { _, partition -> partition.id }
+                ) { index, partition ->
+                    PartitionSideRailItem(
+                        partition = partition,
+                        selected = partition.id == selectedId,
+                        selectionProgress = resolvePartitionSideRailItemSelectionProgress(
+                            itemIndex = index,
+                            indicatorPosition = dampedDragAnimation.value
+                        ),
+                        showIcon = showIcon,
+                        showText = showText,
+                        iconFamily = iconFamily,
+                        selectedAccent = AppContentColors.selectionAccent(liquidGlassIndicatorEnabled),
+                        onClick = { onPartitionSelected(partition) }
+                    )
                 }
             }
-        )
+
+            PartitionSideRailMovingIndicator(
+                dragAnimation = dampedDragAnimation,
+                dragOffsetPx = offsetAnimation.value,
+                itemSlotHeightPx = itemSlotHeightPx,
+                itemHeightPx = itemHeightPx,
+                indicatorHeight = PartitionSideRailIndicatorHeight,
+                dragScaleTarget = indicatorGeometry.pressedScale,
+                indicatorOffsetPxProvider = currentIndicatorOffsetPxProvider,
+                indicatorWidth = indicatorWidth,
+                liquidGlassIndicatorEnabled = liquidGlassIndicatorEnabled,
+                liquidGlassPreset = liquidGlassPreset,
+                liquidGlassTuning = liquidGlassTuning,
+                contentBackdrop = combinedBackdrop,
+                backdrop = sampledPageBackdrop,
+                maxVideoPushPx = maxVideoPushPx,
+                horizontalPadding = indicatorHorizontalPadding,
+                onVideoListPushChanged = onVideoListPushChanged,
+                interactionModifier = Modifier
+                    .then(dampedDragAnimation.modifier)
+                    .clickable(
+                        interactionSource = null,
+                        indication = null,
+                        role = Role.Tab,
+                        onClick = {
+                            partitions.getOrNull(selectedIndex)?.let(onPartitionSelected)
+                        },
+                    )
+                    .clearAndSetSemantics {},
+                modifier = Modifier.matchParentSize().drawWithContent {
+                    clipRect(left = -size.width, right = size.width * 2f) {
+                        this@drawWithContent.drawContent()
+                    }
+                }
+            )
+        }
     }
 }
 

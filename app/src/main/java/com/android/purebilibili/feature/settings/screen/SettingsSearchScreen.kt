@@ -122,7 +122,7 @@ fun SettingsSearchScreen(
                     )
                     if (searchQuery.isNotBlank() && searchResults.size > visibleCount) {
                         androidx.compose.material3.TextButton(onClick = { visibleCount += 20 }, modifier = Modifier.appElasticPress()) {
-                            com.android.purebilibili.core.ui.components.AppText("加载更多")
+                            com.android.purebilibili.core.ui.components.AppText(stringResource(R.string.settings_search_load_more))
                         }
                     }
                 }

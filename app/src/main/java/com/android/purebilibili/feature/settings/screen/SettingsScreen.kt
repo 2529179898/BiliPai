@@ -199,7 +199,7 @@ fun SettingsScreen(
     var showDonateDialog by remember { mutableStateOf(false) }
     var showReleaseDisclaimerDialog by remember { mutableStateOf(false) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
-    var updateStatusText by remember { mutableStateOf("点击检查") }
+    var updateStatusText by remember { mutableStateOf(context.getString(R.string.settings_update_tap_to_check)) }
     var updateCheckResult by remember { mutableStateOf<AppUpdateCheckResult?>(null) }
     var changelogCheckResult by remember { mutableStateOf<AppUpdateCheckResult?>(null) }
     val currentReleaseEvidence = state.currentReleaseEvidence
@@ -233,7 +233,7 @@ fun SettingsScreen(
         ) {
             "GitHub Release"
         } else {
-            "本地构建"
+            context.getString(R.string.settings_build_source_local)
         }
     }
     val buildSourceValue = remember(
@@ -256,7 +256,7 @@ fun SettingsScreen(
         resolveBuildFingerprintValue(installedApkSha256)
     }
     val buildFingerprintCopyValue = remember(installedApkSha256) {
-        installedApkSha256 ?: "未读取"
+        installedApkSha256 ?: context.getString(R.string.settings_build_fingerprint_unavailable)
     }
     val buildFingerprintSubtitle = remember(
         buildVerificationState.localApkSha256,
@@ -291,7 +291,7 @@ fun SettingsScreen(
             SettingsManager.setDownloadExportTreeUri(context, uri.toString())
             SettingsManager.setDownloadPath(context, null)
         }
-        Toast.makeText(context, "已设置导出目录", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.settings_download_folder_set), Toast.LENGTH_SHORT).show()
     }
     val imageSaveFolderPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -306,7 +306,7 @@ fun SettingsScreen(
         scope.launch {
             SettingsManager.setImageSaveTreeUri(context, uri.toString())
         }
-        Toast.makeText(context, "已设置图片保存目录", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.settings_image_folder_set), Toast.LENGTH_SHORT).show()
     }
 
     // Callbacks
@@ -414,7 +414,7 @@ fun SettingsScreen(
     ) {
         isCheckingUpdate = true
         if (!silent) {
-            updateStatusText = "检查中…"
+            updateStatusText = context.getString(R.string.settings_update_checking)
         }
         val result = AppUpdateChecker.check(
             currentVersion = com.android.purebilibili.BuildConfig.VERSION_NAME,
@@ -439,15 +439,15 @@ fun SettingsScreen(
             }
         }.onFailure { error ->
             if (!silent || shouldOpenReleaseNotes) {
-                updateStatusText = "检查失败"
-                Toast.makeText(context, error.message ?: "更新检查失败，请稍后重试", Toast.LENGTH_SHORT).show()
+                updateStatusText = context.getString(R.string.settings_update_failed)
+                Toast.makeText(context, error.message ?: context.getString(R.string.settings_update_error), Toast.LENGTH_SHORT).show()
             }
         }
         isCheckingUpdate = false
     }
     val onCheckUpdateAction: () -> Unit = {
         if (isCheckingUpdate) {
-            Toast.makeText(context, "正在检查更新，请稍候", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.settings_update_in_progress), Toast.LENGTH_SHORT).show()
         } else {
             scope.launch {
                 runUpdateCheck(
@@ -459,7 +459,7 @@ fun SettingsScreen(
     }
     val onViewReleaseNotesAction: () -> Unit = {
         if (isCheckingUpdate) {
-            Toast.makeText(context, "正在检查更新，请稍候", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.settings_update_in_progress), Toast.LENGTH_SHORT).show()
         } else {
             scope.launch {
                 runUpdateCheck(
@@ -494,7 +494,7 @@ fun SettingsScreen(
             } else {
                 Toast.makeText(
                     context,
-                    resolveCacheClearFailureMessage(clearResult.exceptionOrNull()),
+                    resolveCacheClearFailureMessage(clearResult.exceptionOrNull(), context.getString(R.string.settings_cache_clear_failed)),
                     Toast.LENGTH_SHORT
                 ).show()
                 showCacheAnimation = false
@@ -515,22 +515,22 @@ fun SettingsScreen(
         val rawTraceAvailable = LogCollector.hasRawCrashTrace(context)
         com.android.purebilibili.core.ui.AppAlertDialog(
             onDismissRequest = { showLogExportDialog = false },
-            title = { AppText("导出诊断日志") },
+            title = { AppText(stringResource(R.string.settings_log_export_title)) },
             text = {
                 Column {
                     AppText(
-                        "普通导出包含脱敏的崩溃摘要、系统退出记录和运行日志，以及已有的性能诊断附件。"
+                        stringResource(R.string.settings_log_export_description)
                     )
                     if (rawTraceAvailable) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        AppText("原始系统回溯可能包含设备路径等敏感信息。")
+                        AppText(stringResource(R.string.settings_log_export_raw_warning))
                         com.android.purebilibili.core.ui.AppDialogAction(onClick = {
                             showLogExportDialog = false
                             LogCollector.exportAndShare(context, includeRawCrashTrace = true)
-                        }) { AppText("导出并附原始回溯") }
+                        }) { AppText(stringResource(R.string.settings_log_export_raw_action)) }
                     } else {
                         Spacer(modifier = Modifier.height(8.dp))
-                        AppText("当前没有可单独分享的原始系统回溯。")
+                        AppText(stringResource(R.string.settings_log_export_raw_unavailable))
                     }
                 }
             },
@@ -538,12 +538,12 @@ fun SettingsScreen(
                 com.android.purebilibili.core.ui.AppDialogAction(onClick = {
                     showLogExportDialog = false
                     LogCollector.exportAndShare(context)
-                }) { AppText("普通导出") }
+                }) { AppText(stringResource(R.string.settings_log_export_standard_action)) }
             },
             dismissButton = {
                 com.android.purebilibili.core.ui.AppDialogAction(
                     onClick = { showLogExportDialog = false }
-                ) { AppText("取消") }
+                ) { AppText(stringResource(R.string.common_cancel)) }
             },
         )
     }
@@ -562,7 +562,7 @@ fun SettingsScreen(
             },
             onConfirm = {
                 if (selectedCacheClearTargets.isEmpty()) {
-                    Toast.makeText(context, "请至少选择一项要清理的缓存", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.settings_cache_select_at_least_one), Toast.LENGTH_SHORT).show()
                 } else {
                     pendingCacheClearTargets = selectedCacheClearTargets
                     showCacheDialog = false
@@ -576,21 +576,21 @@ fun SettingsScreen(
     if (showPathDialog) {
         com.android.purebilibili.core.ui.AppAlertDialog(
             onDismissRequest = { showPathDialog = false },
-            title = { AppText("下载位置", color = AppContentColors.primaryText()) },
+            title = { AppText(stringResource(R.string.settings_download_location_title), color = AppContentColors.primaryText()) },
             text = {
                 Column {
-                    AppText("默认位置（应用私有目录）：", style = MaterialTheme.typography.labelMedium, color = AppContentColors.secondaryText())
+                    AppText(stringResource(R.string.settings_download_location_default), style = MaterialTheme.typography.labelMedium, color = AppContentColors.secondaryText())
                     AppText(defaultPath.substringAfterLast("Android/"), style = MaterialTheme.typography.bodySmall, color = AppContentColors.secondaryText())
                     Spacer(modifier = Modifier.height(8.dp))
                     AppText(
-                        "可选：通过系统文件夹授权设置导出目录（无需“管理所有文件”权限）",
+                        stringResource(R.string.settings_download_location_export_help),
                         style = MaterialTheme.typography.bodySmall,
                         color = AppContentColors.warning()
                     )
                     if (!downloadExportTreeUri.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         AppText(
-                            "当前导出目录：已设置",
+                            stringResource(R.string.settings_download_location_export_set),
                             style = MaterialTheme.typography.bodySmall,
                             color = AppContentColors.secondaryText()
                         )
@@ -601,7 +601,7 @@ fun SettingsScreen(
                 com.android.purebilibili.core.ui.AppDialogAction(onClick = {
                     showPathDialog = false
                     downloadFolderPicker.launch(null)
-                }) { AppText("选择导出目录") }
+                }) { AppText(stringResource(R.string.settings_download_location_choose_export)) }
             },
             dismissButton = {
                 com.android.purebilibili.core.ui.AppDialogAction(onClick = {
@@ -610,32 +610,32 @@ fun SettingsScreen(
                         SettingsManager.setDownloadExportTreeUri(context, null)
                     }
                     showPathDialog = false
-                    Toast.makeText(context, "已恢复默认下载位置", Toast.LENGTH_SHORT).show()
-                }) { AppText("恢复默认") }
+                    Toast.makeText(context, context.getString(R.string.settings_download_location_reset_toast), Toast.LENGTH_SHORT).show()
+                }) { AppText(stringResource(R.string.common_reset_default)) }
             }
         )
     }
     if (showImageSavePathDialog) {
         com.android.purebilibili.core.ui.AppAlertDialog(
             onDismissRequest = { showImageSavePathDialog = false },
-            title = { AppText("图片保存位置", color = AppContentColors.primaryText()) },
+            title = { AppText(stringResource(R.string.settings_image_location_title), color = AppContentColors.primaryText()) },
             text = {
                 Column {
                     AppText(
-                        "默认保存到系统相册的 BiliPai 文件夹。",
+                        stringResource(R.string.settings_image_location_default),
                         style = MaterialTheme.typography.bodySmall,
                         color = AppContentColors.secondaryText()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     AppText(
-                        "可通过系统文件夹授权选择动态图片、头像和评论图片的保存目录。",
+                        stringResource(R.string.settings_image_location_help),
                         style = MaterialTheme.typography.bodySmall,
                         color = AppContentColors.warning()
                     )
                     if (!imageSaveTreeUri.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         AppText(
-                            "当前图片目录：已选择",
+                            stringResource(R.string.settings_image_location_custom_set),
                             style = MaterialTheme.typography.bodySmall,
                             color = AppContentColors.secondaryText()
                         )
@@ -646,7 +646,7 @@ fun SettingsScreen(
                 com.android.purebilibili.core.ui.AppDialogAction(onClick = {
                     showImageSavePathDialog = false
                     imageSaveFolderPicker.launch(null)
-                }) { AppText("选择图片目录") }
+                }) { AppText(stringResource(R.string.settings_image_location_choose)) }
             },
             dismissButton = {
                 com.android.purebilibili.core.ui.AppDialogAction(onClick = {
@@ -654,8 +654,8 @@ fun SettingsScreen(
                         SettingsManager.setImageSaveTreeUri(context, null)
                     }
                     showImageSavePathDialog = false
-                    Toast.makeText(context, "已恢复默认图片保存位置", Toast.LENGTH_SHORT).show()
-                }) { AppText("恢复默认") }
+                    Toast.makeText(context, context.getString(R.string.settings_image_location_reset_toast), Toast.LENGTH_SHORT).show()
+                }) { AppText(stringResource(R.string.common_reset_default)) }
             }
         )
     }
@@ -663,9 +663,9 @@ fun SettingsScreen(
     if (showEasterEggDialog) {
         com.android.purebilibili.core.ui.AppAlertDialog(
             onDismissRequest = { showEasterEggDialog = false; versionClickCount = 0 },
-            title = { AppText("你发现了彩蛋！", fontWeight = FontWeight.Bold) },
-            text = { AppText("感谢你使用 BiliPai！这是一个用爱发电的开源项目。") },
-            confirmButton = { com.android.purebilibili.core.ui.AppDialogAction(onClick = { showEasterEggDialog = false; versionClickCount = 0 }) { AppText("我知道了！") } }
+            title = { AppText(stringResource(R.string.settings_easter_egg_title), fontWeight = FontWeight.Bold) },
+            text = { AppText(stringResource(R.string.settings_easter_egg_message)) },
+            confirmButton = { com.android.purebilibili.core.ui.AppDialogAction(onClick = { showEasterEggDialog = false; versionClickCount = 0 }) { AppText(stringResource(R.string.common_got_it)) } }
         )
     }
 
@@ -709,7 +709,7 @@ fun SettingsScreen(
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "无法打开设置", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.settings_open_system_settings_failed), Toast.LENGTH_SHORT).show()
         }
     }
     val settingsBackTarget = resolveSettingsBackTarget(
@@ -858,7 +858,7 @@ fun SettingsScreen(
                             SettingsManager.setFeedApiType(context, type)
                             android.widget.Toast.makeText(
                                 context,
-                                "已切换为${type.label}，下拉刷新后生效",
+                                context.getString(R.string.settings_feed_api_changed, localizedFeedApiTypeLabel(context, type)),
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
@@ -940,9 +940,23 @@ fun SettingsScreen(
 
 internal fun shouldMarkCacheClearAnimationComplete(clearSucceeded: Boolean): Boolean = clearSucceeded
 
-internal fun resolveCacheClearFailureMessage(error: Throwable?): String {
-    return error?.message?.takeIf { it.isNotBlank() } ?: "清理缓存失败，请稍后重试"
+internal fun resolveCacheClearFailureMessage(
+    error: Throwable?,
+    fallbackMessage: String = "清理缓存失败，请稍后重试",
+): String {
+    return error?.message?.takeIf { it.isNotBlank() } ?: fallbackMessage
 }
+
+private fun localizedFeedApiTypeLabel(
+    context: android.content.Context,
+    type: SettingsManager.FeedApiType,
+): String = context.getString(
+    when (type) {
+        SettingsManager.FeedApiType.WEB -> R.string.settings_feed_api_web
+        SettingsManager.FeedApiType.MOBILE -> R.string.settings_feed_api_mobile
+        SettingsManager.FeedApiType.MERGED -> R.string.settings_feed_api_merged
+    }
+)
 
 @Composable
 internal fun SettingsCategoryHeader(title: String) {
@@ -1251,7 +1265,7 @@ fun DonateDialog(onDismiss: () -> Unit) {
                 Box(contentAlignment = Alignment.TopStart) {
                     Image(
                         painter = painterResource(id = com.android.purebilibili.R.drawable.author_qr),
-                        contentDescription = "打赏二维码",
+                        contentDescription = stringResource(R.string.settings_donate_qr_description),
                         modifier = Modifier
                             .fillMaxWidth(0.85f)
                             .aspectRatio(1f)
@@ -1271,7 +1285,7 @@ fun DonateDialog(onDismiss: () -> Unit) {
                     ) {
                         AppIcon(
                             imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_close_24), // Fixed: Filled.Xmark -> Default.Xmark or correct path
-                            contentDescription = "关闭",
+                            contentDescription = stringResource(R.string.common_close),
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
@@ -1281,7 +1295,7 @@ fun DonateDialog(onDismiss: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 AppText(
-                    "感谢您的支持！",
+                    stringResource(R.string.settings_donate_thanks),
                     color = Color.White.copy(alpha = 0.9f),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
@@ -1289,7 +1303,7 @@ fun DonateDialog(onDismiss: () -> Unit) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 AppText(
-                    "点击二维码或关闭按钮退出",
+                    stringResource(R.string.settings_donate_dismiss_hint),
                     color = Color.White.copy(alpha = 0.6f),
                     style = MaterialTheme.typography.bodySmall
                 )

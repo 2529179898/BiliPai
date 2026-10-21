@@ -1763,9 +1763,9 @@ fun SearchScreen(
                             }
                         } else if (pagePresentation.body == SearchResultBodyMode.ERROR) {
                             SearchNativeMessageState(
-                                title = "搜索失败",
+                                title = stringResource(R.string.search_failed),
                                 message = pageError,
-                                actionLabel = "重试",
+                                actionLabel = stringResource(R.string.search_retry),
                                 onAction = {
                                     if (isEmptyVideoPage && pageResultState.loadMoreError != null) {
                                         viewModel.loadMoreResults()
@@ -1792,7 +1792,7 @@ fun SearchScreen(
                                         message = copy.title,
                                         subtitle = copy.subtitle,
                                         animation = com.android.purebilibili.core.ui.MaidAnimation.SEARCH_EMPTY,
-                                        actionText = "重新搜索",
+                                        actionText = stringResource(R.string.search_again),
                                         onAction = { viewModel.search(pageResultState.query, updateDraft = false) },
                                         enableEasterEgg = false,
                                         isVisible = searchPagerState.currentPage == page
@@ -2114,7 +2114,7 @@ fun SearchScreen(
                                     if (pagePresentation.footer == SearchResultFooterMode.END) {
                                         item(span = { GridItemSpan(maxLineSpan) }) {
                                             AppText(
-                                                text = "已加载全部 ${pageResultState.totalCount} 条结果",
+                                                text = stringResource(R.string.search_all_loaded_count, pageResultState.totalCount),
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .padding(16.dp),
@@ -3296,7 +3296,7 @@ fun SearchDiscoverySection(
             // 刷新按钮
             AppTextButton(onClick = onRefresh) {
                 AppText(
-                    "换一换",
+                    stringResource(R.string.search_shuffle),
                     style = MaterialTheme.typography.bodySmall,
                     color = AppContentColors.secondaryText()
                 )
@@ -3358,7 +3358,7 @@ fun SearchHotSection(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     AppText(
-                        "热门搜索",
+                        stringResource(R.string.search_hot_title),
                         style = MaterialTheme.typography.titleMedium,
                         color = AppContentColors.primaryText()
                     )
@@ -3373,7 +3373,7 @@ fun SearchHotSection(
                     }
                 ) {
                     AppText(
-                        text = if (hotSearchEnabled) "热搜开" else "热搜关",
+                        text = stringResource(if (hotSearchEnabled) R.string.search_hot_on else R.string.search_hot_off),
                         color = if (hotSearchEnabled) {
                             AppContentColors.accent()
                         } else {
@@ -3637,22 +3637,19 @@ fun SearchFilterBar(
     var showPhotoOrderMenu by remember { mutableStateOf(false) }
     var showPhotoCategoryMenu by remember { mutableStateOf(false) }
 
-    val videoTidOptions = remember {
-        listOf(
-            0 to "全部分区",
-            1 to "动画",
-            3 to "音乐",
-            4 to "游戏",
-            5 to "娱乐",
-            36 to "科技",
-            119 to "鬼畜",
-            160 to "生活",
-            181 to "影视"
-        )
-    }
-    val selectedVideoTidName = remember(currentVideoTid, videoTidOptions) {
-        videoTidOptions.find { it.first == currentVideoTid }?.second ?: "分区$currentVideoTid"
-    }
+    val videoTidOptions = listOf(
+            0 to stringResource(R.string.search_zone_all_sections),
+            1 to stringResource(R.string.search_zone_animation),
+            3 to stringResource(R.string.search_zone_music),
+            4 to stringResource(R.string.search_zone_games),
+            5 to stringResource(R.string.search_zone_entertainment),
+            36 to stringResource(R.string.search_zone_technology),
+            119 to stringResource(R.string.search_zone_kichiku),
+            160 to stringResource(R.string.search_zone_life),
+            181 to stringResource(R.string.search_zone_film_tv)
+    )
+    val selectedVideoTidName = videoTidOptions.find { it.first == currentVideoTid }?.second
+        ?: stringResource(R.string.search_zone_unavailable, currentVideoTid)
     val filterControls = remember(currentType, currentUpOrder) {
         resolveSearchFilterControls(
             currentType = currentType,
@@ -3685,7 +3682,7 @@ fun SearchFilterBar(
                 if (SearchFilterControl.VIDEO_ORDER in filterControls) {
                 Box {
                     FilterMenuChip(
-                        text = resolveSearchOrderChipLabel(currentOrder),
+                        text = localizedSearchOrderLabel(currentOrder),
                         highlighted = currentOrder != SearchOrder.TOTALRANK,
                         onClick = { showOrderMenu = true }
                     )
@@ -3695,7 +3692,7 @@ fun SearchFilterBar(
                     ) {
                         resolveSearchVideoOrderOptions().forEach { order ->
                             AppDropdownMenuItem(
-                                text = { AppText(resolveSearchOrderChipLabel(order)) },
+                                text = { AppText(localizedSearchOrderLabel(order)) },
                                 onClick = {
                                     onOrderChange(order)
                                     showOrderMenu = false
@@ -4579,7 +4576,7 @@ internal fun LiveSearchResultCard(
                         shape = AppShapes.container(ContainerLevel.Tag)
                     ) {
                         SearchResultText(
-                            text = "直播中",
+                            text = stringResource(R.string.search_live_now),
                             role = SearchResultTextRole.BADGE,
                             color = MaterialTheme.colorScheme.onError,
                             modifier = Modifier.padding(
@@ -4659,9 +4656,9 @@ private fun SearchLoadMoreIndicator(
 ) {
     if (error != null) {
         SearchNativeMessageState(
-            title = "加载更多失败",
+            title = stringResource(R.string.search_more_failed),
             message = error,
-            actionLabel = onRetry?.let { "重试" },
+            actionLabel = onRetry?.let { stringResource(R.string.search_retry) },
             onAction = onRetry,
             modifier = Modifier
                 .fillMaxWidth()
@@ -4786,7 +4783,7 @@ internal fun LiveUserSearchResultCard(
                             shape = AppShapes.container(ContainerLevel.Tag)
                         ) {
                             SearchResultText(
-                                text = "直播中",
+                                text = stringResource(R.string.search_live_now),
                                 role = SearchResultTextRole.BADGE,
                                 color = Color.White,
                                 modifier = Modifier.padding(
@@ -4932,7 +4929,7 @@ internal fun PhotoSearchResultCard(
                 )
                 Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall))
                 SearchResultText(
-                    text = "暂不支持打开",
+                    text = stringResource(R.string.search_not_supported),
                     role = SearchResultTextRole.BADGE,
                     color = MaterialTheme.colorScheme.outline
                 )

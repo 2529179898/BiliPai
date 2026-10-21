@@ -9,13 +9,11 @@ import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 import com.android.purebilibili.core.ui.AppSpacingTokens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -50,7 +48,6 @@ import com.android.purebilibili.core.ui.components.AppSurface
 import com.android.purebilibili.core.ui.components.UserLevelBadge
 import com.android.purebilibili.core.ui.components.UserVipBadge
 import com.android.purebilibili.core.ui.components.resolveUserVipBadgeLabel
-import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.blur.unifiedBlur
 import com.android.purebilibili.core.ui.rememberAppDrawerVisualPolicy
 import com.android.purebilibili.feature.home.UserState
@@ -167,19 +164,9 @@ fun MineSideDrawer(
     } else {
         colorScheme.surface.copy(alpha = palette.drawerBaseAlpha)
     }
-    val itemSurfaceColor = if (useOpaqueContainers) {
-        colorScheme.surfaceContainerHigh
-    } else if (isDark) {
-        colorScheme.surfaceContainerHigh.copy(alpha = palette.itemSurfaceAlpha)
-    } else {
-        colorScheme.surfaceContainerHigh.copy(alpha = palette.itemSurfaceAlpha)
-    }
-    val itemBorderColor = colorScheme.outlineVariant.copy(alpha = palette.itemBorderAlpha)
     val chevronColor = secondaryContentColor.copy(alpha = if (isDark) 0.92f else 0.84f)
 
     val drawerShape = AppShapes.endRounded(layoutPolicy.drawerEdgeRadiusDp.dp)
-    val profileCardShape = AppShapes.borderedContainer(ContainerLevel.Card)
-    val sectionShape = AppShapes.borderedContainer(ContainerLevel.Card)
 
     // 使用 Surface 替代 ModalDrawerSheet 以绕过最小宽度限制 (240dp)
     AppSurface(
@@ -285,20 +272,12 @@ fun MineSideDrawer(
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical))
                     .padding(vertical = layoutPolicy.contentVerticalPaddingDp.dp)
             ) {
-            // 1. 用户信息区域 - 可点击进入个人主页
-            // 移除 Surface 背景，只保留点击区域和内容
+            // 用户资料入口只保留内容与点击反馈。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = layoutPolicy.sectionHorizontalPaddingDp.dp)
-                    .clip(profileCardShape)
-                    .background(itemSurfaceColor)
-                    .border(
-                        BorderStroke(AppSpacingTokens.Micro * 0.4f, itemBorderColor),
-                        profileCardShape
-                    )
                     .clickable { closeAndRun(onProfileClick) }
-                    // 背景完全透明，依靠下方毛玻璃效果
             ) {
                 Row(
                     modifier = Modifier
@@ -361,16 +340,24 @@ fun MineSideDrawer(
                 }
             }
 
-            if (onAccountSwitchClick != null) {
-                ProvideAppEntryIconColors {
-                    AppSurface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = layoutPolicy.sectionHorizontalPaddingDp.dp),
-                        shape = sectionShape,
-                        color = itemSurfaceColor,
-                        border = BorderStroke(AppSpacingTokens.Micro * 0.4f, itemBorderColor)
-                    ) {
+            val dividerThickness = AppSpacingTokens.Micro / 4
+            AppHorizontalDivider(
+                modifier = Modifier.padding(
+                    horizontal = layoutPolicy.dividerHorizontalPaddingDp.dp,
+                    vertical = layoutPolicy.dividerVerticalPaddingDp.dp
+                ),
+                thickness = dividerThickness,
+                color = dividerColor
+            )
+
+            // 账号切换与常用功能共用一组平铺列表，不叠加独立卡片外壳。
+            ProvideAppEntryIconColors {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = layoutPolicy.sectionHorizontalPaddingDp.dp),
+                ) {
+                    if (onAccountSwitchClick != null) {
                         AppPreference(
                             icon = accountSwitchIcon,
                             title = "切换账号",
@@ -380,14 +367,80 @@ fun MineSideDrawer(
                             valueColor = secondaryContentColor,
                             chevronTint = chevronColor
                         )
+                        AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
                     }
+                    AppPreference(
+                        icon = downloadIcon,
+                        title = "离线缓存",
+                        onClick = { closeAndRun(onDownloadClick) },
+                        iconTint = AppContentColors.secondaryText(),
+                        textColor = activeContentColor,
+                        valueColor = secondaryContentColor,
+                        chevronTint = chevronColor
+                    )
+                    AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
+                    AppPreference(
+                        icon = historyIcon,
+                        title = "历史记录",
+                        onClick = { closeAndRun(onHistoryClick) },
+                        iconTint = AppContentColors.secondaryText(),
+                        textColor = activeContentColor,
+                        valueColor = secondaryContentColor,
+                        chevronTint = chevronColor
+                    )
+                    AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
+                    AppPreference(
+                        icon = tvIcon,
+                        title = "番剧影视",
+                        onClick = { closeAndRun(onBangumiClick) },
+                        iconTint = AppContentColors.secondaryText(),
+                        textColor = activeContentColor,
+                        valueColor = secondaryContentColor,
+                        chevronTint = chevronColor
+                    )
+                    AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
+                    AppPreference(
+                        icon = bookmarkIcon,
+                        title = "我的收藏",
+                        onClick = { closeAndRun(onFavoriteClick) },
+                        iconTint = AppContentColors.secondaryText(),
+                        textColor = activeContentColor,
+                        valueColor = secondaryContentColor,
+                        chevronTint = chevronColor
+                    )
+                    AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
+                    AppPreference(
+                        icon = likeIcon,
+                        title = "我的点赞",
+                        onClick = { closeAndRun(onLikedVideosClick) },
+                        iconTint = AppContentColors.secondaryText(),
+                        textColor = activeContentColor,
+                        valueColor = secondaryContentColor,
+                        chevronTint = chevronColor
+                    )
+                    AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
+                    AppPreference(
+                        icon = watchLaterIcon,
+                        title = "稍后再看",
+                        onClick = { closeAndRun(onWatchLaterClick) },
+                        iconTint = AppContentColors.secondaryText(),
+                        textColor = activeContentColor,
+                        valueColor = secondaryContentColor,
+                        chevronTint = chevronColor
+                    )
+                    AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
+                    AppPreference(
+                        icon = inboxIcon,
+                        title = "消息中心",
+                        onClick = { closeAndRun(onInboxClick) },
+                        iconTint = AppContentColors.secondaryText(),
+                        textColor = activeContentColor,
+                        valueColor = secondaryContentColor,
+                        chevronTint = chevronColor
+                    )
                 }
             }
 
-            // 分割线样式
-            val dividerThickness = AppSpacingTokens.Micro / 4
-
-            // 组间分割线 (全宽带padding)
             AppHorizontalDivider(
                 modifier = Modifier.padding(
                     horizontal = layoutPolicy.dividerHorizontalPaddingDp.dp,
@@ -397,111 +450,11 @@ fun MineSideDrawer(
                 color = dividerColor
             )
 
-            // 2. 常用服务 - iOS 风格列表
-            ProvideAppEntryIconColors {
-                AppSurface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = layoutPolicy.sectionHorizontalPaddingDp.dp),
-                    shape = sectionShape,
-                    color = itemSurfaceColor,
-                    border = BorderStroke(AppSpacingTokens.Micro * 0.4f, itemBorderColor)
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        AppPreference(
-                            icon = downloadIcon,
-                            title = "离线缓存",
-                            onClick = { closeAndRun(onDownloadClick) },
-                            iconTint = AppContentColors.secondaryText(),
-                            textColor = activeContentColor,
-                            valueColor = secondaryContentColor,
-                            chevronTint = chevronColor
-                        )
-                        AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
-                        AppPreference(
-                            icon = historyIcon,
-                            title = "历史记录",
-                            onClick = { closeAndRun(onHistoryClick) },
-                            iconTint = AppContentColors.secondaryText(),
-                            textColor = activeContentColor,
-                            valueColor = secondaryContentColor,
-                            chevronTint = chevronColor
-                        )
-                        AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
-                        AppPreference(
-                            icon = tvIcon,
-                            title = "番剧影视",
-                            onClick = { closeAndRun(onBangumiClick) },
-                            iconTint = AppContentColors.secondaryText(),
-                            textColor = activeContentColor,
-                            valueColor = secondaryContentColor,
-                            chevronTint = chevronColor
-                        )
-                        AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
-                        AppPreference(
-                            icon = bookmarkIcon,
-                            title = "我的收藏",
-                            onClick = { closeAndRun(onFavoriteClick) },
-                            iconTint = AppContentColors.secondaryText(),
-                            textColor = activeContentColor,
-                            valueColor = secondaryContentColor,
-                            chevronTint = chevronColor
-                        )
-                        AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
-                        AppPreference(
-                            icon = likeIcon,
-                            title = "我的点赞",
-                            onClick = { closeAndRun(onLikedVideosClick) },
-                            iconTint = AppContentColors.secondaryText(),
-                            textColor = activeContentColor,
-                            valueColor = secondaryContentColor,
-                            chevronTint = chevronColor
-                        )
-                        AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
-                        AppPreference(
-                            icon = watchLaterIcon,
-                            title = "稍后再看",
-                            onClick = { closeAndRun(onWatchLaterClick) },
-                            iconTint = AppContentColors.secondaryText(),
-                            textColor = activeContentColor,
-                            valueColor = secondaryContentColor,
-                            chevronTint = chevronColor
-                        )
-                        AppHorizontalDivider(modifier = Modifier.padding(start = AppSpacingTokens.TripleExtraLarge), thickness = dividerThickness, color = dividerColor)
-                        AppPreference(
-                            icon = inboxIcon,
-                            title = "消息中心",
-                            onClick = { closeAndRun(onInboxClick) },
-                            iconTint = AppContentColors.secondaryText(),
-                            textColor = activeContentColor,
-                            valueColor = secondaryContentColor,
-                            chevronTint = chevronColor
-                        )
-                    }
-                }
-            }
-
-            // 组间分割线
-            AppHorizontalDivider(
-                modifier = Modifier.padding(
-                    horizontal = layoutPolicy.dividerHorizontalPaddingDp.dp,
-                    vertical = layoutPolicy.dividerVerticalPaddingDp.dp
-                ),
-                thickness = dividerThickness,
-                color = dividerColor
-            )
-
-            // 3. 退出登录按钮
             if (user.isLogin) {
-                AppSurface(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = layoutPolicy.sectionHorizontalPaddingDp.dp),
-                    shape = sectionShape,
-                    color = itemSurfaceColor,
-                    border = BorderStroke(AppSpacingTokens.Micro * 0.4f, itemBorderColor)
                 ) {
                     AppPreference(
                         icon = logoutIcon,
