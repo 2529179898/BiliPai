@@ -3001,6 +3001,12 @@ internal fun CommonListContent(
                     (!isHistoryPersonalList || error == null)
                 ) onLoadMore()
             }
+            val gridContentPadding = PaddingValues(
+                start = gridOuterPaddingDp.dp,
+                end = gridOuterPaddingDp.dp,
+                top = scrollableHeaderInset + gridOuterPaddingDp.dp,
+                bottom = padding.calculateBottomPadding() + gridOuterPaddingDp.dp,
+            )
 
             // 收藏详情由网格独占同指长按拖选，避免子卡片预览/取消收藏长按抢走手势。
             // 其他列表保持原有长按开关和原生组件行为，不修改共享默认值。
@@ -3012,12 +3018,7 @@ internal fun CommonListContent(
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
                 state = resolvedGridState,
-                contentPadding = PaddingValues(
-                    start = gridOuterPaddingDp.dp,
-                    end = gridOuterPaddingDp.dp,
-                    top = scrollableHeaderInset + gridOuterPaddingDp.dp,
-                    bottom = padding.calculateBottomPadding() + gridOuterPaddingDp.dp
-                ),
+                contentPadding = gridContentPadding,
                 horizontalArrangement = Arrangement.spacedBy(gridItemSpacingDp.dp),
                 verticalArrangement = Arrangement.spacedBy(gridItemSpacingDp.dp),
                 modifier = viewportModifier
@@ -3030,6 +3031,7 @@ internal fun CommonListContent(
                     )
                     .favoriteDragSelection(
                         state = resolvedGridState,
+                        contentPadding = gridContentPadding,
                         resourceKeys = favoriteDragResources,
                         selectedKeys = historySelectedKeys,
                         enabled = onFavoriteDragSelectionChange != null,

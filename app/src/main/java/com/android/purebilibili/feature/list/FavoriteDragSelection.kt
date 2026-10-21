@@ -4,6 +4,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -14,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -37,6 +39,7 @@ internal class FavoriteDragSelection(
 /** Runs on the grid, not on individual recycled cards: the original pointer owns the whole gesture. */
 internal fun Modifier.favoriteDragSelection(
     state: LazyGridState,
+    contentPadding: PaddingValues,
     // Render keys match LazyGridItemInfo.key; values are the stable resource selection keys.
     resourceKeys: Map<String, String>,
     selectedKeys: Set<String>,
@@ -46,17 +49,28 @@ internal fun Modifier.favoriteDragSelection(
     val currentResources by rememberUpdatedState(resourceKeys)
     val currentSelection by rememberUpdatedState(selectedKeys)
     val currentOnSelectionChange by rememberUpdatedState(onSelectionChange)
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val contentOffset = with(density) {
+        Offset(
+            contentPadding.calculateLeftPadding(layoutDirection).roundToPx().toFloat(),
+            contentPadding.calculateTopPadding().roundToPx().toFloat(),
+        )
+    }
     val edgeSize = with(LocalDensity.current) { 64.dp.toPx() }
     val maximumScrollPerFrame = with(LocalDensity.current) { 18.dp.toPx() }
     if (!enabled) return@composed this
-    pointerInput(state, edgeSize, maximumScrollPerFrame) {
+    pointerInput(state, contentOffset, edgeSize, maximumScrollPerFrame) {
         coroutineScope {
             var position = Offset.Zero
             var selection: FavoriteDragSelection? = null
             var scrolling: Job? = null
             var lastKey: String? = null
 
-            fun keyAt(point: Offset, nearest: Boolean): String? {
+            fun keyAt(viewportPoint: Offset, nearest: Boolean): String? {
+                // Item offsets exclude content padding; pointer positions include it.
+                // Keep position in viewport coordinates for edge auto-scrolling.
+                val point = viewportPoint - contentOffset
                 var nearestKey: String? = null
                 var nearestDistance = Float.POSITIVE_INFINITY
                 val layout = state.layoutInfo

@@ -13,10 +13,17 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher.Companion.keyIsDefined
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.Density
@@ -38,10 +45,11 @@ class FavoriteDragSelectionUiRegressionTest {
     private val selected = mutableStateOf(emptySet<String>())
     private var played: String? = null
     private var origin = Offset.Zero
+    private var rootOrigin = Offset.Zero
     private var downTime = 0L
     private var finger: Offset? = null
 
-    private fun show(columns: Int) {
+    private fun show(columns: Int, topPadding: Int = 0, scrollUnderHeader: Boolean = true) {
         val items = (1L..60L).map { VideoItem(id = it, aid = it, bvid = "BV$it", title = "收藏视频$it") }
         rule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f)) {
@@ -49,6 +57,7 @@ class FavoriteDragSelectionUiRegressionTest {
                     grid = rememberLazyGridState()
                     Box(Modifier.size(360.dp, 640.dp).onGloballyPositioned {
                         origin = it.localToScreen(Offset.Zero)
+                        rootOrigin = it.positionInRoot()
                     }) {
                         CommonListContent(
                             items = items,
@@ -58,7 +67,8 @@ class FavoriteDragSelectionUiRegressionTest {
                             searchQuery = "",
                             columns = columns,
                             spacing = 12.dp,
-                            padding = PaddingValues(0.dp),
+                            padding = PaddingValues(top = topPadding.dp),
+                            scrollUnderHeader = scrollUnderHeader,
                             cardAnimationEnabled = false,
                             cardTransitionEnabled = false,
                             cardMotionTier = MotionTier.Reduced,
@@ -81,13 +91,21 @@ class FavoriteDragSelectionUiRegressionTest {
         }
     }
 
+    // Use measured UI bounds, not LazyGridItemInfo offsets: the latter omit content padding.
+    private fun cardBounds(index: Int): Rect = rule.onNode(
+        keyIsDefined(SemanticsProperties.Selected) and
+            hasAnyDescendant(hasText("收藏视频${index + 1}")),
+        useUnmergedTree = true,
+    ).fetchSemanticsNode().boundsInRoot.translate(-rootOrigin)
+
     private fun point(index: Int): Offset {
-        val item = grid.layoutInfo.visibleItemsInfo.single { it.index == index }
-        return Offset(
-            item.offset.x + item.size.width / 2f,
-            (item.offset.y + item.size.height / 2f).coerceIn(70f, grid.layoutInfo.viewportSize.height - 70f),
-        )
+        val center = cardBounds(index).center
+        return Offset(center.x, center.y.coerceIn(70f, grid.layoutInfo.viewportSize.height - 70f))
     }
+
+    private fun titlePoint(index: Int): Offset = rule.onNodeWithText(
+        "收藏视频${index + 1}", useUnmergedTree = true,
+    ).fetchSemanticsNode().boundsInRoot.center - rootOrigin
 
     // 边缘自动滚动期间界面本就不会空闲，不能在抬手前经 Espresso 等待 idle。
     // 注入真实的 Android 触摸事件，保持同一 downTime 和同一根手指贯穿整个选择手势。
@@ -104,10 +122,10 @@ class FavoriteDragSelectionUiRegressionTest {
         }
     }
 
-    private fun startHolding(point: Offset) {
+    private fun startHolding(point: Offset, expectedKey: String = "BV1") {
         finger = point
         touch(MotionEvent.ACTION_DOWN, point)
-        rule.waitUntil(5_000) { "BV1" in selected.value }
+        rule.waitUntil(5_000) { expectedKey in selected.value }
     }
 
     private fun move(point: Offset) {
@@ -146,6 +164,46 @@ class FavoriteDragSelectionUiRegressionTest {
             startHolding(anchor)
             move(target)
             rule.waitUntil(5_000) { selected.value == setOf("BV1", "BV2", "BV3", "BV4") }
+        } finally {
+            release()
+        }
+        rule.runOnIdle { assertEquals(null, played) }
+    }
+
+    @Test fun titleLongPressBelowHeaderSelectsTouchedCardAndDragReversesWithoutOffset() {
+        show(2, topPadding = 116)
+        val anchor = titlePoint(0)
+        val target = titlePoint(3)
+        try {
+            startHolding(anchor)
+            assertEquals(setOf("BV1"), selected.value)
+            move(target)
+            rule.waitUntil(5_000) { selected.value == setOf("BV1", "BV2", "BV3", "BV4") }
+            move(anchor)
+            rule.waitUntil(5_000) { selected.value == setOf("BV1") }
+        } finally {
+            release()
+        }
+        rule.runOnIdle { assertEquals(null, played) }
+    }
+
+    @Test fun rightCardEdgeLongPressAccountsForHorizontalContentPadding() {
+        show(2, topPadding = 116)
+        val bounds = cardBounds(1)
+        try {
+            startHolding(Offset(bounds.right - 1f, bounds.center.y), expectedKey = "BV2")
+            assertEquals(setOf("BV2"), selected.value)
+        } finally {
+            release()
+        }
+        rule.runOnIdle { assertEquals(null, played) }
+    }
+
+    @Test fun titleLongPressWithHeaderOutsideViewportDoesNotSubtractHeaderTwice() {
+        show(2, topPadding = 116, scrollUnderHeader = false)
+        try {
+            startHolding(titlePoint(0))
+            assertEquals(setOf("BV1"), selected.value)
         } finally {
             release()
         }
