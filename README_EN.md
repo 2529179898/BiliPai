@@ -222,7 +222,6 @@ A lightweight plugin format requiring **no coding**, just a simple JSON file to 
 
 </details>
 
-> 📚 **Full Documentation**: [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md)
 >
 > 🧩 **Sample Plugins**: [plugins/samples/](plugins/samples/)
 
