@@ -2198,7 +2198,6 @@ private fun VideoPlayerOverlayContent(
             AppModalBottomSheet(
                 onDismissRequest = { showCdnDiagnostics = false },
                 presentationOverride = AppModalPresentation.BottomSheet,
-                backgroundBlurBehind = true,
             ) {
                 AppSurface(
                     modifier = Modifier.fillMaxWidth(),

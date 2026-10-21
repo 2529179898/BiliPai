@@ -3506,9 +3506,27 @@ internal fun VideoDetailScreenStateHolder(
         .getDanmakuSendFontSize(context)
         .collectAsStateWithLifecycle(initialValue = 25)
     val continuousPlayerUnitState = remember { mutableFloatStateOf(1f) }
+    // Entry lifetime, not BVID lifetime: once attached, never defer the player again.
+    val continuousPlayerHostMounted = remember { mutableStateOf(false) }
     val continuousPlayerRenderer = rememberUpdatedState<@Composable (ContinuousPlayerHostLayout) -> Unit> { layout ->
+        val mountPlayerHost = shouldMountVideoDetailPlayerHost(
+            alreadyMounted = continuousPlayerHostMounted.value,
+            // Source identity is available before the first navigation scope is bound.
+            deferEntryLoad = deferVideoDetailEntryLoad && shellSharedBoundsLikely &&
+                !useTabletLayout,
+            entryPlaybackReady = entryPlaybackReady || uiState is VideoPlaybackUiState.Error,
+            hasResidentCover = hasResidentReturnCover,
+            preserveLivePlayer = reuseFromMiniPlayerAtEntry || hasRenderedFirstFrameForReturn ||
+                layout.isFullscreen || isPipMode,
+        )
+        // Both glass and native card morphs keep the existing outer resident cover/chrome.
+        // Only first attachment of the heavy controls/gestures/settings tree waits for entry;
+        // native layout, cover reveal and an already attached/live surface stay unchanged.
         // 竖屏全屏 pager 接管共享播放器后，内联 host 必须退出 composition。
-        if (!suppressPhoneDetailBodyForDirectPortrait && !isPortraitFullscreen) {
+        if (mountPlayerHost && !suppressPhoneDetailBodyForDirectPortrait && !isPortraitFullscreen) {
+            SideEffect {
+                continuousPlayerHostMounted.value = true
+            }
             val engagementState by engagementStateHandle
             val sponsorSegment by sponsorSegmentHandle
             val showSponsorSkipButton by showSponsorSkipButtonHandle
@@ -5030,7 +5048,9 @@ internal fun VideoDetailScreenStateHolder(
                                     .returnContentFollowProgressEnabledProvider(),
                                 isReturnGestureInProgress = returnGestureInProgress,
                                 showResidentCoverUntilFirstFrame =
-                                    entryOwnsMiuixCardTransition &&
+                                    (entryOwnsMiuixCardTransition ||
+                                        (!continuousPlayerHostMounted.value &&
+                                            deferVideoDetailEntryLoad && shellSharedBoundsLikely)) &&
                                         currentBvid == bvid &&
                                         !hasRenderedFirstFrameForReturn,
                             )
@@ -5113,17 +5133,33 @@ internal fun VideoDetailScreenStateHolder(
                                     } else {
                                         0f
                                     }
-                                    drawRoundRect(
-                                        color = Color.Black.copy(alpha = backingAlpha),
-                                        topLeft = androidx.compose.ui.geometry.Offset(
-                                            backingFrame.offsetXPx.toFloat(),
-                                            backingFrame.offsetYPx.toFloat(),
-                                        ),
-                                        size = androidx.compose.ui.geometry.Size(
-                                            backingFrame.widthPx.toFloat(),
-                                            backingFrame.heightPx.toFloat(),
-                                        ),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius),
+                                    // The resident cover has its own black loading backing. Only
+                                    // cull its fully opaque interior; live frames, crossfades, rounded
+                                    // corners and the floating top inset retain the original backing.
+                                    val coverAlpha = if (residentCoverImageRequest != null) {
+                                        returnMediaFrameProvider().coverAlpha * nowPlayingMediaAlphaProvider()
+                                    } else 0f
+                                    val opaqueCoverInterior = if (coverAlpha >= 1f) {
+                                        val coverTopInsetPx = floatingPlayerTopInsetProvider().roundToPx()
+                                        val coverFrame = if (coverTopInsetPx == 0) backingFrame else {
+                                            resolveVideoDetailReturnMediaLayoutFrame(
+                                                containerWidthPx = size.width.roundToInt(),
+                                                containerHeightPx = size.height.roundToInt(),
+                                                landingLayout = landingLayoutForMedia,
+                                                handoffProgress = handoffProgress,
+                                                inverseScaleX = inverseScale.scaleX,
+                                                inverseScaleY = inverseScale.scaleY,
+                                                contentTopInsetPx = coverTopInsetPx,
+                                                nativeSnapshotBounds = nativeSnapshotTargetBoundsProvider?.invoke(),
+                                            )
+                                        }
+                                        resolveVideoDetailOpaqueCoverInterior(coverFrame, coverAlpha, radius)
+                                    } else null
+                                    drawVideoDetailMediaBacking(
+                                        frame = backingFrame,
+                                        alpha = backingAlpha,
+                                        cornerRadiusPx = radius,
+                                        opaqueCoverInterior = opaqueCoverInterior,
                                     )
                                 }
                                 //  [PiP修复] 捕获视频播放器在屏幕上的位置

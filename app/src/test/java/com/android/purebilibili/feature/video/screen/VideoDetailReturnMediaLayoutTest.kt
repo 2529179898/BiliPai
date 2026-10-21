@@ -14,6 +14,26 @@ import kotlin.test.assertTrue
 
 class VideoDetailReturnMediaLayoutTest {
     @Test
+    fun opaqueCoverOcclusionPreservesInsetAndRoundedEdges() {
+        val frame = VideoDetailReturnMediaLayoutFrame(
+            offsetXPx = 20, offsetYPx = 48, widthPx = 1000, heightPx = 600,
+        )
+        assertEquals(Rect(37f, 65f, 1003f, 631f),
+            resolveVideoDetailOpaqueCoverInterior(frame, coverAlpha = 1f, cornerRadiusPx = 16f))
+        // A loading image still has an opaque cover backing; a partial crossfade does not.
+        assertEquals(null, resolveVideoDetailOpaqueCoverInterior(frame, 0.999f, 16f))
+        assertEquals(null, resolveVideoDetailOpaqueCoverInterior(frame, 0f, 16f))
+    }
+
+    @Test
+    fun opaqueCoverOcclusionRejectsTinyOrInvalidCoverage() {
+        val tiny = VideoDetailReturnMediaLayoutFrame(0, 0, 10, 10)
+        assertEquals(null, resolveVideoDetailOpaqueCoverInterior(tiny, 1f, 16f))
+        assertEquals(null, resolveVideoDetailOpaqueCoverInterior(tiny, Float.NaN, 0f))
+        assertEquals(Rect(1f, 1f, 9f, 9f), resolveVideoDetailOpaqueCoverInterior(tiny, 1f, 0f))
+    }
+
+    @Test
     fun horizontalCoverStaysInsideTheContractingShellInBothDirectionsAndOnCancel() {
         val hostWidth = 1080f
         val hostHeight = 2400f

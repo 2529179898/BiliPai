@@ -470,7 +470,12 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
                                     progress = progress,
                                     tuning = liquidGlassTuning,
                                     shellHeightDp = dockHeight.value,
-                                    indicatorScaleY = scaleY,
+                                    // Match the exact layer transform used below, including
+                                    // velocity compression, so the rim follows the visible pill.
+                                    indicatorScaleY = resolveFloatingDockIndicatorLayerScaleY(
+                                        baseScaleY = scaleY,
+                                        velocity = velocity,
+                                    ),
                                 )
                             },
                             highlight = { pillHighlight.value.copy(alpha = pressProgress) },

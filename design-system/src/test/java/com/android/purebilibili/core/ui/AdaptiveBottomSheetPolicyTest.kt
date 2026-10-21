@@ -98,21 +98,23 @@ class AdaptiveBottomSheetPolicyTest {
     }
 
     @Test
-    fun `app sheet facade binds predictive back to the dialog window`() {
+    fun `app sheet keeps native predictive back and binds fallback dialogs to their window`() {
         val path = "src/main/java/com/android/purebilibili/core/ui/AppSheetComponents.kt"
         val source = listOf(File(path), File("design-system/$path"))
             .firstOrNull(File::exists)
             ?.readText()
             ?: error("Cannot locate AppSheetComponents.kt from ${File(".").absolutePath}")
 
-        // 侧边/预测返回必须绑在弹层 Dialog 窗口，并由 NavigationBackHandler 关闭；
-        // Dialog 默认 dismissOnBackPress 关闭，避免与 handler 双触发。
+        // MD3 使用原生预测返回；居中/折叠屏 Dialog 单独绑定窗口并提供跟手反馈。
         assertTrue(source.contains("fun ModalSheetNavigationHost("))
         assertTrue(source.contains("findViewTreeNavigationEventDispatcherOwner()"))
         assertTrue(source.contains("LocalNavigationEventDispatcherOwner provides owner"))
         assertTrue(source.contains("NavigationBackHandler("))
         assertTrue(source.contains("ModalSheetNavigationHost("))
-        assertTrue(source.contains("shouldDismissOnBackPress = false"))
+        assertTrue(source.contains("shouldDismissOnBackPress = dismissOnBackPress"))
+        assertFalse(source.contains("ModalSheetNavigationHost(dismissOnBackPress, requestMaterialDismiss)"))
+        assertTrue(source.contains("NavigationEventTransitionState.TRANSITIONING_BACK"))
+        assertTrue(source.contains("val progress = backProgress.value"))
         assertTrue(source.contains("DialogProperties("))
         assertTrue(source.contains("dismissOnBackPress = false"))
     }

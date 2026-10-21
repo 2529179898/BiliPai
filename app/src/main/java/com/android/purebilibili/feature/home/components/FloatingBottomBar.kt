@@ -688,6 +688,7 @@ fun FloatingBottomBar(
         density,
         isLtr,
         dragTrackingMode,
+        isLiquidGlassMode,
         interactiveHighlight,
     ) {
         DampedDragAnimation(
@@ -698,6 +699,7 @@ fun FloatingBottomBar(
             initialScale = 1f,
             pressedScale = pressedScale,
             trackingMode = dragTrackingMode,
+            useMiuixIndicatorMotion = isLiquidGlassMode,
             canDrag = { offset ->
                 val animation = holder.instance ?: return@DampedDragAnimation true
                 if (tabWidthPx == 0f) return@DampedDragAnimation false
@@ -738,7 +740,8 @@ fun FloatingBottomBar(
                 val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, maxTabIndex)
                 // The pointer gesture already owns press/release. Only settle the value here so
                 // release is not launched twice and the indicator cannot visibly rebound twice.
-                animateToValue(targetIndex.toFloat(), animatePress = false)
+                if (isLiquidGlassMode) updateValue(targetIndex.toFloat())
+                else animateToValue(targetIndex.toFloat(), animatePress = false)
                 val selected = selectedIndexLatest.value().coerceIn(0, maxTabIndex)
                 pagerFollowGate.ownedTargetIndex = resolveIndicatorOwnedTargetOnDragStop(
                     targetIndex = targetIndex,

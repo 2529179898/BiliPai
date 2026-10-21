@@ -66,7 +66,8 @@ import com.android.purebilibili.core.ui.components.resolveAppMiuixSegmentedColor
 import com.android.purebilibili.core.ui.components.resolveAppSegmentedSelectionIndex
 import com.android.purebilibili.core.ui.resolveRoundedControlVisualGeometry
 import com.android.purebilibili.core.ui.resolveMiuixNonGlassControlGeometry
-import com.android.purebilibili.core.ui.isMiuixNonGlassEnabled
+import com.android.purebilibili.core.theme.AppUiStyle
+import com.android.purebilibili.core.theme.LocalAppUiStyle
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.TabRowDefaults
 import top.yukonga.miuix.kmp.squircle.squircleClip
@@ -135,7 +136,11 @@ internal fun <T> AppMiuixTabRow(
     containerHorizontalPadding: Dp = 0.dp,
     onSelectionChange: (T) -> Unit,
 ) {
-    if (isMiuixNonGlassEnabled() || fixedItemWidth != null || labelFontSize.isSpecified || containerHorizontalPadding != 0.dp) {
+    // Native Miuix controls keep measured, padding-aware slots under either material.
+    // Actual liquid dock rendering is selected outside this renderer.
+    if (LocalAppUiStyle.current == AppUiStyle.MIUIX || fixedItemWidth != null ||
+        labelFontSize.isSpecified || containerHorizontalPadding != 0.dp
+    ) {
         AppMiuixNonGlassTabs(
             options = options,
             selectedValue = selectedValue,
@@ -178,7 +183,7 @@ internal fun <T> AppMiuixTabRow(
         )
         return
     }
-    if (isMiuixNonGlassEnabled()) {
+    if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
         if (options.size <= 2 && !scrollable) {
             AppMiuixSegmentedControl(
                 options = options,
@@ -297,7 +302,11 @@ private fun <T> AppMiuixNonGlassTabs(
     val horizontalContentPadding = with(density) { (12.dp.roundToPx() * 2).toDp() }
     val textHeight = with(density) { (labelSizes.maxOfOrNull { it.height } ?: 0).toDp() }
     val geometry = resolveMiuixNonGlassControlGeometry(compact, textHeight)
-    if (isMiuixNonGlassEnabled() || fixedItemWidth != null || labelFontSize.isSpecified || containerHorizontalPadding != 0.dp) {
+    // Native Miuix controls keep measured, padding-aware slots under either material.
+    // Actual liquid dock rendering is selected outside this renderer.
+    if (LocalAppUiStyle.current == AppUiStyle.MIUIX || fixedItemWidth != null ||
+        labelFontSize.isSpecified || containerHorizontalPadding != 0.dp
+    ) {
         AppMiuixSizedTabs(
             options = options,
             selectedIndex = selectedIndex,

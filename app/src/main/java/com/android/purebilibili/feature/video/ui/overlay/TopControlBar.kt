@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.currentStateAsState
@@ -262,6 +263,13 @@ fun TopControlBar(
     // Only glass fullscreen separates More into a circle aligned with the lock button.
     val separateGlassMore = isFullscreen &&
         com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+    // Glass fullscreen aligns the two-line title and actions to one shell height.
+    // Native MD3/Miuix retain their existing title geometry and button sizing.
+    val alignedGlassDockHeight = if (separateGlassMore) {
+        with(density) {
+            maxOf(layoutPolicy.buttonSizeDp.dp, 18.sp.toDp() + 14.sp.toDp() + 8.dp)
+        }
+    } else null
     val favoriteIcon = rememberAppBookmarkIcon()
     val leftSectionStartOffset = if (isFullscreen && backButtonStartPaddingDp != null) {
         val cutoutStart = with(density) {
@@ -356,6 +364,7 @@ fun TopControlBar(
                         title = title,
                         statusInfo = statusInfo,
                         onlineCount = onlineCount,
+                        alignedGlassHeight = alignedGlassDockHeight,
                         modifier = Modifier.weight(1f),
                     )
                 } else {
@@ -392,6 +401,7 @@ fun TopControlBar(
                     modifier = if (isFullscreen) Modifier
                         .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 4.dp)
+                        .then(alignedGlassDockHeight?.let { Modifier.height(it) } ?: Modifier)
                     else Modifier,
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(layoutPolicy.actionSpacingDp.dp)
@@ -587,11 +597,12 @@ private fun AdaptivePlayerTitleInfoDock(
     statusInfo: LandscapeTopStatusInfo,
     onlineCount: String,
     modifier: Modifier = Modifier,
+    alignedGlassHeight: Dp? = null,
 ) {
     val motionEnabled = LocalComponentMotionEnabled.current
     val layoutDirection = LocalLayoutDirection.current
     BoxWithConstraints(
-        modifier = modifier.heightIn(min = 48.dp),
+        modifier = modifier.heightIn(min = alignedGlassHeight ?: 48.dp),
         contentAlignment = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) {
             Alignment.CenterEnd
         } else {
@@ -622,7 +633,7 @@ private fun AdaptivePlayerTitleInfoDock(
                 .width(dockWidth)
                 // The dock owns its rounded shell and elastic transform. Clipping this
                 // stationary slot cuts off the capsule and labels during either drag axis.
-                .heightIn(min = 48.dp),
+                .heightIn(min = alignedGlassHeight ?: 48.dp),
             contentAlignment = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) {
                 Alignment.CenterEnd
             } else {
@@ -633,6 +644,7 @@ private fun AdaptivePlayerTitleInfoDock(
                 title = title,
                 statusInfo = statusInfo,
                 onlineCount = onlineCount,
+                alignedGlassHeight = alignedGlassHeight,
                 modifier = Modifier
                     .fillMaxWidth()
                     .graphicsLayer { alpha = expandedFraction.value.coerceIn(0f, 1f) },
@@ -645,7 +657,7 @@ private fun AdaptivePlayerTitleInfoDock(
                 shape = androidx.compose.foundation.shape.CircleShape,
             ) {
                 Box(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = alignedGlassHeight ?: 48.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     AppIcon(
@@ -671,6 +683,7 @@ private fun PlayerTitleInfoDock(
     statusInfo: LandscapeTopStatusInfo,
     onlineCount: String,
     modifier: Modifier = Modifier,
+    alignedGlassHeight: Dp? = null,
 ) {
     val motionEnabled = LocalComponentMotionEnabled.current
     PlayerControlGlassDock(
@@ -679,9 +692,19 @@ private fun PlayerTitleInfoDock(
     ) {
         Column(
             modifier = Modifier
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .then(
+                    alignedGlassHeight?.let { Modifier.height(it) }
+                        ?: Modifier.heightIn(min = 48.dp)
+                )
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = if (alignedGlassHeight != null) 3.dp else 8.dp,
+                ),
+            verticalArrangement = if (alignedGlassHeight != null) {
+                Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
+            } else {
+                Arrangement.spacedBy(4.dp)
+            },
         ) {
             AppText(
                 text = title,

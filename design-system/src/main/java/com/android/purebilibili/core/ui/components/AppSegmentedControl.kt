@@ -18,6 +18,8 @@ import com.android.purebilibili.core.ui.roundMatchedLiquidIndicatorHeightDp
 import com.android.purebilibili.core.ui.renderer.material3.AppMaterial3SegmentedControl
 import com.android.purebilibili.core.ui.renderer.material3.AppMaterial3TabRow
 import com.android.purebilibili.core.ui.isMiuixNonGlassEnabled
+import com.android.purebilibili.core.theme.AppUiStyle
+import com.android.purebilibili.core.theme.LocalAppUiStyle
 import com.android.purebilibili.core.ui.renderer.miuix.AppMiuixSegmentedControl
 import com.android.purebilibili.core.ui.renderer.miuix.AppMiuixTabRow
 
@@ -446,7 +448,10 @@ fun <T> AppNativeTabRow(
     onSelectionChange: (T) -> Unit,
 ) {
     if (options.isEmpty()) return
-    val defaultLabelStyle = if (isMiuixNonGlassEnabled()) {
+    // This entry renders native controls even when the page also uses glass docks.
+    // Label measurement and native slot spacing follow the renderer, not the glass switch.
+    val nativeMiuix = !forceMaterial3 && LocalAppUiStyle.current == AppUiStyle.MIUIX
+    val defaultLabelStyle = if (nativeMiuix) {
         top.yukonga.miuix.kmp.theme.MiuixTheme.textStyles.main.copy(
             fontSize = top.yukonga.miuix.kmp.theme.MiuixTheme.textStyles.body1.fontSize,
             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -460,13 +465,12 @@ fun <T> AppNativeTabRow(
         labels = options.map { it.label },
         textStyle = labelStyle,
     )
-    val nonGlassMiuix = isMiuixNonGlassEnabled()
-    val resolvedLabelContentMinWidth = fixedItemWidth ?: if (nonGlassMiuix) {
+    val resolvedLabelContentMinWidth = fixedItemWidth ?: if (nativeMiuix) {
         labelContentMinWidth
     } else {
         resolveLiquidGlassLabelContentMinWidth(options.map { it.label })
     }
-    val readableMinTabWidth = fixedItemWidth ?: if (nonGlassMiuix) {
+    val readableMinTabWidth = fixedItemWidth ?: if (nativeMiuix) {
         maxOf(minTabWidth, labelContentMinWidth)
     } else {
         resolveLiquidGlassTabMinWidth(minTabWidth, options.map { it.label }, allowLabelOverflow)
@@ -474,7 +478,7 @@ fun <T> AppNativeTabRow(
     val compactItemWidth = maxOf(minTabWidth, readableMinTabWidth, resolvedLabelContentMinWidth)
     val equalizeMiuixNonGlassItems = shouldEqualizeMiuixNonGlassTabItems(
         widthMode = miuixNonGlassItemWidthMode,
-        isMiuixNonGlass = com.android.purebilibili.core.ui.isMiuixNonGlassEnabled(),
+        isMiuixNonGlass = nativeMiuix,
         optionCount = options.size,
     )
     val effectiveScrollable = if (fixedItemWidth != null) scrollable && !forceEqualWidth else {
@@ -484,7 +488,7 @@ fun <T> AppNativeTabRow(
     }
     // Ordinary Miuix rails own each item's surface and hit target. Upstream TabRow
     // uses one moving background with cached equal-width geometry instead.
-    val useContentSizedMiuixItems = nonGlassMiuix &&
+    val useContentSizedMiuixItems = nativeMiuix &&
         miuixNonGlassItemWidthMode == MiuixNonGlassTabItemWidthMode.CONTENT &&
         effectiveScrollable
     val policy = rememberAppSegmentedControlPolicy()
@@ -559,7 +563,7 @@ fun <T> AppNativeTabRow(
             modifier = if (fixedItemWidth == null && shouldUseCompactMiuixTabRow(options.size, effectiveScrollable, compactMiuixWhenTwoOptions)) {
                 modifier.width(
                     compactItemWidth * options.size + containerHorizontalPadding * 2 +
-                        if (nonGlassMiuix) AppSpacingTokens.Small * (options.size - 1) else 0.dp,
+                        if (nativeMiuix) AppSpacingTokens.Small * (options.size - 1) else 0.dp,
                 )
             } else {
                 modifier
