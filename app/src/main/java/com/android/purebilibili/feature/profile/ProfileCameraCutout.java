@@ -1,6 +1,4 @@
-/* Camera cutout parsing adapted from NextAlone/Nagram NotchInfoUtils.java
- * revision fb56ea9801e5de68c60f0152b444bbe2a0fda520; GPL-3.0.
- * Telegram and Nagram contributors. */
+/** 屏幕挖孔位置与尺寸解析。 */
 package com.android.purebilibili.feature.profile;
 
 import android.annotation.SuppressLint;
