@@ -461,7 +461,7 @@ fun VideoSettingsPanel(
                                 "超分辨率",
                                 when {
                                     !anime4kEnabled -> "禁用"
-                                    videoEnhancementAlgorithm == VideoEnhancementAlgorithm.FSR -> "FSR"
+                                    videoEnhancementAlgorithm == VideoEnhancementAlgorithm.FSR_1_0 -> "FSR"
                                     anime4kPreset == Anime4KPreset.FAST -> "效率"
                                     else -> "画质"
                                 },

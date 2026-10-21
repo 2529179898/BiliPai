@@ -71,7 +71,7 @@ internal fun PlayerSettingsRow(title: String, subtitle: String? = null, onClick:
             imageVector = when (title) {
                 "添加至「稍后再看」" -> Icons.Outlined.WatchLater
                 "查看笔记" -> Icons.Outlined.EditNote
-                "离线缓存" -> Icons.Outlined.FolderDownload
+                "离线缓存" -> Icons.Outlined.FolderZip
                 "保存字幕" -> Icons.Outlined.Download
                 "保存封面" -> Icons.Outlined.Image
                 "定时关闭" -> Icons.Outlined.HourglassTop
