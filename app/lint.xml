@@ -70,7 +70,6 @@
         <ignore path="src/main/java/com/android/purebilibili/feature/video/screen/VideoDetailScreen.kt" />
         <ignore path="src/main/java/com/android/purebilibili/feature/video/ui/components/BottomInputBar.kt" />
         <ignore path="src/main/java/com/android/purebilibili/feature/video/ui/components/CollectionSheet.kt" />
-        <ignore path="src/main/java/com/android/purebilibili/feature/video/ui/components/CommentInputBar.kt" />
         <ignore path="src/main/java/com/android/purebilibili/feature/video/ui/components/CommentInputDialog.kt" />
         <ignore path="src/main/java/com/android/purebilibili/feature/video/ui/components/DanmakuSendDialog.kt" />
         <ignore path="src/main/java/com/android/purebilibili/feature/video/ui/components/EmotePanelSheet.kt" />

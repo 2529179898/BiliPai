@@ -6,6 +6,7 @@ import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.AppSpacingTokens
 
+import android.net.Uri
 import android.os.Build
 import androidx.compose.ui.graphics.graphicsLayer
 import com.android.purebilibili.core.ui.transition.resolvePredictiveBackBlurFrame
@@ -87,7 +88,8 @@ import com.android.purebilibili.feature.dynamic.components.toggleDynamicDetailIm
 import com.android.purebilibili.feature.dynamic.components.resolveDynamicReportReasons
 import com.android.purebilibili.feature.dynamic.components.saveDynamicImageToGallery
 import com.android.purebilibili.feature.dynamic.components.DynamicShareToMessageDialog
-import com.android.purebilibili.feature.dynamic.components.DynamicInlineCommentComposer
+import com.android.purebilibili.feature.dynamic.components.DynamicCommentEntryBar
+import com.android.purebilibili.feature.dynamic.components.DynamicCommentInputHost
 import com.android.purebilibili.feature.dynamic.components.DynamicInlineCommentHeader
 import com.android.purebilibili.feature.dynamic.components.DynamicSubReplyPreviewHost
 import com.android.purebilibili.feature.dynamic.components.ImagePreviewDialog
@@ -197,7 +199,6 @@ fun DynamicDetailScreen(
     )
     val commentSortMode by interactionViewModel.dynamicCommentSortMode.collectAsStateWithLifecycle()
     val subReplyState by interactionViewModel.subReplyState.collectAsStateWithLifecycle()
-    val commentReplyTarget by interactionViewModel.commentReplyTarget.collectAsStateWithLifecycle()
     var showRepostDialog by remember { mutableStateOf<String?>(null) }
     var pendingReport by remember { mutableStateOf<DynamicManageAction.Report?>(null) }
     var editingAction by remember { mutableStateOf<DynamicManageAction.Edit?>(null) }
@@ -504,15 +505,8 @@ fun DynamicDetailScreen(
                     )
                 }
                 val commentComposer: @Composable (Modifier) -> Unit = { modifier ->
-                    DynamicInlineCommentComposer(
-                        onPostComment = { message, images, onResult ->
-                            interactionViewModel.postComment(state.item.id_str, message, images) { success, toastMessage ->
-                                android.widget.Toast.makeText(context, toastMessage, android.widget.Toast.LENGTH_SHORT).show()
-                                onResult(success)
-                            }
-                        },
-                        replyTargetUname = commentReplyTarget?.uname,
-                        onClearReplyTarget = interactionViewModel::clearCommentReplyTarget,
+                    DynamicCommentEntryBar(
+                        onClick = interactionViewModel::openCommentComposer,
                         liquidGlassEnabled = liquidGlassEnabled,
                         backdrop = detailCommentBackdrop,
                         modifier = modifier,
@@ -734,7 +728,7 @@ fun DynamicDetailScreen(
                     onSortModeChange = interactionViewModel::setSubReplySortMode,
                     onUserClick = onUserClick,
                     onReplyClick = { reply ->
-                        interactionViewModel.closeSubReply()
+                        // 保持楼中楼可见，避免输入弹层出现前先闪回主评论列表。
                         interactionViewModel.startCommentReply(reply)
                     },
                     onCommentLike = { rpid -> interactionViewModel.likeComment(rpid) },
@@ -756,6 +750,18 @@ fun DynamicDetailScreen(
                     onCoveredBlurProgressChange = { progress ->
                         subReplyCoveredBlurProgress = progress
                     },
+                )
+
+                val postComment: (String, List<Uri>, (Boolean) -> Unit) -> Unit = { message, images, onResult ->
+                    interactionViewModel.postComment(state.item.id_str, message, images) { success, toastMessage ->
+                        android.widget.Toast.makeText(context, toastMessage, android.widget.Toast.LENGTH_SHORT).show()
+                        onResult(success)
+                    }
+                }
+                DynamicCommentInputHost(
+                    draftKeyPrefix = "dynamic-detail:${state.item.id_str}",
+                    viewModel = interactionViewModel,
+                    onPostComment = postComment,
                 )
 
                 if (showImagePreview && previewImages.isNotEmpty()) {

@@ -93,7 +93,15 @@ import com.android.purebilibili.core.ui.ContainerLevel
 
 private const val COMMENT_INPUT_FOCUS_RETRY_COUNT = 3
 private const val COMMENT_INPUT_FOCUS_RETRY_DELAY_MS = 80L
-private const val COMMENT_INPUT_HEADER_HEIGHT_DP = 48
+
+/** 展开按钮以浮层覆盖外层顶部和编辑区顶部留白，不额外占宽高。 */
+private const val COMMENT_INPUT_EXPAND_BUTTON_SIZE_DP = 40
+private const val COMMENT_INPUT_EXPAND_ICON_SIZE_DP = 16
+private const val COMMENT_INPUT_EXPAND_ICON_INSET_DP = 7
+private const val COMMENT_INPUT_EDITOR_HORIZONTAL_PADDING_DP = 8
+private const val COMMENT_INPUT_EDITOR_TOP_PADDING_DP = 20
+private const val COMMENT_INPUT_EDITOR_BOTTOM_PADDING_DP = 8
+private const val COMMENT_INPUT_TOOLBAR_TOP_GAP_DP = 8
 
 private val COMMENT_INPUT_KAOMOJIS = listOf(
     "(⌒▽⌒)", "（￣▽￣）", "(=・ω・=)", "(｀・ω・´)",
@@ -118,6 +126,7 @@ internal data class CommentInputDialogLayoutPolicy(
     val inputBoxMaxHeightDp: Int,
     val emojiPanelHeightDp: Int,
     val sheetHorizontalPaddingDp: Int,
+    val sheetTopPaddingDp: Int,
     val toolbarToolButtonSizeDp: Int,
     val toolbarToolSpacingDp: Int,
     val sendButtonHorizontalPaddingDp: Int
@@ -138,7 +147,8 @@ internal fun resolveCommentInputDialogLayoutPolicy(
             inputBoxMinHeightDp = 96,
             inputBoxMaxHeightDp = 168,
             emojiPanelHeightDp = 240,
-            sheetHorizontalPaddingDp = 20,
+            sheetHorizontalPaddingDp = 16,
+            sheetTopPaddingDp = 12,
             toolbarToolButtonSizeDp = 44,
             toolbarToolSpacingDp = 4,
             sendButtonHorizontalPaddingDp = 20
@@ -147,7 +157,8 @@ internal fun resolveCommentInputDialogLayoutPolicy(
             inputBoxMinHeightDp = 120,
             inputBoxMaxHeightDp = 200,
             emojiPanelHeightDp = 320,
-            sheetHorizontalPaddingDp = 20,
+            sheetHorizontalPaddingDp = 16,
+            sheetTopPaddingDp = 12,
             toolbarToolButtonSizeDp = 44,
             toolbarToolSpacingDp = 4,
             sendButtonHorizontalPaddingDp = 18
@@ -156,7 +167,8 @@ internal fun resolveCommentInputDialogLayoutPolicy(
             inputBoxMinHeightDp = 64,
             inputBoxMaxHeightDp = 112,
             emojiPanelHeightDp = 196,
-            sheetHorizontalPaddingDp = 16,
+            sheetHorizontalPaddingDp = 12,
+            sheetTopPaddingDp = 10,
             toolbarToolButtonSizeDp = 40,
             toolbarToolSpacingDp = 2,
             sendButtonHorizontalPaddingDp = 18
@@ -165,7 +177,8 @@ internal fun resolveCommentInputDialogLayoutPolicy(
             inputBoxMinHeightDp = 84,
             inputBoxMaxHeightDp = 136,
             emojiPanelHeightDp = 280,
-            sheetHorizontalPaddingDp = 16,
+            sheetHorizontalPaddingDp = 12,
+            sheetTopPaddingDp = 10,
             toolbarToolButtonSizeDp = 40,
             toolbarToolSpacingDp = 2,
             sendButtonHorizontalPaddingDp = 16
@@ -235,7 +248,10 @@ fun CommentInputDialog(
     initialImageUris: List<Uri> = emptyList(),
     initialSyncToDynamic: Boolean = false,
     onDraftChange: (String, List<Uri>, Boolean) -> Unit = { _, _, _ -> },
-    emotePackages: List<com.android.purebilibili.data.model.response.EmotePackage> = emptyList() // [新增] 表情包列表
+    emotePackages: List<com.android.purebilibili.data.model.response.EmotePackage> = emptyList(), // [新增] 表情包列表
+    allowImageAttachment: Boolean = true,
+    showSyncToDynamic: Boolean = true,
+    showProgressInsert: Boolean = true,
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
@@ -331,7 +347,7 @@ fun CommentInputDialog(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         PickMultipleGalleryVisualMedia(maxItems = 9)
     ) { uris ->
-        if (uris.isNotEmpty() && imagePickerDraftKey == draftKey) {
+        if (allowImageAttachment && uris.isNotEmpty() && imagePickerDraftKey == draftKey) {
             selectedImageUris = (selectedImageUris + uris)
                 .distinct()
                 .take(9)
@@ -392,7 +408,7 @@ fun CommentInputDialog(
         showEmojiPanel = false
         showMentionPanel = false
         mentionSearchText = ""
-        selectedImageUris = initialImageUris
+        selectedImageUris = if (allowImageAttachment) initialImageUris else emptyList()
     }
 
 
@@ -429,7 +445,9 @@ fun CommentInputDialog(
             val availablePanelHeightDp = configuration.screenHeightDp -
                 layoutPolicy.inputBoxMaxHeightDp -
                 layoutPolicy.toolbarToolButtonSizeDp -
-                COMMENT_INPUT_HEADER_HEIGHT_DP - layoutPolicy.sheetHorizontalPaddingDp - 12 -
+                // 展开按钮浮层覆盖外层顶部和编辑区顶部；平板比手机多 2dp。
+                (layoutPolicy.sheetTopPaddingDp + COMMENT_INPUT_EDITOR_TOP_PADDING_DP) -
+                layoutPolicy.sheetHorizontalPaddingDp - COMMENT_INPUT_TOOLBAR_TOP_GAP_DP -
                 with(density) {
                     (navigationBarsBottomPx + WindowInsets.statusBars.getTop(density))
                         .toDp().value.roundToInt()
@@ -485,6 +503,12 @@ fun CommentInputDialog(
                         color = MaterialTheme.colorScheme.surface,
                         tonalElevation = 8.dp
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(if (inputExpanded) Modifier.fillMaxHeight() else Modifier)
+                        ) {
+                        // 原有内容列；展开按钮随后作为兄弟节点叠加在其右上角，不参与列尺寸计算。
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -492,33 +516,12 @@ fun CommentInputDialog(
                                 .padding(
                                     start = layoutPolicy.sheetHorizontalPaddingDp.dp,
                                     end = layoutPolicy.sheetHorizontalPaddingDp.dp,
+                                    top = layoutPolicy.sheetTopPaddingDp.dp,
                                     bottom = layoutPolicy.sheetHorizontalPaddingDp.dp
                                 )
                                 .navigationBarsPadding() // 避让底部导航栏(手势条)
                         ) {
-                            // 顶部操作使用原生按钮；各材质共用留白布局，不占用正文右侧宽度。
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(COMMENT_INPUT_HEADER_HEIGHT_DP.dp)
-                            ) {
-                                AppIconButton(
-                                    onClick = { inputExpanded = !inputExpanded },
-                                    enabled = inputActive,
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .size(COMMENT_INPUT_HEADER_HEIGHT_DP.dp)
-                                        .testTag("comment_composer_expand_toggle")
-                                ) {
-                                    AppIcon(
-                                        imageVector = if (inputExpanded) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-                                        contentDescription = if (inputExpanded) "收起输入区" else "展开输入区",
-                                        modifier = Modifier.size(16.dp),
-                                        tint = AppContentColors.secondaryText()
-                                    )
-                                }
-                            }
-                            // 紧凑态只取原生输入高度；展开态填满剩余视口，均先给头部与发布栏留空间。
+                            // 紧凑态只取原生输入高度；展开态填满剩余视口，均先给发布栏留空间。
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -530,7 +533,13 @@ fun CommentInputDialog(
                                         )
                                     )
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), AppShapes.container(ContainerLevel.Chip))
-                                    .padding(12.dp)
+                                    .testTag("comment_composer_editor_surface")
+                                    .padding(
+                                        start = COMMENT_INPUT_EDITOR_HORIZONTAL_PADDING_DP.dp,
+                                        end = COMMENT_INPUT_EDITOR_HORIZONTAL_PADDING_DP.dp,
+                                        top = COMMENT_INPUT_EDITOR_TOP_PADDING_DP.dp,
+                                        bottom = COMMENT_INPUT_EDITOR_BOTTOM_PADDING_DP.dp
+                                    )
                                     .testTag("comment_composer_editor")
                             ) {
                                 // 原生编辑器也按会话隔离，旧 TextWatcher 不能回写新回复目标。
@@ -586,7 +595,7 @@ fun CommentInputDialog(
                                 )
                             }
 
-                            if (selectedImageUris.isNotEmpty()) {
+                            if (allowImageAttachment && selectedImageUris.isNotEmpty()) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -654,7 +663,7 @@ fun CommentInputDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 12.dp),
+                                    .padding(top = COMMENT_INPUT_TOOLBAR_TOP_GAP_DP.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(
@@ -665,34 +674,36 @@ fun CommentInputDialog(
                                     horizontalArrangement = Arrangement.spacedBy(layoutPolicy.toolbarToolSpacingDp.dp)
                                 ) {
                                     // 转发到动态
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .clip(AppShapes.container(ContainerLevel.Tag))
-                                            .clickable(enabled = canInputComment && !isSending) {
-                                                isForwardToDynamic = !isForwardToDynamic
-                                                onDraftChange(
-                                                    textFieldValue.text,
-                                                    selectedImageUris,
-                                                    isForwardToDynamic
-                                                )
-                                            }
-                                            .padding(horizontal = 4.dp, vertical = 4.dp)
-                                    ) {
-                                        // 模拟 RadioButton/Checkbox
-                                        AppIcon(
-                                            imageVector = if (isForwardToDynamic) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                                            contentDescription = null,
-                                            tint = if (isForwardToDynamic) AppContentColors.accent() else AppContentColors.secondaryText(),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        AppText(
-                                            text = "转发到动态",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = AppContentColors.secondaryText(),
-                                            maxLines = 1
-                                        )
+                                    if (showSyncToDynamic) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .clip(AppShapes.container(ContainerLevel.Tag))
+                                                .clickable(enabled = canInputComment && !isSending) {
+                                                    isForwardToDynamic = !isForwardToDynamic
+                                                    onDraftChange(
+                                                        textFieldValue.text,
+                                                        selectedImageUris,
+                                                        isForwardToDynamic
+                                                    )
+                                                }
+                                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                        ) {
+                                            // 模拟 RadioButton/Checkbox
+                                            AppIcon(
+                                                imageVector = if (isForwardToDynamic) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                                                contentDescription = null,
+                                                tint = if (isForwardToDynamic) AppContentColors.accent() else AppContentColors.secondaryText(),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            AppText(
+                                                text = "转发到动态",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = AppContentColors.secondaryText(),
+                                                maxLines = 1
+                                            )
+                                        }
                                     }
 
                                     // 图标栏: 表情 @ 图片
@@ -736,39 +747,43 @@ fun CommentInputDialog(
                                         )
                                     }
 
-                                    AppIconButton(
-                                        onClick = {
-                                            insertTextAtCursor(resolveCommentProgressInsertText(currentVideoPositionMsProvider()))
-                                            showEmojiPanel = false
-                                            showMentionPanel = false
-                                        },
-                                        enabled = canInputComment && !isSending,
-                                        modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
-                                    ) {
-                                        AppIcon(
-                                            imageVector = Icons.Outlined.Schedule,
-                                            contentDescription = "插入当前播放进度",
-                                            tint = AppContentColors.secondaryText(),
-                                            modifier = Modifier.size(26.dp)
-                                        )
+                                    if (showProgressInsert) {
+                                        AppIconButton(
+                                            onClick = {
+                                                insertTextAtCursor(resolveCommentProgressInsertText(currentVideoPositionMsProvider()))
+                                                showEmojiPanel = false
+                                                showMentionPanel = false
+                                            },
+                                            enabled = canInputComment && !isSending,
+                                            modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
+                                        ) {
+                                            AppIcon(
+                                                imageVector = Icons.Outlined.Schedule,
+                                                contentDescription = "插入当前播放进度",
+                                                tint = AppContentColors.secondaryText(),
+                                                modifier = Modifier.size(26.dp)
+                                            )
+                                        }
                                     }
 
-                                    AppIconButton(
-                                        onClick = {
-                                            imagePickerDraftKey = draftKey
-                                            imagePickerLauncher.launch(
-                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    if (allowImageAttachment) {
+                                        AppIconButton(
+                                            onClick = {
+                                                imagePickerDraftKey = draftKey
+                                                imagePickerLauncher.launch(
+                                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                                )
+                                            },
+                                            enabled = canInputComment && !isSending,
+                                            modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
+                                        ) {
+                                            AppIcon(
+                                                imageVector = Icons.Outlined.Image,
+                                                contentDescription = "图片",
+                                                tint = AppContentColors.secondaryText(),
+                                                modifier = Modifier.size(26.dp)
                                             )
-                                        },
-                                        enabled = canInputComment && !isSending,
-                                        modifier = Modifier.size(layoutPolicy.toolbarToolButtonSizeDp.dp)
-                                    ) {
-                                        AppIcon(
-                                            imageVector = Icons.Outlined.Image,
-                                            contentDescription = "图片",
-                                            tint = AppContentColors.secondaryText(),
-                                            modifier = Modifier.size(26.dp)
-                                        )
+                                        }
                                     }
                                 }
 
@@ -995,6 +1010,33 @@ fun CommentInputDialog(
                                 }
                             }
                         }
+                        // 浮层兄弟节点：绘制在内容之上，40dp 触控区不参与 Column 的宽高测量。
+                        AppIconButton(
+                            onClick = { inputExpanded = !inputExpanded },
+                            enabled = inputActive,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(COMMENT_INPUT_EXPAND_BUTTON_SIZE_DP.dp)
+                                .testTag("comment_composer_expand_toggle")
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.TopEnd
+                            ) {
+                                AppIcon(
+                                    imageVector = if (inputExpanded) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                                    contentDescription = if (inputExpanded) "收起输入区" else "展开输入区",
+                                    modifier = Modifier
+                                        .padding(
+                                            top = COMMENT_INPUT_EXPAND_ICON_INSET_DP.dp,
+                                            end = COMMENT_INPUT_EXPAND_ICON_INSET_DP.dp
+                                        )
+                                        .size(COMMENT_INPUT_EXPAND_ICON_SIZE_DP.dp),
+                                    tint = AppContentColors.secondaryText()
+                                )
+                            }
+                        }
+                        } // 外层浮层容器
                     }
                 }
             }
