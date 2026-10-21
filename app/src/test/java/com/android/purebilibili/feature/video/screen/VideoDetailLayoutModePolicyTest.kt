@@ -447,7 +447,7 @@ class VideoDetailLayoutModePolicyTest {
     @Test
     fun compactPhoneIgnoresFoldablePortraitPreference() {
         assertEquals(
-            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
             resolvePhoneVideoRequestedOrientation(
                 autoRotateEnabled = false,
                 fullscreenMode = FullscreenMode.AUTO,
@@ -485,35 +485,33 @@ class VideoDetailLayoutModePolicyTest {
     }
 
     @Test
-    fun phoneOrientationPolicy_autoRotateDisabled_staysPortraitDespiteSystemRotation() {
-        for (systemRotation in listOf(false, true)) {
-            for (fullscreen in listOf(false, true)) {
-                for (mode in listOf(FullscreenMode.AUTO, FullscreenMode.HORIZONTAL)) {
-                    assertEquals(
-                        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
-                        resolvePhoneVideoRequestedOrientation(
-                            autoRotateEnabled = false,
-                            systemAutoRotateEnabled = systemRotation,
-                            fullscreenMode = mode,
-                            isCompactDevice = true,
-                            isOrientationDrivenFullscreen = true,
-                            isFullscreenMode = fullscreen,
-                            manualFullscreenRequested = false,
-                            // 包括关闭开关时残留的横屏配置与方向请求。
-                            isCurrentlyLandscape = fullscreen,
-                            currentRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
-                        )
+    fun phoneOrientationPolicy_autoRotateDisabled_staysPortraitWithoutManualFullscreenIntent() {
+        for (fullscreen in listOf(false, true)) {
+            for (mode in listOf(FullscreenMode.AUTO, FullscreenMode.HORIZONTAL)) {
+                assertEquals(
+                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+                    resolvePhoneVideoRequestedOrientation(
+                        autoRotateEnabled = false,
+                        fullscreenMode = mode,
+                        isCompactDevice = true,
+                        isOrientationDrivenFullscreen = true,
+                        isFullscreenMode = fullscreen,
+                        manualFullscreenRequested = false,
+                        // 包括关闭开关时残留的横屏配置与方向请求。
+                        isCurrentlyLandscape = fullscreen,
+                        currentRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
                     )
-                }
+                )
             }
         }
     }
 
     @Test
-    fun autoRotateDisabled_preservesCurrentExactLandscapeSideOnBothScreens() {
+    fun autoRotateDisabled_preservesCompactSideButUsesDisplaySensorOnLargeScreen() {
         for (isCompactDevice in listOf(true, false)) {
             assertEquals(
-                ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
+                if (isCompactDevice) ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
                 resolvePhoneVideoRequestedOrientation(
                     autoRotateEnabled = false,
                     fullscreenMode = FullscreenMode.AUTO,
@@ -544,17 +542,10 @@ class VideoDetailLayoutModePolicyTest {
 
     @Test
     fun phoneOrientationPolicy_manualFullscreenRequest_withAutoRotateDisabled_holdsLandscapeUntilConfigurationCatchesUp() {
-        // Regression: with auto-rotate OFF, pressing fullscreen applies SENSOR_LANDSCAPE
-        // directly. Before configuration flips to landscape, isFullscreenMode is still
-        // false. The orientation effect must honor manualFullscreenRequested and keep
-        // requesting landscape, otherwise it returns to USER and yanks the user
-        // back out of fullscreen (#782 class loop on auto-rotate off).
-        // autoRotate off → resolveStableOrientationWhenAutoRotateDisabled converts
-        // SENSOR_LANDSCAPE to a fixed LANDSCAPE side. The pre-fix branch returned
-        // PORTRAIT here and yanked the user
-        // back out of fullscreen.
+        // Before configuration flips to landscape, isFullscreenMode is still false.
+        // Honor the manual intent without fixing the side or requesting portrait.
         assertEquals(
-            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
             resolvePhoneVideoRequestedOrientation(
                 autoRotateEnabled = false,
                 fullscreenMode = FullscreenMode.AUTO,

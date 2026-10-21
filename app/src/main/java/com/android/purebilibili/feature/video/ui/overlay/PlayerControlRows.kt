@@ -31,7 +31,7 @@ import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import kotlin.math.roundToInt
 
-enum class PlayerControlAnchor { QUALITY, SPEED, EPISODES, RATIO, TRANSLATION, SUBTITLE, ENHANCEMENT, CHAPTERS }
+enum class PlayerControlAnchor { QUALITY, AUDIO, SPEED, EPISODES, RATIO, TRANSLATION, SUBTITLE, ENHANCEMENT, CHAPTERS }
 
 internal const val PILI_PLAYER_BOTTOM_ROW_HEIGHT_DP = 34
 internal const val PILI_PLAYER_BOTTOM_VERTICAL_PADDING_DP = 12

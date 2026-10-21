@@ -311,7 +311,6 @@ fun PortraitVideoPager(
     onProgressUpdate: (String, Long, Long, String) -> Unit = { _, _, _, _ -> },
     /** 离开竖屏前快照：(bvid, positionMs, cid, coverUrl)。 */
     onExitSnapshot: (String, Long, Long, String) -> Unit = { _, _, _, _ -> },
-    onSearchClick: () -> Unit = {},
     onUserClick: (Long) -> Unit,
     onRotateToLandscape: () -> Unit,
     menuActions: com.android.purebilibili.feature.video.ui.overlay.PiliPlayerMenuActions =
@@ -1944,7 +1943,6 @@ fun PortraitVideoPager(
                 danmakuSmartOcclusion = danmakuSmartOcclusion,
                 portraitDanmakuDisplayAreaMode = portraitDanmakuDisplayAreaMode,
                 onExitSnapshot = onExitSnapshot,
-                onSearchClick = onSearchClick,
                 onUserClick = handleUserClick,
                 onRotateToLandscape = onRotateToLandscape,
                 onProgressUpdate = onProgressUpdate,
@@ -2197,7 +2195,6 @@ private fun VideoPageItem(
     danmakuSmartOcclusion: Boolean,
     portraitDanmakuDisplayAreaMode: PortraitDanmakuDisplayAreaMode,
     onExitSnapshot: (String, Long, Long, String) -> Unit,
-    onSearchClick: () -> Unit,
     onUserClick: (Long) -> Unit,
     onRotateToLandscape: () -> Unit,
     onProgressUpdate: (String, Long, Long, String) -> Unit,
@@ -3824,6 +3821,16 @@ private fun VideoPageItem(
                     showDetailSheet = showDetailSheet,
                 ) && commentSheetVisibilityProgress <= 0.001f,
                 isFullscreen = true,
+                isPortraitFullscreen = true,
+                videoOwnerMid = authorMid,
+                declarations = portraitDetailInfo?.argueInfo?.argueMsg
+                    ?.takeIf { it.isNotBlank() }?.let(::listOf).orEmpty(),
+                staff = portraitDetailInfo?.staff.orEmpty(),
+                statView = stat.view,
+                statReply = stat.reply,
+                statShare = stat.share,
+                statDanmaku = stat.danmaku,
+                videoAspectRatio = currentVideoAspect,
                 playerViewportSize = androidx.compose.ui.unit.IntSize(portraitPageWidthPx, portraitPageHeightPx),
                 currentQualityLabel = qualityLabel,
                 qualityLabels = resolvePortraitQualityMenuLabels(availableQualityIds),
@@ -4115,6 +4122,13 @@ private fun VideoPageItem(
                     onRotateToLandscape()
                 },
                 onLandscapeCommentClick = { showCommentSheet = true },
+                onCommentClick = { showCommentSheet = true },
+                onDetailClick = { if (portraitDetailInfo != null) showDetailSheet = true },
+                onTitleClick = { if (portraitDetailInfo != null) showDetailSheet = true },
+                onAuthorClick = {
+                    if (isCurrentPage && authorMid > 0L) onUserClick(authorMid)
+                },
+                onStaffMemberClick = { mid -> if (mid > 0L) onUserClick(mid) },
                 onDanmakuToggle = toggleDanmaku,
                 onDanmakuInputClick = {
                     when {

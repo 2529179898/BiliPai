@@ -55,7 +55,6 @@ class VideoDetailFullscreenOrientationPolicyTest {
             assertEquals(ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
                 resolvePhoneVideoRequestedOrientation(
                     autoRotateEnabled = appAutoRotate,
-                    systemAutoRotateEnabled = true,
                     fullscreenMode = FullscreenMode.HORIZONTAL,
                     isCompactDevice = true,
                     isOrientationDrivenFullscreen = true,
@@ -68,10 +67,9 @@ class VideoDetailFullscreenOrientationPolicyTest {
     }
 
     @Test
-    fun `manual fullscreen tracks both sides with app auto rotate off and system rotation on`() {
+    fun `manual fullscreen tracks both sides with app and system auto rotate off`() {
         assertTrue(shouldObservePhoneAutoRotate(
             autoRotateEnabled = false,
-            systemAutoRotateEnabled = true,
             isCompactDevice = true,
             isOrientationDrivenFullscreen = true,
             fullscreenMode = FullscreenMode.HORIZONTAL,
@@ -81,7 +79,6 @@ class VideoDetailFullscreenOrientationPolicyTest {
         ))
         var request = requireNotNull(resolvePhoneVideoRequestedOrientation(
             autoRotateEnabled = false,
-            systemAutoRotateEnabled = true,
             fullscreenMode = FullscreenMode.HORIZONTAL,
             isCompactDevice = true,
             isOrientationDrivenFullscreen = true,
@@ -90,14 +87,16 @@ class VideoDetailFullscreenOrientationPolicyTest {
             currentRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
         ))
         assertEquals(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE, request)
-        for ((degrees, expected) in listOf(
+        for ((index, posture) in listOf(
             90 to ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
             270 to ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
             90 to ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
-        )) {
+        ).withIndex()) {
+            val (degrees, expected) = posture
             request = requireNotNull(resolvePhoneAutoRotateRequestedOrientation(
                 orientationDegrees = degrees,
-                isCurrentlyLandscape = true,
+                // The first stable posture must work before landscape configuration arrives.
+                isCurrentlyLandscape = index != 0,
                 allowPortraitTransitions = false,
             ))
             assertFalse(shouldReleaseManualFullscreenRequestAfterSensorTarget(
@@ -109,7 +108,6 @@ class VideoDetailFullscreenOrientationPolicyTest {
             for (fullscreen in listOf(false, true)) {
                 request = requireNotNull(resolvePhoneVideoRequestedOrientation(
                     autoRotateEnabled = false,
-                    systemAutoRotateEnabled = true,
                     fullscreenMode = FullscreenMode.HORIZONTAL,
                     isCompactDevice = true,
                     isOrientationDrivenFullscreen = true,
@@ -120,19 +118,21 @@ class VideoDetailFullscreenOrientationPolicyTest {
                 assertEquals(expected, request)
             }
         }
-        assertNull(resolvePhoneAutoRotateRequestedOrientation(
-            orientationDegrees = 0,
-            isCurrentlyLandscape = true,
-            allowPortraitTransitions = false,
-        ))
+        for (degrees in listOf(-1, 0, 180, 360)) {
+            assertNull(resolvePhoneAutoRotateRequestedOrientation(
+                orientationDegrees = degrees,
+                isCurrentlyLandscape = true,
+                allowPortraitTransitions = false,
+            ))
+        }
     }
 
     @Test
-    fun `app auto rotate remains available under system rotation lock`() {
+    fun `fullscreen gravity remains available independently of the app auto rotate toggle`() {
+        // System rotation is deliberately not an input to the fullscreen gravity policy.
         for (appAutoRotate in listOf(false, true)) {
-            assertEquals(appAutoRotate, shouldObservePhoneAutoRotate(
+            assertTrue(shouldObservePhoneAutoRotate(
                 autoRotateEnabled = appAutoRotate,
-                systemAutoRotateEnabled = false,
                 isCompactDevice = true,
                 isOrientationDrivenFullscreen = true,
                 fullscreenMode = FullscreenMode.HORIZONTAL,
@@ -141,10 +141,9 @@ class VideoDetailFullscreenOrientationPolicyTest {
                 isFullscreenMode = true,
             ))
         }
-        assertEquals(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+        assertEquals(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
             resolvePhoneVideoRequestedOrientation(
                 autoRotateEnabled = false,
-                systemAutoRotateEnabled = false,
                 fullscreenMode = FullscreenMode.HORIZONTAL,
                 isCompactDevice = true,
                 isOrientationDrivenFullscreen = true,
@@ -152,6 +151,71 @@ class VideoDetailFullscreenOrientationPolicyTest {
                 manualFullscreenRequested = true,
             )
         )
+    }
+
+    @Test
+    fun `tablet fullscreen leaves physical side mapping to the display sensor`() {
+        for (appAutoRotate in listOf(false, true)) {
+            assertTrue(shouldObservePhoneAutoRotate(
+                autoRotateEnabled = appAutoRotate,
+                isCompactDevice = false,
+                isOrientationDrivenFullscreen = false,
+                fullscreenMode = FullscreenMode.HORIZONTAL,
+                manualPortraitHoldActive = false,
+                manualFullscreenRequested = true,
+                isFullscreenMode = true,
+            ))
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
+                resolvePhoneVideoRequestedOrientation(
+                    autoRotateEnabled = appAutoRotate,
+                    fullscreenMode = FullscreenMode.HORIZONTAL,
+                    isCompactDevice = false,
+                    isOrientationDrivenFullscreen = false,
+                    isFullscreenMode = true,
+                    manualFullscreenRequested = true,
+                    currentRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
+                    preserveExactLandscapeSide = false,
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `inline gravity still follows app auto rotate and manual portrait hold policy`() {
+        for (appAutoRotate in listOf(false, true)) {
+            assertEquals(appAutoRotate, shouldObservePhoneAutoRotate(
+                autoRotateEnabled = appAutoRotate,
+                isCompactDevice = true,
+                isOrientationDrivenFullscreen = true,
+                fullscreenMode = FullscreenMode.HORIZONTAL,
+                manualPortraitHoldActive = false,
+            ))
+            assertTrue(shouldObservePhoneAutoRotate(
+                autoRotateEnabled = appAutoRotate,
+                isCompactDevice = true,
+                isOrientationDrivenFullscreen = true,
+                fullscreenMode = FullscreenMode.HORIZONTAL,
+                manualPortraitHoldActive = true,
+            ))
+            assertEquals(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+                resolvePhoneVideoRequestedOrientation(
+                    autoRotateEnabled = appAutoRotate,
+                    fullscreenMode = FullscreenMode.HORIZONTAL,
+                    isCompactDevice = true,
+                    isOrientationDrivenFullscreen = true,
+                    isFullscreenMode = true,
+                    manualFullscreenRequested = true,
+                    manualPortraitHoldActive = true,
+                )
+            )
+            assertFalse(shouldObservePhoneAutoRotate(
+                autoRotateEnabled = appAutoRotate,
+                isCompactDevice = false,
+                isOrientationDrivenFullscreen = false,
+                fullscreenMode = FullscreenMode.HORIZONTAL,
+                manualPortraitHoldActive = false,
+            ))
+        }
     }
 
     @Test

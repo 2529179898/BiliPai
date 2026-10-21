@@ -142,13 +142,17 @@ fun TopControlBar(
         piliHeaderLikeGesture(triplePress, isLiked && isCoined && isFavorited, onLikeClick, onLikeLongClick)
     } else null
     val hasVisibleStatusBar = shouldApplyStatusBarPaddingToTopControlBar(isFullscreen, statusBarVisible)
+    val symmetricSideInset = resolveSymmetricPlayerSideInset(
+        insets = WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
+        minimum = 0.dp,
+    )
 
     PlayerControlTouchBounds(height = policy.buttonHeightDp.dp) {
         Column(
             modifier = modifier.fillMaxWidth()
                 // PiliPlus reserves only the display cutout horizontally (its Flutter
                 // viewPadding ignores hidden navigation bars and gesture strips).
-                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+                .padding(horizontal = symmetricSideInset)
                 // Immersive fullscreen hides the status bar, but a camera cutout still owns the
                 // top edge; reserve it so no header button sits under the punch hole.
                 .then(

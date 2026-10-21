@@ -1,8 +1,10 @@
 package com.android.purebilibili.feature.bangumi
 
+import android.content.pm.ActivityInfo
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -193,5 +195,157 @@ class BangumiUiPolicyTest {
                 usesInWindowFullscreen = true,
             )
         )
+    }
+
+    @Test
+    fun `manual fullscreen follows first landscape reading and both sides with auto rotation disabled`() {
+        var requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        for ((degrees, expected) in listOf(
+            90 to ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
+            180 to ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
+            270 to ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+            0 to ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+        )) {
+            val target = resolveBangumiSensorOrientationTarget(
+                orientationDegrees = degrees,
+                sensorAutoRotateEnabled = false,
+                isFullscreen = true,
+                isLandscape = true,
+                isTablet = false,
+                usesInWindowFullscreen = false,
+                isPlayerScreenLocked = false,
+                isInPipMode = false,
+                currentRequestedOrientation = requestedOrientation,
+            )
+            requestedOrientation = target ?: requestedOrientation
+            assertEquals(expected, requestedOrientation)
+        }
+    }
+
+    @Test
+    fun `manual fullscreen can resolve side before landscape configuration arrives`() {
+        assertEquals(
+            ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
+            resolveBangumiSensorOrientationTarget(
+                orientationDegrees = 90,
+                sensorAutoRotateEnabled = false,
+                isFullscreen = true,
+                isLandscape = false,
+                isTablet = false,
+                usesInWindowFullscreen = false,
+                isPlayerScreenLocked = false,
+                isInPipMode = false,
+                currentRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
+            ),
+        )
+    }
+
+    @Test
+    fun `disabled auto rotation never enters fullscreen from inline posture`() {
+        for (degrees in listOf(0, 90, 180, 270)) {
+            assertNull(resolveBangumiSensorOrientationTarget(
+                orientationDegrees = degrees,
+                sensorAutoRotateEnabled = false,
+                isFullscreen = false,
+                isLandscape = false,
+                isTablet = false,
+                usesInWindowFullscreen = false,
+                isPlayerScreenLocked = false,
+                isInPipMode = false,
+                currentRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+            ))
+        }
+    }
+
+    @Test
+    fun `enabled auto rotation preserves portrait exit and landscape entry`() {
+        assertEquals(
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+            resolveBangumiSensorOrientationTarget(
+                orientationDegrees = 0,
+                sensorAutoRotateEnabled = true,
+                isFullscreen = true,
+                isLandscape = true,
+                isTablet = false,
+                usesInWindowFullscreen = false,
+                isPlayerScreenLocked = false,
+                isInPipMode = false,
+                currentRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
+            ),
+        )
+        assertEquals(
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+            resolveBangumiSensorOrientationTarget(
+                orientationDegrees = 270,
+                sensorAutoRotateEnabled = true,
+                isFullscreen = false,
+                isLandscape = false,
+                isTablet = false,
+                usesInWindowFullscreen = false,
+                isPlayerScreenLocked = false,
+                isInPipMode = false,
+                currentRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+            ),
+        )
+    }
+
+    @Test
+    fun `repeated landscape reading does not request orientation again`() {
+        for ((degrees, currentRequest) in listOf(
+            90 to ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE,
+            270 to ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+        )) {
+            assertNull(resolveBangumiSensorOrientationTarget(
+                orientationDegrees = degrees,
+                sensorAutoRotateEnabled = false,
+                isFullscreen = true,
+                isLandscape = true,
+                isTablet = false,
+                usesInWindowFullscreen = false,
+                isPlayerScreenLocked = false,
+                isInPipMode = false,
+                currentRequestedOrientation = currentRequest,
+            ))
+        }
+    }
+
+    @Test
+    fun `unknown angles and upside down posture never request orientation`() {
+        for (autoRotate in listOf(false, true)) {
+            for (degrees in listOf(-1, 135, 180, 224, 360, 500)) {
+                assertNull(resolveBangumiSensorOrientationTarget(
+                    orientationDegrees = degrees,
+                    sensorAutoRotateEnabled = autoRotate,
+                    isFullscreen = true,
+                    isLandscape = true,
+                    isTablet = false,
+                    usesInWindowFullscreen = false,
+                    isPlayerScreenLocked = false,
+                    isInPipMode = false,
+                    currentRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+                ))
+            }
+        }
+    }
+
+    @Test
+    fun `tablet in-window screen lock and pip suppress gravity changes`() {
+        for (autoRotate in listOf(false, true)) {
+            for (restriction in 0..3) {
+                for (degrees in listOf(0, 90, 270)) {
+                    assertNull(resolveBangumiSensorOrientationTarget(
+                        orientationDegrees = degrees,
+                        sensorAutoRotateEnabled = autoRotate,
+                        isFullscreen = true,
+                        isLandscape = true,
+                        isTablet = restriction == 0,
+                        usesInWindowFullscreen = restriction == 1,
+                        isPlayerScreenLocked = restriction == 2,
+                        isInPipMode = restriction == 3,
+                        currentRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
+                    ))
+                }
+            }
+        }
     }
 }

@@ -626,7 +626,6 @@ internal fun resolvePhoneVideoRequestedOrientation(
     preferPortraitForFlatFoldable: Boolean = false,
     preserveExactLandscapeSide: Boolean = true,
     isCurrentlyLandscape: Boolean = false,
-    systemAutoRotateEnabled: Boolean = autoRotateEnabled,
 ): Int? {
     // A size class alone can classify a tablet or a large phone as a foldable. Keep this
     // preference out of compact layouts even if an upstream caller misclassifies the device.
@@ -636,8 +635,8 @@ internal fun resolvePhoneVideoRequestedOrientation(
     // tablet they must never turn a manual landscape fullscreen request into portrait (metadata
     // may be stale or rotated). Video-directed orientation remains a phone-only behavior.
     val isVerticalVideoForOrientation = isCompactDevice && isVerticalVideo
-    // PiliPlus Android also requests the physical orientation inside resizable system
-    // windows. Keep that path for compact devices; only PiP has its own aspect-ratio policy.
+    // Compact devices also request physical orientation inside resizable system windows.
+    // Only PiP has its own aspect-ratio policy.
     if ((isInMultiWindowMode && !isCompactDevice) || isInPictureInPictureMode) {
         return null
     }
@@ -655,15 +654,10 @@ internal fun resolvePhoneVideoRequestedOrientation(
     if (!shouldApplyPhoneAutoRotatePolicy(isCompactDevice)) {
         return when {
             isFullscreenMode || manualFullscreenRequested -> {
-                val fullscreenOrientation = resolvePhoneFullscreenEnterOrientation(
+                resolvePhoneFullscreenEnterOrientation(
                     fullscreenMode = fullscreenMode,
                     isVerticalVideo = isVerticalVideoForOrientation,
                     preferPortraitForFlatFoldable = preferPortraitForFoldableInnerScreen
-                )
-                resolveStableOrientationWhenAutoRotateDisabled(
-                    requestedOrientation = fullscreenOrientation,
-                    currentRequestedOrientation = currentRequestedOrientation,
-                    autoRotateEnabled = autoRotateEnabled || systemAutoRotateEnabled
                 )
             }
             autoRotateEnabled -> ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
@@ -725,45 +719,19 @@ internal fun resolvePhoneVideoRequestedOrientation(
             isVerticalVideo = isVerticalVideo,
             preferPortraitForFlatFoldable = preferPortraitForFoldableInnerScreen
         ) ?: ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        // The app switch controls portrait/fullscreen transitions. A manual fullscreen
-        // still follows both landscape sides when system rotation is enabled.
-        if (autoRotateEnabled || systemAutoRotateEnabled) {
-            preserveCurrentExactLandscapeSideWhileFullscreen(
-                requestedOrientation = fullscreenOrientation,
-                currentRequestedOrientation = currentRequestedOrientation,
-                isFullscreenMode = isFullscreenMode || manualFullscreenRequested,
-                preserveExactLandscapeSide = preserveExactLandscapeSide,
-            )
-        } else {
-            resolveStableOrientationWhenAutoRotateDisabled(
-                requestedOrientation = fullscreenOrientation,
-                currentRequestedOrientation = currentRequestedOrientation,
-                autoRotateEnabled = false
-            )
-        }
+        // The app switch controls portrait/fullscreen transitions, not which landscape
+        // side a fullscreen player follows. Keep the listener's side across recomposition.
+        preserveCurrentExactLandscapeSideWhileFullscreen(
+            requestedOrientation = fullscreenOrientation,
+            currentRequestedOrientation = currentRequestedOrientation,
+            isFullscreenMode = isFullscreenMode || manualFullscreenRequested,
+            preserveExactLandscapeSide = preserveExactLandscapeSide,
+        )
     } else {
         // 应用关闭自动横竖屏后，内嵌播放必须固定竖屏。USER 会继续跟随系统旋转，
         // 绕过应用开关进入横屏，而自动返回竖屏的监听已关闭，导致单向切换。
         ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
-}
-
-private fun resolveStableOrientationWhenAutoRotateDisabled(
-    requestedOrientation: Int?,
-    currentRequestedOrientation: Int?,
-    autoRotateEnabled: Boolean
-): Int? {
-    if (
-        autoRotateEnabled ||
-        requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-    ) {
-        return requestedOrientation
-    }
-    // SENSOR_LANDSCAPE still follows gravity and can oscillate between both landscape sides
-    // while the user is lying down. With app auto-rotate disabled, preserve an exact landscape
-    // side if one is already active; otherwise enter the platform's fixed landscape orientation.
-    return resolveCurrentExactLandscapeOrientation(currentRequestedOrientation)
-        ?: ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 }
 
 internal fun resolvePhoneAutoRotateRequestedOrientation(
@@ -996,20 +964,19 @@ internal fun shouldObservePhoneAutoRotate(
     observeWhenAutoRotateDisabled: Boolean = false,
     isFullscreenMode: Boolean = false,
     manualFullscreenRequested: Boolean = false,
-    systemAutoRotateEnabled: Boolean = true,
 ): Boolean {
-    if (!systemAutoRotateEnabled && !autoRotateEnabled) return false
-    // A cover display may be classified as a compact phone when its metrics refresh.
-    // Keep tracking both landscape sides throughout fullscreen, regardless of that label.
-    // Even with the app's auto-rotate switch off, an explicit fullscreen exit holds
-    // portrait until the device is upright. Keep observing long enough to release it.
+    // Fullscreen follows both landscape sides independently of rotation settings.
+    // Inline entry and portrait exit remain controlled by the app's auto-rotate switch.
+    // Explicit fullscreen exits keep observing until an upright posture releases the hold.
     if (!autoRotateEnabled && !observeWhenAutoRotateDisabled && !isFullscreenMode &&
         !manualFullscreenRequested && !manualPortraitHoldActive) return false
     if (isInMultiWindowMode || isInPictureInPictureMode) return false
     // BiliPai-style: vertical immersive FS is not kicked by gravity / sensor landscape.
     if (isPortraitFullscreen) return false
-    if (!shouldApplyPhoneAutoRotatePolicy(isCompactDevice)) return false
-    if (!isOrientationDrivenFullscreen) return false
+    if ((!shouldApplyPhoneAutoRotatePolicy(isCompactDevice) ||
+            !isOrientationDrivenFullscreen) &&
+        (!isFullscreenMode && !manualFullscreenRequested || manualPortraitHoldActive)
+    ) return false
     if (fullscreenMode == com.android.purebilibili.core.store.FullscreenMode.NONE) return false
     if (fullscreenMode == com.android.purebilibili.core.store.FullscreenMode.VERTICAL) return false
     return true
