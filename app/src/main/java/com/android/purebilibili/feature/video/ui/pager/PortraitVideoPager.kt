@@ -1642,22 +1642,10 @@ fun PortraitVideoPager(
         }
     }
 
-    // 默认画质异步解析完成后补发首屏播放请求:
-    // 组合页流程可能早于解析完成触发并被占位守卫挡下,这里负责补发。
-    // 用户手动切档时 currentPlayingBvid 非空,不会误触。
-    LaunchedEffect(portraitSelectedQuality) {
-        if (portraitSelectedQuality <= 0 || !currentPlayingBvid.isNullOrBlank() || pageItems.isEmpty()) {
-            return@LaunchedEffect
-        }
-        val initialPage = pagerState.currentPage
-        requestPortraitPlaybackForPage(
-            targetPage = initialPage,
-            applyInitialSeekOnFirstPage = initialPage == 0
-        )
-    }
-
     // 拖动期间仅预取；停稳后才替换媒体，回撤不会打断原视频。
-    LaunchedEffect(pagerState, pageItems, isPortraitPlaybackAllowed) {
+    // 默认画质就绪后重新检查当前页。共享播放器的 BVID 是入口种子，
+    // 不能据此认定媒体已准备；复用与在途请求去重由播放请求内部判断。
+    LaunchedEffect(pagerState, pageItems, isPortraitPlaybackAllowed, portraitSelectedQuality) {
         snapshotFlow {
             if (pagerState.isScrollInProgress) null else pagerState.currentPage
         }
@@ -2600,7 +2588,8 @@ private fun VideoPageItem(
         resolvePortraitVideoViewportVerticalOffsetDp(
             currentVideoAspect = portraitPagerViewportAspect,
             fillContainer = portraitPagerFillContainer,
-            isLandscape = portraitPageWidthPx > portraitPageHeightPx
+            isLandscape = portraitPageWidthPx > portraitPageHeightPx,
+            liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
         ).dp.toPx()
     }
     // 评论 / UP 半屏共用上缩：取较大进度；下拉 UP 预览时 progress 下降，视频跟手回位。
@@ -3815,8 +3804,7 @@ private fun VideoPageItem(
             isPlaying = exoPlayer.isPlaying,
             playbackState = exoPlayer.playbackState,
         )
-        com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlay(
-            state = com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlayState(
+        val portraitOverlayState = com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlayState(
                 player = exoPlayer,
                 title = title,
                 isVisible = isCurrentPage && resolvePortraitOverlayControlsVisible(
@@ -3934,8 +3922,8 @@ private fun VideoPageItem(
                 videoEnhancementAlgorithm = enhancement.config.algorithm,
                 anime4kPreset = enhancement.config.preset,
                 fsrSharpness = enhancement.config.fsrSharpness,
-            ),
-            actions = com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlayActions(
+            )
+        val portraitOverlayActions = com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlayActions(
                 onToggleVisible = { onPortraitOverlayVisibleChange(!portraitOverlayVisible) },
                 onQualitySelected = { index -> availableQualityIds.getOrNull(index)?.let(onQualitySelected) },
                 onQualityChange = onQualitySelected,
@@ -4270,8 +4258,42 @@ private fun VideoPageItem(
                         "分享视频",
                     ))
                 },
-            ),
-        )
+            )
+        // 玻璃竖屏流保留侧边互动和底部信息；原生材质继续使用统一播放器控制栏。
+        if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+            com.android.purebilibili.feature.video.ui.overlay.glass.PortraitPagerControls(
+                state = portraitOverlayState.copy(
+                    isVisible = isCurrentPage && resolvePortraitOverlayControlsVisible(
+                        portraitOverlayVisible = portraitOverlayVisible,
+                        showDetailSheet = showDetailSheet,
+                    ),
+                ),
+                actions = portraitOverlayActions,
+                info = portraitDetailInfo,
+                stat = portraitDetailInfo?.stat ?: stat,
+                progress = progressState,
+                playbackReady = isCurrentPage && !isLoading && isPlayerReadyForThisVideo,
+                videoAspectRatio = currentVideoAspect,
+                commentExpansionProgress = commentSheetVisibilityProgress,
+                onDetailClick = { if (portraitDetailInfo != null) showDetailSheet = true },
+                onAuthorClick = {
+                    if (isCurrentPage && authorMid > 0L) {
+                        showUpPreview = true
+                        onUpPreviewActiveChange(true)
+                    }
+                },
+                onStaffMemberClick = { if (isCurrentPage && it > 0L) onUserClick(it) },
+                onSearchClick = {
+                    onExitSnapshot(bvid, exoPlayer.currentPosition, snapshotCid, cover)
+                    onSearchClick()
+                },
+            )
+        } else {
+            com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlay(
+                state = portraitOverlayState,
+                actions = portraitOverlayActions,
+            )
+        }
         AnimatedVisibility(
             visible = portraitPlaybackRecovering && portraitOverlayVisible &&
                 commentSheetVisibilityProgress <= 0.001f,
@@ -4750,12 +4772,15 @@ internal fun shouldAllowPortraitPlayback(
     return isCurrentStoryTab && isLifecycleResumed
 }
 
-@Suppress("UNUSED_PARAMETER")
 internal fun resolvePortraitVideoViewportVerticalOffsetDp(
     currentVideoAspect: Float,
     fillContainer: Boolean,
-    isLandscape: Boolean = false
-): Int = 0
+    isLandscape: Boolean = false,
+    liquidGlassEnabled: Boolean = false,
+): Int {
+    if (!liquidGlassEnabled || fillContainer || isLandscape) return 0
+    return if (currentVideoAspect > 1f) -48 else 0
+}
 
 @Composable
 internal fun PortraitVideoViewportContainer(
@@ -4768,10 +4793,11 @@ internal fun PortraitVideoViewportContainer(
     videoHeight: Int = 0,
     content: @Composable BoxScope.() -> Unit
 ) {
+    val liquidGlassEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     BoxWithConstraints(modifier = modifier.clipToBounds()) {
         val density = LocalDensity.current
         val viewportSize = with(density) {
-            if (aspectRatio != null) {
+            if (aspectRatio != null && !liquidGlassEnabled) {
                 com.android.purebilibili.feature.video.ui.components.resolveVideoViewportLayout(
                     containerWidth = maxWidth.roundToPx(),
                     containerHeight = maxHeight.roundToPx(),
@@ -4801,7 +4827,8 @@ internal fun PortraitVideoViewportContainer(
                     y = resolvePortraitVideoViewportVerticalOffsetDp(
                         currentVideoAspect = currentVideoAspect,
                         fillContainer = fillContainer,
-                        isLandscape = isLandscape
+                        isLandscape = isLandscape,
+                        liquidGlassEnabled = liquidGlassEnabled,
                     ).dp
                 )
         ) {

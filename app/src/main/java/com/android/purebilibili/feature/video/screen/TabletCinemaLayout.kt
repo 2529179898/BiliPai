@@ -717,6 +717,7 @@ private fun CinemaMetaPanel(
         if (showCollectionSheet) {
             CollectionSheet(
                 ugcSeason = season,
+                currentVideoInfo = success.info,
                 currentBvid = success.info.bvid,
                 currentCid = success.info.cid,
                 onDismiss = { showCollectionSheet = false },

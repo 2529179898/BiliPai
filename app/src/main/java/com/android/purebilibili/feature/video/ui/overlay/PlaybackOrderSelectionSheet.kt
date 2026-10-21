@@ -20,9 +20,10 @@ internal fun PlaybackOrderSelectionSheet(
 ) {
     PlayerSelectionPopup(title = "选择播放顺序", showTitle = false,
         onDismissRequest = onDismiss, placement = placement, anchorBounds = anchorBounds) {
-        playerPlaybackOrderOptions.forEach { behavior ->
+        playerPlaybackOrderOptions.forEachIndexed { index, behavior ->
             val selected = currentBehavior == behavior
             PlayerSelectionItem(text = behavior.label, selected = selected, enabled = !selected,
+                index = index, optionCount = playerPlaybackOrderOptions.size,
                 modifier = Modifier.playerPopupSelectedOption(selected),
                 onClick = { onSelect(behavior); onDismiss() })
         }

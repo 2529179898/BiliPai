@@ -108,6 +108,7 @@ fun PagesSelector(
 ) {
     if (pages.isEmpty()) return
 
+    val sheetMaxHeight = episodeSheetMaxHeight()
     val configuration = LocalConfiguration.current
     val isLandscape = remember(configuration.orientation, configuration.screenWidthDp, configuration.screenHeightDp) {
         configuration.orientation == Configuration.ORIENTATION_LANDSCAPE ||
@@ -314,7 +315,7 @@ fun PagesSelector(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.9f)
+                    .heightIn(max = sheetMaxHeight)
             ) {
                 Row(
                     modifier = Modifier

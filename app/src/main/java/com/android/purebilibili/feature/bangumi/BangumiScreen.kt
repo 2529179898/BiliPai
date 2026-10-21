@@ -218,13 +218,12 @@ private fun BangumiHubScreen(
                     }
                 ),
             ) {
-                // Native MD3 tabs include transparent unselected labels. Give the
-                // entire header an opaque surface when posters scroll underneath.
+                // 不透明原生底色仅用于普通顶栏，沉浸材质需要透出下方列表采样。
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
-                            if (solidNativeHeader) MaterialTheme.colorScheme.background
+                            if (solidNativeHeader && !chromeActive) MaterialTheme.colorScheme.background
                             else Color.Transparent
                         ),
                 ) {
@@ -341,11 +340,10 @@ private fun BangumiHubScreen(
                     .then(if (hazeState != null) Modifier.hazeSourceCompat(hazeState) else Modifier)
                     .globalWallpaperAwareBackground(MaterialTheme.colorScheme.background),
             ) {
-                // The header's visible background must also be the sampled background.
-                // Content padding alone lets scrolled lazy items draw under that region.
+                // 沉浸顶栏使用列表内部留白，让滚动内容进入采样区域；普通顶栏保留外部避让。
                 Box(
                     modifier = Modifier.fillMaxSize().responsiveContentWidth()
-                        .padding(top = listTopPadding).clipToBounds(),
+                        .padding(top = if (chromeActive) 0.dp else listTopPadding).clipToBounds(),
                 ) {
                     BangumiHubContent(
                         state = state,
@@ -389,7 +387,7 @@ private fun BangumiHubScreen(
                         },
                         scrollToTopRequestId = scrollToTopRequestId,
                         listBottomPadding = bangumiListBottomPadding,
-                        listTopPadding = 0.dp,
+                        listTopPadding = if (chromeActive) listTopPadding else 0.dp,
                         tabBackdrop = null,
                         showFollowStatusTabs = false,
                     )

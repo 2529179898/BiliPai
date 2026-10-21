@@ -909,6 +909,7 @@ fun BangumiPlayerScreen(
                             bvid = successState?.currentEpisode?.bvid.orEmpty(),
                             aid = successState?.currentEpisode?.aid ?: 0L,
                             cid = successState?.currentEpisode?.cid ?: 0L,
+                            videoshotData = successState?.videoshotData,
                             coverUrl = successState?.currentEpisode?.cover ?: successState?.seasonDetail?.cover.orEmpty(),
                             currentVideoUrl = successState?.playUrl.orEmpty(),
                             currentAudioUrl = successState?.audioUrl.orEmpty(),

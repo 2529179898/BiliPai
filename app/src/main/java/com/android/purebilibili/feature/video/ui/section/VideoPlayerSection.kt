@@ -622,9 +622,16 @@ private fun BoxScope.VideoSubtitleOverlayHost(
                         subtitleBottomOffsetPx
                 )
             }
-            .fillMaxWidth()
-            .padding(horizontal = appearance.horizontalPadding.dp)
-            .padding(bottom = appearance.bottomPadding.dp)
+            .then(
+                if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) Modifier
+                    .fillMaxWidth(0.9f)
+                    .padding(horizontal = 10.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                else Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = appearance.horizontalPadding.dp)
+                    .padding(bottom = appearance.bottomPadding.dp)
+            )
             .then(
                 if (positionLocked) {
                     Modifier
@@ -661,22 +668,53 @@ private fun BoxScope.VideoSubtitleOverlayHost(
             ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        val showPrimaryLine = !subtitlePrimaryText.isNullOrBlank()
-        val showSecondaryLine = !subtitleSecondaryText.isNullOrBlank()
-        val secondaryAsPrimaryLine = showSecondaryLine && !showPrimaryLine
-        if (showSecondaryLine) com.android.purebilibili.feature.video.subtitle.PiliStyledSubtitleText(
-            text = subtitleSecondaryText.orEmpty(),
-            baseFontSizeSp = if (secondaryAsPrimaryLine) primaryTextSizeSp else secondaryTextSizeSp,
-            appearance = appearance,
-            isFullscreen = isFullscreen,
-            color = Color.White.copy(alpha = 0.88f),
-        )
-        if (showPrimaryLine) com.android.purebilibili.feature.video.subtitle.PiliStyledSubtitleText(
-            text = subtitlePrimaryText.orEmpty(),
-            baseFontSizeSp = primaryTextSizeSp,
-            appearance = appearance,
-            isFullscreen = isFullscreen,
-        )
+        if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+            val subtitleShadow = Shadow(
+                color = Color.Black.copy(alpha = 0.85f),
+                offset = Offset(0f, 1.5f),
+                blurRadius = 6f
+            )
+            val showPrimaryLine = !subtitlePrimaryText.isNullOrBlank()
+            val showSecondaryLine = !subtitleSecondaryText.isNullOrBlank()
+            val secondaryAsPrimaryLine = showSecondaryLine && !showPrimaryLine
+            AppText(
+                text = subtitleSecondaryText.orEmpty(),
+                color = Color.White.copy(alpha = if (showSecondaryLine) 0.88f else 0f),
+                fontSize = if (secondaryAsPrimaryLine) primaryTextSizeSp.sp else secondaryTextSizeSp.sp,
+                fontWeight = if (secondaryAsPrimaryLine) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 2,
+                textAlign = TextAlign.Center,
+                style = LocalTextStyle.current.copy(shadow = subtitleShadow),
+                modifier = Modifier.then(if (showSecondaryLine) Modifier else Modifier.height(0.dp))
+            )
+            AppText(
+                text = subtitlePrimaryText.orEmpty(),
+                color = Color.White.copy(alpha = if (showPrimaryLine) 1f else 0f),
+                fontSize = primaryTextSizeSp.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                textAlign = TextAlign.Center,
+                style = LocalTextStyle.current.copy(shadow = subtitleShadow),
+                modifier = Modifier.then(if (showPrimaryLine) Modifier else Modifier.height(0.dp))
+            )
+        } else {
+            val showPrimaryLine = !subtitlePrimaryText.isNullOrBlank()
+            val showSecondaryLine = !subtitleSecondaryText.isNullOrBlank()
+            val secondaryAsPrimaryLine = showSecondaryLine && !showPrimaryLine
+            if (showSecondaryLine) com.android.purebilibili.feature.video.subtitle.PiliStyledSubtitleText(
+                text = subtitleSecondaryText.orEmpty(),
+                baseFontSizeSp = if (secondaryAsPrimaryLine) primaryTextSizeSp else secondaryTextSizeSp,
+                appearance = appearance,
+                isFullscreen = isFullscreen,
+                color = Color.White.copy(alpha = 0.88f),
+            )
+            if (showPrimaryLine) com.android.purebilibili.feature.video.subtitle.PiliStyledSubtitleText(
+                text = subtitlePrimaryText.orEmpty(),
+                baseFontSizeSp = primaryTextSizeSp,
+                appearance = appearance,
+                isFullscreen = isFullscreen,
+            )
+        }
     }
 }
 
@@ -916,8 +954,16 @@ private fun VideoPlayerSectionContent(
             widthDp = uiLayoutWidthDp
         )
     }
-    val bottomGestureExclusionHeightDp =
+    val liquidGlassLayoutEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+    // 玻璃控制栏使用原有尺寸预留，原生控制栏保留统一布局的尺寸策略。
+    val bottomGestureExclusionHeightDp = if (liquidGlassLayoutEnabled) {
+        val controls = com.android.purebilibili.feature.video.ui.overlay.glass.resolveBottomControlBarLayoutPolicy(uiLayoutWidthDp)
+        val progress = com.android.purebilibili.feature.video.ui.overlay.resolveVideoProgressBarLayoutPolicy(uiLayoutWidthDp)
+        controls.bottomPaddingDp + controls.progressSpacingDp + progress.baseHeightWithChapterDp +
+            controls.playButtonSizeDp + 12
+    } else {
         com.android.purebilibili.feature.video.ui.overlay.piliPlayerBottomControlsHeightDp(viewPoints.isNotEmpty())
+    }
     val gestureSeekFallbackDurationMs = remember(uiState) {
         (uiState as? VideoPlaybackUiState.Success)?.videoDurationMs ?: 0L
     }
@@ -3772,7 +3818,7 @@ private fun VideoPlayerSectionContent(
             usesTextureSurface = useTextureSurface,
         )
         key(isFlippedHorizontal, isFlippedVertical, isPortraitFullscreen, useTextureSurface) {
-            val viewportAspectRatio = currentAspectRatio
+            val viewportAspectRatio = if (liquidGlassLayoutEnabled && !isFullscreen) VideoAspectRatio.FIT else currentAspectRatio
             val playerVideoSize = playerState.player.videoSize
             BoxWithConstraints(
                 modifier = playerContentModifier
@@ -4512,7 +4558,7 @@ private fun VideoPlayerSectionContent(
 
             //  [修复] 移除 key(isFullscreen)，避免横竖屏切换时重建 DanmakuView 导致弹幕消失
             // 使用 remember 保存 DanmakuView 引用，在 update 回调中处理尺寸变化
-            val viewportAspectRatio = currentAspectRatio
+            val viewportAspectRatio = if (liquidGlassLayoutEnabled && !isFullscreen) VideoAspectRatio.FIT else currentAspectRatio
             BoxWithConstraints(
                 modifier = playerContentModifier
                     .then(if (capturePlayerPage) playerPageBackdrop.danmaku.modifier else Modifier)
@@ -4620,10 +4666,43 @@ private fun VideoPlayerSectionContent(
                     renderingPaused = suppressTransientOverlaysForTransition,
                     modifier = Modifier.fillMaxSize()
                 )
-                // Use measured common chrome when available; the first frame reserves PiliPlus'
-                // progress/optional chapter strip + 7dp gap + 34dp row + 12dp at either edge.
-                val commandControlsReservePx = measuredBottomControlsHeightPx.takeIf { it > 0 }
-                    ?: with(density) { bottomGestureExclusionHeightDp.dp.roundToPx() }
+                // Each material reserves its own control geometry before the first measurement.
+                val commandControlsReservePx = if (liquidGlassLayoutEnabled) {
+                    val commandControlsLayout = remember(uiLayoutWidthDp) {
+                        com.android.purebilibili.feature.video.ui.overlay.glass.resolveBottomControlBarLayoutPolicy(uiLayoutWidthDp)
+                    }
+                    val commandProgressLayout = remember(uiLayoutWidthDp) {
+                        com.android.purebilibili.feature.video.ui.overlay.resolveVideoProgressBarLayoutPolicy(uiLayoutWidthDp)
+                    }
+                    val requestedCommandProgressPlacement by remember(context) {
+                        com.android.purebilibili.core.store.SettingsManager.getPlayerProgressPlacement(context)
+                    }.collectAsStateWithLifecycle(
+                        initialValue = com.android.purebilibili.core.store.PlayerProgressPlacement.ABOVE_CONTROLS
+                    )
+                    val commandProgressPlacement = com.android.purebilibili.feature.video.ui.overlay.glass.resolveVideoDetailProgressPlacement(
+                        requestedPlacement = requestedCommandProgressPlacement,
+                        isFullscreen = isFullscreen,
+                    )
+                    val commandControlsBottomPaddingDp = com.android.purebilibili.feature.video.ui.overlay.glass.resolveBottomControlBarBottomPaddingDp(
+                        defaultBottomPaddingDp = commandControlsLayout.bottomPaddingDp,
+                        progressPlacement = commandProgressPlacement,
+                    )
+                    with(density) {
+                        (maxOf(
+                            commandControlsLayout.playButtonSizeDp,
+                            commandControlsLayout.danmakuInputHeightDp,
+                            com.android.purebilibili.feature.video.ui.overlay.glass.resolveFullscreenToggleTouchTargetDp(
+                                commandControlsLayout.fullscreenIconSizeDp
+                            ),
+                        ) +
+                            commandProgressLayout.touchContainerHeightDp +
+                            commandControlsLayout.progressSpacingDp +
+                            commandControlsBottomPaddingDp).dp.roundToPx()
+                    } + if (isFullscreen) WindowInsets.navigationBarsIgnoringVisibility.getBottom(density) else 0
+                } else {
+                    measuredBottomControlsHeightPx.takeIf { it > 0 }
+                        ?: with(density) { bottomGestureExclusionHeightDp.dp.roundToPx() }
+                }
                 com.android.purebilibili.feature.video.ui.overlay.CommandDanmakuOverlay(
                     viewport = viewport,
                     bottomInsetPx = com.android.purebilibili.feature.video.ui.overlay.resolveCommandDanmakuBottomInsetPx(

@@ -1271,6 +1271,7 @@ internal fun VideoContentSection(
             if (showCollectionSheet) {
                 CollectionSheet(
                     ugcSeason = season,
+                    currentVideoInfo = info,
                     currentBvid = info.bvid,
                     currentCid = info.cid,
                     onDismiss = { showCollectionSheet = false },

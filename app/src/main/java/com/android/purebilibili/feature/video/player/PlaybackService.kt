@@ -124,6 +124,14 @@ class PlaybackService : MediaSessionService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // 切后台继续播放；只有从最近任务移除时才关闭当前播放会话。
+        MiniPlayerManager.getInstanceOrNull()?.dismissForTaskRemoval()
+        isForegroundStarted = false
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         isForegroundStarted = false

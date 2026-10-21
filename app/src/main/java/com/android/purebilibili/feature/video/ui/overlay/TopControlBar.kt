@@ -9,6 +9,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -103,6 +105,10 @@ fun TopControlBar(
     onSponsorSubmitClick: (() -> Unit)? = null,
     showSponsorSegmentsButton: Boolean = false,
     onSponsorSegmentsClick: (() -> Unit)? = null,
+    onCommentClick: (() -> Unit)? = null,
+    onRelatedVideosClick: (() -> Unit)? = null,
+    commentsVisible: Boolean = false,
+    relatedVideosVisible: Boolean = false,
 ) {
     val policy = resolveTopControlBarLayoutPolicy(
         isPortrait = isPortrait,
@@ -234,36 +240,52 @@ fun TopControlBar(
                     }
                 },
             )
-            if (policy.showEngagement) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    if (onLikeClick != null) {
-                        Box(Modifier.likeBurstAnchor()) {
+            // 侧栏入口属于浏览功能，不随点赞、投币等互动快捷键一起隐藏。
+            if (policy.showEngagement || onCommentClick != null || onRelatedVideosClick != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    if (onCommentClick != null) {
+                        HeaderIcon(Icons.Outlined.Forum, "评论", onCommentClick,
+                            active = commentsVisible, iconSize = 18)
+                    }
+                    if (onRelatedVideosClick != null) {
+                        HeaderIcon(Icons.Outlined.VideoLibrary, "相关推荐", onRelatedVideosClick,
+                            active = relatedVideosVisible, iconSize = 18)
+                    }
+                    if (policy.showEngagement) {
+                        if (onLikeClick != null) {
+                            Box(Modifier.likeBurstAnchor()) {
+                                HeaderIcon(
+                                    if (likeStatusKnown && isLiked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
+                                    if (likeStatusKnown) "点赞" else "点赞状态尚未确认",
+                                    onLikeClick, active = likeStatusKnown && isLiked, iconSize = 18,
+                                    gestureModifier = likeGesture, progress = triplePress.progress,
+                                )
+                            }
+                        }
+                        if (policy.showDislike && allowDislikeAction && onDislikeClick != null) {
                             HeaderIcon(
-                                if (likeStatusKnown && isLiked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
-                                if (likeStatusKnown) "点赞" else "点赞状态尚未确认",
-                                onLikeClick, active = likeStatusKnown && isLiked, iconSize = 18,
-                                gestureModifier = likeGesture, progress = triplePress.progress,
+                                if (isDisliked) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
+                                "点踩", onDislikeClick, active = isDisliked, iconSize = 18,
                             )
                         }
-                    }
-                    if (policy.showDislike && allowDislikeAction && onDislikeClick != null) {
-                        HeaderIcon(
-                            if (isDisliked) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
-                            "点踩", onDislikeClick, active = isDisliked, iconSize = 18,
+                        if (onCoinClick != null) HeaderIcon(
+                            AppIcons.BiliCoin, "投币", onCoinClick, active = isCoined,
+                            progress = triplePress.progress, iconSize = 18,
                         )
+                        if (onFavoriteClick != null) {
+                            HeaderIcon(
+                                if (isFavorited) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                "收藏", onFavoriteClick, active = isFavorited, iconSize = 18,
+                                onLongClick = onFavoriteLongClick, progress = triplePress.progress,
+                            )
+                        }
+                        if (onShareClick != null) HeaderIcon(Icons.Outlined.Share, "分享", onShareClick, iconSize = 18)
                     }
-                    if (onCoinClick != null) HeaderIcon(
-                        AppIcons.BiliCoin, "投币", onCoinClick, active = isCoined,
-                        progress = triplePress.progress, iconSize = 18,
-                    )
-                    if (onFavoriteClick != null) {
-                        HeaderIcon(
-                            if (isFavorited) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                            "收藏", onFavoriteClick, active = isFavorited, iconSize = 18,
-                            onLongClick = onFavoriteLongClick, progress = triplePress.progress,
-                        )
-                    }
-                    if (onShareClick != null) HeaderIcon(Icons.Outlined.Share, "分享", onShareClick, iconSize = 18)
                 }
             }
         }

@@ -174,21 +174,24 @@ internal fun BangumiCommentPanel(
                 onSearchClick = { showSearch = true },
             )
             if (floatingHeader) {
-                // Keep background and list inset stable while only the glass controls fade.
+                // 渐隐只覆盖列表采样层，标题和排序控件始终绘制在材质上方。
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 46.dp)
-                        .biliPaiProgressiveTopBlur(
-                            backdrop = backdrop,
-                            enabled = progressiveHeaderEnabled,
-                            surfaceColor = androidx.compose.ui.graphics.Color.Transparent,
-                        )
-                        .topSolidProgressiveFade(
-                            surfaceColor = MaterialTheme.colorScheme.surface,
-                            enabled = solidHeaderEnabled,
-                        ),
+                        .heightIn(min = 46.dp),
                 ) {
+                    Box(
+                        modifier = Modifier.matchParentSize()
+                            .biliPaiProgressiveTopBlur(
+                                backdrop = backdrop,
+                                enabled = progressiveHeaderEnabled,
+                                surfaceColor = androidx.compose.ui.graphics.Color.Transparent,
+                            )
+                            .topSolidProgressiveFade(
+                                surfaceColor = MaterialTheme.colorScheme.surface,
+                                enabled = solidHeaderEnabled,
+                            ),
+                    )
                     VideoCommentFloatingHeader(
                         count = state.replyCount,
                         sortMode = state.sortMode,

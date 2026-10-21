@@ -49,12 +49,13 @@ fun AudioQualitySelectionMenu(
         title = "音质选择", showTitle = false, onDismissRequest = onDismiss, placement = placement,
         anchorBounds = anchorBounds,
     ) {
-        options.forEach { option ->
+        options.forEachIndexed { index, option ->
             val selected = option.preferenceId == selectedAudioQuality
             val summary = option.codecDescription.takeIf { it.isNotBlank() }
             PlayerSelectionItem(
                 modifier = Modifier.playerPopupSelectedOption(selected),
                 text = option.label, summary = summary, selected = selected,
+                index = index, optionCount = options.size,
                 enabled = option.preferenceId != requestedAudioQuality,
                 onClick = { onAudioQualitySelected(option.preferenceId) },
             )

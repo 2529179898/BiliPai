@@ -322,13 +322,15 @@ fun AspectRatioMenu(
         anchorBounds = anchorBounds,
         minWidth = 160.dp,
     ) {
-        listOf(VideoAspectRatio.STRETCH, VideoAspectRatio.FIT, VideoAspectRatio.FILL,
+        val options = listOf(VideoAspectRatio.STRETCH, VideoAspectRatio.FIT, VideoAspectRatio.FILL,
             VideoAspectRatio.FIT_WIDTH, VideoAspectRatio.FIT_HEIGHT, VideoAspectRatio.ORIGINAL,
-            VideoAspectRatio.SCALE_DOWN, VideoAspectRatio.RATIO_4_3, VideoAspectRatio.RATIO_16_9).forEach { ratio ->
+            VideoAspectRatio.SCALE_DOWN, VideoAspectRatio.RATIO_4_3, VideoAspectRatio.RATIO_16_9)
+        options.forEachIndexed { index, ratio ->
             val selected = ratio == currentRatio
             PlayerSelectionItem(
                 modifier = Modifier.playerPopupSelectedOption(selected),
                 text = ratio.displayName,
+                index = index, optionCount = options.size,
                 selected = selected,
                 enabled = !selected,
                 onClick = {
