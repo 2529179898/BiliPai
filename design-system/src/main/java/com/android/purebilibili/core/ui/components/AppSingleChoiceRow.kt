@@ -1,5 +1,6 @@
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -43,7 +44,7 @@ fun AppSingleChoiceRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = AppChromeSizeTokens.CompactRowMinHeightDp.dp)
                 .padding(horizontal = AppSpacingTokens.Medium, vertical = AppSpacingTokens.Small),
             horizontalArrangement = Arrangement.spacedBy(AppSpacingTokens.Small),
             verticalAlignment = Alignment.CenterVertically,

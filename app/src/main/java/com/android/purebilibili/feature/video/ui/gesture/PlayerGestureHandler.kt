@@ -296,9 +296,12 @@ internal fun PlayerGestureInputSurface(modifier: Modifier = Modifier) {
 suspend fun PointerInputScope.detectPlayerTapGestures(
     onTap: (Offset) -> Unit,
     onDoubleTap: (Offset) -> Unit,
+    doubleTapSlopPx: Float,
     captureSingleTap: (Offset) -> (() -> Unit)? = { null }
 ) {
-    val doubleTapSlopSquared = viewConfiguration.touchSlop * viewConfiguration.touchSlop
+    // Movement within one press uses touchSlop; spacing between two taps uses the
+    // platform double-tap tolerance, which allows natural finger repositioning.
+    val doubleTapSlopSquared = doubleTapSlopPx * doubleTapSlopPx
     awaitEachGesture {
         var down = awaitFirstDown()
         while (true) {

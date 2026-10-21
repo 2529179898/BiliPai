@@ -36,6 +36,7 @@ import com.android.purebilibili.data.repository.DynamicRepository
 import com.android.purebilibili.data.repository.LiveRepository
 import com.android.purebilibili.data.repository.SessionRepository
 import com.android.purebilibili.feature.dynamic.components.DynamicManageAction
+import com.android.purebilibili.feature.dynamic.components.resolveDynamicFoldIds
 import com.android.purebilibili.feature.dynamic.components.unfoldRelatedDynamicItems
 import com.android.purebilibili.feature.dynamic.components.DynamicReserveAction
 import com.android.purebilibili.feature.dynamic.components.DynamicReserveResult
@@ -63,6 +64,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -2644,18 +2646,79 @@ class DynamicViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun unfoldRelatedDynamics(dynamicId: String) {
+    private val unfoldingDynamicIds = mutableSetOf<String>()
+
+    fun unfoldRelatedDynamics(
+        dynamicId: String,
+        onResult: (Boolean, String) -> Unit = { _, _ -> },
+    ) {
         val normalizedId = dynamicId.trim()
         if (normalizedId.isBlank()) return
-        val currentState = mapDynamicTimelineItems(_uiState.value) { items ->
-            unfoldRelatedDynamicItems(items, normalizedId)
+        launchAccount {
+            if (!unfoldingDynamicIds.add(normalizedId)) {
+                onResult(false, "正在加载相关动态，请稍候")
+                return@launchAccount
+            }
+            try {
+                val snapshot = _uiState.value
+                val cachedItems = snapshot.items + snapshot.userItems +
+                    snapshot.timelinePages.values.flatMap { it.items }
+                val anchor = cachedItems.firstOrNull {
+                    it.id_str == normalizedId && it.modules.module_fold != null
+                }
+                if (anchor == null) {
+                    onResult(false, "动态列表已更新，请刷新后重试")
+                    return@launchAccount
+                }
+                val originalFold = anchor.modules.module_fold
+                var resolvedFold = originalFold
+                var ids = resolveDynamicFoldIds(anchor)
+                if (ids.isEmpty()) {
+                    onResult(false, "正在加载相关动态…")
+                    val detail = DynamicRepository.getDynamicDetail(normalizedId)
+                    coroutineContext.ensureActive()
+                    resolvedFold = detail.getOrNull()?.modules?.module_fold
+                    ids = detail.getOrNull()?.let(::resolveDynamicFoldIds).orEmpty()
+                    if (ids.isEmpty()) {
+                        onResult(false, "暂时无法获取相关动态，请稍后重试")
+                        return@launchAccount
+                    }
+                }
+                val cachedById = cachedItems.associateBy { it.id_str }
+                val loadedItems = ids.mapNotNull(cachedById::get).toMutableList()
+                val missingIds = ids.filterNot(cachedById::containsKey)
+                if (missingIds.isNotEmpty()) {
+                    onResult(false, "正在加载相关动态…")
+                }
+                for (id in missingIds) {
+                    val result = DynamicRepository.getDynamicDetail(id)
+                    coroutineContext.ensureActive()
+                    result.getOrNull()?.takeIf { it.id_str == id }?.let(loadedItems::add)
+                }
+                // Apply against live state, never overwrite a newer refresh or interaction snapshot.
+                _uiState.update { current ->
+                    fun expand(items: List<DynamicItem>): List<DynamicItem> {
+                        val currentAnchor = items.firstOrNull { it.id_str == normalizedId }
+                        if (currentAnchor?.modules?.module_fold != originalFold) return items
+                        return unfoldRelatedDynamicItems(items, normalizedId, loadedItems, resolvedFold)
+                    }
+                    val updated = mapDynamicTimelineItems(current, ::expand)
+                    updated.copy(userItems = expand(updated.userItems).toImmutableList())
+                }
+                if (loadedItems.size < ids.size) {
+                    onResult(false, if (loadedItems.isEmpty()) "相关动态加载失败，请重试"
+                        else "部分相关动态加载失败，可点击重试")
+                } else {
+                    onResult(true, "")
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                onResult(false, "相关动态加载失败，请重试")
+            } finally {
+                unfoldingDynamicIds.remove(normalizedId)
+            }
         }
-        _uiState.value = currentState.copy(
-            userItems = unfoldRelatedDynamicItems(
-                currentState.userItems,
-                normalizedId,
-            ).toImmutableList(),
-        )
     }
 
     private fun removeDynamicFromUiState(dynamicId: String) {

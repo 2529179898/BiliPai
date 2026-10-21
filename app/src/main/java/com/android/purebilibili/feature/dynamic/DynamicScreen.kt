@@ -231,6 +231,14 @@ fun DynamicScreen(
         }
     }
 
+    val unfoldRelatedDynamics: (String) -> Unit = { id ->
+        viewModel.unfoldRelatedDynamics(id) { _, message ->
+            if (message.isNotBlank()) {
+                android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     // 侧边栏状态
     val followedUsers by viewModel.followedUsers.collectAsStateWithLifecycle()
     val accountIdentity by TokenManager.accountIdentity.collectAsStateWithLifecycle()
@@ -903,7 +911,7 @@ fun DynamicScreen(
                                         onBangumiClick = onBangumiClick,
                                         onArticleClick = onArticleClick,
                                         onDynamicDetailClick = onDynamicDetailClick,
-                                        onUnfoldRelatedClick = viewModel::unfoldRelatedDynamics,
+                                        onUnfoldRelatedClick = unfoldRelatedDynamics,
                                         onUserClick = onUserClick,
                                         onTopicClick = onTopicClick,
                                         onTopicKeywordClick = onTopicKeywordClick,
@@ -1097,7 +1105,7 @@ fun DynamicScreen(
                                     onBangumiClick = onBangumiClick,
                                     onArticleClick = onArticleClick,
                                     onDynamicDetailClick = onDynamicDetailClick,
-                                    onUnfoldRelatedClick = viewModel::unfoldRelatedDynamics,
+                                    onUnfoldRelatedClick = unfoldRelatedDynamics,
                                     onUserClick = onUserClick,
                                     onTopicClick = onTopicClick,
                                     onTopicKeywordClick = onTopicKeywordClick,

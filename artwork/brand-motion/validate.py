@@ -1,6 +1,7 @@
 """Static packaging checks; does not invoke Gradle or compile the application."""
 import base64
 import io
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -62,7 +63,7 @@ for name,frames in [('welcome',60),('clean_complete',72),('cleaning',96),('retry
                              'favorite_saved':'bilipai_maid_favorite_static','download_complete':'bilipai_maid_download_static',
                              'dislike_confirmed':'bilipai_maid_dislike_static','share_ready':'bilipai_maid_share_static','coin_success':'bilipai_maid_coin_static',
                              'follow_success':'bilipai_maid_follow_static','unfollow_complete':'bilipai_maid_unfollow_static','triple_success':'bilipai_maid_triple_static'}[name]
-            assert asset['p'] == fallback_name+'.png', 'Animation must reference its matching static fallback'
+            assert asset['p'] == fallback_name+'.webp', 'Animation must reference its matching static fallback'
             decoded = (ROOT/'brand-motion/src/main/res/drawable-nodpi'/asset['p']).read_bytes()
             image=Image.open(io.BytesIO(decoded)); image.load()
             assert image.size==(asset['w'],asset['h']) and image.mode=='RGBA'
@@ -83,9 +84,9 @@ for name,frames in [('welcome',60),('clean_complete',72),('cleaning',96),('retry
                 shape=mask['pt']['k']
                 assert len(shape['v'])==len(shape['i'])==len(shape['o']) and shape['c']
                 assert mask['mode'] in ('a','s')
-    print(f'{name}: {frames/60:g}s, {len(data["layers"])} layers, local PNG and references valid')
+    print(f'{name}: {frames/60:g}s, {len(data["layers"])} layers, local WebP and references valid')
 for name in ['bilipai_maid_static','bilipai_maid_clean_static','bilipai_maid_retry_static','bilipai_maid_empty_static','bilipai_maid_search_empty_static','bilipai_maid_favorite_static','bilipai_maid_download_static','bilipai_maid_triple_static']:
-    assert (ROOT/'brand-motion/src/main/res/drawable-nodpi'/f'{name}.png').exists()
+    assert (ROOT/'brand-motion/src/main/res/drawable-nodpi'/f'{name}.webp').exists()
 preview=(Path(__file__).parent/'preview.html').read_text()
 assert '__ANIMATIONS__' not in preview
 assert 'https://' not in preview
@@ -95,6 +96,13 @@ player=(ROOT/'brand-motion/src/main/java/com/android/purebilibili/core/ui/BlueSn
 for state,resource,duration,fallback in re.findall(r'(\w+)\(R.raw.(\w+), (\d+)L, R.drawable.(\w+)',player):
     timeline=json.loads((ROOT/'brand-motion/src/main/res/raw'/f'{resource}.json').read_text())
     assert (timeline['op']-timeline['ip'])/timeline['fr']*1000==int(duration), f'{state}: resource/player duration mismatch'
-    assert next(a['p'] for a in timeline['assets'] if 'p' in a)==fallback+'.png', f'{state}: resource/player shared image mismatch'
+    assert next(a['p'] for a in timeline['assets'] if 'p' in a)==fallback+'.webp', f'{state}: resource/player shared image mismatch'
 print('All enum playback durations match their resources.')
 print('Static fallbacks and offline interactive preview valid.')
+
+pixels = json.loads((Path(__file__).parent / 'static-image-pixels.json').read_text())
+for stem, expected in pixels.items():
+    image = Image.open(ROOT / 'brand-motion/src/main/res/drawable-nodpi' / (stem + '.webp')).convert('RGBA')
+    assert list(image.size) == expected['size']
+    assert hashlib.sha256(image.tobytes()).hexdigest() == expected['rgba_sha256'], stem
+print('All 14 decoded RGBA images match the original PNG pixel hashes.')

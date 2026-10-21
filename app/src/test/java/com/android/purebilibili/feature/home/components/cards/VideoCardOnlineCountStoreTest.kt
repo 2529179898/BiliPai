@@ -190,4 +190,50 @@ class VideoCardOnlineCountStoreTest {
         assertEquals(2, requestCounts["BV1mid"])
         assertEquals(1, requestCounts["BV1new"])
     }
+
+    @Test
+    fun observationWithoutSuccessfulRequestsRemainsBounded() {
+        val store = VideoCardOnlineCountStore(fetchOnlineCount = { _, _ -> "" }, maxEntries = 2)
+        repeat(100) { store.observe("BV$it", it.toLong() + 1) }
+        assertEquals(2, store.stateEntryCount)
+    }
+
+    @Test
+    fun failedAndEmptyRequestsDoNotBypassStateCapacity() = runTest {
+        val store = VideoCardOnlineCountStore(
+            fetchOnlineCount = { _, cid ->
+                if (cid % 2L == 0L) error("offline") else ""
+            },
+            maxEntries = 2,
+        )
+        repeat(100) { store.refreshIfNeeded("BV$it", it.toLong() + 1) }
+        assertEquals(2, store.stateEntryCount)
+    }
+
+    @Test
+    fun composedCardKeepsItsFlowWhileCollectionIsPaused() = runTest {
+        val store = VideoCardOnlineCountStore(fetchOnlineCount = { _, _ -> "42" }, maxEntries = 2)
+        val pausedCard = store.observe("BVpaused", 1L)
+        store.retain("BVpaused", 1L)
+        store.retain("BVpaused", 1L)
+        store.release("BVpaused", 1L)
+        repeat(20) { store.observe("BVother$it", it.toLong() + 2) }
+        store.refreshIfNeeded("BVpaused", 1L)
+        assertEquals("42", pausedCard.value)
+        assertEquals(2, store.stateEntryCount)
+        store.release("BVpaused", 1L)
+    }
+
+    @Test
+    fun cancelledRequestsAlsoTrimUnobservedStates() = runTest {
+        val store = VideoCardOnlineCountStore(
+            fetchOnlineCount = { _, _ -> awaitCancellation() }, maxEntries = 2,
+        )
+        repeat(20) { index ->
+            val request = launch { store.refreshIfNeeded("BV$index", index.toLong() + 1) }
+            runCurrent()
+            request.cancelAndJoin()
+        }
+        assertEquals(2, store.stateEntryCount)
+    }
 }

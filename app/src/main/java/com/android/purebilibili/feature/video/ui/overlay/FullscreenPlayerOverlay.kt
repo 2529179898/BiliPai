@@ -731,6 +731,7 @@ fun FullscreenPlayerOverlay(
                 val screenWidth = size.width.toFloat()
 
                 detectPlayerTapGestures(
+                    doubleTapSlopPx = android.view.ViewConfiguration.get(context).scaledDoubleTapSlop.toFloat(),
                     onTap = {
                         showControls = !showControls
                         if (showControls) lastInteractionTime = System.currentTimeMillis()

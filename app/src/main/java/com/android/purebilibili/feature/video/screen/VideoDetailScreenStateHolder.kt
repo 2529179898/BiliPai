@@ -608,10 +608,14 @@ internal fun VideoDetailScreenStateHolder(
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val detailState by viewModel.detailState.collectAsStateWithLifecycle()
-    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
-    val subjectSnapshot by viewModel.subjectSnapshot.collectAsStateWithLifecycle()
-    val engagementState by engagementViewModel.uiState.collectAsStateWithLifecycle()
-    val favoriteFolderSaveEvent by viewModel.favoriteFolderSaveEvent.collectAsStateWithLifecycle()
+    // Keep the handle here; only the mounted info/content scopes read the progress value.
+    // Download ticks must not invalidate the transition/player state-holder scope.
+    val downloadProgress = viewModel.downloadProgress.collectAsStateWithLifecycle()
+    val subjectSnapshotState = viewModel.subjectSnapshot.collectAsStateWithLifecycle()
+    // Retain State handles in this root; render slots below own payload reads so comment,
+    // engagement and composer updates cannot invalidate the transition setup and effects.
+    val engagementStateHandle = engagementViewModel.uiState.collectAsStateWithLifecycle()
+    val favoriteFolderSaveEventState = viewModel.favoriteFolderSaveEvent.collectAsStateWithLifecycle()
     val favoriteQuickSaveDefaultFolder by com.android.purebilibili.core.store.FavoriteInteractionSettingsStore
         .getQuickSaveDefaultFolder(context)
         .collectAsStateWithLifecycle(initialValue = false)
@@ -800,8 +804,8 @@ internal fun VideoDetailScreenStateHolder(
         context = context,
         isVisible = isVisible,
         uiState = detailContentState ?: uiState,
-        subjectSnapshot = subjectSnapshot,
-        favoriteFolderSaveEvent = favoriteFolderSaveEvent,
+        subjectSnapshotState = subjectSnapshotState,
+        favoriteFolderSaveEventState = favoriteFolderSaveEventState,
         playbackViewModel = viewModel,
         engagementViewModel = engagementViewModel,
         composerViewModel = composerViewModel,
@@ -1186,39 +1190,30 @@ internal fun VideoDetailScreenStateHolder(
     val entryCommentsReady = entryTransitionFinished && entryWorkPhase >= VideoDetailEntryWorkPhase.Comments
 
     //  监听评论状态
-    val commentState by commentViewModel.commentState.collectAsStateWithLifecycle()
-    val subReplyState by commentViewModel.subReplyState.collectAsStateWithLifecycle()
+    val commentStateHandle = commentViewModel.commentState.collectAsStateWithLifecycle()
+    val subReplyStateHandle = commentViewModel.subReplyState.collectAsStateWithLifecycle()
+    val subReplyVisible by remember(subReplyStateHandle) {
+        derivedStateOf { subReplyStateHandle.value.visible }
+    }
+    val subReplyLoading by remember(subReplyStateHandle) {
+        derivedStateOf { subReplyStateHandle.value.isLoading }
+    }
     var subReplyCoveredBlurProgress by remember { mutableFloatStateOf(0f) }
     // 楼中楼是正文的兄弟覆盖层，必须显式复用播放器滚动连接；其他弹层不参与。
     var commentThreadPlayerScrollConnection by remember {
         mutableStateOf<NestedScrollConnection?>(null)
     }
 
-    LaunchedEffect(
-        openCommentRootRpidFromRoute,
-        openCommentTargetRpidFromRoute,
-        commentState.replies,
-        commentState.isRepliesLoading,
-        subReplyState.visible
-    ) {
-        if (openCommentRootRpidFromRoute <= 0L || hasHandledCommentRootFromRoute || subReplyState.visible) {
-            return@LaunchedEffect
-        }
-
-        val rootReply = commentState.replies.firstOrNull { it.rpid == openCommentRootRpidFromRoute }
-        if (rootReply != null) {
-            commentViewModel.openSubReply(rootReply, openCommentTargetRpidFromRoute)
-            hasHandledCommentRootFromRoute = true
-        } else if (!commentState.isRepliesLoading) {
-            val openStarted = commentViewModel.openSubReplyFromRoute(
-                rootReplyId = openCommentRootRpidFromRoute,
-                targetReplyId = openCommentTargetRpidFromRoute
-            )
-            if (openStarted) {
-                hasHandledCommentRootFromRoute = true
-            }
-        }
-    }
+    VideoDetailRouteCommentEffect(
+        rootReplyId = openCommentRootRpidFromRoute,
+        targetReplyId = openCommentTargetRpidFromRoute,
+        handled = hasHandledCommentRootFromRoute,
+        commentState = commentStateHandle,
+        subReplyState = subReplyStateHandle,
+        onOpenReply = commentViewModel::openSubReply,
+        onOpenReplyFromRoute = commentViewModel::openSubReplyFromRoute,
+        onHandled = { hasHandledCommentRootFromRoute = true },
+    )
     val commentDefaultSortMode by com.android.purebilibili.core.store.SettingsManager
         .getCommentDefaultSortMode(context)
         .collectAsStateWithLifecycle(
@@ -1283,9 +1278,9 @@ internal fun VideoDetailScreenStateHolder(
     // [Blur] Haze State
     val hazeState = rememberRecoverableHazeState()
 
-    val sponsorSegment by viewModel.currentSponsorSegment.collectAsStateWithLifecycle()
-    val showSponsorSkipButton by viewModel.showSkipButton.collectAsStateWithLifecycle()
-    val sponsorContributionState by viewModel.sponsorContributionUiState.collectAsStateWithLifecycle()
+    val sponsorSegmentHandle = viewModel.currentSponsorSegment.collectAsStateWithLifecycle()
+    val showSponsorSkipButtonHandle = viewModel.showSkipButton.collectAsStateWithLifecycle()
+    val sponsorContributionStateHandle = viewModel.sponsorContributionUiState.collectAsStateWithLifecycle()
 
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val isFullscreenPlayerLocked = AppScreenshotGestureBlockState.fullscreenPlayerLocked
@@ -1455,11 +1450,11 @@ internal fun VideoDetailScreenStateHolder(
     }
     var previousPipMode by remember { mutableStateOf(isInPipMode) }
     LaunchedEffect(isInPipMode) { presentationState.syncPipMode(isInPipMode) }
-    LaunchedEffect(isPipMode, subReplyState.visible) {
+    LaunchedEffect(isPipMode, subReplyVisible) {
         val shouldDismissThreadDetail = shouldDismissCommentThreadDetailForPip(
             wasInPipMode = previousPipMode,
             isInPipMode = isPipMode,
-            subReplyVisible = subReplyState.visible
+            subReplyVisible = subReplyVisible
         )
         previousPipMode = isPipMode
         if (shouldDismissThreadDetail) {
@@ -1480,7 +1475,7 @@ internal fun VideoDetailScreenStateHolder(
     }
 
     //  [新增] 监听定时关闭状态
-    val sleepTimerMinutes by viewModel.sleepTimerMinutes.collectAsStateWithLifecycle()
+    val sleepTimerMinutesHandle = viewModel.sleepTimerMinutes.collectAsStateWithLifecycle()
 
     // 📖 [新增] 监听视频章节数据
     // 📖 [新增] 监听视频章节数据
@@ -2347,9 +2342,9 @@ internal fun VideoDetailScreenStateHolder(
         shouldSuppressOverlayControlsForReturnBudget(returnVisualBudget)
     val routedCommentInteractionActive =
         openCommentRootRpidFromRoute > 0L &&
-            (subReplyState.visible || subReplyState.isLoading)
+            (subReplyVisible || subReplyLoading)
     val commentInteractionActive =
-        routedCommentInteractionActive || subReplyState.visible || showCommentInput
+        routedCommentInteractionActive || subReplyVisible || showCommentInput
     LaunchedEffect(commentInteractionActive) {
         viewModel.setCommentInteractionActive(commentInteractionActive)
     }
@@ -3497,9 +3492,9 @@ internal fun VideoDetailScreenStateHolder(
                 (portraitSyncSnapshotCid > 0L && portraitSyncSnapshotCid != (uiSuccessState?.info?.cid ?: 0L))
             )
         )
-    val showDanmakuDialog by viewModel.showDanmakuDialog.collectAsStateWithLifecycle()
-    val isSendingDanmaku by viewModel.isSendingDanmaku.collectAsStateWithLifecycle()
-    val composerDrafts by viewModel.composerDrafts.collectAsStateWithLifecycle()
+    val showDanmakuDialogHandle = viewModel.showDanmakuDialog.collectAsStateWithLifecycle()
+    val isSendingDanmakuHandle = viewModel.isSendingDanmaku.collectAsStateWithLifecycle()
+    val composerDraftsHandle = viewModel.composerDrafts.collectAsStateWithLifecycle()
     val danmakuSendPreferenceScope = rememberCoroutineScope()
     val rememberedDanmakuSendColor by com.android.purebilibili.core.store.SettingsManager
         .getDanmakuSendColor(context)
@@ -3514,6 +3509,14 @@ internal fun VideoDetailScreenStateHolder(
     val continuousPlayerRenderer = rememberUpdatedState<@Composable (ContinuousPlayerHostLayout) -> Unit> { layout ->
         // 竖屏全屏 pager 接管共享播放器后，内联 host 必须退出 composition。
         if (!suppressPhoneDetailBodyForDirectPortrait && !isPortraitFullscreen) {
+            val engagementState by engagementStateHandle
+            val sponsorSegment by sponsorSegmentHandle
+            val showSponsorSkipButton by showSponsorSkipButtonHandle
+            val sponsorContributionState by sponsorContributionStateHandle
+            val sleepTimerMinutes by sleepTimerMinutesHandle
+            val showDanmakuDialog by showDanmakuDialogHandle
+            val isSendingDanmaku by isSendingDanmakuHandle
+            val composerDrafts by composerDraftsHandle
             PortraitInlineVideoPlayerHost(
             modifier = layout.modifier,
             animatedViewportWidth = layout.viewportWidth,
@@ -3648,6 +3651,14 @@ internal fun VideoDetailScreenStateHolder(
     // 分槽后 Compose 编译器会分别生成合成方法，避免一个方法聚合整页状态。
     @Composable
     fun BoxScope.VideoDetailRouteSheetMainContent() {
+        val engagementState by engagementStateHandle
+        val sponsorSegment by sponsorSegmentHandle
+        val showSponsorSkipButton by showSponsorSkipButtonHandle
+        val sponsorContributionState by sponsorContributionStateHandle
+        val sleepTimerMinutes by sleepTimerMinutesHandle
+        val showDanmakuDialog by showDanmakuDialogHandle
+        val isSendingDanmaku by isSendingDanmakuHandle
+        val composerDrafts by composerDraftsHandle
             // 📐 [平板适配] 全屏模式过渡动画（只有手机横屏才进入全屏）
         // 全屏没有二级内容：仅物理遮挡铰链才把媒体钳进首个安全 pane；
         // 软折痕（FOLD）允许跨整窗，否则半开姿态下下半屏整块留黑。
@@ -3694,84 +3705,86 @@ internal fun VideoDetailScreenStateHolder(
                     }
                     val success = uiState as? VideoPlaybackUiState.Success
                     if (canShowLandscapeComments && landscapeCommentPanelVisible && success != null) {
-                        LandscapeCommentPanel(
-                            info = success.info, listState = landscapeCommentListState,
-                            replies = commentState.replies, replyCount = commentState.replyCount,
-                            emoteMap = success.emoteMap, isRepliesLoading = commentState.isRepliesLoading,
-                            isRepliesRefreshing = commentState.isRepliesRefreshing,
-                            repliesError = commentState.repliesError,
-                            isRepliesEnd = commentState.isRepliesEnd, videoTags = success.videoTags,
-                            paginationPage = commentState.nextPage,
-                            voteCard = commentState.voteCard,
-                            sortMode = commentState.sortMode,
-                            currentMid = commentState.currentMid, showUpFlag = commentState.showUpFlag,
-                            showIdentityDecorations = commentMemberDecorationsEnabled,
-                            dissolvingIds = commentState.dissolvingIds, likedComments = commentState.likedComments,
-                            onSortModeChange = commentActions.setSortMode,
-                            onUpClick = navigateToUserSpaceFromVideo,
-                            onSubReplyClick = commentActions.openSubReply,
-                            onCommentReplyClick = playbackActions.replyTo, onLoadMoreReplies = commentActions.loadComments,
-                            onRefreshReplies = commentActions.refreshComments,
-                            onDeleteComment = commentActions.deleteComment, onDissolveStart = commentActions.startDissolve,
-                            onCommentLike = commentActions.likeComment,
-                            onCommentHate = commentActions.hateComment,
-                            hatedComments = commentState.hatedComments,
-                            onCommentUrlClick = openCommentUrl,
-                            onReportComment = commentActions.reportComment,
-                            onToggleTopComment = commentActions.toggleTopComment,
-                            onCheckCommentFraud = commentActions.checkCommentFraud,
-                            onTimestampClick = { position -> seekPlayerFromUserAction(playerState.player, position) },
-                            onDismiss = {
-                                commentActions.closeSubReply()
-                                landscapeCommentPanelVisible = false
-                            },
-                            onSwitchSide = { landscapeCommentPanelOnLeft = !landscapeCommentPanelOnLeft },
-                            isOnLeft = landscapeCommentPanelOnLeft,
-                            closeProgress = landscapeCommentCloseProgress,
-                            drawerWidth = com.android.purebilibili.feature.video.ui.overlay
-                                .resolveLandscapeEndDrawerLayoutPolicy(configuration.screenWidthDp)
-                                .drawerWidthDp.dp,
-                            threadContent = if (subReplyState.visible && subReplyState.rootReply != null) {
-                                { onImagePreview ->
-                                    VideoInlineSubReplyDetailContent(
-                                        state = subReplyState,
-                                        commentState = commentState,
-                                        emoteMap = success.emoteMap,
-                                        maxTimestampMs = success.videoDurationMs.takeIf { it > 0L },
-                                        onLoadMore = commentActions.loadMoreSubReplies,
-                                        onRefresh = commentActions.refreshSubReplies,
-                                        onSortModeChange = commentActions.setSubReplySortMode,
-                                        onDismiss = commentActions.closeSubReply,
-                                        onRootCommentClick = playbackActions.openRootCommentComposer,
-                                        onTimestampClick = { positionMs ->
-                                            seekPlayerFromUserAction(playerState.player, positionMs)
-                                            commentActions.closeSubReply()
-                                        },
-                                        onImagePreview = onImagePreview,
-                                        onReplyClick = playbackActions.replyTo,
-                                        onConversationClick = commentActions.openSubReplyConversation,
-                                        onConversationBack = commentActions.closeSubReplyConversation,
-                                        onDissolveStart = commentActions.startSubDissolve,
-                                        onDeleteComment = commentActions.deleteSubComment,
-                                        onCheckCommentFraud = commentActions.checkCommentFraud,
-                                        onCommentLike = commentActions.likeComment,
-                                        onCommentHate = commentActions.hateComment,
-                                        onReportComment = commentActions.reportComment,
-                                        onUrlClick = openCommentUrl,
-                                        showIdentityDecorations = commentMemberDecorationsEnabled,
-                                        onAvatarClick = { mid ->
-                                            mid.toLongOrNull()?.let(navigateToUserSpaceFromVideo) ?: Unit
-                                        },
-                                        modifier = Modifier.fillMaxSize(),
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                            modifier = Modifier
-                                .align(if (landscapeCommentPanelOnLeft) Alignment.CenterStart else Alignment.CenterEnd)
-                                .fillMaxHeight(),
-                        )
+                        VideoDetailCommentStateScope(commentStateHandle, subReplyStateHandle) { commentState, subReplyState ->
+                            LandscapeCommentPanel(
+                                info = success.info, listState = landscapeCommentListState,
+                                replies = commentState.replies, replyCount = commentState.replyCount,
+                                emoteMap = success.emoteMap, isRepliesLoading = commentState.isRepliesLoading,
+                                isRepliesRefreshing = commentState.isRepliesRefreshing,
+                                repliesError = commentState.repliesError,
+                                isRepliesEnd = commentState.isRepliesEnd, videoTags = success.videoTags,
+                                paginationPage = commentState.nextPage,
+                                voteCard = commentState.voteCard,
+                                sortMode = commentState.sortMode,
+                                currentMid = commentState.currentMid, showUpFlag = commentState.showUpFlag,
+                                showIdentityDecorations = commentMemberDecorationsEnabled,
+                                dissolvingIds = commentState.dissolvingIds, likedComments = commentState.likedComments,
+                                onSortModeChange = commentActions.setSortMode,
+                                onUpClick = navigateToUserSpaceFromVideo,
+                                onSubReplyClick = commentActions.openSubReply,
+                                onCommentReplyClick = playbackActions.replyTo, onLoadMoreReplies = commentActions.loadComments,
+                                onRefreshReplies = commentActions.refreshComments,
+                                onDeleteComment = commentActions.deleteComment, onDissolveStart = commentActions.startDissolve,
+                                onCommentLike = commentActions.likeComment,
+                                onCommentHate = commentActions.hateComment,
+                                hatedComments = commentState.hatedComments,
+                                onCommentUrlClick = openCommentUrl,
+                                onReportComment = commentActions.reportComment,
+                                onToggleTopComment = commentActions.toggleTopComment,
+                                onCheckCommentFraud = commentActions.checkCommentFraud,
+                                onTimestampClick = { position -> seekPlayerFromUserAction(playerState.player, position) },
+                                onDismiss = {
+                                    commentActions.closeSubReply()
+                                    landscapeCommentPanelVisible = false
+                                },
+                                onSwitchSide = { landscapeCommentPanelOnLeft = !landscapeCommentPanelOnLeft },
+                                isOnLeft = landscapeCommentPanelOnLeft,
+                                closeProgress = landscapeCommentCloseProgress,
+                                drawerWidth = com.android.purebilibili.feature.video.ui.overlay
+                                    .resolveLandscapeEndDrawerLayoutPolicy(configuration.screenWidthDp)
+                                    .drawerWidthDp.dp,
+                                threadContent = if (subReplyState.visible && subReplyState.rootReply != null) {
+                                    { onImagePreview ->
+                                        VideoInlineSubReplyDetailContent(
+                                            state = subReplyState,
+                                            commentState = commentState,
+                                            emoteMap = success.emoteMap,
+                                            maxTimestampMs = success.videoDurationMs.takeIf { it > 0L },
+                                            onLoadMore = commentActions.loadMoreSubReplies,
+                                            onRefresh = commentActions.refreshSubReplies,
+                                            onSortModeChange = commentActions.setSubReplySortMode,
+                                            onDismiss = commentActions.closeSubReply,
+                                            onRootCommentClick = playbackActions.openRootCommentComposer,
+                                            onTimestampClick = { positionMs ->
+                                                seekPlayerFromUserAction(playerState.player, positionMs)
+                                                commentActions.closeSubReply()
+                                            },
+                                            onImagePreview = onImagePreview,
+                                            onReplyClick = playbackActions.replyTo,
+                                            onConversationClick = commentActions.openSubReplyConversation,
+                                            onConversationBack = commentActions.closeSubReplyConversation,
+                                            onDissolveStart = commentActions.startSubDissolve,
+                                            onDeleteComment = commentActions.deleteSubComment,
+                                            onCheckCommentFraud = commentActions.checkCommentFraud,
+                                            onCommentLike = commentActions.likeComment,
+                                            onCommentHate = commentActions.hateComment,
+                                            onReportComment = commentActions.reportComment,
+                                            onUrlClick = openCommentUrl,
+                                            showIdentityDecorations = commentMemberDecorationsEnabled,
+                                            onAvatarClick = { mid ->
+                                                mid.toLongOrNull()?.let(navigateToUserSpaceFromVideo) ?: Unit
+                                            },
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
+                                modifier = Modifier
+                                    .align(if (landscapeCommentPanelOnLeft) Alignment.CenterStart else Alignment.CenterEnd)
+                                    .fillMaxHeight(),
+                            )
+                        }
                     }
                 } else {
                     val fullscreenPlayerSection: @Composable () -> Unit = {
@@ -3944,94 +3957,96 @@ internal fun VideoDetailScreenStateHolder(
                     }
                     val success = uiState as? VideoPlaybackUiState.Success
                     if (canShowLandscapeComments && landscapeCommentPanelVisible && success != null) {
-                        LandscapeCommentPanel(
-                            info = success.info,
-                            listState = landscapeCommentListState,
-                            replies = commentState.replies,
-                            replyCount = commentState.replyCount,
-                            emoteMap = success.emoteMap,
-                            isRepliesLoading = commentState.isRepliesLoading,
-                            isRepliesRefreshing = commentState.isRepliesRefreshing,
-                            repliesError = commentState.repliesError,
-                            isRepliesEnd = commentState.isRepliesEnd,
-                            paginationPage = commentState.nextPage,
-                            voteCard = commentState.voteCard,
-                            videoTags = success.videoTags,
-                            sortMode = commentState.sortMode,
-                            currentMid = commentState.currentMid,
-                            showUpFlag = commentState.showUpFlag,
-                            showIdentityDecorations = commentMemberDecorationsEnabled,
-                            dissolvingIds = commentState.dissolvingIds,
-                            likedComments = commentState.likedComments,
-                            onSortModeChange = commentActions.setSortMode,
-                            onUpClick = navigateToUserSpaceFromVideo,
-                            onSubReplyClick = commentActions.openSubReply,
-                            onCommentReplyClick = playbackActions.replyTo,
-                            onLoadMoreReplies = commentActions.loadComments,
-                            onRefreshReplies = commentActions.refreshComments,
-                            onDeleteComment = commentActions.deleteComment,
-                            onDissolveStart = commentActions.startDissolve,
-                            onCommentLike = commentActions.likeComment,
-                            onCommentHate = commentActions.hateComment,
-                            hatedComments = commentState.hatedComments,
-                            onCommentUrlClick = openCommentUrl,
-                            onReportComment = commentActions.reportComment,
-                            onToggleTopComment = commentActions.toggleTopComment,
-                            onCheckCommentFraud = commentActions.checkCommentFraud,
-                            onTimestampClick = { position -> seekPlayerFromUserAction(playerState.player, position) },
-                            onDismiss = {
-                                commentActions.closeSubReply()
-                                landscapeCommentPanelVisible = false
-                            },
-                            onSwitchSide = { landscapeCommentPanelOnLeft = !landscapeCommentPanelOnLeft },
-                            isOnLeft = landscapeCommentPanelOnLeft,
-                            closeProgress = landscapeCommentCloseProgress,
-                            drawerWidth = com.android.purebilibili.feature.video.ui.overlay
-                                .resolveLandscapeEndDrawerLayoutPolicy(configuration.screenWidthDp)
-                                .drawerWidthDp.dp,
-                            threadContent = if (subReplyState.visible && subReplyState.rootReply != null) {
-                                { onImagePreview ->
-                                    VideoInlineSubReplyDetailContent(
-                                        state = subReplyState,
-                                        commentState = commentState,
-                                        emoteMap = success.emoteMap,
-                                        maxTimestampMs = success.videoDurationMs.takeIf { it > 0L },
-                                        onLoadMore = commentActions.loadMoreSubReplies,
-                                        onRefresh = commentActions.refreshSubReplies,
-                                        onSortModeChange = commentActions.setSubReplySortMode,
-                                        onDismiss = commentActions.closeSubReply,
-                                        onRootCommentClick = playbackActions.openRootCommentComposer,
-                                        onTimestampClick = { positionMs ->
-                                            seekPlayerFromUserAction(playerState.player, positionMs)
-                                            commentActions.closeSubReply()
-                                        },
-                                        onImagePreview = onImagePreview,
-                                        onReplyClick = playbackActions.replyTo,
-                                        onConversationClick = commentActions.openSubReplyConversation,
-                                        onConversationBack = commentActions.closeSubReplyConversation,
-                                        onDissolveStart = commentActions.startSubDissolve,
-                                        onDeleteComment = commentActions.deleteSubComment,
-                                        onCheckCommentFraud = commentActions.checkCommentFraud,
-                                        onCommentLike = commentActions.likeComment,
-                                        onCommentHate = commentActions.hateComment,
-                                        onReportComment = commentActions.reportComment,
-                                        onUrlClick = openCommentUrl,
-                                        showIdentityDecorations = commentMemberDecorationsEnabled,
-                                        onAvatarClick = { mid ->
-                                            mid.toLongOrNull()?.let(navigateToUserSpaceFromVideo) ?: Unit
-                                        },
-                                        modifier = Modifier.fillMaxSize(),
+                        VideoDetailCommentStateScope(commentStateHandle, subReplyStateHandle) { commentState, subReplyState ->
+                            LandscapeCommentPanel(
+                                info = success.info,
+                                listState = landscapeCommentListState,
+                                replies = commentState.replies,
+                                replyCount = commentState.replyCount,
+                                emoteMap = success.emoteMap,
+                                isRepliesLoading = commentState.isRepliesLoading,
+                                isRepliesRefreshing = commentState.isRepliesRefreshing,
+                                repliesError = commentState.repliesError,
+                                isRepliesEnd = commentState.isRepliesEnd,
+                                paginationPage = commentState.nextPage,
+                                voteCard = commentState.voteCard,
+                                videoTags = success.videoTags,
+                                sortMode = commentState.sortMode,
+                                currentMid = commentState.currentMid,
+                                showUpFlag = commentState.showUpFlag,
+                                showIdentityDecorations = commentMemberDecorationsEnabled,
+                                dissolvingIds = commentState.dissolvingIds,
+                                likedComments = commentState.likedComments,
+                                onSortModeChange = commentActions.setSortMode,
+                                onUpClick = navigateToUserSpaceFromVideo,
+                                onSubReplyClick = commentActions.openSubReply,
+                                onCommentReplyClick = playbackActions.replyTo,
+                                onLoadMoreReplies = commentActions.loadComments,
+                                onRefreshReplies = commentActions.refreshComments,
+                                onDeleteComment = commentActions.deleteComment,
+                                onDissolveStart = commentActions.startDissolve,
+                                onCommentLike = commentActions.likeComment,
+                                onCommentHate = commentActions.hateComment,
+                                hatedComments = commentState.hatedComments,
+                                onCommentUrlClick = openCommentUrl,
+                                onReportComment = commentActions.reportComment,
+                                onToggleTopComment = commentActions.toggleTopComment,
+                                onCheckCommentFraud = commentActions.checkCommentFraud,
+                                onTimestampClick = { position -> seekPlayerFromUserAction(playerState.player, position) },
+                                onDismiss = {
+                                    commentActions.closeSubReply()
+                                    landscapeCommentPanelVisible = false
+                                },
+                                onSwitchSide = { landscapeCommentPanelOnLeft = !landscapeCommentPanelOnLeft },
+                                isOnLeft = landscapeCommentPanelOnLeft,
+                                closeProgress = landscapeCommentCloseProgress,
+                                drawerWidth = com.android.purebilibili.feature.video.ui.overlay
+                                    .resolveLandscapeEndDrawerLayoutPolicy(configuration.screenWidthDp)
+                                    .drawerWidthDp.dp,
+                                threadContent = if (subReplyState.visible && subReplyState.rootReply != null) {
+                                    { onImagePreview ->
+                                        VideoInlineSubReplyDetailContent(
+                                            state = subReplyState,
+                                            commentState = commentState,
+                                            emoteMap = success.emoteMap,
+                                            maxTimestampMs = success.videoDurationMs.takeIf { it > 0L },
+                                            onLoadMore = commentActions.loadMoreSubReplies,
+                                            onRefresh = commentActions.refreshSubReplies,
+                                            onSortModeChange = commentActions.setSubReplySortMode,
+                                            onDismiss = commentActions.closeSubReply,
+                                            onRootCommentClick = playbackActions.openRootCommentComposer,
+                                            onTimestampClick = { positionMs ->
+                                                seekPlayerFromUserAction(playerState.player, positionMs)
+                                                commentActions.closeSubReply()
+                                            },
+                                            onImagePreview = onImagePreview,
+                                            onReplyClick = playbackActions.replyTo,
+                                            onConversationClick = commentActions.openSubReplyConversation,
+                                            onConversationBack = commentActions.closeSubReplyConversation,
+                                            onDissolveStart = commentActions.startSubDissolve,
+                                            onDeleteComment = commentActions.deleteSubComment,
+                                            onCheckCommentFraud = commentActions.checkCommentFraud,
+                                            onCommentLike = commentActions.likeComment,
+                                            onCommentHate = commentActions.hateComment,
+                                            onReportComment = commentActions.reportComment,
+                                            onUrlClick = openCommentUrl,
+                                            showIdentityDecorations = commentMemberDecorationsEnabled,
+                                            onAvatarClick = { mid ->
+                                                mid.toLongOrNull()?.let(navigateToUserSpaceFromVideo) ?: Unit
+                                            },
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
+                                modifier = Modifier
+                                    .align(
+                                        if (landscapeCommentPanelOnLeft) Alignment.CenterStart else Alignment.CenterEnd
                                     )
-                                }
-                            } else {
-                                null
-                            },
-                            modifier = Modifier
-                                .align(
-                                    if (landscapeCommentPanelOnLeft) Alignment.CenterStart else Alignment.CenterEnd
-                                )
-                                .fillMaxHeight(),
-                        )
+                                    .fillMaxHeight(),
+                            )
+                        }
                     }
                 }
 
@@ -4097,9 +4112,9 @@ internal fun VideoDetailScreenStateHolder(
                                 playerState = playerState,
                                 uiState = uiState,
                                 detailContentState = detailContentState,
-                                commentState = commentState,
+                                commentStateHandle = commentStateHandle,
                                 engagementState = engagementState,
-                                subReplyState = subReplyState,
+                                subReplyStateHandle = subReplyStateHandle,
                                 downloadProgress = downloadProgress,
                                 commentMemberDecorationsEnabled = commentMemberDecorationsEnabled,
                                 playbackActions = playbackActions,
@@ -4168,9 +4183,9 @@ internal fun VideoDetailScreenStateHolder(
                             playerState = playerState,
                             uiState = uiState,
                             detailContentState = detailContentState,
-                            commentState = commentState,
+                            commentStateHandle = commentStateHandle,
                             engagementState = engagementState,
-                            subReplyState = subReplyState,
+                            subReplyStateHandle = subReplyStateHandle,
                             downloadProgress = downloadProgress,
                             commentMemberDecorationsEnabled = commentMemberDecorationsEnabled,
                             playbackActions = playbackActions,
@@ -4299,14 +4314,14 @@ internal fun VideoDetailScreenStateHolder(
                             shouldHidePausedInlinePlayerForComments(
                                 selectedTabIndex = selectedVideoContentTabIndex,
                                 isPlaybackPaused = isPlaybackPausedForInlineLayout,
-                                isCommentThreadVisible = subReplyState.visible,
+                                isCommentThreadVisible = subReplyVisible,
                             )
                         val inlinePortraitScrollEnabled = shouldEnableInlinePortraitScrollTransform(
                             collapseMode = portraitPlayerCollapseMode,
                             selectedTabIndex = selectedVideoContentTabIndex,
                             isVerticalVideo = isVerticalVideo,
                             isPlaybackPaused = isPlaybackPausedForInlineLayout,
-                            isCommentThreadVisible = subReplyState.visible,
+                            isCommentThreadVisible = subReplyVisible,
                         )
                         val inlinePlayerCollapseState = rememberInlinePortraitPlayerCollapseState(currentBvid)
                         // 评论区「一键回顶」时恢复被压缩的播放器(共享事件)。
@@ -4332,7 +4347,7 @@ internal fun VideoDetailScreenStateHolder(
                                 useOfficialInlinePortraitDetailExperience = useOfficialInlinePortraitDetailExperience,
                                 selectedTabIndex = selectedVideoContentTabIndex,
                                 isPortraitFullscreen = isPortraitFullscreen,
-                                isCommentThreadVisible = subReplyState.visible,
+                                isCommentThreadVisible = subReplyVisible,
                                 collapseMode = portraitPlayerCollapseMode,
                                 isVerticalVideo = isVerticalVideo,
                                 isPlaybackPaused = isPlaybackPausedForInlineLayout,
@@ -5433,7 +5448,7 @@ internal fun VideoDetailScreenStateHolder(
                                         introListState = introListState,
                                         commentListState = commentListState,
                                         videoContentPagerState = videoContentPagerState,
-                                        commentState = commentState,
+                                        commentStateHandle = commentStateHandle,
                                         engagementState = engagementState,
                                         androidNativeLiquidGlassEnabled =
                                             homeSettings.androidNativeLiquidGlassEnabled,
@@ -5461,7 +5476,7 @@ internal fun VideoDetailScreenStateHolder(
                                         isFullscreenMode = isFullscreenMode,
                                         isPortraitFullscreen = isPortraitFullscreen,
                                         showCommentInput = showCommentInput,
-                                        isCommentThreadVisible = subReplyState.visible,
+                                        isCommentThreadVisible = subReplyVisible,
                                         commentThreadCoveredBlurProgressProvider = { subReplyCoveredBlurProgress },
                                         showFavoriteFolderDialog = showFavoriteFolderDialog,
                                         downloadProgress = downloadProgress,
@@ -5683,6 +5698,8 @@ internal fun VideoDetailScreenStateHolder(
 
     @Composable
     fun BoxScope.VideoDetailRouteSheetOverlayContent() {
+        val engagementState by engagementStateHandle
+        val commentState by commentStateHandle
         VideoDetailPortraitOverlayAdapter(
             uiState = uiState,
             portraitExperienceEnabled = portraitExperienceEnabled,

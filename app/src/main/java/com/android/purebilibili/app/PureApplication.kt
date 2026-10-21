@@ -459,8 +459,10 @@ class PureApplication : Application(), SingletonImageLoader.Factory, ComponentCa
         PluginManager.register(com.android.purebilibili.feature.plugin.SubscriptionFeedPlugin())
         Logger.d(PureApplicationRuntimeConfig.TAG, " Plugin system initialized with 11 built-in plugins")
 
-        com.android.purebilibili.core.plugin.json.JsonPluginManager.initialize(this)
-        Logger.d(PureApplicationRuntimeConfig.TAG, " JSON plugin system initialized")
+        AppScope.ioScope.launch {
+            com.android.purebilibili.core.plugin.json.JsonPluginManager.initialize(this@PureApplication)
+            Logger.d(PureApplicationRuntimeConfig.TAG, " JSON plugin system initialized")
+        }
 
         AppScope.ioScope.launch {
             com.android.purebilibili.feature.download.DownloadManager.init(this@PureApplication)

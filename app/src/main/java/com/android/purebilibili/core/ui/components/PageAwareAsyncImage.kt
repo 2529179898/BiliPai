@@ -40,6 +40,7 @@ internal fun PageAwareAsyncImage(
     imageLoader: ImageLoader? = null,
     contentScale: ContentScale = ContentScale.Fit,
     alignment: Alignment = Alignment.Center,
+    loadingAllowed: Boolean = LocalPageImageLoadingAllowed.current,
     onError: ((AsyncImagePainter.State.Error) -> Unit)? = null,
     onSuccess: ((AsyncImagePainter.State.Success) -> Unit)? = null,
 ) {
@@ -52,7 +53,7 @@ internal fun PageAwareAsyncImage(
     val retainedPainter = remember(retainedImage, context) {
         retainedImage?.asPainter(context, FilterQuality.Low)
     }
-    if (LocalPageImageLoadingAllowed.current) {
+    if (loadingAllowed) {
         AsyncImage(
             model = model,
             imageLoader = imageLoader ?: context.imageLoader,

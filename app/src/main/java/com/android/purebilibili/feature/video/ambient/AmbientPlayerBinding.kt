@@ -7,7 +7,6 @@ import androidx.compose.runtime.*
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import com.android.purebilibili.core.store.SettingsManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
@@ -41,19 +40,30 @@ internal fun BindPlayerAmbient(
     val environment = rememberAmbientEnvironment(settings.enabled)
     val navTransition = LocalNavTransitionScope.current
     var refresh by remember(player) { mutableIntStateOf(0) }
+    var playing by remember(player) { mutableStateOf(player.isPlaying) }
     var seekSettlesAt by remember(player) { mutableLongStateOf(0L) }
+    var seekReady by remember(player) { mutableStateOf(true) }
     var surfaceGeneration by remember(playerView) { mutableIntStateOf(0) }
     val surface = playerView?.videoSurfaceView
+    var surfaceAvailable by remember(surface) {
+        mutableStateOf(when (surface) {
+            is SurfaceView -> surface.holder.surface.isValid
+            is TextureView -> surface.isAvailable
+            else -> false
+        })
+    }
     DisposableEffect(player, surface) {
         presentation.requiredRefresh = refresh
         val listener = object : Player.Listener {
-            override fun onRenderedFirstFrame() { refresh++ }
+            override fun onRenderedFirstFrame() { surfaceAvailable = true; refresh++ }
             override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+                seekReady = false
                 seekSettlesAt = android.os.SystemClock.elapsedRealtime() + 200
                 refresh++
                 presentation.requiredRefresh = refresh
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                playing = isPlaying
                 // Capture the final displayed frame on pause as well as on resume.
                 refresh++
                 presentation.requiredRefresh = refresh
@@ -62,9 +72,9 @@ internal fun BindPlayerAmbient(
         }
         player.addListener(listener)
         val callback = object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) { surfaceGeneration++; refresh++ }
+            override fun surfaceCreated(holder: SurfaceHolder) { surfaceAvailable = true; surfaceGeneration++; refresh++ }
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) { surfaceGeneration++; refresh++ }
-            override fun surfaceDestroyed(holder: SurfaceHolder) { surfaceGeneration++ }
+            override fun surfaceDestroyed(holder: SurfaceHolder) { surfaceAvailable = false; surfaceGeneration++ }
         }
         (surface as? SurfaceView)?.holder?.addCallback(callback)
         onDispose {
@@ -73,14 +83,24 @@ internal fun BindPlayerAmbient(
         }
     }
     var textureIdentity by remember(surface) { mutableStateOf((surface as? TextureView)?.surfaceTexture) }
-    LaunchedEffect(surface) {
-        if (surface is TextureView) while (isActive) {
-            textureIdentity = surface.surfaceTexture
-            delay(250)
+    // Observe existing draws; never install over Media3's SurfaceTextureListener and
+    // never schedule a timer/draw just to rediscover the same texture.
+    val glowAllowed = settings.enabled && !hdr && !anime4k && !environment.severe
+    val visualActive = com.android.purebilibili.core.ui.rememberVisualWorkActive()
+    val surfaceObservationActive = visualActive && foreground && !excluded && (glowAllowed || statusBar)
+    DisposableEffect(surface, surfaceObservationActive) {
+        val texture = (surface as? TextureView)?.takeIf { surfaceObservationActive }
+        val observer = texture?.viewTreeObserver
+        val listener = android.view.ViewTreeObserver.OnPreDrawListener {
+            textureIdentity = texture?.surfaceTexture
+            surfaceAvailable = texture?.isAvailable == true
+            true
         }
+        observer?.addOnPreDrawListener(listener)
+        onDispose { if (observer?.isAlive == true) observer.removeOnPreDrawListener(listener) }
     }
     val recoveryReady = rememberUpdatedState {
-        foreground && !excluded && !transitioning && !navTransition.isRunning &&
+        visualActive && foreground && !excluded && !transitioning && !navTransition.isRunning &&
             kotlin.math.abs(navTransition.relativeDepth) <= 0.001f
     }
     LaunchedEffect(player) {
@@ -91,11 +111,15 @@ internal fun BindPlayerAmbient(
             }
         }
     }
-    val glowAllowed = settings.enabled && !hdr && !anime4k && !environment.severe
-    val active = foreground && !excluded && !transitioning && firstFrameReady && (glowAllowed || statusBar)
+    val active = surfaceAvailable && visualActive && foreground && !excluded && !transitioning && firstFrameReady && (glowAllowed || statusBar)
+    LaunchedEffect(seekSettlesAt) {
+        seekReady = false
+        delay((seekSettlesAt - android.os.SystemClock.elapsedRealtime()).coerceAtLeast(0L))
+        seekReady = true
+    }
     val latestPolicy = rememberUpdatedState {
         val moving = transitioning || navTransition.isRunning || kotlin.math.abs(navTransition.relativeDepth) > 0.001f
-        AmbientRunPolicy(active && !moving && android.os.SystemClock.elapsedRealtime() >= seekSettlesAt, glowAllowed, player.isPlaying,
+        AmbientRunPolicy(active && !moving && seekReady, glowAllowed, playing,
             settings.powerSaving || environment.saving, refresh, diagnosticLogging)
     }
     val surfaceLocation = remember(surface) { IntArray(2) }

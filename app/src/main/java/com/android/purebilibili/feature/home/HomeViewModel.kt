@@ -92,6 +92,48 @@ internal fun selectHomeFeedIncomingVideos(
     }
 }
 
+internal data class PreparedHomeFeedMerge(
+    val incomingVideos: List<VideoItem>,
+    val videos: kotlinx.collections.immutable.ImmutableList<VideoItem>,
+    val addedCount: Int,
+)
+
+/** CPU-only: callers run selection, full-list deduplication and copying on Default. */
+internal fun prepareHomeFeedMerge(
+    currentVideos: List<VideoItem>,
+    responseVideos: List<VideoItem>,
+    isLoadMore: Boolean,
+    isIncrementalRefresh: Boolean,
+    keySelector: (VideoItem) -> String,
+    requestVideos: List<VideoItem> = currentVideos,
+): PreparedHomeFeedMerge {
+    val removedKeys = if (requestVideos === currentVideos) emptySet() else {
+        val currentKeys = currentVideos.mapTo(HashSet(), keySelector)
+        requestVideos.mapNotNullTo(HashSet()) { video ->
+            keySelector(video).takeUnless { it in currentKeys }
+        }
+    }
+    val eligibleResponse = if (removedKeys.isEmpty()) responseVideos else {
+        responseVideos.filterNot { keySelector(it) in removedKeys }
+    }
+    val incoming = selectHomeFeedIncomingVideos(
+        eligibleResponse, currentVideos, isLoadMore, isIncrementalRefresh,
+    )
+    var addedCount = 0
+    val merged = when {
+        isLoadMore -> appendDistinctByKey(currentVideos, incoming, keySelector)
+        isIncrementalRefresh -> {
+            val prepended = prependDistinctByKey(currentVideos, incoming, keySelector)
+            addedCount = (prepended.size - currentVideos.size).coerceAtLeast(0)
+            val keptOldCount = resolveHomeRefreshKeptOldItemCount(currentVideos.size)
+            if (keptOldCount < currentVideos.size) prepended.take(addedCount + keptOldCount)
+            else prepended
+        }
+        else -> incoming
+    }
+    return PreparedHomeFeedMerge(incoming, merged.toImmutableList(), addedCount)
+}
+
 private data class PreparedHomeFeedVideos(
     val validVideoCount: Int,
     val filteredVideos: List<VideoItem>,
@@ -1631,33 +1673,37 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 currentCategory == HomeCategory.RECOMMEND &&
                 (incrementalTimelineRefreshEnabled || homeRefreshTipVisible)
 
-            val incomingVideos = selectHomeFeedIncomingVideos(
-                responseVideos = filteredVideos,
-                currentVideos = currentCategoryState.videos,
-                isLoadMore = isLoadMore,
-                isIncrementalRefresh = useIncrementalRecommendRefresh,
-            )
-            
-            if (incomingVideos.isNotEmpty() || useIncrementalRecommendRefresh) {
-                var addedCount = 0
-                val updateContent: (CategoryContent) -> CategoryContent = { oldState ->
-                    val mergedVideos = when {
-                        isLoadMore -> appendDistinctByKey(oldState.videos, incomingVideos, ::videoItemKey).toImmutableList()
-                        useIncrementalRecommendRefresh -> {
-                            val merged = prependDistinctByKey(oldState.videos, incomingVideos, ::videoItemKey)
-                            addedCount = (merged.size - oldState.videos.size).coerceAtLeast(0)
-                            val keptOldCount = resolveHomeRefreshKeptOldItemCount(oldState.videos.size)
-                            if (keptOldCount < oldState.videos.size) {
-                                merged.take(addedCount + keptOldCount).toImmutableList()
-                            } else {
-                                merged.toImmutableList()
-                            }
-                        }
-                        else -> incomingVideos.toImmutableList()
-                    }
+            // The list may change while CPU work is suspended (dismiss/feedback/account).
+            // Rebase on the latest immutable list before committing; never restore a removed card.
+            fun latestVideos() = if (currentCategory == HomeCategory.POPULAR) {
+                _uiState.value.popularCategoryStates[popularSubCategory]?.videos
+            } else {
+                _uiState.value.categoryStates[currentCategory]?.videos
+            } ?: kotlinx.collections.immutable.persistentListOf<VideoItem>()
 
+            var mergeBase: kotlinx.collections.immutable.ImmutableList<VideoItem>
+            var merge: PreparedHomeFeedMerge
+            do {
+                mergeBase = latestVideos()
+                merge = withContext(Dispatchers.Default) {
+                    prepareHomeFeedMerge(
+                        currentVideos = mergeBase,
+                        responseVideos = filteredVideos,
+                        isLoadMore = isLoadMore,
+                        isIncrementalRefresh = useIncrementalRecommendRefresh,
+                        keySelector = ::videoItemKey,
+                        requestVideos = currentCategoryState.videos,
+                    )
+                }
+                ensureAccountCurrent(identity)
+            } while (latestVideos() !== mergeBase)
+            // No suspension from this identity check through the synchronous state update.
+            val incomingVideos = merge.incomingVideos
+            val addedCount = merge.addedCount
+            if (incomingVideos.isNotEmpty() || useIncrementalRecommendRefresh) {
+                val updateContent: (CategoryContent) -> CategoryContent = { oldState ->
                     oldState.copy(
-                        videos = mergedVideos,
+                        videos = merge.videos,
                         liveRooms = emptyList<LiveRoom>().toImmutableList(),
                         isLoading = false,
                         error = null,

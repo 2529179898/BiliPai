@@ -75,6 +75,9 @@ class CommandDanmakuVisibilityUiRegressionTest {
         rule.setContent {
             MaterialTheme {
                 val density = LocalDensity.current
+                val doubleTapSlopPx = android.view.ViewConfiguration.get(
+                    androidx.compose.ui.platform.LocalContext.current
+                ).scaledDoubleTapSlop.toFloat()
                 tapTimeout = LocalViewConfiguration.current.doubleTapTimeoutMillis
                 val commandState = rememberCommandDanmakuOverlayState("same-video-session")
                 Box(Modifier.size(320.dp, 240.dp).testTag("retained-host")) {
@@ -83,7 +86,10 @@ class CommandDanmakuVisibilityUiRegressionTest {
                         onDispose { hostDisposals++ }
                     }
                     Box(Modifier.fillMaxSize().pointerInput(Unit) {
-                        detectPlayerTapGestures(onTap = { playerTaps += it }, onDoubleTap = {})
+                        detectPlayerTapGestures(
+                            onTap = { playerTaps += it }, onDoubleTap = {},
+                            doubleTapSlopPx = doubleTapSlopPx,
+                        )
                     })
                     CommandDanmakuOverlay(
                         items = listOf(attention), player = player,

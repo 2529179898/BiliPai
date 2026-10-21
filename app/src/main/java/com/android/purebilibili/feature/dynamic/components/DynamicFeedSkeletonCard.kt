@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -48,6 +49,10 @@ private const val DYNAMIC_SKELETON_PULSE_DURATION_MILLIS = 900
  */
 @Composable
 internal fun rememberDynamicFeedSkeletonPulseState(): State<Float> {
+    if (!com.android.purebilibili.core.ui.rememberVisualWorkActive() ||
+        com.android.purebilibili.core.ui.motion.rememberSystemReduceMotion()) {
+        return rememberUpdatedState(0.5f)
+    }
     if (com.android.purebilibili.core.ui.skeleton.rememberSkeletonBreathingEnabled()) {
         return com.android.purebilibili.core.ui.skeleton.rememberGentleSkeletonPulse()
     }

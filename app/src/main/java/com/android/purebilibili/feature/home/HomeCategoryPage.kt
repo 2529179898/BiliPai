@@ -138,6 +138,9 @@ internal fun resolveHomeFeedAlignedRows(
     }
 }
 
+private fun resolveHomeFeedRowKey(row: IntRange, videoGridKeys: List<String>): String =
+    row.joinToString(prefix = "home_video_row_", separator = "_") { videoGridKeys[it] }
+
 internal fun resolveHomeOldContentGridItemIndex(
     anchorVideoIndex: Int,
     itemCount: Int,
@@ -415,6 +418,43 @@ internal fun HomeCategoryPageContent(
     val visibleLazyItemKeys = remember(gridState) {
         derivedStateOf { gridState.layoutInfo.visibleItemsInfo.mapTo(HashSet()) { it.key } }
     }
+    val alignedDividerIndex = remember(category, visibleGridVideos, oldContentAnchorBvid, oldContentStartIndex) {
+        if (category != HomeCategory.RECOMMEND) null
+        else if (oldContentAnchorBvid != null) {
+            visibleGridVideos.indexOfFirst { it.bvid == oldContentAnchorBvid }.takeIf { it > 0 }
+        } else oldContentStartIndex?.takeIf { it > 0 && it < visibleGridVideos.size }
+    }
+    val alignedRows = remember(visibleGridVideos.size, gridColumns, alignedDividerIndex, showFullVideoCardContent) {
+        if (showFullVideoCardContent) emptyList()
+        else resolveHomeFeedAlignedRows(visibleGridVideos.size, gridColumns, alignedDividerIndex)
+    }
+    // Keys include full-width rows, dividers and headers. Map only video keys; never infer
+    // a video index from a lazy index, which would preload unrelated cards after a header.
+    val videoRangesByLazyKey = remember(videoGridKeys, alignedRows, showFullVideoCardContent) {
+        if (showFullVideoCardContent) {
+            videoGridKeys.mapIndexed { index, key -> key to (index..index) }.toMap()
+        } else {
+            alignedRows.associateBy(
+                keySelector = { row -> resolveHomeFeedRowKey(row, videoGridKeys) },
+                valueTransform = { it },
+            )
+        }
+    }
+    val coverLoadRange = remember(
+        visibleLazyItemKeys, videoRangesByLazyKey, visibleGridVideos.size, gridColumns, isDataSaverActive,
+    ) {
+        derivedStateOf {
+            var first: Int? = null
+            var last: Int? = null
+            visibleLazyItemKeys.value.forEach { key ->
+                (key as? String)?.let { videoRangesByLazyKey[it] }?.let { range ->
+                    first = minOf(first ?: range.first, range.first)
+                    last = maxOf(last ?: range.last, range.last)
+                }
+            }
+            resolveHomeCoverLoadRange(first, last, videoGridKeys.size, gridColumns, isDataSaverActive)
+        }
+    }
     val pageImageWorkAllowed = LocalPageImageLoadingAllowed.current && isActive
     val auxiliaryWorkAllowed = rememberHomeCardAuxiliaryWorkAllowed(
         pageActive = pageImageWorkAllowed,
@@ -424,7 +464,11 @@ internal fun HomeCategoryPageContent(
         val cardVisible by remember(visibleLazyItemKeys, lazyItemKey) {
             derivedStateOf { lazyItemKey in visibleLazyItemKeys.value }
         }
+        val coverInLoadWindow by remember(coverLoadRange, index) {
+            derivedStateOf { coverLoadRange.value?.contains(index) == true }
+        }
         val cardImageWorkAllowed = LocalPageImageLoadingAllowed.current && isActive && cardVisible
+        val cardCoverWorkAllowed = LocalPageImageLoadingAllowed.current && isActive && coverInLoadWindow
         val isNativeNonVideoCard = video.contentType in setOf("bangumi", "picture") ||
             (video.dynamicId.isNotBlank() && !video.bvid.startsWith("BV", ignoreCase = true))
         val isDissolving = video.bvid in dissolvingVideos
@@ -488,6 +532,7 @@ internal fun HomeCategoryPageContent(
         ) {
             CompositionLocalProvider(
                 LocalPageImageLoadingAllowed provides cardImageWorkAllowed,
+                LocalHomeCardCoverLoadingAllowed provides cardCoverWorkAllowed,
                 LocalHomeCardAuxiliaryWorkAllowed provides (cardImageWorkAllowed && auxiliaryWorkAllowed),
             ) {
                 when (displayMode) {
@@ -768,23 +813,7 @@ internal fun HomeCategoryPageContent(
             }
 
             if (visibleGridVideos.isNotEmpty()) {
-                val shouldShowOldContentDivider = category == HomeCategory.RECOMMEND &&
-                    (
-                        (oldContentAnchorBvid != null && visibleGridVideos.any { it.bvid == oldContentAnchorBvid }) ||
-                            (oldContentStartIndex != null && oldContentStartIndex > 0 && oldContentStartIndex < visibleGridVideos.size)
-                        )
-
-                val dividerIndex = if (shouldShowOldContentDivider) {
-                    if (oldContentAnchorBvid != null) {
-                        visibleGridVideos
-                            .indexOfFirst { it.bvid == oldContentAnchorBvid }
-                            .takeIf { it > 0 }
-                    } else {
-                        oldContentStartIndex
-                    }
-                } else {
-                    null
-                }
+                val dividerIndex = alignedDividerIndex
 
                 if (showFullVideoCardContent) {
                     // Complete titles intentionally retain the independent-lane waterfall.
@@ -810,11 +839,7 @@ internal fun HomeCategoryPageContent(
                 } else {
                     // Keep both the card shells and subsequent rows aligned while retaining
                     // unabridged metadata. The tallest card determines each row's height.
-                    resolveHomeFeedAlignedRows(
-                        itemCount = visibleGridVideos.size,
-                        columns = gridColumns,
-                        dividerIndex = dividerIndex,
-                    ).forEach { rowIndices ->
+                    alignedRows.forEach { rowIndices ->
                         if (rowIndices.first == dividerIndex) {
                             item(
                                 key = "old_content_divider_${rowIndices.first}",
@@ -824,44 +849,26 @@ internal fun HomeCategoryPageContent(
                                 OldContentDivider(onClick = onOldContentDividerClick)
                             }
                         }
-                        val rowKey = rowIndices.joinToString(
-                            prefix = "home_video_row_",
-                            separator = "_",
-                        ) { videoGridKeys[it] }
+                        val rowKey = resolveHomeFeedRowKey(rowIndices, videoGridKeys)
                         item(
                             key = rowKey,
                             contentType = "home_video_row",
                             span = StaggeredGridItemSpan.FullLine,
                         ) {
-                            // Measure the current row's natural height before stretching its
-                            // cards. A remembered maximum feeds forced heights back into later
-                            // measurements and can preserve a transient oversized lazy item.
-                            Row(
-                                modifier = videoListItemModifier(enabled = cardAnimationEnabled && !cardReflowActive)
-                                    .fillMaxWidth()
-                                    .height(IntrinsicSize.Min),
+                            HomeAlignedVideoRow(
+                                indices = rowIndices,
+                                itemKeys = videoGridKeys,
+                                columns = gridColumns,
                                 horizontalArrangement = horizontalArrangement,
-                                verticalAlignment = Alignment.Top,
-                            ) {
-                                rowIndices.forEach { index ->
-                                    key(videoGridKeys[index]) {
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight(),
-                                        ) {
-                                            renderVideoCard(
-                                                index,
-                                                visibleGridVideos[index],
-                                                Modifier.fillMaxSize(),
-                                                rowKey,
-                                            )
-                                        }
-                                    }
-                                }
-                                repeat(gridColumns - rowIndices.count()) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
+                                modifier = videoListItemModifier(enabled = cardAnimationEnabled && !cardReflowActive)
+                                    .fillMaxWidth(),
+                            ) { index, cardModifier ->
+                                renderVideoCard(
+                                    index,
+                                    visibleGridVideos[index],
+                                    cardModifier,
+                                    rowKey,
+                                )
                             }
                         }
                     }
@@ -1010,6 +1017,8 @@ private fun PopularSubCategorySegmentedControl(
         BottomBarLiquidSegmentedControl(
             // Glass indicator fills the measured slot; native geometry keeps its defaults.
             liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
+            // Center the native content rail inside its bounded viewport; glass uses the branch above.
+            centerNativeContent = true,
             items = labels,
             selectedIndex = selectedIndex,
             onSelected = { index ->

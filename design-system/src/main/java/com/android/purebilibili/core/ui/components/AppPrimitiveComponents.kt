@@ -861,7 +861,7 @@ fun AppDropdownMenuItem(
         ) {
             androidx.compose.foundation.layout.Row(
                 modifier = Modifier
-                    .heightIn(min = 48.dp)
+                    .heightIn(min = AppChromeSizeTokens.CompactRowMinHeightDp.dp)
                     .padding(contentPadding),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),

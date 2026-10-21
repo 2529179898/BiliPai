@@ -1,5 +1,6 @@
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import android.os.Build
 import androidx.compose.runtime.Composable
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
@@ -13,7 +14,7 @@ import com.android.purebilibili.core.theme.AppUiStyle
 internal object AppLiquidControlGeometry {
     val thumb = DpSize(40.dp, 24.dp)
     val switchTrack = DpSize(64.dp, 28.dp)
-    val controlHeight = 48.dp
+    val controlHeight = AppChromeSizeTokens.CompactActionHeight
     val switchInset = 2.dp
     val sliderTrackHeight = 6.dp
     val sliderInset = thumb.width / 2

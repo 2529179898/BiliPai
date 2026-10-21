@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.android.purebilibili.feature.home.LocalHomeCardCoverLoadingAllowed
 import com.android.purebilibili.core.ui.components.PageAwareAsyncImage
 import com.android.purebilibili.core.ui.components.LocalPageImageLoadingAllowed
 import coil3.request.ImageRequest
@@ -1323,6 +1324,8 @@ internal fun ElegantVideoCard(
             }
             PageAwareAsyncImage(
                 model = coverImageRequest,
+                loadingAllowed = LocalHomeCardCoverLoadingAllowed.current
+                    ?: LocalPageImageLoadingAllowed.current,
                 contentDescription = null,
                 onSuccess = {
                     loadedCoverCacheKey = requestCoverCacheKey

@@ -112,14 +112,7 @@ fun SearchVideoFilterBar(
                     text = resolveSearchOrderChipLabel(order),
                     style = MaterialTheme.typography.labelMedium,
                     color = if (selected) {
-                        if (
-                            LocalAppUiStyle.current == com.android.purebilibili.core.theme.AppUiStyle.MIUIX &&
-                            !LocalAppThemeConfig.current.liquidGlassEnabled
-                        ) {
-                            com.android.purebilibili.core.ui.AppSurfaceTokens.onSurface()
-                        } else {
-                            com.android.purebilibili.core.ui.AppSurfaceTokens.primary()
-                        }
+                        com.android.purebilibili.core.ui.AppSurfaceTokens.primary()
                     } else {
                         com.android.purebilibili.core.ui.AppSurfaceTokens.onSurfaceVariantSummary()
                     },

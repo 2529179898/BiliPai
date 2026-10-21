@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
+import com.android.purebilibili.feature.home.LocalHomeCardCoverLoadingAllowed
 import com.android.purebilibili.core.ui.components.PageAwareAsyncImage
 import coil3.request.ImageRequest
 import com.android.purebilibili.core.util.FormatUtils
@@ -403,6 +404,8 @@ internal fun StoryVideoCard(
             // 封面比例由首页卡片样式统一配置。
             PageAwareAsyncImage(
                 model = coverImageRequest,
+                loadingAllowed = LocalHomeCardCoverLoadingAllowed.current
+                    ?: LocalPageImageLoadingAllowed.current,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize(),

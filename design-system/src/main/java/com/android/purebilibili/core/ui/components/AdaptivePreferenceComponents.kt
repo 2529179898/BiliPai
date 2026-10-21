@@ -2,6 +2,7 @@
 
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.LocalAppEntryIconColorCursor
 
@@ -199,24 +200,23 @@ private fun rememberAdaptiveListRowVisualSpec(): AdaptiveListRowVisualSpec {
 internal fun resolveAdaptiveListRowVisualSpec(
     uiStyle: AppUiStyle,
 ): AdaptiveListRowVisualSpec {
-    val chromeTokens = resolveAndroidNativeChromeTokens(uiStyle)
-    // 两种预设统一到各自官方规格的最小公分母：Miuix BasicComponentDefaults.InsideMargin
-    // 与 M3 ListItem 默认水平内边距均为 16dp，避免出现"自成一派"的第三方间距。
+    // Shared app-authored rows use compact spacing in either material and theme.
+    // Native renderers retain their intrinsic content height; long text can grow the row.
     return if (uiStyle == AppUiStyle.MIUIX) {
         AdaptiveListRowVisualSpec(
             insideHorizontalPaddingDp = 16,
-            insideVerticalPaddingDp = 16,
+            insideVerticalPaddingDp = AppChromeSizeTokens.PreferenceVerticalPaddingDp,
             trailingIconSizeDp = 14,
             trailingSpacingDp = 6,
-            minTouchTargetHeightDp = 48
+            minTouchTargetHeightDp = AppChromeSizeTokens.CompactRowMinHeightDp
         )
     } else {
         AdaptiveListRowVisualSpec(
             insideHorizontalPaddingDp = 16,
-            insideVerticalPaddingDp = 16,
+            insideVerticalPaddingDp = AppChromeSizeTokens.PreferenceVerticalPaddingDp,
             trailingIconSizeDp = 16,
             trailingSpacingDp = 8,
-            minTouchTargetHeightDp = chromeTokens.rowMinTouchTargetDp
+            minTouchTargetHeightDp = AppChromeSizeTokens.CompactRowMinHeightDp
         )
     }
 }

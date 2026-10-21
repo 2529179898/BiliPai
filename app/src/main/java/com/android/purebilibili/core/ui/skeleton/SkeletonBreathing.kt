@@ -24,7 +24,8 @@ fun rememberSkeletonBreathingEnabled(): Boolean {
 /** A visible, smooth luminance breath over a 2.8 second cycle; never changes layout size. */
 @Composable
 fun rememberGentleSkeletonPulse(): State<Float> {
-    if (com.android.purebilibili.core.ui.motion.rememberSystemReduceMotion()) {
+    if (!com.android.purebilibili.core.ui.rememberVisualWorkActive() ||
+        com.android.purebilibili.core.ui.motion.rememberSystemReduceMotion()) {
         return rememberUpdatedState(0.5f)
     }
     return rememberInfiniteTransition(label = "gentleSkeleton").animateFloat(

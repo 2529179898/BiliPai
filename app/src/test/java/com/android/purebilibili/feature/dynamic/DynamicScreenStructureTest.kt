@@ -53,7 +53,7 @@ class DynamicScreenStructureTest {
             .substringAfter("PiliPlus: fold InkWell")
             .substringBefore("if (!isDetail) {\n            AppHorizontalDivider")
 
-        assertTrue(screenSource.contains("onUnfoldRelatedClick = viewModel::unfoldRelatedDynamics"))
+        assertTrue(screenSource.contains("onUnfoldRelatedClick = unfoldRelatedDynamics"))
         assertTrue(foldBlock.contains("onUnfoldRelatedClick?.invoke(item.id_str)"))
         assertFalse(foldBlock.contains("openDynamicDetail"))
     }

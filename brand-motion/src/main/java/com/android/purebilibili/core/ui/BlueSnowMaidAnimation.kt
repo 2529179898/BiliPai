@@ -134,11 +134,11 @@ private fun MaidAnimationPlayer(
                 val composition = try {
                     withTimeoutOrNull(500L) {
                         requireNotNull(result).await().also { composition ->
-                            // The timeline and static fallback share one packaged PNG.
+                            // The timeline and static fallback share one packaged lossless WebP.
                             // Prepare before publishing to the player so no frame has missing art.
                             withContext(Dispatchers.IO) {
                                 val asset = requireNotNull(composition.images["maid_bitmap"])
-                                require(asset.fileName == resources.getResourceEntryName(animation.staticResource) + ".png")
+                                require(asset.fileName == resources.getResourceEntryName(animation.staticResource) + ".webp")
                                 if (asset.bitmap == null) {
                                     val bitmap = requireNotNull(BitmapFactory.decodeResource(
                                         resources,

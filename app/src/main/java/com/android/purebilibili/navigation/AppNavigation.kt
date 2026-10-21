@@ -2924,6 +2924,10 @@ fun AppNavigation(
                                                             currentRoute = pageKey.toLegacyRoute(),
                                                         )
                                                     ),
+                                                    com.android.purebilibili.core.ui.LocalVisualWorkAllowed provides (
+                                                        page == bottomPagerState.settledPage &&
+                                                            bottomPagerBackgroundWorkAllowed
+                                                    ),
                                                     LocalVideoCardSharedElementSourceRoute provides pageKey.toLegacyRoute(),
                                                     com.android.purebilibili.core.ui.components.LocalPageImageLoadingAllowed provides (
                                                         page == bottomPagerState.settledPage &&
@@ -4910,7 +4914,12 @@ fun AppNavigation(
                         key = resolveNavigation3SaveableStateKey(key)
                     ) {
                         VideoCardTransitionBackgroundRouteContent(key) {
-                            RenderNavigationContent(key)
+                            CompositionLocalProvider(
+                                com.android.purebilibili.core.ui.LocalVisualWorkAllowed provides
+                                    (key == currentNavigation3Key),
+                            ) {
+                                RenderNavigationContent(key)
+                            }
                         }
                     }
                 }
@@ -5004,6 +5013,12 @@ fun AppNavigation(
                         enterFadeDurationMillis = navMotionSpec.slowFadeDurationMillis,
                         exitFadeDurationMillis = navMotionSpec.fastFadeDurationMillis
                     ) {
+                        // The dock may remain mounted at zero reveal during a card handoff.
+                        // Gate visual sampling explicitly instead of relying on viewport bounds.
+                        CompositionLocalProvider(
+                            com.android.purebilibili.core.ui.LocalVisualWorkAllowed provides
+                                (finalBottomBarVisible && !driveBottomBarByProgress),
+                        ) {
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -5204,6 +5219,7 @@ fun AppNavigation(
                                     null
                                 }
                             )
+                        }
                         }
                         }
                     }

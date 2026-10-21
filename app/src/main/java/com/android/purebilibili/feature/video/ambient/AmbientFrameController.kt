@@ -9,6 +9,9 @@ import android.view.SurfaceView
 import android.view.TextureView
 import android.view.View
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -109,6 +112,14 @@ internal data class AmbientRunPolicy(
     val diagnosticLogging: Boolean,
 )
 
+/** A stopped sampler owns no timer; only a new observable policy can wake it. */
+internal suspend fun awaitAmbientSamplePolicy(
+    lastRefresh: Int,
+    policy: () -> AmbientRunPolicy,
+): AmbientRunPolicy = snapshotFlow { policy() }.first {
+    it.active && shouldSampleAmbientFrame(it.playing, it.refreshGeneration, lastRefresh)
+}
+
 internal class AmbientFrameController(
     private val presentation: AmbientPresentation,
     private val clock: () -> Long = { SystemClock.elapsedRealtime() },
@@ -129,9 +140,8 @@ internal class AmbientFrameController(
             var reportAt = clock()
             try {
                 while (currentCoroutineContext().isActive && generation == session) {
-                    val config = policy()
-                    if (!config.active) { delay(100); continue }
-                    if (!shouldSampleAmbientFrame(config.playing, config.refreshGeneration, lastRefresh)) { delay(100); continue }
+                    // snapshotFlow waits without a timer while hidden or paused on the final frame.
+                    val config = awaitAmbientSamplePolicy(lastRefresh, policy)
                     val started = clock()
                     val capturedBounds = source.boundsInWindow()
                     val sample = try { source.capture(w, h) }
@@ -224,11 +234,14 @@ internal class AmbientFrameController(
                     val dueAt = started + ambientIntervalMs(config.glow, config.saving, analyzer.static)
                     // Seek/resume/foreground events interrupt the interval, not an in-flight
                     // PixelCopy. Its callback still owns the destination until completion.
-                    while (clock() < dueAt) {
-                        val latest = policy()
-                        if (!latest.active || latest.refreshGeneration != config.refreshGeneration ||
-                            latest.playing != config.playing || latest.saving != config.saving || latest.glow != config.glow) break
-                        delay(minOf(50L, (dueAt - clock()).coerceAtLeast(1L)))
+                    val remaining = (dueAt - clock()).coerceAtLeast(0L)
+                    if (remaining > 0L) {
+                        withTimeoutOrNull(remaining) {
+                            snapshotFlow { policy() }.first { latest ->
+                                latest.active != config.active || latest.refreshGeneration != config.refreshGeneration ||
+                                    latest.playing != config.playing || latest.saving != config.saving || latest.glow != config.glow
+                            }
+                        }
                     }
                 }
             } finally { source.release() }

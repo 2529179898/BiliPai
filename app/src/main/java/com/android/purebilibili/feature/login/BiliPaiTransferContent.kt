@@ -210,7 +210,7 @@ object BiliPaiTransferContent {
         if (decision is ExternalPluginInstallDecision.Rejected) error(decision.reason)
     }
 
-    private fun applyJsonRules(
+    private suspend fun applyJsonRules(
         context: Context,
         rules: BiliPaiTransferredJsonRules,
     ): BiliPaiTransferImportItemResult = transferCatching {

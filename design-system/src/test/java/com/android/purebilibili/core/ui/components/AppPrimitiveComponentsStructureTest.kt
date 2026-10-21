@@ -175,7 +175,7 @@ class AppPrimitiveComponentsStructureTest {
 
         assertTrue(material.contains("import androidx.compose.material3.ListItem"))
         assertFalse(miuix.contains("BasicComponent("))
-        assertTrue(miuix.contains(".heightIn(min = 48.dp)"))
+        assertTrue(miuix.contains(".heightIn(min = AppChromeSizeTokens.CompactRowMinHeightDp.dp)"))
         assertTrue(miuix.contains("leadingContent()"))
         assertTrue(miuix.contains("trailingContent()"))
         assertFalse(miuix.contains("import androidx.compose.material3"))

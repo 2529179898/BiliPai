@@ -2,6 +2,7 @@
 
 package com.android.purebilibili.core.ui.components
 
+import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import com.android.purebilibili.core.ui.AppContentColors
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -107,7 +108,7 @@ fun AppPrimaryButton(
                 if (hapticEnabled) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onClick()
             },
-            modifier = modifier.heightIn(min = 48.dp),
+            modifier = modifier.heightIn(min = AppChromeSizeTokens.CompactActionHeight),
             enabled = enabled && !isLoading,
             interactionSource = interactionSource,
         ) {

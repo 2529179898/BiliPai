@@ -76,7 +76,7 @@ internal fun VideoDetailPhoneSuccessContentLayer(
     introListState: LazyListState,
     commentListState: LazyListState,
     videoContentPagerState: PagerState,
-    commentState: CommentUiState,
+    commentStateHandle: androidx.compose.runtime.State<CommentUiState>,
     engagementState: VideoEngagementUiState,
     androidNativeLiquidGlassEnabled: Boolean,
     commentMemberDecorationsEnabled: Boolean,
@@ -101,7 +101,7 @@ internal fun VideoDetailPhoneSuccessContentLayer(
     showCommentInput: Boolean,
     isCommentThreadVisible: Boolean,
     showFavoriteFolderDialog: Boolean,
-    downloadProgress: Float,
+    downloadProgress: androidx.compose.runtime.State<Float>,
     danmakuEnabledForDetail: Boolean,
     /**
      * 详情页共享的弹幕会话。
@@ -131,6 +131,7 @@ internal fun VideoDetailPhoneSuccessContentLayer(
     commentThreadCoveredBlurProgressProvider: () -> Float = { 0f },
     commentPullToRefreshEnabled: Boolean = true,
 ) {
+    val commentState by commentStateHandle
     val engagementSuccess = success.withEngagementUiState(engagementState)
     var pendingVideoShare by remember { mutableStateOf<VideoSharePayload?>(null) }
     val coveredBlurEffectCache = remember { BlurRenderEffectCache() }
@@ -268,7 +269,7 @@ internal fun VideoDetailPhoneSuccessContentLayer(
                                     isDisliked = engagementState.isDisliked,
                                     coinCount = engagementState.coinCount,
                                     currentPageIndex = currentPageIndex,
-                                    downloadProgress = downloadProgress,
+                                    downloadProgress = downloadProgress.value,
                                     isInWatchLater = engagementState.isInWatchLater,
                                 ),
                                 commentState = VideoContentCommentState(

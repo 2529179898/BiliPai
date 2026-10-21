@@ -80,12 +80,15 @@ fun InboxScreen(
     onSessionClick: (talkerId: Long, sessionType: Int, userName: String) -> Unit,
     viewModel: InboxViewModel = viewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var lastAutoLoadEndTs by remember { mutableLongStateOf(0L) }
-    var pendingRemoveSession by remember { mutableStateOf<SessionItem?>(null) }
-    var dissolvingSessionKeys by remember { mutableStateOf(setOf<String>()) }
-    var pendingInterceptSession by remember { mutableStateOf<SessionItem?>(null) }
-    var showClearDustbinConfirm by remember { mutableStateOf(false) }
+    val accountIdentity by com.android.purebilibili.core.store.TokenManager.accountIdentity.collectAsStateWithLifecycle()
+    val rawUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState = rawUiState.takeIf { it.accountIdentity == accountIdentity }
+        ?: InboxUiState(accountIdentity = accountIdentity)
+    var lastAutoLoadEndTs by remember(accountIdentity) { mutableLongStateOf(0L) }
+    var pendingRemoveSession by remember(accountIdentity) { mutableStateOf<SessionItem?>(null) }
+    var dissolvingSessionKeys by remember(accountIdentity) { mutableStateOf(setOf<String>()) }
+    var pendingInterceptSession by remember(accountIdentity) { mutableStateOf<SessionItem?>(null) }
+    var showClearDustbinConfirm by remember(accountIdentity) { mutableStateOf(false) }
 
     LaunchedEffect(uiState.sessions.firstOrNull()?.talker_id, uiState.isRefreshing, uiState.isLoading) {
         if (uiState.isRefreshing || uiState.isLoading) {
@@ -165,7 +168,7 @@ fun InboxScreen(
                             }
                         }
 
-                        uiState.error != null -> {
+                        uiState.error != null && uiState.sessions.isEmpty() -> {
                             item(key = "message_inbox_error") {
                                 Column(
                                     modifier = Modifier
@@ -200,6 +203,19 @@ fun InboxScreen(
                         }
 
                         else -> {
+                            uiState.error?.let { error ->
+                                item(key = "message_inbox_refresh_error") {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        AppText(error, modifier = Modifier.weight(1f))
+                                        AppTextButton(onClick = { viewModel.refresh() }) {
+                                            AppText("重试")
+                                        }
+                                    }
+                                }
+                            }
                             items(
                                 items = uiState.sessions,
                                 key = InboxSessionPaginationPolicy::resolveSessionKey,
@@ -210,7 +226,8 @@ fun InboxScreen(
                                     uiState.endTs > 0L &&
                                     uiState.endTs != lastAutoLoadEndTs &&
                                     session == uiState.sessions.lastOrNull() &&
-                                    !uiState.isLoadingMore
+                                    !uiState.isLoadingMore &&
+                                    uiState.loadMoreError == null
                                 ) {
                                     LaunchedEffect(session.talker_id, session.session_type, uiState.endTs) {
                                         lastAutoLoadEndTs = uiState.endTs
@@ -272,8 +289,11 @@ fun InboxScreen(
                                         size = 24.dp
                                     )
                                 } else {
-                                    AppTextButton(onClick = { viewModel.loadMoreSessions() }) {
-                                        AppText("加载更多")
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        uiState.loadMoreError?.let { error -> AppText(error) }
+                                        AppTextButton(onClick = { viewModel.loadMoreSessions() }) {
+                                            AppText(if (uiState.loadMoreError != null) "重试" else "加载更多")
+                                        }
                                     }
                                 }
                             }

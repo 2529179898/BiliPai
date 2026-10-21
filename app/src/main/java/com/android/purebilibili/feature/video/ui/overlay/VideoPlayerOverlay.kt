@@ -875,7 +875,23 @@ private fun VideoPlayerOverlayContent(
     val lifecycleState by lifecycleOwner.lifecycle.currentStateAsState()
     val hostLifecycleStarted = lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
     val configuration = LocalConfiguration.current
-    val effectiveDebugInfo = remember(
+    var showInsightDetails by remember(player, bvid, cid) { mutableStateOf(false) }
+    val visualWorkActive = com.android.purebilibili.core.ui.rememberVisualWorkActive()
+    // The HUD needs only the existing decoder/error summary to decide whether it is visible.
+    // Network/display queries and formatted detail rows belong to the visible diagnostics.
+    val insightLevel = remember(debugInfo) {
+        resolvePlaybackInsightLevel(debugInfo)
+    }
+    val insightUiRequested = showInsightDetails || (insightMode != PlayerSettingsStore.PlayerInsightMode.OFF &&
+        shouldShowPlaybackInsightHud(
+            mode = insightMode,
+            hasMeasuredData = true,
+            controlsVisible = isVisible,
+            screenLocked = isScreenLocked,
+            level = insightLevel,
+        ))
+    val sampleInsightDetails = visualWorkActive && insightUiRequested
+    val effectiveDebugInfo = if (!sampleInsightDetails) debugInfo else remember(
         debugInfo,
         realResolution,
         playerViewportSize,
@@ -907,14 +923,17 @@ private fun VideoPlayerOverlayContent(
             } ?: debugInfo.lastLoadError
         )
     }
-    val panelFrameRateLabel = rememberPanelFrameRateLabel()
-    val debugRows = remember(effectiveDebugInfo, panelFrameRateLabel) {
-        resolvePlaybackDebugRows(effectiveDebugInfo)
+    val panelFrameRateLabel = rememberPanelFrameRateLabel(active = sampleInsightDetails)
+    val debugRows = remember(sampleInsightDetails, effectiveDebugInfo, panelFrameRateLabel) {
+        if (!sampleInsightDetails) emptyList() else resolvePlaybackDebugRows(effectiveDebugInfo)
             .plus(DebugStatRow("Panel rate", panelFrameRateLabel))
             .filter { it.value.isNotBlank() }
     }
-    val insightPresentation = remember(effectiveDebugInfo) {
-        resolvePlaybackInsightPresentation(effectiveDebugInfo)
+    val insightPresentation = remember(sampleInsightDetails, effectiveDebugInfo) {
+        if (sampleInsightDetails) resolvePlaybackInsightPresentation(effectiveDebugInfo)
+        else PlaybackInsightPresentation(
+            summary = "", level = PlaybackInsightLevel.UNAVAILABLE, statusText = "", sections = emptyMap(),
+        )
     }
     val insightPanelLayoutPolicy = remember(
         configuration.screenWidthDp,
@@ -925,7 +944,6 @@ private fun VideoPlayerOverlayContent(
             screenHeightDp = configuration.screenHeightDp
         )
     }
-    var showInsightDetails by remember(player, bvid, cid) { mutableStateOf(false) }
     var bufferingStartedAtMs by remember(player) { mutableLongStateOf(0L) }
     var waitingFirstFrameStartedAtMs by remember(player, bvid, cid) { mutableLongStateOf(0L) }
     var playbackIssueSignal by remember(player, bvid, cid) { mutableStateOf<PlaybackIssueSignal?>(null) }
@@ -939,12 +957,22 @@ private fun VideoPlayerOverlayContent(
         bvid,
         cid,
         effectiveDebugInfo,
+        realResolution,
+        playerViewportSize,
+        currentVideoUrl,
+        currentCdnIndex,
+        cdnCount,
         diagnosticEvents,
         pendingUserAction,
         playerDiagnosticLoggingEnabled
     ) {
         { issue ->
             val liveDebugInfo = effectiveDebugInfo.copy(
+                resolution = effectiveDebugInfo.resolution.ifBlank { realResolution },
+                playerViewport = playerViewportSize.takeIf { it.width > 0 && it.height > 0 }
+                    ?.let { "${it.width} x ${it.height}" }.orEmpty(),
+                cdnHost = runCatching { android.net.Uri.parse(currentVideoUrl).host.orEmpty() }.getOrDefault(""),
+                cdnIndex = "${currentCdnIndex + 1}/${cdnCount.coerceAtLeast(1)}",
                 networkType = NetworkUtils.getNetworkTypeLabel(context),
                 forwardBuffer = "${(player.bufferedPosition - player.currentPosition).coerceAtLeast(0L)} ms",
                 lastLoadError = player.playerError?.let { error ->
@@ -1182,7 +1210,7 @@ private fun VideoPlayerOverlayContent(
         resolveVideoPlayerOverlayVisualPolicy(
             widthDp = configuration.screenWidthDp,
             compact = playerControlVisibility.compactPlayerChrome
-        ).copy(lockButtonSizeDp = 48, lockIconSizeDp = 24)
+        ).copy(lockButtonSizeDp = PlayerChromeLayout.CircularButtonSizeDp, lockIconSizeDp = 24)
     }
     val landscapeCommentReservedWidth = if (landscapeCommentPanelVisible && !state.landscapeCommentViewportAlreadyReserved) {
         resolveLandscapeEndDrawerLayoutPolicy(configuration.screenWidthDp).drawerWidthDp.dp

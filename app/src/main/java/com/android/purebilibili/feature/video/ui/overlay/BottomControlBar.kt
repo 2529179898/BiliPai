@@ -510,7 +510,7 @@ fun BottomControlBar(
         if (isFullscreen) base.copy(
             progressSpacingDp = 4,
             horizontalPaddingDp = PlayerChromeLayout.EdgePaddingDp,
-            playButtonSizeDp = 48,
+            playButtonSizeDp = PlayerChromeLayout.CircularButtonSizeDp,
             playIconSizeDp = 22,
             afterPlaySpacingDp = 0,
             timeFontSp = 12,
@@ -720,14 +720,15 @@ fun BottomControlBar(
     val expandInlineActionDock = !isFullscreen && uiLayoutWidthDp < 600 && !showCompactDanmakuSend
     val showDirectTools = isFullscreen && uiLayoutWidthDp >= 840
     val dockProgressLayoutPolicy = if (glassProgressDock) {
-        // The track's touch row matches the shell, keeping the track vertically centered.
-        // Chapter chrome stays above that row, as does the separate seek preview area.
-        val trackRowHeightDp = PlayerChromeLayout.CircularButtonSizeDp
+        // Glass-only seek row: keep its layout compact as well as its visible shell.
+        // Native MD3/Miuix retain progressLayoutPolicy, including their original track sizes.
+        val trackRowHeightDp = PlayerChromeLayout.SeekRowHeightDp
         progressLayoutPolicy.copy(
             baseHeightWithoutChapterDp = trackRowHeightDp,
             baseHeightWithChapterDp = trackRowHeightDp +
                 progressLayoutPolicy.baseHeightWithChapterDp - progressLayoutPolicy.touchContainerHeightDp,
             touchContainerHeightDp = trackRowHeightDp,
+            trackHeightDp = 3f,
         )
     } else {
         progressLayoutPolicy
@@ -761,15 +762,16 @@ fun BottomControlBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = layoutPolicy.horizontalPaddingDp.dp)
-                    .heightIn(min = 48.dp),
+                    .heightIn(min = PlayerChromeLayout.SeekRowHeightDp.dp),
             ) {
-                // Seeking adds a thumbnail preview above the track. Keep the shell pinned to
-                // the 48dp track row so it never stretches around the preview image.
+                // Center a 28dp shell inside the compact 32dp seek row. Chapter labels and seek
+                // previews stay above it and never enlarge the visible glass surface.
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .height(PlayerChromeLayout.SeekRowHeightDp.dp)
+                        .padding(vertical = 2.dp)
                         .playerControlGlassProgressDock(),
                 )
                 renderProgress(
@@ -857,7 +859,7 @@ fun BottomControlBar(
                         enabled = true,
                         modifier = Modifier.then(
                             when {
-                                isFullscreen -> Modifier.height(48.dp)
+                                isFullscreen -> Modifier.height(PlayerChromeLayout.CircularButtonSizeDp.dp)
                                 inlineTimeGlassDock -> Modifier.heightIn(min = 40.dp)
                                 else -> Modifier
                             },
@@ -884,7 +886,7 @@ fun BottomControlBar(
                                 if (isFullscreen && uiLayoutWidthDp >= 840 && showNextEpisodeButton) {
                                     AppIconButton(
                                         onClick = onNextEpisodeClick,
-                                        modifier = Modifier.size(48.dp),
+                                        modifier = Modifier.size(PlayerChromeLayout.CircularButtonSizeDp.dp),
                                     ) {
                                         AppIcon(
                                             imageVector = Icons.Filled.SkipNext,
@@ -918,14 +920,14 @@ fun BottomControlBar(
                                     inactiveTint = danmakuInactiveColor,
                                     iconSize = layoutPolicy.danmakuIconSizeDp.dp,
                                     modifier = Modifier.width(danmakuActionWidthDp.dp)
-                                        .then(if (isFullscreen) Modifier.height(48.dp) else Modifier)
+                                        .then(if (isFullscreen) Modifier.height(PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier)
                                         .testTag("player_danmaku_toggle"),
                                 )
 
                                 AppIconButton(
                                     onClick = onDanmakuSettingsClick,
                                     modifier = Modifier.width(danmakuActionWidthDp.dp)
-                                        .then(if (isFullscreen) Modifier.height(48.dp) else Modifier)
+                                        .then(if (isFullscreen) Modifier.height(PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier)
                                         .testTag("player_danmaku_settings"),
                                 ) {
                                     com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSettingsIcon(
@@ -938,7 +940,7 @@ fun BottomControlBar(
                             AppIconButton(
                                 onClick = onDanmakuInputClick,
                                 modifier = Modifier.width(danmakuActionWidthDp.dp)
-                                    .then(if (isFullscreen) Modifier.height(48.dp) else Modifier)
+                                    .then(if (isFullscreen) Modifier.height(PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier)
                                     .semantics {
                                         contentDescription = if (isLoggedIn) "发弹幕" else "登录发弹幕"
                                     }
@@ -955,7 +957,7 @@ fun BottomControlBar(
                     // Right: Function Buttons
                     PlayerControlGlassDock(
                         enabled = true,
-                        modifier = if (isFullscreen) Modifier.height(48.dp) else Modifier,
+                        modifier = if (isFullscreen) Modifier.height(PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier,
                     ) {
                         LandscapeDockActionRow(
                             spacing = actionSpacing,
@@ -967,7 +969,7 @@ fun BottomControlBar(
                             if (showAspectRatioButton) {
                                 Box(
                                     modifier = Modifier
-                                        .heightIn(min = 48.dp)
+                                        .heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp)
                                         .clickable(onClick = onRatioClick),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -1018,7 +1020,7 @@ fun BottomControlBar(
                                     softWrap = false,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier
-                                        .then(if (isFullscreen) Modifier.heightIn(min = 48.dp) else Modifier)
+                                        .then(if (isFullscreen) Modifier.heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier)
                                         .clickable(onClick = onQualityClick)
                                         .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                                 )
@@ -1034,7 +1036,7 @@ fun BottomControlBar(
                                     maxLines = 1,
                                     softWrap = false,
                                     modifier = Modifier
-                                        .then(if (isFullscreen) Modifier.heightIn(min = 48.dp) else Modifier)
+                                        .then(if (isFullscreen) Modifier.heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier)
                                         .clickable(onClick = onEpisodeClick)
                                         .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                                 )
@@ -1050,7 +1052,7 @@ fun BottomControlBar(
                                 maxLines = 1,
                                 softWrap = false,
                                 modifier = Modifier
-                                    .then(if (isFullscreen) Modifier.heightIn(min = 48.dp) else Modifier)
+                                    .then(if (isFullscreen) Modifier.heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier)
                                     .clickable(onClick = onSpeedClick)
                                     .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                             )
@@ -1064,7 +1066,7 @@ fun BottomControlBar(
                                     maxLines = 1,
                                     softWrap = false,
                                     modifier = Modifier
-                                        .heightIn(min = 48.dp)
+                                        .heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp)
                                         .clickable(onClick = onPlaybackOrderClick)
                                         .wrapContentSize(Alignment.Center),
                                 )
@@ -1080,7 +1082,7 @@ fun BottomControlBar(
                                     maxLines = 1,
                                     softWrap = false,
                                     modifier = Modifier
-                                        .heightIn(min = 48.dp)
+                                        .heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp)
                                         .clickable {
                                             val nextShowSubtitlePanel = !showSubtitlePanel
                                             com.android.purebilibili.core.util.Logger.d(
@@ -1260,7 +1262,7 @@ fun BottomControlBar(
                                     maxLines = 1,
                                     softWrap = false,
                                     modifier = Modifier
-                                        .then(if (isFullscreen) Modifier.heightIn(min = 48.dp) else Modifier)
+                                        .then(if (isFullscreen) Modifier.heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier)
                                         .clickable(onClick = onPortraitFullscreen)
                                         .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                                 )
@@ -2269,11 +2271,11 @@ fun VideoProgressBar(
         // 与详情页选中态共用颜色入口，保留皮肤显式覆盖及原生主色。
         AppContentColors.selectionAccent(LocalAppThemeConfig.current.liquidGlassEnabled),
     )
-    val bufferedTrackColor = if (neutralGlassTrack) Color.White.copy(alpha = 0.34f) else parseUiSkinColor(
+    val bufferedTrackColor = if (neutralGlassTrack) Color.White.copy(alpha = 0.5f) else parseUiSkinColor(
         progressColors?.playerProgressBufferedTint,
         Color.White.copy(alpha = 0.42f),
     )
-    val inactiveTrackColor = if (neutralGlassTrack) Color.White.copy(alpha = 0.26f) else parseUiSkinColor(
+    val inactiveTrackColor = if (neutralGlassTrack) Color.White.copy(alpha = 0.22f) else parseUiSkinColor(
         progressColors?.playerProgressTrackTint,
         Color.White.copy(alpha = 0.24f),
     )
@@ -2534,6 +2536,16 @@ fun VideoProgressBar(
                                                 ridgePoints[index + 1], trackHeightPx * 1.25f, StrokeCap.Round)
                                         }
                                     }
+                                    if (neutralGlassTrack) {
+                                        // A narrow dark edge keeps the glass track legible over bright frames.
+                                        drawLine(
+                                            Color.Black.copy(alpha = 0.32f),
+                                            Offset(0f, centerY),
+                                            Offset(size.width, centerY),
+                                            trackHeightPx + 2.dp.toPx(),
+                                            StrokeCap.Round,
+                                        )
+                                    }
                                     drawMediaProgressTrack(
                                         progressFraction = resolveProgressFraction(activePositionProvider(), duration),
                                         bufferedFraction = bufferedProgress,
@@ -2554,7 +2566,7 @@ fun VideoProgressBar(
                             }
                     )
 
-                    if (duration > 0L && containerWidthPx > 0f && (!neutralGlassTrack || isSeekScrubbing)) {
+                    if (duration > 0L && containerWidthPx > 0f) {
                         val thumbOffsetProvider: () -> Int = {
                             (containerWidthPx * resolveProgressFraction(activePositionProvider(), duration) - thumbSizePx / 2f)
                                 .coerceIn(0f, (containerWidthPx - thumbSizePx).coerceAtLeast(0f))

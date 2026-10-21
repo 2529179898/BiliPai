@@ -1099,6 +1099,7 @@ private fun LightweightHomeTopTabs(
         resolvedLiquidGlassTuning.readabilityMode == LiquidGlassReadabilityMode.ADAPTIVE
     val adaptiveReadabilityState = rememberLiquidGlassAdaptiveReadabilityState(
         enabled = adaptiveReadabilityEnabled,
+        samplingAllowed = isViewportSyncEnabled && !isTransitionRunning,
     )
     val adaptiveTopTabContentColor = rememberLiquidGlassAdaptiveContentColor(
         stableColor = AppContentColors.primaryText(),

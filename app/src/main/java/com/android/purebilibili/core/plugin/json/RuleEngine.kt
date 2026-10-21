@@ -17,6 +17,21 @@ private const val TAG = "RuleEngine"
  *  支持 AND/OR 复合条件的递归评估。
  */
 object RuleEngine {
+    private val regexCache = CompiledRegexCache()
+
+    /** Called by the serialized IO store so first use does not compile on a scrolling frame. */
+    internal fun prepare(rules: List<Rule>) {
+        fun visit(condition: Condition) {
+            when (condition) {
+                is Condition.Simple -> if (condition.op == RuleOperator.REGEX) {
+                    (condition.value as? JsonPrimitive)?.contentOrNull?.let { regexCache.get(it) }
+                }
+                is Condition.And -> condition.conditions.forEach(::visit)
+                is Condition.Or -> condition.conditions.forEach(::visit)
+            }
+        }
+        rules.forEach { rule -> rule.toCondition()?.let(::visit) }
+    }
     
     /**
      * 评估视频是否应该显示
@@ -27,7 +42,7 @@ object RuleEngine {
             
             val condition = rule.toCondition() ?: continue
             if (evaluateCondition(condition) { field -> getVideoFieldValue(video, field) }) {
-                Logger.d(TAG, "🚫 隐藏视频: ${video.title} (规则匹配)")
+                Logger.d(TAG) { "🚫 隐藏视频: ${video.title} (规则匹配)" }
                 return false
             }
         }
@@ -149,7 +164,7 @@ object RuleEngine {
             RuleOperator.ENDS_WITH -> fieldValue.toString().endsWith(ruleValue.jsonPrimitive.content, ignoreCase = true)
             RuleOperator.REGEX -> {
                 try {
-                    Regex(ruleValue.jsonPrimitive.content).containsMatchIn(fieldValue.toString())
+                    regexCache.get(ruleValue.jsonPrimitive.content)?.containsMatchIn(fieldValue.toString()) == true
                 } catch (e: Exception) {
                     false
                 }

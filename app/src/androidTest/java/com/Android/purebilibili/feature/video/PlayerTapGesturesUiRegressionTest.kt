@@ -11,6 +11,10 @@ import com.android.purebilibili.feature.video.ui.gesture.PlayerGestureInputSurfa
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.platform.testTag
@@ -35,9 +39,10 @@ class PlayerTapGesturesUiRegressionTest {
     val rule = createComposeRule()
 
     private lateinit var viewConfiguration: ViewConfiguration
+    private var doubleTapSlopPx = 0f
     private val taps = mutableListOf<Offset>()
     private val doubleTaps = mutableListOf<Offset>()
-    private var controlsVisible = false
+    private var controlsVisible by mutableStateOf(false)
     private var paused = false
     private var playbackSpeed = 1f
     private var longPressStarts = 0
@@ -48,9 +53,12 @@ class PlayerTapGesturesUiRegressionTest {
     private fun setPlayerSurface(
         captureSingleTap: (Offset) -> (() -> Unit)? = { null },
         nativeRenderer: Boolean = false,
+        initiallyVisibleControls: Boolean = false,
     ) {
+        controlsVisible = initiallyVisibleControls
         rule.setContent {
             viewConfiguration = LocalViewConfiguration.current
+            doubleTapSlopPx = android.view.ViewConfiguration.get(LocalContext.current).scaledDoubleTapSlop.toFloat()
             Box(
                 Modifier
                     .size(300.dp, 180.dp)
@@ -68,6 +76,7 @@ class PlayerTapGesturesUiRegressionTest {
                     }
                     .pointerInput(Unit) {
                         detectPlayerTapGestures(
+                            doubleTapSlopPx = doubleTapSlopPx,
                             captureSingleTap = captureSingleTap,
                             onTap = {
                                 taps += it
@@ -91,12 +100,14 @@ class PlayerTapGesturesUiRegressionTest {
                         modifier = Modifier.fillMaxSize(),
                     )
                     PlayerGestureInputSurface(modifier = Modifier.fillMaxSize())
-                    Box(
-                        Modifier.align(Alignment.BottomStart)
-                            .size(48.dp)
-                            .testTag("player-overlay-button")
-                            .clickable { overlayButtonClicks += 1 },
-                    )
+                    if (controlsVisible) {
+                        Box(
+                            Modifier.align(Alignment.BottomStart)
+                                .size(48.dp)
+                                .testTag("player-overlay-button")
+                                .clickable { overlayButtonClicks += 1 },
+                        )
+                    }
                 }
             }
         }
@@ -147,8 +158,30 @@ class PlayerTapGesturesUiRegressionTest {
     }
 
     @Test
-    fun overlayButtonAboveGestureSurface_keepsTouchPriority() {
+    fun visibleControls_doubleTapWithFingerRepositioning_pausesWithoutHidingControls() {
         setPlayerSurface(nativeRenderer = true)
+        rule.onNodeWithTag("player-tap-surface").performTouchInput { click(center) }
+        finishTapWindow()
+        rule.runOnIdle { assertTrue(controlsVisible) }
+        rule.onNodeWithTag("player-tap-surface").performTouchInput {
+            val delta = (viewConfiguration.touchSlop + doubleTapSlopPx) / 2f
+            click(center - Offset(delta / 2f, 0f))
+            advanceEventTime(viewConfiguration.doubleTapMinTimeMillis + 20L)
+            click(center + Offset(delta / 2f, 0f))
+        }
+        finishTapWindow()
+        rule.runOnIdle {
+            assertTrue(paused)
+            assertTrue(controlsVisible)
+            assertEquals(1, taps.size)
+            assertEquals(1, doubleTaps.size)
+            assertEquals(0, nativeTouches)
+        }
+    }
+
+    @Test
+    fun overlayButtonAboveGestureSurface_keepsTouchPriority() {
+        setPlayerSurface(nativeRenderer = true, initiallyVisibleControls = true)
         rule.onNodeWithTag("player-overlay-button").performTouchInput {
             click(center)
             advanceEventTime(viewConfiguration.doubleTapMinTimeMillis + 20L)
@@ -286,10 +319,10 @@ class PlayerTapGesturesUiRegressionTest {
     }
 
     @Test
-    fun diagonalDistanceOutsideSlop_isNotDoubleTap() {
+    fun diagonalDistanceOutsideDoubleTapSlop_isNotDoubleTap() {
         setPlayerSurface()
         rule.onNodeWithTag("player-tap-surface").performTouchInput {
-            val delta = viewConfiguration.touchSlop * 0.8f
+            val delta = doubleTapSlopPx * 0.8f
             click(center)
             advanceEventTime(viewConfiguration.doubleTapMinTimeMillis + 20L)
             click(center + Offset(delta, delta))

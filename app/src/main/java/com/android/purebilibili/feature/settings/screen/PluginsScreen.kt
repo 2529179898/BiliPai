@@ -192,7 +192,7 @@ fun PluginsScreen(
             plugin = plugin,
             onBack = { editingPlugin = null },
             onSave = { updated ->
-                com.android.purebilibili.core.plugin.json.JsonPluginManager.updatePlugin(updated)
+                scope.launch { com.android.purebilibili.core.plugin.json.JsonPluginManager.updatePlugin(updated) }
             }
         )
         return
@@ -253,6 +253,9 @@ fun PluginsContent(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
+    LaunchedEffect(context) {
+        com.android.purebilibili.core.plugin.json.JsonPluginManager.initialize(context)
+    }
     val effectMatchHintsEnabledFlow = remember(context) {
         PluginStore.effectMatchHintsEnabledFlow(context)
     }
@@ -1223,26 +1226,30 @@ fun PluginsContent(
                                     filterCount = filterStats[loadedPlugin.plugin.id] ?: 0,
                                     index = index,
                                     onToggle = { enabled ->
-                                        com.android.purebilibili.core.plugin.json.JsonPluginManager.setEnabled(
-                                            loadedPlugin.plugin.id, enabled
-                                        )
+                                        scope.launch {
+                                            com.android.purebilibili.core.plugin.json.JsonPluginManager.setEnabled(
+                                                loadedPlugin.plugin.id, enabled
+                                            )
+                                        }
                                     },
                                     onEdit = {
                                         //  Callback to editing
                                         onEditJsonPlugin(loadedPlugin.plugin)
                                     },
                                     onDelete = {
-                                        com.android.purebilibili.core.plugin.json.JsonPluginManager.removePlugin(
-                                            loadedPlugin.plugin.id
-                                        )
+                                        scope.launch {
+                                            com.android.purebilibili.core.plugin.json.JsonPluginManager.removePlugin(loadedPlugin.plugin.id)
+                                        }
                                     },
                                     onResetStats = {
-                                        com.android.purebilibili.core.plugin.json.JsonPluginManager.resetStats(loadedPlugin.plugin.id)
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "统计已重置",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
+                                        scope.launch {
+                                            com.android.purebilibili.core.plugin.json.JsonPluginManager.resetStats(loadedPlugin.plugin.id)
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "统计已重置",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     },
                                     onTest = {
                                         //  获取首页样本视频进行测试

@@ -15,10 +15,10 @@ ROOT = HERE.parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--state', choices=['cleaning', 'retry', 'refreshing', 'follow_success', 'unfollow_complete', 'dislike_confirmed', 'share_ready', 'coin_success'], default='cleaning')
 state = parser.parse_args().state
-timeline_path = HERE/'refreshing-draft.json' if state=='refreshing' else ROOT/'app/src/main/res/raw'/f'bilipai_maid_{state}.json'
+timeline_path = HERE/'refreshing-draft.json' if state=='refreshing' else ROOT/'brand-motion/src/main/res/raw'/f'bilipai_maid_{state}.json'
 data = json.loads(timeline_path.read_text())
 image_name = next(a['p'] for a in data['assets'] if 'p' in a)
-image_source = io.BytesIO(base64.b64decode(image_name.split(',',1)[1])) if image_name.startswith('data:') else ROOT/'app/src/main/res/drawable-nodpi'/image_name
+image_source = io.BytesIO(base64.b64decode(image_name.split(',',1)[1])) if image_name.startswith('data:') else ROOT/'brand-motion/src/main/res/drawable-nodpi'/image_name
 bitmap = Image.open(image_source).convert('RGBA')
 
 def value(prop, frame):
