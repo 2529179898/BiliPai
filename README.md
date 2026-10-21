@@ -121,7 +121,7 @@ APK 输出至 `app/build/outputs/bilipai/dev/`；正式版输出至 `app/build/o
 
 ## 参与贡献
 
-欢迎提交 [Issue](https://github.com/jay3-yy/BiliPai/issues/new/choose) 或 [Pull Request](https://github.com/jay3-yy/BiliPai/pulls)，也欢迎完善英文翻译。请说明问题、改动范围与验证结果。
+欢迎通过 [Issue](https://github.com/jay3-yy/BiliPai/issues/new/choose) 反馈问题、提出建议，也欢迎提交 [Pull Request](https://github.com/jay3-yy/BiliPai/pulls)，一起完善功能和翻译。
 
 ## 致谢
 
@@ -136,7 +136,7 @@ APK 输出至 `app/build/outputs/bilipai/dev/`；正式版输出至 `app/build/o
 | [BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) | 空降助手数据与 API |
 | [Haze](https://github.com/chrisbanes/haze) | 毛玻璃效果 |
 | [Compose Cupertino](https://github.com/alexzhirkevich/compose-cupertino) | iOS 风格组件 |
-| [Miuix](https://github.com/compose-miuix-ui/miuix) | Miuix 风格组件 |
+| [Miuix](https://github.com/compose-miuix-ui/miuix) | 界面组件与液态玻璃动效参考 |
 | [BiliPai-miuix](https://github.com/Piracola/BiliPai-miuix) | UI 组件与设计系统贡献（@piracola） |
 | [Lottie](https://github.com/airbnb/lottie-android) | 矢量动画 |
 | [Coil](https://github.com/coil-kt/coil) | 图片加载 |

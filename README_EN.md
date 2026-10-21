@@ -121,7 +121,7 @@ APKs are exported to `app/build/outputs/bilipai/dev/` or `app/build/outputs/bili
 
 ## Contributing
 
-[Issues](https://github.com/jay3-yy/BiliPai/issues/new/choose), [pull requests](https://github.com/jay3-yy/BiliPai/pulls) and translation improvements are welcome. Describe the problem, scope and validation results.
+Share bugs and ideas through [Issues](https://github.com/jay3-yy/BiliPai/issues/new/choose), or help improve features and translations with a [pull request](https://github.com/jay3-yy/BiliPai/pulls).
 
 ## Acknowledgements
 
@@ -136,7 +136,7 @@ APKs are exported to `app/build/outputs/bilipai/dev/` or `app/build/outputs/bili
 | [BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) | Sponsor-skip data and API |
 | [Haze](https://github.com/chrisbanes/haze) | Blur effects |
 | [Compose Cupertino](https://github.com/alexzhirkevich/compose-cupertino) | Cupertino components |
-| [Miuix](https://github.com/compose-miuix-ui/miuix) | Miuix components |
+| [Miuix](https://github.com/compose-miuix-ui/miuix) | UI components and liquid-glass motion reference |
 | [BiliPai-miuix](https://github.com/Piracola/BiliPai-miuix) | UI and design-system contributions (@piracola) |
 | [Lottie](https://github.com/airbnb/lottie-android) | Vector animation |
 | [Coil](https://github.com/coil-kt/coil) | Image loading |
