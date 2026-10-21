@@ -1010,7 +1010,7 @@ SettingsItemAnchor("playback.music_lyrics_ui_style") {
                     val isVip = com.android.purebilibili.data.repository.VideoRepository.isPlaybackVip()
 
                     val qualityOptions = resolveDefaultPlaybackQualityOptions()
-                    val audioQualityOptions = resolveDefaultAudioQualityOptions()
+                    val audioQualityOptions = resolveDefaultAudioQualityOptions(defaultAudioQuality)
                     val normalizedDefaultAudioQuality =
                         normalizeDefaultAudioQualityOption(defaultAudioQuality)
 
@@ -2547,11 +2547,6 @@ SettingsItemAnchor("playback.fullscreen_swipe_seek_seconds") {
             .collectAsStateWithLifecycle(
                 initialValue = com.android.purebilibili.core.store.PlayerControlVisibilitySettings()
             )
-        val playerProgressPlacement by SettingsManager
-            .getPlayerProgressPlacement(context)
-            .collectAsStateWithLifecycle(
-                initialValue = com.android.purebilibili.core.store.PlayerProgressPlacement.ABOVE_CONTROLS
-            )
         val windowSizeClass = LocalWindowSizeClass.current
         val displayContext = LocalAppWindowAdaptiveInfo.current.displayContext
         val isLargeScreenDevice = windowSizeClass.isTabletDevice ||
@@ -3071,29 +3066,6 @@ SettingsItemAnchor("playback.bottom_progress_behavior") {
                 iconTint = AppContentColors.secondaryText(),
             )
         }
-        AppPreferenceDivider()
-SettingsItemAnchor("playback.player_progress_placement") {
-        SettingsSingleChoicePreference(
-            title = settingItemTitle("playback.player_progress_placement"),
-            subtitle = "选择进度条放在按钮上方还是视频底部",
-            options = listOf(
-                AppSegmentOption(
-                    com.android.purebilibili.core.store.PlayerProgressPlacement.ABOVE_CONTROLS,
-                    "控制栏上方"
-                ),
-                AppSegmentOption(
-                    com.android.purebilibili.core.store.PlayerProgressPlacement.BOTTOM_EDGE,
-                    "视频最底部"
-                )
-            ),
-            selectedValue = playerProgressPlacement,
-            onSelectionChange = { placement ->
-                scope.launch {
-                    SettingsManager.setPlayerProgressPlacement(context, placement)
-                }
-            }
-        )
-}
     }
 
 }

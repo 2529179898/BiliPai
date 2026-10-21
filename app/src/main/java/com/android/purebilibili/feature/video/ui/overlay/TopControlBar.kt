@@ -1,162 +1,63 @@
-// File: feature/video/ui/overlay/TopControlBar.kt
 package com.android.purebilibili.feature.video.ui.overlay
-
-import com.android.purebilibili.core.ui.MediaContrastPalette
-
-import com.android.purebilibili.core.ui.AppContentColors
-import com.android.purebilibili.core.ui.rememberAppBookmarkIcon
-import com.android.purebilibili.core.ui.components.AppIcon
-import com.android.purebilibili.core.ui.components.AppText
 
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import android.os.BatteryManager
 import androidx.compose.foundation.Canvas
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
-import com.android.purebilibili.feature.video.ambient.LocalAmbientPresentation
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
-import com.android.purebilibili.core.ui.components.appPressHighlightPressSpec
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.currentStateAsState
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.AppIcons
+import androidx.compose.ui.unit.constrainHeight
+import com.android.purebilibili.core.ui.LocalComponentMotionEnabled
+import com.android.purebilibili.core.ui.components.AppIcon
+import com.android.purebilibili.core.ui.components.AppText
+import com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuGlyph
+import com.android.purebilibili.feature.video.ui.components.PiliPlusDanmakuSettingsIcon
 import com.android.purebilibili.feature.video.ui.feedback.likeBurstAnchor
-import com.android.purebilibili.core.ui.components.AppIconButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ThumbUp
-import androidx.compose.material.icons.outlined.ThumbUp
-import androidx.compose.material.icons.outlined.ThumbDown
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Cast
-import androidx.compose.material.icons.outlined.Comment
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-internal fun shouldShowDislikeInTopControlBar(widthDp: Int): Boolean = widthDp >= 980
-internal fun shouldShowInteractiveActionsInTopControlBar(
-    showFullscreenActionItems: Boolean
-): Boolean = showFullscreenActionItems
 /**
- * 顶栏是否加状态栏 padding。
- *
- * 以 [statusBarVisible] 为准；全屏时系统栏通常已隐藏，应传 false。
- * [isFullscreen] 仅作兼容旧调用：未显式传 statusBarVisible 时，全屏仍 pad
- *（隐藏栏时 inset 为 0，无视觉影响）。
- */
-internal fun shouldApplyStatusBarPaddingToTopControlBar(
-    isFullscreen: Boolean = false,
-    statusBarVisible: Boolean = isFullscreen,
-): Boolean = com.android.purebilibili.feature.video.screen
-    .shouldApplyStatusBarPaddingToVideoPlayerChrome(statusBarVisible = statusBarVisible)
-internal fun shouldPollTopControlBarClock(
-    showCurrentTime: Boolean,
-    hostLifecycleStarted: Boolean
-): Boolean = showCurrentTime && hostLifecycleStarted
-internal fun shouldPollTopControlBarBattery(
-    showBatteryLevel: Boolean,
-    hostLifecycleStarted: Boolean
-): Boolean = showBatteryLevel && hostLifecycleStarted
-
-internal enum class BatteryChargeTone {
-    CRITICAL,
-    LOW,
-    NORMAL
-}
-
-internal data class LandscapeBatteryVisualState(
-    val percent: Int,
-    val fillFraction: Float,
-    val chargeTone: BatteryChargeTone
-) {
-    val displayText: String
-        get() = "$percent%"
-}
-
-internal fun resolveLandscapeBatteryVisualState(percent: Int?): LandscapeBatteryVisualState? {
-    val normalizedPercent = percent?.coerceIn(0, 100) ?: return null
-    val chargeTone = when {
-        normalizedPercent <= 15 -> BatteryChargeTone.CRITICAL
-        normalizedPercent <= 35 -> BatteryChargeTone.LOW
-        else -> BatteryChargeTone.NORMAL
-    }
-    return LandscapeBatteryVisualState(
-        percent = normalizedPercent,
-        fillFraction = normalizedPercent / 100f,
-        chargeTone = chargeTone
-    )
-}
-
-internal data class LandscapeTopStatusInfo(
-    val battery: LandscapeBatteryVisualState? = null,
-    val currentTimeText: String? = null
-) {
-    val isVisible: Boolean
-        get() = battery != null || !currentTimeText.isNullOrBlank()
-}
-
-internal fun resolveLandscapeTopStatusInfo(
-    showBatteryLevel: Boolean,
-    batteryLevelPercent: Int?,
-    showCurrentTime: Boolean,
-    currentTimeText: String
-): LandscapeTopStatusInfo {
-    return LandscapeTopStatusInfo(
-        battery = if (showBatteryLevel) resolveLandscapeBatteryVisualState(batteryLevelPercent) else null,
-        currentTimeText = currentTimeText.takeIf { showCurrentTime }
-    )
-}
-
-internal fun shouldShowLandscapeMetaRow(
-    hasStatusInfo: Boolean,
-    onlineCount: String
-): Boolean = hasStatusInfo || onlineCount.isNotBlank()
-
-/**
- * Top Control Bar Component
- *
- * Redesigned to match official Bilibili landscape layout:
- * - Left: Back button, bounded fullscreen title/status dock; inline title marquee
- * - Right: Action buttons (Like, Dislike, Coin, Share, Cast, More)
+ * Shared Android PiliPlus HeaderControl for inline/fullscreen and portrait/landscape.
+ * Each button owns its material; title, status and action rows never become glass capsules.
+ * Nullable actions permit isolated previews. Production callers supply every applicable handler.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -164,83 +65,68 @@ fun TopControlBar(
     title: String,
     onlineCount: String = "",
     isFullscreen: Boolean,
-    /** 系统状态栏是否仍显示；显示时顶栏必须 statusBarsPadding。 */
     statusBarVisible: Boolean = isFullscreen,
     showBatteryLevel: Boolean = false,
     showCurrentTime: Boolean = true,
     showInteractiveActions: Boolean = true,
     onBack: () -> Unit,
-    // Interactions
     isLiked: Boolean = false,
     likeStatusKnown: Boolean,
     isCoined: Boolean = false,
     allowDislikeAction: Boolean = true,
-    onLikeClick: () -> Unit = {},
-    onDislikeClick: () -> Unit = {},
-    onCoinClick: () -> Unit = {},
-    onShareClick: () -> Unit = {},
-    onCommentClick: () -> Unit = {},
-    onCastClick: () -> Unit = {}, // Added Cast callback
+    onLikeClick: (() -> Unit)? = null,
+    onDislikeClick: (() -> Unit)? = null,
+    onCoinClick: (() -> Unit)? = null,
+    onShareClick: (() -> Unit)? = null,
+    onCastClick: (() -> Unit)? = null,
     showCastButton: Boolean = true,
-    onMoreClick: () -> Unit = {},
-    isLoggedIn: Boolean = true,
-    backButtonStartPaddingDp: Int? = null,
-    actionEndPaddingDp: Int? = null,
+    onMoreClick: (() -> Unit)? = null,
     isFavorited: Boolean = false,
-    onFavoriteClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onFavoriteClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    isPortrait: Boolean = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT,
+    horizontalScreen: Boolean = true,
+    isFileSource: Boolean = false,
+    isUgc: Boolean = true,
+    onHomeClick: (() -> Unit)? = null,
+    onAudioClick: (() -> Unit)? = null,
+    onSendDanmakuClick: (() -> Unit)? = null,
+    danmakuEnabled: Boolean = true,
+    onDanmakuToggle: (() -> Unit)? = null,
+    onDanmakuSettingsClick: (() -> Unit)? = null,
+    showPipButton: Boolean = false,
+    onPipClick: (() -> Unit)? = null,
+    onLikeLongClick: (() -> Unit)? = null,
+    onFavoriteLongClick: (() -> Unit)? = null,
+    isDisliked: Boolean = false,
+    showSponsorSubmitButton: Boolean = false,
+    onSponsorSubmitClick: (() -> Unit)? = null,
+    showSponsorSegmentsButton: Boolean = false,
+    onSponsorSegmentsClick: (() -> Unit)? = null,
 ) {
+    val policy = resolveTopControlBarLayoutPolicy(
+        isPortrait = isPortrait,
+        isFullscreen = isFullscreen,
+        horizontalScreen = horizontalScreen,
+        isFileSource = isFileSource,
+        isUgc = isUgc,
+        showFullscreenActionItems = showInteractiveActions,
+    )
     val context = LocalContext.current
-    val displayCutoutInsets = WindowInsets.displayCutout
-    val configuration = LocalConfiguration.current
-    val ambient = LocalAmbientPresentation.current
-    var rowOrigin by remember { mutableStateOf<Offset?>(null) }
-    val videoContentBounds = remember(ambient) {
-        derivedStateOf {
-            ambient?.current?.contentBoundsInWindow ?: ambient?.videoBoundsInWindow?.invoke()
-        }
-    }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val lifecycleState by lifecycleOwner.lifecycle.currentStateAsState()
-    val hostLifecycleStarted = lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
-    val layoutPolicy = remember(configuration.screenWidthDp, isFullscreen) {
-        val base = resolveTopControlBarLayoutPolicy(widthDp = configuration.screenWidthDp)
-        if (isFullscreen) base.copy(
-            horizontalPaddingDp = PlayerChromeLayout.EdgePaddingDp,
-            verticalPaddingDp = 8,
-            buttonSizeDp = PlayerChromeLayout.CircularButtonSizeDp,
-            iconSizeDp = 24,
-            titleFontSp = 15,
-            timeFontSp = 12,
-            actionSpacingDp = PlayerChromeLayout.ActionGapDp,
-            backToTitleSpacingDp = PlayerChromeLayout.ActionGapDp,
-            onlineCountStartPaddingDp = 60,
-        ) else base
-    }
-    val showDislikeAction = remember(configuration.screenWidthDp, allowDislikeAction, showInteractiveActions) {
-        allowDislikeAction &&
-            showInteractiveActions &&
-            shouldShowDislikeInTopControlBar(widthDp = configuration.screenWidthDp)
-    }
-    val showInteractiveActionGroup = remember(showInteractiveActions) {
-        shouldShowInteractiveActionsInTopControlBar(
-            showFullscreenActionItems = showInteractiveActions
-        )
-    }
-    val currentTimeText by produceState(initialValue = formatCurrentTime(), showCurrentTime, hostLifecycleStarted) {
-        if (!shouldPollTopControlBarClock(showCurrentTime, hostLifecycleStarted)) {
-            value = formatCurrentTime()
-            return@produceState
-        }
+    val hostStarted = lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+    val clockVisible = policy.showStatus && showCurrentTime
+    val batteryVisible = policy.showStatus && showBatteryLevel
+    val currentTime by produceState(initialValue = formatCurrentTime(), clockVisible, hostStarted) {
+        if (!shouldPollTopControlBarClock(clockVisible, hostStarted)) return@produceState
         while (true) {
             value = formatCurrentTime()
-            val now = System.currentTimeMillis()
-            val nextMinuteDelay = (60_000L - (now % 60_000L)).coerceAtLeast(1_000L)
-            delay(nextMinuteDelay)
+            delay((60_000L - System.currentTimeMillis() % 60_000L).coerceAtLeast(1_000L))
         }
     }
-    val batteryLevelPercent by produceState<Int?>(initialValue = null, showBatteryLevel, hostLifecycleStarted) {
-        if (!shouldPollTopControlBarBattery(showBatteryLevel, hostLifecycleStarted)) {
+    val batteryPercent by produceState<Int?>(initialValue = null, batteryVisible, hostStarted) {
+        if (!shouldPollTopControlBarBattery(batteryVisible, hostStarted)) {
             value = null
             return@produceState
         }
@@ -249,594 +135,274 @@ fun TopControlBar(
             delay(30_000L)
         }
     }
-    val statusInfo = remember(currentTimeText, batteryLevelPercent, showBatteryLevel, showCurrentTime) {
-        resolveLandscapeTopStatusInfo(
-            showBatteryLevel = showBatteryLevel,
-            batteryLevelPercent = batteryLevelPercent,
-            showCurrentTime = showCurrentTime,
-            currentTimeText = currentTimeText
-        )
-    }
-    val density = LocalDensity.current
-    val layoutDirection = LocalLayoutDirection.current
-    // Only glass fullscreen separates More into a circle aligned with the lock button.
-    val separateGlassMore = isFullscreen &&
-        com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
-    val favoriteIcon = rememberAppBookmarkIcon()
-    val leftSectionStartOffset = if (isFullscreen && backButtonStartPaddingDp != null) {
-        val cutoutStart = with(density) {
-            displayCutoutInsets.getLeft(density, layoutDirection).toDp()
-        }
-        backButtonStartPaddingDp.dp - cutoutStart - layoutPolicy.horizontalPaddingDp.dp
-    } else 0.dp
+    val motionEnabled = LocalComponentMotionEnabled.current
+    val hasTitle = policy.showTitle && title.isNotEmpty()
+    val triplePress = rememberPiliHeaderTriplePressState()
+    val likeGesture = if (likeStatusKnown && onLikeClick != null && onLikeLongClick != null) {
+        piliHeaderLikeGesture(triplePress, isLiked && isCoined && isFavorited, onLikeClick, onLikeLongClick)
+    } else null
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (isFullscreen) Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)) else Modifier)
-            .then(
-                if (
-                    shouldApplyStatusBarPaddingToTopControlBar(
-                        isFullscreen = isFullscreen,
-                        statusBarVisible = statusBarVisible,
-                    )
-                ) {
+    PlayerControlTouchBounds(height = policy.buttonHeightDp.dp) {
+        Column(
+            modifier = modifier.fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+                .then(if (shouldApplyStatusBarPaddingToTopControlBar(isFullscreen, statusBarVisible)) {
                     Modifier.statusBarsPadding()
-                } else {
-                    Modifier
-                }
-            )
-            .padding(
-                horizontal = layoutPolicy.horizontalPaddingDp.dp,
-                vertical = layoutPolicy.verticalPaddingDp.dp
-            )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .onGloballyPositioned { rowOrigin = it.positionInWindow() }
-                .layout { measurable, constraints ->
-                    val bounds = videoContentBounds.value
-                    val origin = rowOrigin
-                    val alignedEndInset = if (isFullscreen && actionEndPaddingDp != null) {
-                        (actionEndPaddingDp.dp.roundToPx() -
-                            displayCutoutInsets.getRight(this, layoutDirection) -
-                            layoutPolicy.horizontalPaddingDp.dp.roundToPx()).coerceAtLeast(0)
-                    } else 0
-                    val videoInset = if (isFullscreen && !separateGlassMore && bounds != null && origin != null && constraints.hasBoundedWidth) {
-                        resolveTopActionsVideoInsetPx(
-                            rowLeftPx = origin.x,
-                            rowWidthPx = constraints.maxWidth,
-                            videoRightPx = bounds.right,
-                            clearancePx = 12.dp.roundToPx(),
-                        )
-                    } else 0
-                    val inset = maxOf(alignedEndInset, videoInset)
-                    val width = (constraints.maxWidth - inset).coerceAtLeast(0)
-                    val childConstraints = if (inset > 0) constraints.copy(
-                        minWidth = (constraints.minWidth - inset).coerceAtLeast(0),
-                        maxWidth = width,
-                    ) else constraints
-                    val placeable = measurable.measure(childConstraints)
-                    layout(placeable.width + inset, placeable.height) {
-                        placeable.placeRelative(0, 0)
+                } else Modifier)
+                .padding(vertical = policy.verticalPaddingDp.dp),
+        ) {
+            PiliHeaderSlots(
+                hasTitle = hasTitle,
+                left = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        HeaderIcon(Icons.AutoMirrored.Outlined.ArrowBack, "返回", onBack, iconSize = 15)
+                        if (policy.showHome && onHomeClick != null) {
+                            HeaderIcon(Icons.Outlined.Home, "返回主页", onHomeClick, iconSize = 15)
+                        }
                     }
                 },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // --- Left Section: Back & Info ---
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .weight(1f)
-                    .absoluteOffset(x = leftSectionStartOffset)
-            ) {
-                // Back Button
-                PlayerControlGlassDock(
-                    enabled = isFullscreen,
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                ) {
-                    AppIconButton(
-                        onClick = onBack,
-                        modifier = Modifier.size(layoutPolicy.buttonSizeDp.dp)
+                right = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (batteryVisible) {
+                            batteryPercent?.let { HeaderStatusText("$it%") }
+                            Spacer(Modifier.width(10.dp))
+                        }
+                        if (clockVisible) HeaderStatusText(currentTime)
+                        if (policy.showAudio && onAudioClick != null) {
+                            HeaderIcon(Icons.Outlined.Headphones, "听音频", onAudioClick)
+                        }
+                        if (policy.showCast && showCastButton && onCastClick != null) {
+                            HeaderIcon(Icons.Outlined.Cast, "投屏", onCastClick)
+                        }
+                        if (!isFileSource && showSponsorSubmitButton && onSponsorSubmitClick != null) {
+                            HeaderButton("提交片段", onSponsorSubmitClick) {
+                                PiliPlusDanmakuGlyph("\uE814", "提交片段", Color.White, 20.dp)
+                            }
+                        }
+                        if (showSponsorSegmentsButton && onSponsorSegmentsClick != null) {
+                            HeaderButton("片段信息", onSponsorSegmentsClick) { HeaderAdvertisementIcon() }
+                        }
+                        if (policy.showDanmakuActions) {
+                            if (onSendDanmakuClick != null) {
+                                HeaderIcon(Icons.Outlined.Comment, "发弹幕", onSendDanmakuClick)
+                            }
+                            if (onDanmakuToggle != null) {
+                                val description = if (danmakuEnabled) "关闭弹幕" else "开启弹幕"
+                                HeaderButton(description, onDanmakuToggle) {
+                                    PiliPlusDanmakuGlyph(
+                                        if (danmakuEnabled) "\uE803" else "\uE802",
+                                        description, Color.White, 20.dp,
+                                    )
+                                }
+                            }
+                        }
+                        if (onDanmakuSettingsClick != null) {
+                            HeaderButton("弹幕设置", onDanmakuSettingsClick) {
+                                PiliPlusDanmakuSettingsIcon(tint = Color.White, size = 20.dp)
+                            }
+                        }
+                        if (showPipButton && onPipClick != null) {
+                            HeaderIcon(Icons.Outlined.PictureInPicture, "画中画", onPipClick)
+                        }
+                        if (onMoreClick != null) {
+                            HeaderIcon(Icons.Outlined.MoreVert, "更多设置", onMoreClick)
+                        }
+                    }
+                },
+                title = {
+                    Column(
+                        Modifier.padding(end = if (isPortrait) 0.dp else 10.dp),
+                        verticalArrangement = Arrangement.Center,
                     ) {
-                        AppIcon(
-                            imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                            contentDescription = "Back",
-                            tint = Color.White,
-                            modifier = Modifier.size(layoutPolicy.iconSizeDp.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(layoutPolicy.backToTitleSpacingDp.dp))
-
-                if (isFullscreen) {
-                    AdaptivePlayerTitleInfoDock(
-                        title = title,
-                        statusInfo = statusInfo,
-                        onlineCount = onlineCount,
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    // 标题与右侧图标保持同一行
-                    AppText(
-                        text = title,
-                        color = Color.White,
-                        fontSize = layoutPolicy.titleFontSp.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .weight(1f)
-                            .basicMarquee()
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(layoutPolicy.sectionGapDp.dp)) // Space between text and actions
-
-            // --- Right Section: Actions ---
-            PlayerControlGlassDock(
-                enabled = isFullscreen,
-                modifier = (if (isFullscreen) Modifier.layout { measurable, constraints ->
-                    // Reserve the back button and minimum title dock before measuring actions.
-                    val reservedWidth = (layoutPolicy.buttonSizeDp * 2 +
-                        layoutPolicy.backToTitleSpacingDp + layoutPolicy.sectionGapDp).dp.roundToPx()
-                    val actionWidth = (constraints.maxWidth - reservedWidth).coerceAtLeast(0)
-                    val placeable = measurable.measure(constraints.copy(minWidth = 0, maxWidth = actionWidth))
-                    layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
-                } else Modifier),
-            ) {
-                Row(
-                    modifier = if (isFullscreen) Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 4.dp)
-                    else Modifier,
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(layoutPolicy.actionSpacingDp.dp)
-                ) {
-                    if (showInteractiveActionGroup) {
-                        // Like
-                        Box(modifier = Modifier.likeBurstAnchor()) {
-                            ActionIcon(
-                                icon = if (likeStatusKnown && isLiked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
-                                contentDescription = if (likeStatusKnown) "点赞" else "点赞状态尚未确认",
-                                isActive = likeStatusKnown && isLiked,
-                                onClick = onLikeClick,
-                                buttonSizeDp = layoutPolicy.buttonSizeDp,
-                                iconSizeDp = layoutPolicy.iconSizeDp
-                            )
-                        }
-
-                        if (showDislikeAction && !separateGlassMore) {
-                            // Dislike
-                            ActionIcon(
-                                icon = Icons.Outlined.ThumbDown,
-                                contentDescription = "不喜欢",
-                                isActive = false,
-                                onClick = onDislikeClick,
-                                buttonSizeDp = layoutPolicy.buttonSizeDp,
-                                iconSizeDp = layoutPolicy.iconSizeDp
-                            )
-                        }
-
-                        // Coin
-                        ActionIcon(
-                            icon = AppIcons.BiliCoin,
-                            contentDescription = "投币",
-                            isActive = isCoined,
-                            onClick = onCoinClick,
-                            buttonSizeDp = layoutPolicy.buttonSizeDp,
-                            iconSizeDp = layoutPolicy.iconSizeDp
-                        )
-
-                        // Glass fullscreen completes the engagement group; native keeps its actions.
-                        if (separateGlassMore) {
-                            ActionIcon(
-                                icon = favoriteIcon,
-                                contentDescription = if (isFavorited) "已收藏，管理收藏夹" else "收藏",
-                                isActive = isFavorited,
-                                onClick = onFavoriteClick,
-                                buttonSizeDp = layoutPolicy.buttonSizeDp,
-                                iconSizeDp = layoutPolicy.iconSizeDp,
-                            )
-                        }
-
-                        if (showDislikeAction && separateGlassMore) {
-                            // Dislike
-                            ActionIcon(
-                                icon = Icons.Outlined.ThumbDown,
-                                contentDescription = "不喜欢",
-                                isActive = false,
-                                onClick = onDislikeClick,
-                                buttonSizeDp = layoutPolicy.buttonSizeDp,
-                                iconSizeDp = layoutPolicy.iconSizeDp
-                            )
-                        }
-
-                        // Share
-                        ActionIcon(
-                            icon = Icons.Outlined.Share,
-                            contentDescription = "分享",
-                            isActive = false,
-                            onClick = onShareClick,
-                            buttonSizeDp = layoutPolicy.buttonSizeDp,
-                            iconSizeDp = layoutPolicy.iconSizeDp
-                        )
-                    }
-
-                    if (showCastButton) {
-                        ActionIcon(
-                            icon = Icons.Outlined.Cast,
-                            contentDescription = "投屏",
-                            isActive = false,
-                            onClick = onCastClick,
-                            buttonSizeDp = layoutPolicy.buttonSizeDp,
-                            iconSizeDp = layoutPolicy.iconSizeDp
-                        )
-                    }
-
-                    ActionIcon(
-                        icon = Icons.Outlined.Comment,
-                        contentDescription = "评论区",
-                        isActive = false,
-                        onClick = onCommentClick,
-                        buttonSizeDp = layoutPolicy.buttonSizeDp,
-                        iconSizeDp = layoutPolicy.iconSizeDp
-                    )
-
-                    // More (Three dots)
-                    if (!separateGlassMore) {
-                        AppIconButton(
-                            onClick = onMoreClick,
-                            modifier = Modifier.size(layoutPolicy.buttonSizeDp.dp)
-                        ) {
-                            AppIcon(
-                                imageVector = Icons.Outlined.MoreVert,
-                                contentDescription = "更多",
-                                tint = Color.White,
-                                modifier = Modifier.size(layoutPolicy.iconSizeDp.dp)
-                            )
-                        }
-                    }
-                }
-            }
-            if (separateGlassMore) {
-                Spacer(modifier = Modifier.width(PlayerChromeLayout.ActionGapDp.dp))
-                PlayerControlGlassDock(
-                    enabled = true,
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                ) {
-                    AppIconButton(
-                        onClick = onMoreClick,
-                        modifier = Modifier.size(layoutPolicy.buttonSizeDp.dp),
-                    ) {
-                        AppIcon(
-                            imageVector = Icons.Outlined.MoreVert,
-                            contentDescription = "更多",
-                            tint = Color.White,
-                            modifier = Modifier.size(layoutPolicy.iconSizeDp.dp),
-                        )
-                    }
-                }
-            }
-        }
-
-        if (!isFullscreen && shouldShowLandscapeMetaRow(statusInfo.isVisible, onlineCount)) {
-            Column(
-                modifier = Modifier.padding(
-                    start = layoutPolicy.onlineCountStartPaddingDp.dp,
-                    top = layoutPolicy.timeBottomSpacingDp.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(layoutPolicy.onlineCountTopPaddingDp.dp)
-            ) {
-                statusInfo.battery?.let { battery ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        BatteryStatusIcon(
-                            state = battery,
-                            modifier = Modifier.size(
-                                width = (layoutPolicy.timeFontSp + 14).dp,
-                                height = (layoutPolicy.timeFontSp + 4).dp
-                            )
-                        )
                         AppText(
-                            text = battery.displayText,
-                            color = resolveBatteryStatusTint(battery).copy(alpha = 0.95f),
-                            fontSize = layoutPolicy.timeFontSp.sp,
-                            fontWeight = FontWeight.SemiBold
+                            text = title, color = Color.White, fontSize = policy.titleFontSp.sp, lineHeight = 19.sp,
+                            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                            modifier = if (motionEnabled) Modifier.basicMarquee(
+                                iterations = Int.MAX_VALUE, spacing = androidx.compose.foundation.MarqueeSpacing(30.dp),
+                                velocity = 30.dp,
+                            ) else Modifier,
+                            tapToCopyEnabled = false,
                         )
-                        statusInfo.currentTimeText?.let { timeText ->
+                        if (onlineCount.isNotBlank()) {
                             AppText(
-                                text = timeText,
-                                color = Color.White.copy(alpha = 0.88f),
-                                fontSize = layoutPolicy.timeFontSp.sp,
-                                fontWeight = FontWeight.Medium
+                                text = onlineCount, color = Color.White,
+                                fontSize = policy.onlineCountFontSp.sp, lineHeight = 13.sp, maxLines = 1,
+                                softWrap = false, overflow = TextOverflow.Ellipsis,
+                                tapToCopyEnabled = false,
                             )
                         }
                     }
-                } ?: statusInfo.currentTimeText?.let { timeText ->
-                    AppText(
-                        text = timeText,
-                        color = Color.White.copy(alpha = 0.88f),
-                        fontSize = layoutPolicy.timeFontSp.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                if (onlineCount.isNotEmpty()) {
-                    AppText(
-                        text = onlineCount,
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = layoutPolicy.onlineCountFontSp.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Collapse the whole horizontal title capsule before the action dock squeezes its content. */
-@Composable
-private fun AdaptivePlayerTitleInfoDock(
-    title: String,
-    statusInfo: LandscapeTopStatusInfo,
-    onlineCount: String,
-    modifier: Modifier = Modifier,
-) {
-    val motionEnabled = LocalComponentMotionEnabled.current
-    val layoutDirection = LocalLayoutDirection.current
-    BoxWithConstraints(
-        modifier = modifier.heightIn(min = 48.dp),
-        contentAlignment = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) {
-            Alignment.CenterEnd
-        } else {
-            Alignment.CenterStart
-        },
-    ) {
-        // Use the actual player slot: side panes can leave much less room than the window.
-        // Keep a circular glass affordance at the collapsed endpoint so the title does not
-        // vanish into an unexplained gap beside the back button.
-        val hasRoom = maxWidth >= 160.dp
-        val collapsedSize = PlayerChromeLayout.CircularButtonSizeDp.dp
-        val targetWidth = if (hasRoom) maxWidth.coerceAtMost(420.dp) else collapsedSize
-        val animatedWidth = animateFloatAsState(
-            targetValue = targetWidth.value,
-            animationSpec = if (motionEnabled) appPressHighlightPressSpec() else snap(),
-            label = "playerTitleHorizontalWidth",
-        )
-        val expandedFraction = animateFloatAsState(
-            targetValue = if (hasRoom) 1f else 0f,
-            animationSpec = if (motionEnabled) appPressHighlightPressSpec() else snap(),
-            label = "playerTitleHorizontalContent",
-        )
-        val dockWidth = animatedWidth.value
-            .coerceIn(collapsedSize.value, maxWidth.coerceAtLeast(collapsedSize).value)
-            .dp
-        Box(
-            modifier = Modifier
-                .width(dockWidth)
-                // The dock owns its rounded shell and elastic transform. Clipping this
-                // stationary slot cuts off the capsule and labels during either drag axis.
-                .heightIn(min = 48.dp),
-            contentAlignment = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) {
-                Alignment.CenterEnd
-            } else {
-                Alignment.CenterStart
-            },
-        ) {
-            PlayerTitleInfoDock(
-                title = title,
-                statusInfo = statusInfo,
-                onlineCount = onlineCount,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer { alpha = expandedFraction.value.coerceIn(0f, 1f) },
+                },
             )
-            PlayerControlGlassDock(
-                enabled = true,
-                modifier = Modifier
-                    .requiredSize(collapsedSize)
-                    .graphicsLayer { alpha = (1f - expandedFraction.value).coerceIn(0f, 1f) },
-                shape = androidx.compose.foundation.shape.CircleShape,
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    AppIcon(
-                        imageVector = Icons.Outlined.MoreHoriz,
-                        contentDescription = "视频标题",
-                        tint = Color.White.copy(alpha = 0.82f),
-                        modifier = Modifier.size(24.dp),
+            if (policy.showEngagement) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    if (onLikeClick != null) {
+                        Box(Modifier.likeBurstAnchor()) {
+                            HeaderIcon(
+                                if (likeStatusKnown && isLiked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
+                                if (likeStatusKnown) "点赞" else "点赞状态尚未确认",
+                                onLikeClick, active = likeStatusKnown && isLiked, iconSize = 18,
+                                gestureModifier = likeGesture, progress = triplePress.progress,
+                            )
+                        }
+                    }
+                    if (policy.showDislike && allowDislikeAction && onDislikeClick != null) {
+                        HeaderIcon(
+                            if (isDisliked) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
+                            "点踩", onDislikeClick, active = isDisliked, iconSize = 18,
+                        )
+                    }
+                    if (onCoinClick != null) HeaderIcon(
+                        AppIcons.BiliCoin, "投币", onCoinClick, active = isCoined,
+                        progress = triplePress.progress, iconSize = 18,
                     )
+                    if (onFavoriteClick != null) {
+                        HeaderIcon(
+                            if (isFavorited) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                            "收藏", onFavoriteClick, active = isFavorited, iconSize = 18,
+                            onLongClick = onFavoriteLongClick, progress = triplePress.progress,
+                        )
+                    }
+                    if (onShareClick != null) HeaderIcon(Icons.Outlined.Share, "分享", onShareClick, iconSize = 18)
                 }
             }
         }
     }
 }
 
-/**
- * A finite width keeps the title from displacing the action dock. Long titles scroll inside that
- * width while motion is enabled (the pre-liquid-glass behaviour), and fall back to a single-line
- * ellipsis when motion is off.
+/** Natural-size edge groups leave exactly the remaining width to the scrolling title.
+ * When an inline window cannot fit both edge groups, scale them together as PlayerBar does;
+ * transformed placement keeps pointer hit testing in the same coordinates as the drawing.
  */
 @Composable
-private fun PlayerTitleInfoDock(
-    title: String,
-    statusInfo: LandscapeTopStatusInfo,
-    onlineCount: String,
-    modifier: Modifier = Modifier,
+private fun PiliHeaderSlots(
+    hasTitle: Boolean,
+    left: @Composable () -> Unit,
+    right: @Composable () -> Unit,
+    title: @Composable () -> Unit,
 ) {
-    val motionEnabled = LocalComponentMotionEnabled.current
-    PlayerControlGlassDock(
-        enabled = true,
-        modifier = modifier,
-    ) {
-        Column(
-            modifier = Modifier
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            AppText(
-                text = title,
-                color = Color.White,
-                fontSize = 14.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                softWrap = false,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                // 长标题在胶囊宽度内滚动；关闭动效后回到单行省略号，保持原有静止行为。
-                modifier = if (motionEnabled) Modifier.basicMarquee() else Modifier,
-            )
-            if (shouldShowLandscapeMetaRow(statusInfo.isVisible, onlineCount)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+    Layout(
+        content = {
+            Box { left() }
+            Box { right() }
+            if (hasTitle) Box { title() }
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) { measurables, constraints ->
+        val natural = Constraints(maxHeight = constraints.maxHeight)
+        val leftPlaceable = measurables[0].measure(natural)
+        val rightPlaceable = measurables[1].measure(natural)
+        val edgeWidth = leftPlaceable.width + rightPlaceable.width
+        val width = constraints.maxWidth
+        val scale = if (edgeWidth > width) width.toFloat() / edgeWidth else 1f
+        val titlePlaceable = if (hasTitle) measurables[2].measure(
+            Constraints(maxWidth = (width - edgeWidth).coerceAtLeast(0), maxHeight = constraints.maxHeight),
+        ) else null
+        val height = constraints.constrainHeight(maxOf(
+            leftPlaceable.height, rightPlaceable.height, titlePlaceable?.height ?: 0,
+        ))
+        layout(width, height) {
+            if (scale < 1f) {
+                leftPlaceable.placeRelativeWithLayer(0, ((height - leftPlaceable.height * scale) / 2).toInt()) {
+                    scaleX = scale; scaleY = scale; transformOrigin = TransformOrigin(0f, 0f)
+                }
+                rightPlaceable.placeRelativeWithLayer(
+                    (leftPlaceable.width * scale).toInt(), ((height - rightPlaceable.height * scale) / 2).toInt(),
                 ) {
-                    statusInfo.battery?.let { battery ->
-                        BatteryStatusIcon(
-                            state = battery,
-                            modifier = Modifier.size(width = 22.dp, height = 13.dp),
-                        )
-                        AppText(
-                            text = battery.displayText,
-                            color = resolveBatteryStatusTint(battery).copy(alpha = 0.95f),
-                            fontSize = 11.sp,
-                            lineHeight = 14.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                        )
-                    }
-                    statusInfo.currentTimeText?.let { time ->
-                        AppText(
-                            text = time,
-                            color = Color.White.copy(alpha = 0.86f),
-                            fontSize = 11.sp,
-                            lineHeight = 14.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                        )
-                    }
-                    if (onlineCount.isNotBlank()) {
-                        AppText(
-                            text = onlineCount,
-                            color = Color.White.copy(alpha = 0.72f),
-                            fontSize = 11.sp,
-                            lineHeight = 14.sp,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
+                    scaleX = scale; scaleY = scale; transformOrigin = TransformOrigin(0f, 0f)
+                }
+            } else {
+                leftPlaceable.placeRelative(0, (height - leftPlaceable.height) / 2)
+                rightPlaceable.placeRelative(width - rightPlaceable.width, (height - rightPlaceable.height) / 2)
+            }
+            titlePlaceable?.placeRelative(leftPlaceable.width, (height - titlePlaceable.height) / 2)
+        }
+    }
+}
+
+@Composable
+private fun HeaderStatusText(text: String) {
+    AppText(
+        text = text, color = Color.White, fontSize = 13.sp, maxLines = 1,
+        softWrap = false, tapToCopyEnabled = false,
+    )
+}
+
+@Composable
+private fun HeaderAdvertisementIcon() {
+    Box(Modifier.size(width = 19.dp, height = 15.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.matchParentSize()) {
+            drawRoundRect(
+                Color.White,
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
+                style = Stroke(1.4.dp.toPx()),
+            )
+        }
+        AppText(
+            text = "AD", color = Color.White, fontSize = 8.sp, lineHeight = 10.sp,
+            maxLines = 1, softWrap = false, tapToCopyEnabled = false,
+        )
+    }
+}
+
+@Composable
+private fun HeaderIcon(
+    icon: ImageVector,
+    description: String,
+    onClick: () -> Unit,
+    active: Boolean = false,
+    iconSize: Int = 19,
+    onLongClick: (() -> Unit)? = null,
+    gestureModifier: Modifier? = null,
+    progress: Float = 0f,
+) {
+    val progressColor = AppContentColors.accent()
+    HeaderButton(description, onClick, active, onLongClick, gestureModifier) {
+        if (progress > 0f) Canvas(Modifier.size(28.dp)) {
+            drawArc(progressColor, -90f, -360f * progress, useCenter = false, style = Stroke(2.dp.toPx()))
+        }
+        AppIcon(
+            imageVector = icon, contentDescription = null,
+            tint = if (active) AppContentColors.accent() else Color.White,
+            modifier = Modifier.size(iconSize.dp),
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun HeaderButton(
+    description: String,
+    onClick: () -> Unit,
+    active: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
+    gestureModifier: Modifier? = null,
+    content: @Composable () -> Unit,
+) {
+    PlayerControlGlassDock(enabled = true, shape = CircleShape) {
+        Box(
+            modifier = Modifier.size(width = 42.dp, height = 34.dp)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = description
+                    selected = active
+                    if (gestureModifier != null) {
+                        role = Role.Button
+                        onClick(action = { onClick(); true })
                     }
                 }
-            }
-        }
+                .then(gestureModifier ?: Modifier.combinedClickable(
+                    role = Role.Button, onClick = onClick, onLongClick = onLongClick,
+                )),
+            contentAlignment = Alignment.Center,
+        ) { content() }
     }
 }
 
-private fun formatCurrentTime(): String {
-    val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-    return formatter.format(Date())
-}
+private fun formatCurrentTime(): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
-private fun resolveBatteryLevelPercent(context: Context): Int? {
-    return runCatching {
-        val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-        val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-        val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-        if (level < 0 || scale <= 0) return@runCatching null
-        (level * 100f / scale).toInt().coerceIn(0, 100)
-    }.getOrNull()
-}
-
-@Composable
-private fun BatteryStatusIcon(
-    state: LandscapeBatteryVisualState,
-    modifier: Modifier = Modifier
-) {
-    val tint = resolveBatteryStatusTint(state)
-    Canvas(modifier = modifier) {
-        val strokeWidth = size.height * 0.12f
-        val terminalWidth = size.width * 0.09f
-        val bodyWidth = size.width - terminalWidth - strokeWidth
-        val bodyHeight = size.height * 0.76f
-        val bodyTop = (size.height - bodyHeight) / 2f
-        val cornerRadius = CornerRadius(bodyHeight * 0.18f, bodyHeight * 0.18f)
-        val innerPadding = strokeWidth * 1.1f
-        val fillWidth = ((bodyWidth - innerPadding * 2f) * state.fillFraction).coerceAtLeast(0f)
-
-        drawRoundRect(
-            color = Color.White.copy(alpha = 0.92f),
-            topLeft = Offset(0f, bodyTop),
-            size = Size(bodyWidth, bodyHeight),
-            cornerRadius = cornerRadius,
-            style = Stroke(width = strokeWidth)
-        )
-        drawRoundRect(
-            color = Color.White.copy(alpha = 0.92f),
-            topLeft = Offset(bodyWidth + strokeWidth * 0.35f, size.height * 0.34f),
-            size = Size(terminalWidth, size.height * 0.28f),
-            cornerRadius = CornerRadius(terminalWidth / 2f, terminalWidth / 2f)
-        )
-        if (fillWidth > 0f) {
-            drawRoundRect(
-                color = tint,
-                topLeft = Offset(innerPadding, bodyTop + innerPadding),
-                size = Size(fillWidth, bodyHeight - innerPadding * 2f),
-                cornerRadius = CornerRadius(cornerRadius.x / 1.5f, cornerRadius.y / 1.5f)
-            )
-        }
-    }
-}
-
-private fun resolveBatteryStatusTint(
-    state: LandscapeBatteryVisualState
-): Color {
-    return when (state.chargeTone) {
-        BatteryChargeTone.CRITICAL -> MediaContrastPalette.Error
-        BatteryChargeTone.LOW -> MediaContrastPalette.Warning
-        BatteryChargeTone.NORMAL -> Color.White.copy(alpha = 0.92f)
-    }
-}
-
-@Composable
-private fun ActionIcon(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    isActive: Boolean,
-    onClick: () -> Unit,
-    buttonSizeDp: Int = 32,
-    iconSizeDp: Int = 24,
-    enabled: Boolean = true
-) {
-    AppIconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(buttonSizeDp.dp)
-    ) {
-        AppIcon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = if (!enabled) Color.White.copy(alpha = 0.38f) else if (isActive) AppContentColors.accent() else Color.White,
-            modifier = Modifier.size(iconSizeDp.dp)
-        )
-    }
-}
-
-/** Reserve the real video's right black bar plus a small margin for glass refraction. */
-internal fun resolveTopActionsVideoInsetPx(
-    rowLeftPx: Float,
-    rowWidthPx: Int,
-    videoRightPx: Float,
-    clearancePx: Int,
-): Int = kotlin.math.ceil((rowLeftPx + rowWidthPx - videoRightPx + clearancePx).toDouble())
-    .toInt()
-    .coerceIn(0, (rowWidthPx * 0.4f).toInt().coerceAtLeast(0))
+private fun resolveBatteryLevelPercent(context: Context): Int? = runCatching {
+    val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+    val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+    val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+    if (level < 0 || scale <= 0) null else (level * 100f / scale).toInt().coerceIn(0, 100)
+}.getOrNull()

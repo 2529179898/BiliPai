@@ -5,4 +5,6 @@ internal object PlayerChromeLayout {
     const val EdgePaddingDp = 12
     const val CircularButtonSizeDp = 48
     const val ActionGapDp = 8
+    const val SeekEdgePaddingDp = 20
+    const val FullscreenHeightScale = 0.9f
 }

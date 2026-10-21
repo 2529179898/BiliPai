@@ -43,6 +43,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.outlined.*
@@ -80,15 +81,6 @@ import kotlinx.coroutines.withContext
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.ContainerLevel
 
-/**
- * 横屏全屏侧栏：分区 Tab 后放宽到 ~45% 屏宽，避免控件拥挤；
- * 过窄（≤220）会导致「横屏专用」旁长文案逐字竖排。
- */
-private const val FULLSCREEN_DANMAKU_PANEL_WIDTH_FRACTION = 0.45f
-private const val FULLSCREEN_DANMAKU_PANEL_MIN_WIDTH_DP = 380
-private const val FULLSCREEN_DANMAKU_PANEL_MAX_WIDTH_DP = 440
-private const val WIDE_INLINE_DANMAKU_PANEL_MAX_WIDTH_DP = 640
-private const val WIDE_INLINE_DANMAKU_PANEL_SCREEN_WIDTH_DP = 840
 
 enum class DanmakuSettingsPanelAnchor {
     Center,
@@ -124,11 +116,7 @@ internal fun resolveDanmakuSettingsPanelSurfaceColors(
     val supportingColor = colorScheme.onSurfaceVariant.copy(
         alpha = if (isDark) 0.78f else 0.72f
     )
-    val panelColor = if (isDark) {
-        colorScheme.surfaceContainerHigh
-    } else {
-        colorScheme.surface
-    }
+    val panelColor = colorScheme.surface
     val itemColor = if (isDark) {
         colorScheme.surfaceContainer
     } else {
@@ -227,59 +215,16 @@ fun resolveDanmakuSettingsPanelLayoutPolicy(
     screenHeightDp: Int,
     fullscreenWidthMode: DanmakuPanelWidthMode = DanmakuPanelWidthMode.THIRD
 ): DanmakuSettingsPanelLayoutPolicy {
-    if (isFullscreen) {
-        val availableWidthDp = (screenWidthDp - 24).coerceAtLeast(0)
-        // 模式保留入参兼容；横屏全屏统一收窄侧栏，不再铺半屏/全宽。
-        @Suppress("UNUSED_VARIABLE")
-        val ignoredMode = fullscreenWidthMode
-        val resolvedWidth = (
-            availableWidthDp * FULLSCREEN_DANMAKU_PANEL_WIDTH_FRACTION
-            )
-            .roundToInt()
-            .coerceIn(
-                FULLSCREEN_DANMAKU_PANEL_MIN_WIDTH_DP,
-                FULLSCREEN_DANMAKU_PANEL_MAX_WIDTH_DP
-            )
-        return DanmakuSettingsPanelLayoutPolicy(
-            presentation = DanmakuSettingsPanelPresentation.CenteredDialog,
-            anchor = DanmakuSettingsPanelAnchor.End,
-            horizontalPaddingDp = 10,
-            bottomPaddingDp = 0,
-            minWidthDp = resolvedWidth,
-            maxWidthDp = resolvedWidth,
-            maxHeightDp = (screenHeightDp - 20).coerceIn(320, 560)
-        )
-    }
-
-    if (
-        screenWidthDp >= WIDE_INLINE_DANMAKU_PANEL_SCREEN_WIDTH_DP &&
-        screenWidthDp > screenHeightDp
-    ) {
-        return DanmakuSettingsPanelLayoutPolicy(
-            presentation = DanmakuSettingsPanelPresentation.CenteredDialog,
-            anchor = DanmakuSettingsPanelAnchor.Center,
-            horizontalPaddingDp = 24,
-            bottomPaddingDp = 0,
-            minWidthDp = 520,
-            maxWidthDp = minOf(
-                WIDE_INLINE_DANMAKU_PANEL_MAX_WIDTH_DP,
-                (screenWidthDp - 48).coerceAtLeast(520)
-            ),
-            maxHeightDp = (screenHeightDp - 96).coerceIn(420, 560)
-        )
-    }
-
-    val horizontalPaddingDp = if (screenWidthDp >= 600) 24 else 16
-    val maxHeightDp = (screenHeightDp - 72).coerceIn(420, 560)
-
+    val landscape = screenWidthDp > screenHeightDp
+    val width = if (landscape) minOf(512, screenWidthDp / 2) else minOf(512, screenWidthDp)
     return DanmakuSettingsPanelLayoutPolicy(
-        presentation = DanmakuSettingsPanelPresentation.BottomSheet,
-        anchor = DanmakuSettingsPanelAnchor.Bottom,
-        horizontalPaddingDp = horizontalPaddingDp,
-        bottomPaddingDp = 20,
+        presentation = if (landscape) DanmakuSettingsPanelPresentation.CenteredDialog else DanmakuSettingsPanelPresentation.BottomSheet,
+        anchor = if (landscape) DanmakuSettingsPanelAnchor.End else DanmakuSettingsPanelAnchor.Bottom,
+        horizontalPaddingDp = 12,
+        bottomPaddingDp = 12,
         minWidthDp = 0,
-        maxWidthDp = maxOf(520, screenWidthDp - horizontalPaddingDp * 2),
-        maxHeightDp = maxHeightDp
+        maxWidthDp = width.coerceAtLeast(1),
+        maxHeightDp = (if (landscape) screenHeightDp - 24 else (screenHeightDp * 0.7f).roundToInt()).coerceAtLeast(1),
     )
 }
 
@@ -391,8 +336,14 @@ fun DanmakuSettingsPanel(
     onCloudSyncEnabledChange: (Boolean) -> Unit = {},
     onSyncNowClick: () -> Unit = {},
     onShowDanmakuPool: (() -> Unit)? = null,
+    inlineFontScale: Float = fontScale,
+    fullscreenFontScale: Float = fontScale,
+    onInlineFontScaleChange: ((Float) -> Unit)? = null,
+    onFullscreenFontScaleChange: ((Float) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
+    PlayerNativeMenuTheme {
+    var showExtraSettings by remember { mutableStateOf(false) }
     val settingsContext = LocalContext.current
     val settingsScopeCoroutine = rememberCoroutineScope()
     val hotDanmakuEnabled by remember(settingsContext) {
@@ -408,14 +359,12 @@ fun DanmakuSettingsPanel(
     val configuration = LocalConfiguration.current
     val colorScheme = MaterialTheme.colorScheme
     val panelColors = rememberDanmakuPanelColors(colorScheme)
-    val isFullscreenStyle = isFullscreen
-    val glass = LocalAppThemeConfig.current.liquidGlassEnabled
-    val syncShape = if (glass) AppShapes.container(ContainerLevel.Chip) else AppShapes.container(ContainerLevel.Field)
-    // 横屏分区 Tab（基础/高级/屏蔽）；竖屏不分区，全部展示。
-    var fullscreenActiveSection by remember { mutableIntStateOf(0) }
-    val showSectionBasic = !isFullscreenStyle || fullscreenActiveSection == 0
-    val showSectionAdvanced = !isFullscreenStyle || fullscreenActiveSection == 1
-    val showSectionBlocking = !isFullscreenStyle || fullscreenActiveSection == 2
+    val isFullscreenStyle = false
+    val glass = false
+    val syncShape = AppShapes.container(ContainerLevel.Field)
+    val showSectionBasic = true
+    val showSectionAdvanced = true
+    val showSectionBlocking = true
     val layoutPolicy = remember(
         isFullscreen,
         configuration.screenWidthDp,
@@ -437,19 +386,10 @@ fun DanmakuSettingsPanel(
             AppSurface(
                 modifier = Modifier
                     .then(
-                        if (
-                            isFullscreenStyle &&
-                            layoutPolicy.anchor == DanmakuSettingsPanelAnchor.End
-                        ) {
-                            // 横屏侧栏：固定窄宽，避免 fillMaxWidth 在部分机型上撑满半屏。
+                        if (layoutPolicy.anchor == DanmakuSettingsPanelAnchor.End) {
                             Modifier.width(layoutPolicy.maxWidthDp.dp)
                         } else {
-                            Modifier
-                                .fillMaxWidth()
-                                .widthIn(
-                                    min = layoutPolicy.minWidthDp.dp,
-                                    max = layoutPolicy.maxWidthDp.dp
-                                )
+                            Modifier.widthIn(max = layoutPolicy.maxWidthDp.dp).fillMaxWidth()
                         }
                     )
                     .padding(
@@ -463,92 +403,56 @@ fun DanmakuSettingsPanel(
                         interactionSource = remember { MutableInteractionSource() }
                     ) { },
                 color = panelColors.panelColor,
-                shape = AppShapes.container(ContainerLevel.Dialog),
-                tonalElevation = if (isFullscreenStyle) 6.dp else 16.dp,
-                shadowElevation = if (isFullscreenStyle) 8.dp else 24.dp
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
             ) {
                 Column(
                     modifier = Modifier
                         .verticalScroll(rememberScrollState())
-                        .padding(if (isFullscreenStyle) 20.dp else 24.dp)
+                        .padding(14.dp)
                 ) {
-                    // Header：窄侧栏只放标题+徽章+关闭，长副标题不挤进横排（避免竖字）
-                    Row(
-                        modifier = Modifier.fillMaxWidth().landscapeControlCenterGroup(index = 0),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AppText(
-                            text = "弹幕设置",
-                            color = panelColors.titleColor,
-                            style = (if (isFullscreenStyle) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge)
-                                .copy(fontWeight = FontWeight.SemiBold),
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(AppShapes.container(ContainerLevel.Pill))
-                                .background(panelColors.badgeBackgroundColor)
-                                .border(
-                                    width = 1.dp,
-                                    color = panelColors.badgeBorderColor,
-                                    shape = AppShapes.container(ContainerLevel.Pill)
-                                )
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            AppText(
-                                text = settingsScope.badgeLabel,
-                                color = panelColors.badgeContentColor,
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                maxLines = 1
-                            )
+                    AppText("弹幕设置", modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                    if (!showExtraSettings) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            AppText("智能云屏蔽 $weightFilterLevel 级", modifier = Modifier.weight(1f))
+                            if (showBlockRuleEditor) AppTextButton(onClick = { showBlockManager = true }) { AppText("屏蔽管理($totalBlockRuleCount)") }
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        AppIconButton(
-                            onClick = requestPanelDismiss,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(panelColors.resetButtonBackgroundColor, CircleShape)
-                        ) {
-                            AppIcon(
-                                Icons.Outlined.Close,
-                                contentDescription = "关闭",
-                                tint = panelColors.resetButtonColor,
-                                modifier = Modifier.size(18.dp)
-                            )
+                        DanmakuSliderItem(
+                            label = "智能云屏蔽", value = weightFilterLevel.toFloat(),
+                            valueRange = 0f..11f, steps = 10,
+                            displayValue = { "${it.roundToInt()} 级" },
+                            onValueChange = { onWeightFilterLevelChange(it.roundToInt()) },
+                            colors = panelColors, resetValue = 0f,
+                        )
+                        AppText("按类型屏蔽")
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            androidx.compose.material3.FilterChip(!allowScroll, { onAllowScrollChange(!allowScroll) }, label = { AppText("滚动") })
+                            androidx.compose.material3.FilterChip(!allowTop, { onAllowTopChange(!allowTop) }, label = { AppText("顶部") })
+                            androidx.compose.material3.FilterChip(!allowBottom, { onAllowBottomChange(!allowBottom) }, label = { AppText("底部") })
+                            androidx.compose.material3.FilterChip(!allowColorful, { onAllowColorfulChange(!allowColorful) }, label = { AppText("彩色") })
+                            androidx.compose.material3.FilterChip(!allowSpecial, { onAllowSpecialChange(!allowSpecial) }, label = { AppText("高级") })
                         }
-                    }
-                    if (!isFullscreenStyle && settingsScope.subtitle.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        AppText(
-                            text = settingsScope.subtitle,
-                            color = panelColors.supportingColor,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(if (isFullscreenStyle) 14.dp else 24.dp))
-
-                    if (isFullscreenStyle) {
-                        // 横屏分区 Tab：基础 / 高级 / 屏蔽，避免窄侧栏长滚动。
-                        AppThemeAdaptiveTabRow(
-                            // Glass indicator fills the measured slot; native geometry keeps its defaults.
-                            liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
-                            role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
-                            options = listOf("基础", "高级", "屏蔽").mapIndexed { index, label ->
-                                AppSegmentOption(index, label)
-                            },
-                            selectedValue = fullscreenActiveSection,
-                            onSelectionChange = { fullscreenActiveSection = it },
-                            dragSelectionEnabled = true,
-                            tapPressRefractionEnabled = true,
-                            modifier = Modifier.fillMaxWidth().landscapeControlCenterGroup(index = 1),
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
+                        AppText("其他")
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            androidx.compose.material3.FilterChip(massiveMode, { onMassiveModeChange(!massiveMode) }, label = { AppText("海量弹幕") })
+                            androidx.compose.material3.FilterChip(staticDanmakuToScroll, { onStaticDanmakuToScrollChange(!staticDanmakuToScroll) }, label = { AppText("固定转滚动") })
+                            androidx.compose.material3.FilterChip(scrollFixedVelocity, { onScrollFixedVelocityChange(!scrollFixedVelocity) }, label = { AppText("滚动弹幕固定速度") })
+                        }
+                        DanmakuSliderItem("显示区域", displayArea, 0.1f..1f, displayValue = { "${(it * 100).roundToInt()}%" }, onValueChange = onDisplayAreaChange, colors = panelColors, resetValue = 0.5f, steps = 8)
+                        DanmakuSliderItem("不透明度", opacity, 0f..1f, displayValue = { "${(it * 100).roundToInt()}%" }, onValueChange = onOpacityChange, colors = panelColors, resetValue = 1f)
+                        DanmakuSliderItem("字体粗细（可能无法精确调节）", fontWeight.toFloat(), 1f..9f, displayValue = { "${it.roundToInt()}" }, onValueChange = { onFontWeightChange(it.roundToInt()) }, colors = panelColors, resetValue = 6f, steps = 7)
+                        DanmakuSliderItem("描边粗细", strokeWidth, 0f..5f, displayValue = { "$it" }, onValueChange = onStrokeWidthChange, colors = panelColors, resetValue = 1.5f, steps = 9)
+                        DanmakuSliderItem("字体大小", inlineFontScale, 0.5f..2.5f, displayValue = { "${(it * 100).roundToInt()}%" }, onValueChange = onInlineFontScaleChange ?: onFontScaleChange, colors = panelColors, resetValue = 1f)
+                        onFullscreenFontScaleChange?.let { change ->
+                            DanmakuSliderItem("全屏字体大小", fullscreenFontScale, 0.5f..2.5f, displayValue = { "${(it * 100).roundToInt()}%" }, onValueChange = change, colors = panelColors, resetValue = 1.2f)
+                        }
+                        DanmakuSliderItem("滚动弹幕时长", scrollDurationSeconds, 1f..50f, displayValue = { "$it 秒" }, onValueChange = onScrollDurationSecondsChange, colors = panelColors, resetValue = 7f, steps = 48)
+                        DanmakuSliderItem("静态弹幕时长", staticDurationSeconds, 1f..50f, displayValue = { "$it 秒" }, onValueChange = onStaticDurationSecondsChange, colors = panelColors, resetValue = 4f, steps = 48)
+                        DanmakuSliderItem("弹幕行高", lineHeight, 1f..3f, displayValue = { "$it" }, onValueChange = onLineHeightChange, colors = panelColors, resetValue = 1.6f)
+                        PlayerSettingsRow("高级设置") { showExtraSettings = true }
+                    } else {
+                        PlayerSettingsRow("返回") { showExtraSettings = false }
 
                     if (showSectionBasic && onShowDanmakuPool != null) {
                         AppSurface(
@@ -964,7 +868,8 @@ fun DanmakuSettingsPanel(
                             fullscreenStyle = isFullscreenStyle
                         )
 
-                        if (settingsScope == DanmakuSettingsScope.PORTRAIT) {
+                        if (androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
+                            android.content.res.Configuration.ORIENTATION_PORTRAIT) {
                             Spacer(modifier = Modifier.height(12.dp))
                             PortraitDanmakuDisplayAreaModeSelector(
                                 currentMode = portraitDisplayAreaMode,
@@ -1258,6 +1163,7 @@ fun DanmakuSettingsPanel(
                             }
                         }
                     }
+                    }
                 }
             }
     }
@@ -1268,6 +1174,7 @@ fun DanmakuSettingsPanel(
             onRulesSave = { onBlockRulesRawChange(it) },
             onDismiss = { showBlockManager = false }
         )
+    }
     }
 }
 
@@ -1290,6 +1197,10 @@ private fun DanmakuBlockManagerDialog(
     var userHashRules by remember(rawRules) { mutableStateOf(initialSections.userHashRules) }
     var inputValue by remember(selectedTabIndex) { mutableStateOf("") }
     var pendingImportResult by remember { mutableStateOf<DanmakuBlockRuleImportResult?>(null) }
+    var useUidHashInput by remember { mutableStateOf(false) }
+    var pendingDeleteIndex by remember { mutableStateOf<Int?>(null) }
+    var pendingEditIndex by remember { mutableStateOf<Int?>(null) }
+    var editRuleValue by remember { mutableStateOf("") }
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -1383,7 +1294,42 @@ private fun DanmakuBlockManagerDialog(
     val currentHint = when (selectedTabIndex) {
         0 -> "例如：剧透"
         1 -> "例如：regex:第\\d+集"
-        else -> "例如：uid:abc123 或 abc123"
+        else -> if (useUidHashInput) "高级：输入 UID hash" else "输入用户UID"
+    }
+
+    pendingDeleteIndex?.let { index ->
+        AppAlertDialog(
+            onDismissRequest = { pendingDeleteIndex = null },
+            title = { AppText("删除规则") },
+            text = { AppText("确定删除「${currentRules.getOrNull(index).orEmpty()}」？") },
+            confirmButton = {
+                AppTextButton(onClick = {
+                    updateCurrentRules { rules -> rules.filterIndexed { ruleIndex, _ -> ruleIndex != index } }
+                    pendingDeleteIndex = null
+                }) { AppText("确认") }
+            },
+            dismissButton = { AppTextButton(onClick = { pendingDeleteIndex = null }) { AppText("取消") } },
+        )
+    }
+    pendingEditIndex?.let { index ->
+        AppAlertDialog(
+            onDismissRequest = { pendingEditIndex = null },
+            title = { AppText(if (selectedTabIndex == 0) "编辑关键词规则" else "编辑正则规则") },
+            text = { AppOutlinedTextField(value = editRuleValue, onValueChange = { editRuleValue = it }, singleLine = true) },
+            confirmButton = {
+                AppTextButton(onClick = {
+                    val candidate = editRuleValue.trim()
+                    val normalized = if (selectedTabIndex == 1) normalizeDanmakuRegexManagerInput(candidate) ?: candidate else candidate
+                    if (candidate.isBlank() || normalized == currentRules.getOrNull(index)) {
+                        android.widget.Toast.makeText(context, "规则为空或未修改", android.widget.Toast.LENGTH_SHORT).show()
+                    } else {
+                        updateCurrentRules { rules -> rules.mapIndexed { ruleIndex, rule -> if (ruleIndex == index) normalized else rule }.distinct() }
+                        pendingEditIndex = null
+                    }
+                }) { AppText("确认") }
+            },
+            dismissButton = { AppTextButton(onClick = { pendingEditIndex = null }) { AppText("取消") } },
+        )
     }
 
     pendingImportResult?.let { result ->
@@ -1488,7 +1434,7 @@ private fun DanmakuBlockManagerDialog(
                     // Glass indicator fills the measured slot; native geometry keeps its defaults.
                     liquidGlassAdaptIndicatorToLabel = !com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled,
                     role = com.android.purebilibili.core.ui.components.AppTabRowRole.SECONDARY,
-                    options = listOf("关键词", "正则", "UID(hash)").mapIndexed { index, label ->
+                    options = listOf("关键词", "正则", "UID").mapIndexed { index, label ->
                         AppSegmentOption(
                             index,
                             resolveDanmakuBlockManagerTabLabel(label, tabCounts[index]),
@@ -1505,7 +1451,7 @@ private fun DanmakuBlockManagerDialog(
 
                 AppOutlinedTextField(
                     value = inputValue,
-                    onValueChange = { inputValue = it },
+                    onValueChange = { inputValue = if (selectedTabIndex == 2 && !useUidHashInput) it.filter(Char::isDigit) else it },
                     placeholder = {
                         AppText(
                             text = currentHint,
@@ -1515,6 +1461,9 @@ private fun DanmakuBlockManagerDialog(
                     },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = if (selectedTabIndex == 2 && !useUidHashInput) androidx.compose.ui.text.input.KeyboardType.Number else androidx.compose.ui.text.input.KeyboardType.Text,
+                    ),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = panelColors.titleColor,
                         unfocusedTextColor = panelColors.titleColor,
@@ -1525,6 +1474,9 @@ private fun DanmakuBlockManagerDialog(
                     ),
                     shape = AppShapes.container(ContainerLevel.Card)
                 )
+                if (selectedTabIndex == 2) AppTextButton(onClick = { useUidHashInput = !useUidHashInput; inputValue = "" }) {
+                    AppText(if (useUidHashInput) "改为输入用户UID" else "高级：使用 UID 哈希")
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1552,7 +1504,7 @@ private fun DanmakuBlockManagerDialog(
                             if (candidate.isEmpty()) return@AppButton
                             val normalizedCandidate = when (selectedTabIndex) {
                                 1 -> normalizeDanmakuRegexManagerInput(candidate) ?: candidate
-                                2 -> normalizeDanmakuUserHashManagerInput(candidate) ?: candidate
+                                2 -> normalizeDanmakuUserHashManagerInput(if (useUidHashInput) "hash:$candidate" else "uid:$candidate") ?: candidate
                                 else -> candidate
                             }
                             updateCurrentRules { (it + normalizedCandidate).distinct() }
@@ -1589,14 +1541,12 @@ private fun DanmakuBlockManagerDialog(
                                         style = MaterialTheme.typography.bodyMedium,
                                         modifier = Modifier.weight(1f)
                                     )
+                                    if (selectedTabIndex != 2) AppTextButton(onClick = {
+                                        pendingEditIndex = index
+                                        editRuleValue = rule
+                                    }) { AppText("编辑") }
                                     AppTextButton(
-                                        onClick = {
-                                            updateCurrentRules { rules ->
-                                                rules.filterIndexed { currentIndex, _ ->
-                                                    currentIndex != index
-                                                }
-                                            }
-                                        }
+                                        onClick = { pendingDeleteIndex = index }
                                     ) {
                                         AppText("删除")
                                     }
@@ -1893,154 +1843,54 @@ private fun DanmakuSliderItem(
     onValueChange: (Float) -> Unit,
     onValuePreview: ((Float) -> Unit)? = null,
     colors: DanmakuSettingsPanelSurfaceColors,
-    fullscreenStyle: Boolean,
+    fullscreenStyle: Boolean = false,
     resetValue: Float? = null,
     tickCount: Int = 0,
-    valueText: (Float) -> String = displayValue
+    valueText: (Float) -> String = displayValue,
 ) {
-    var localValue by remember(valueRange) { mutableFloatStateOf(value) }
+    var localValue by remember(valueRange) { mutableFloatStateOf(value.coerceIn(valueRange)) }
     var previewing by remember { mutableStateOf(false) }
-    val latestCommit by androidx.compose.runtime.rememberUpdatedState(onValueChange)
-    androidx.compose.runtime.LaunchedEffect(value) {
-        if (!previewing) localValue = value
+    val latestCommit by rememberUpdatedState(onValueChange)
+    LaunchedEffect(value) {
+        if (!previewing) localValue = value.coerceIn(valueRange)
     }
-    androidx.compose.runtime.DisposableEffect(Unit) {
+    DisposableEffect(Unit) {
         onDispose { if (previewing) latestCommit(localValue) }
     }
-    val liquidSlider = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled &&
-        android.os.Build.VERSION.SDK_INT >= 33
-    val sliderProgress = remember(localValue, valueRange) {
-        val total = valueRange.endInclusive - valueRange.start
-        if (total <= 0f) {
-            0f
-        } else {
-            ((localValue - valueRange.start) / total).coerceIn(0f, 1f)
-        }
-    }
-
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (fullscreenStyle) {
-                AppText(
-                    text = "$label ${valueText(localValue)}",
-                    color = colors.titleColor,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
-                    modifier = Modifier.weight(1f)
-                )
-                if (resetValue != null) {
-                    AppIconButton(
-                        onClick = {
-                            localValue = resetValue
-                            previewing = false
-                            onValueChange(resetValue)
-                        },
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(colors.resetButtonBackgroundColor, CircleShape)
-                    ) {
-                        AppIcon(
-                            imageVector = Icons.Outlined.Refresh,
-                            contentDescription = "重置",
-                            tint = colors.resetButtonColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            } else {
-                AppText(
-                    text = label,
-                    color = colors.titleColor,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
-                )
-                AppSurface(
-                    color = colors.itemColor,
-                    shape = AppShapes.container(ContainerLevel.Pill)
-                ) {
-                    AppText(
-                        text = displayValue(localValue),
-                        color = colors.sliderActiveTrackColor,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(if (fullscreenStyle) 10.dp else 12.dp))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(if (liquidSlider) 48.dp else if (fullscreenStyle) 32.dp else 28.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            if (!liquidSlider && fullscreenStyle && tickCount > 1) {
-                DanmakuSliderTicks(
-                    tickCount = tickCount,
-                    progress = sliderProgress,
-                    colors = colors,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 6.dp)
-                )
-            }
-
-            AppSlider(
-                value = localValue,
-                onValueChange = { newValue ->
-                    localValue = newValue
-                    previewing = true
-                    onValuePreview?.invoke(newValue)
-                },
-                onValueChangeFinished = {
+    Column(Modifier.padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            AppText(
+                "$label ${valueText(localValue)}",
+                modifier = Modifier.weight(1f),
+                color = colors.titleColor,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (resetValue != null) AppIconButton(
+                onClick = {
+                    localValue = resetValue.coerceIn(valueRange)
                     previewing = false
                     onValueChange(localValue)
                 },
-                valueRange = valueRange,
-                steps = steps,
-                // Glass uses the exact custom accent while retaining the shared lens geometry.
-                // Native themes retain the panel's existing contrast palette.
-                colors = AppSliderDefaults.colors(
-                    thumbColor = colors.sliderThumbColor,
-                    activeTrackColor = colors.sliderActiveTrackColor,
-                    inactiveTrackColor = colors.sliderInactiveTrackColor
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
+                modifier = Modifier.size(24.dp),
+            ) {
+                AppIcon(Icons.Outlined.Refresh, contentDescription = "默认值: ${displayValue(resetValue)}", tint = colors.resetButtonColor, modifier = Modifier.size(24.dp))
+            }
         }
+        androidx.compose.material3.Slider(
+            value = localValue,
+            onValueChange = { next ->
+                localValue = next
+                previewing = true
+                onValuePreview?.invoke(next) ?: onValueChange(next)
+            },
+            onValueChangeFinished = {
+                previewing = false
+                onValueChange(localValue)
+            },
+            valueRange = valueRange,
+            steps = steps,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        )
     }
 }
 
-@Composable
-private fun DanmakuSliderTicks(
-    tickCount: Int,
-    progress: Float,
-    colors: DanmakuSettingsPanelSurfaceColors,
-    modifier: Modifier = Modifier
-) {
-    val activeTickIndex = ((tickCount - 1) * progress).roundToInt()
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        repeat(tickCount) { index ->
-            Box(
-                modifier = Modifier
-                    .size(if (index == activeTickIndex) 8.dp else 6.dp)
-                    .background(
-                        color = if (index <= activeTickIndex) {
-                            colors.sliderActiveTickColor
-                        } else {
-                            colors.sliderInactiveTickColor
-                        },
-                        shape = CircleShape
-                    )
-            )
-        }
-    }
-}

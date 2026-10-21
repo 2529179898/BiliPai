@@ -140,7 +140,6 @@ internal val settingsStaticDescriptionIndex: Map<String, String> = mapOf(
     "playback.player_control_visibility.show_follow_button" to "关闭后保留 UP 主头像、名称和主页入口",
     "playback.player_diagnostic_logging_enabled" to "遇到黑屏、卡顿或无响应时记录排查信息；反馈问题后可关闭",
     "playback.player_insight_mode" to "不显示播放状态信息；打开控制栏时显示；发生掉帧或软件解码时保持可见；始终显示编码、码率、掉帧等播放信息",
-    "playback.player_progress_placement" to "选择进度条放在按钮上方还是视频底部",
     "playback.portrait_letterbox_ambient_haze" to "竖屏看横屏视频时，上下黑边显示模糊画面；竖屏播放横屏视频时，上下黑边保持纯黑",
     "playback.portrait_only_vertical_recommendations" to "仅推荐竖屏画面的视频；同时推荐横屏和竖屏视频",
     "playback.portrait_swipe_to_fullscreen_enabled" to "开启后在竖屏下向上滑动可快速进入全屏；关闭后竖屏上滑不再触发进入全屏",

@@ -106,6 +106,7 @@ import com.android.purebilibili.core.player.dash.AdaptiveDashPlaybackSource
 import com.android.purebilibili.feature.video.playback.audio.AudioFallbackReason
 import com.android.purebilibili.feature.video.playback.audio.AudioQualityOption
 import com.android.purebilibili.feature.video.playback.audio.AUDIO_QUALITY_AUTO
+import com.android.purebilibili.feature.video.playback.audio.AudioStreamKind
 import com.android.purebilibili.feature.video.playback.audio.isPremiumAudioPlaybackFailure
 import com.android.purebilibili.feature.video.playback.audio.resolveRequestedAudioQuality
 import com.android.purebilibili.feature.video.playback.policy.PlaybackPostLoadTask
@@ -590,6 +591,8 @@ sealed class VideoPlaybackUiState {
         val isLiked: Boolean = false,
         val likeStatusKnown: Boolean = false,
         val followStatusKnown: Boolean = false,
+        val relationshipStatusKnown: Boolean = false,
+        val interactionAccountSession: Any = videoEngagementAccountScope(),
         val isDisliked: Boolean = false,
         val coinCount: Int = 0,
         val emoteMap: Map<String, String> = emptyMap(),
@@ -1498,10 +1501,13 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         if (current.isQualitySwitching) return true
 
         val audioPreference = current.requestedAudioQuality
+        val requestedKind = current.availableAudioQualities
+            .firstOrNull { it.preferenceId == audioPreference }?.kind
         if (!shouldRefreshPremiumAudioForPlaybackSpeedChange(
                 requestedAudioQuality = audioPreference,
                 previousPlaybackSpeed = previousSpeed,
-                nextPlaybackSpeed = normalizedSpeed
+                nextPlaybackSpeed = normalizedSpeed,
+                requestedAudioKind = requestedKind
             )
         ) {
             return true
@@ -2770,18 +2776,19 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                 false
             } else {
                 val currentPageIndex = pages.indexOfFirst { it.cid == currentCid }
-                currentPageIndex > 0
+                currentPageIndex >= 0 && currentPageIndex - com.android.purebilibili.feature.video.playback.next.PiliPlaybackOrder.step(success.info) in pages.indices
             }
         } ?: false
 
         val hasPreviousSeasonEpisode = current?.info?.ugc_season?.let { season ->
             val allEpisodes = season.sections.flatMap { it.episodes }
-            val previousEpIndex = resolveUgcSeasonEpisodeIndex(
+            val currentEpIndex = resolveUgcSeasonEpisodeIndex(
                 episodes = allEpisodes,
                 currentBvid = current.info.bvid,
                 currentCid = current.info.cid
-            ) - 1
-            previousEpIndex >= 0
+            )
+            val previousEpIndex = currentEpIndex - com.android.purebilibili.feature.video.playback.next.PiliPlaybackOrder.step(current.info)
+            currentEpIndex >= 0 && previousEpIndex in allEpisodes.indices
         } ?: false
 
         return Triple(hasPreviousPage, hasPreviousSeasonEpisode, hasPreviousInPlaylist())
@@ -2851,9 +2858,9 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         val pages = current.info.pages
         if (pages.size > 1) {
             val currentPageIndex = pages.indexOfFirst { it.cid == currentCid }
-            val previousPageIndex = currentPageIndex - 1
+            val previousPageIndex = currentPageIndex - com.android.purebilibili.feature.video.playback.next.PiliPlaybackOrder.step(current.info)
 
-            if (previousPageIndex >= 0) {
+            if (currentPageIndex >= 0 && previousPageIndex in pages.indices) {
                 val previousPage = pages[previousPageIndex]
                 Logger.d("PlayerVM", "🎵 播放上一个分P: P${previousPageIndex + 1} - ${previousPage.part}")
                 switchPage(previousPageIndex, ignoreSavedProgress = ignoreSavedProgress)
@@ -2868,9 +2875,9 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                 currentBvid = current.info.bvid,
                 currentCid = current.info.cid
             )
-            val previousEpIndex = currentEpIndex - 1
+            val previousEpIndex = currentEpIndex - com.android.purebilibili.feature.video.playback.next.PiliPlaybackOrder.step(current.info)
 
-            if (previousEpIndex >= 0) {
+            if (currentEpIndex >= 0 && previousEpIndex in allEpisodes.indices) {
                 val previousEpisode = allEpisodes[previousEpIndex]
                 Logger.d("PlayerVM", "📂 播放合集上一集: ${previousEpisode.title}")
                 viewModelScope.launch {
@@ -4476,6 +4483,51 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         }
     }
     
+    /** Applies menu edits only to the media identity that opened the dialog. */
+    fun replacePlaybackSourcesForMenu(
+        expectedBvid: String,
+        expectedCid: Long,
+        videoUrl: String,
+        audioUrl: String
+    ): Boolean {
+        val current = _uiState.value as? VideoPlaybackUiState.Success ?: return false
+        if (!com.android.purebilibili.feature.video.ui.overlay.matchesPiliPlaybackIdentity(
+                expectedBvid, expectedCid, current.info.bvid, current.info.cid
+            )
+        ) return false
+        require(com.android.purebilibili.feature.video.ui.overlay.isEditablePlaybackUrl(videoUrl))
+        require(com.android.purebilibili.feature.video.ui.overlay.isEditablePlaybackUrl(audioUrl, allowEmpty = true))
+        val player = exoPlayer ?: return false
+        check(!current.isQualitySwitching) { "正在切换画质，请稍后再编辑播放地址" }
+        explicitQualitySelectionGeneration++
+        hdrAutoUpgradeJob?.cancel()
+        val position = player.currentPosition.coerceAtLeast(0L)
+        val normalizedVideoUrl = videoUrl.trim()
+        val normalizedAudioUrl = audioUrl.trim().takeIf { it.isNotEmpty() }
+        playResolvedPlayback(
+            videoUrl = normalizedVideoUrl,
+            audioUrl = normalizedAudioUrl,
+            adaptiveDashSource = null,
+            startPositionMs = position,
+            playWhenReady = player.playWhenReady
+        )
+        _uiState.value = current.copy(
+            playUrl = normalizedVideoUrl,
+            audioUrl = normalizedAudioUrl,
+            adaptiveDashSource = null,
+            startPosition = position,
+            isQualitySwitching = false,
+            requestedQuality = null,
+            currentCdnIndex = 0,
+            allVideoUrls = listOf(normalizedVideoUrl),
+            allAudioUrls = listOf(normalizedAudioUrl.orEmpty()),
+            cdnCandidateSources = emptyList(),
+            cdnLineDiagnostics = emptyList(),
+            isCdnProbing = false
+        )
+        return true
+    }
+
     // ========== State Restoration ==========
     
     /**
@@ -5451,7 +5503,7 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
         val current = _uiState.value as? VideoPlaybackUiState.Success ?: return
         val player = exoPlayer ?: return
         val hasStandardAudio = current.availableAudioQualities.any { option ->
-            option.preferenceId == AUDIO_QUALITY_AUTO
+            option.kind == AudioStreamKind.STANDARD
         }
         if (!hasStandardAudio) {
             player.pause()
@@ -5481,7 +5533,9 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                     playWhenReady = playWhenReady
                 )
                 val updated = _uiState.value as? VideoPlaybackUiState.Success
-                if (switched && updated?.selectedAudioQuality == AUDIO_QUALITY_AUTO) {
+                val selectedKind = updated?.availableAudioQualities
+                    ?.firstOrNull { it.preferenceId == updated.selectedAudioQuality }?.kind
+                if (switched && selectedKind == AudioStreamKind.STANDARD) {
                     _uiState.value = updated.copy(
                         requestedAudioQuality = requestedAudioQuality,
                         audioFallbackReason = AudioFallbackReason.DECODER_ERROR
@@ -5572,10 +5626,10 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                     }
                 }
             }
-            val favoriteDeferred = async { com.android.purebilibili.data.repository.ActionRepository.checkFavoriteStatus(aid) }
+            val relationshipDeferred = async {
+                com.android.purebilibili.feature.video.usecase.queryVideoEngagementRelationship(aid, bvid)
+            }
             val watchLaterDeferred = async { com.android.purebilibili.data.repository.ActionRepository.checkWatchLaterStatus(aid) }
-            val dislikeDeferred = async { com.android.purebilibili.data.repository.ActionRepository.checkDislikeStatus(aid) }
-            val coinDeferred = async { com.android.purebilibili.data.repository.ActionRepository.checkCoinStatus(aid) }
             val vipDeferred = async {
                 if (com.android.purebilibili.data.repository.VideoRepository.isPlaybackVip()) {
                     true
@@ -5587,10 +5641,8 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
                 }
             }
 
-            val fetchedFavorite = favoriteDeferred.await()
+            val relationship = relationshipDeferred.await().getOrNull()
             val fetchedWatchLater = watchLaterDeferred.await()
-            val fetchedDislike = dislikeDeferred.await()
-            val fetchedCoinCount = coinDeferred.await()
             val fetchedVip = vipDeferred.await()
 
             if (fetchedVip && !com.android.purebilibili.data.repository.VideoRepository.isUsingDedicatedPlaybackAccount()) {
@@ -5604,12 +5656,20 @@ class VideoPlaybackViewModel(application: Application) : AndroidViewModel(applic
 
                     if (currentLoadRequestToken != requestToken || repository.interactionSession() != session) return@update state
 
-                    success.copy(
+                    val updated = success.copy(
                         isVip = success.isVip || fetchedVip,
-                        isFavorited = success.isFavorited || fetchedFavorite,
                         isInWatchLater = success.isInWatchLater || fetchedWatchLater,
-                        isDisliked = success.isDisliked || fetchedDislike,
-                        coinCount = maxOf(success.coinCount, fetchedCoinCount)
+                    )
+                    if (relationship == null) updated else updated.copy(
+                        relationshipStatusKnown = true,
+                        interactionAccountSession = videoEngagementAccountScope(session),
+                        isFavorited = relationship.favorite,
+                        isDisliked = relationship.dislike,
+                        coinCount = relationship.coin,
+                        isLiked = if (repository.likeStatusVersion(aid) == likeVersion) relationship.like else success.isLiked,
+                        likeStatusKnown = success.likeStatusKnown || repository.likeStatusVersion(aid) == likeVersion,
+                        isFollowing = if (repository.followStatusVersion(ownerMid) == followVersion) relationship.attention else success.isFollowing,
+                        followStatusKnown = success.followStatusKnown || repository.followStatusVersion(ownerMid) == followVersion,
                     )
                 }
             }

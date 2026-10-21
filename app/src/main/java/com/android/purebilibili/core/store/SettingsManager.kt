@@ -451,11 +451,15 @@ enum class FullscreenMode(val value: Int, val label: String, val description: St
 }
 
 enum class FullscreenAspectRatio(val value: Int, val label: String, val description: String) {
-    FIT(0, "适应", "完整显示画面，尽量不裁切"),
-    FILL(1, "填充", "填满屏幕，可能裁切边缘"),
+    FIT(0, "自动", "完整显示画面，尽量不裁切"),
+    FILL(1, "裁剪", "填满屏幕，可能裁切边缘"),
     RATIO_16_9(2, "16:9", "优先按 16:9 展示画面"),
     RATIO_4_3(3, "4:3", "优先按 4:3 展示画面"),
-    STRETCH(4, "拉伸", "铺满屏幕，可能导致画面变形");
+    STRETCH(4, "拉伸", "铺满屏幕，可能导致画面变形"),
+    FIT_WIDTH(5, "等宽", "保持源比例与播放器等宽"),
+    FIT_HEIGHT(6, "等高", "保持源比例与播放器等高"),
+    ORIGINAL(7, "原始", "按视频原始像素尺寸居中展示"),
+    SCALE_DOWN(8, "限制", "仅缩小超过播放器的画面，不放大小画面");
 
     companion object {
         fun fromValue(value: Int): FullscreenAspectRatio {
@@ -481,19 +485,6 @@ enum class BottomProgressBehavior(
     }
 }
 
-enum class PlayerProgressPlacement(
-    val value: Int,
-    val label: String
-) {
-    ABOVE_CONTROLS(0, "控制栏上方"),
-    BOTTOM_EDGE(1, "视频最底部");
-
-    companion object {
-        fun fromValue(value: Int): PlayerProgressPlacement {
-            return entries.find { it.value == value } ?: ABOVE_CONTROLS
-        }
-    }
-}
 
 data class PlayerControlVisibilitySettings(
     val showCastButton: Boolean = true,
@@ -503,12 +494,11 @@ data class PlayerControlVisibilitySettings(
 )
 
 internal fun normalizeDanmakuDisplayArea(value: Float): Float {
-    val normalized = value.coerceIn(0.125f, 1.0f)
-    val supportedOptions = floatArrayOf(0.125f, 0.25f, 0.375f, 0.5f, 0.625f, 0.75f, 0.875f, 1.0f)
-    return supportedOptions.minByOrNull { abs(it - normalized) } ?: 0.5f
+    return if (value.isFinite()) value.coerceIn(0.1f, 1f) else 0.5f
 }
 
-internal fun normalizeDanmakuFontScale(value: Float): Float = value.coerceIn(0.3f, 2.0f)
+internal fun normalizeDanmakuFontScale(value: Float): Float =
+    if (value.isFinite()) value.coerceIn(0.5f, 2.5f) else 1f
 
 internal const val DEFAULT_HOME_REFRESH_COUNT = 20
 internal const val MIN_HOME_REFRESH_COUNT = 10
@@ -980,13 +970,13 @@ enum class DanmakuSettingsScope(
 ) {
     PORTRAIT(
         keyPrefix = "portrait",
-        badgeLabel = "竖屏专用",
-        subtitle = "开关、行距和区域与横屏同步，字号及其余样式独立"
+        badgeLabel = "非全屏专用",
+        subtitle = "开关、行距和区域与全屏同步，字号及其余样式独立"
     ),
     LANDSCAPE(
         keyPrefix = "landscape",
-        badgeLabel = "横屏专用",
-        subtitle = "开关、行距和区域与竖屏同步，字号及其余样式独立"
+        badgeLabel = "全屏专用",
+        subtitle = "开关、行距和区域与非全屏同步，字号及其余样式独立"
     )
 }
 
@@ -1412,7 +1402,6 @@ object SettingsManager {
     private val KEY_SHOW_PLAYER_CAST_BUTTON = booleanPreferencesKey("show_player_cast_button")
     private val KEY_SHOW_VIDEO_FOLLOW_BUTTON = booleanPreferencesKey("show_video_follow_button")
     private val KEY_COMPACT_PLAYER_CHROME = booleanPreferencesKey("compact_player_chrome")
-    private val KEY_PLAYER_PROGRESS_PLACEMENT = intPreferencesKey("player_progress_placement")
     private val KEY_SEARCH_HOT_SECTION_ENABLED = booleanPreferencesKey("search_hot_section_enabled")
     private val KEY_SEARCH_DISCOVER_SECTION_ENABLED = booleanPreferencesKey("search_discover_section_enabled")
     private val KEY_SEARCH_SUGGESTIONS_ENABLED = booleanPreferencesKey("search_suggestions_enabled")
@@ -2040,20 +2029,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         context.settingsDataStore.edit { it[KEY_COMPACT_PLAYER_CHROME] = enabled }
     }
 
-    fun getPlayerProgressPlacement(context: Context): Flow<PlayerProgressPlacement> =
-        context.settingsDataStore.data.map { preferences ->
-            PlayerProgressPlacement.fromValue(
-                preferences[KEY_PLAYER_PROGRESS_PLACEMENT]
-                    ?: PlayerProgressPlacement.ABOVE_CONTROLS.value
-            )
-        }.distinctUntilChanged()
-
-    suspend fun setPlayerProgressPlacement(
-        context: Context,
-        placement: PlayerProgressPlacement
-    ) {
-        context.settingsDataStore.edit { it[KEY_PLAYER_PROGRESS_PLACEMENT] = placement.value }
-    }
 
     // --- Auto Play on Enter (Click to Play) ---
     private val KEY_CLICK_TO_PLAY = booleanPreferencesKey("click_to_play")
@@ -5178,7 +5153,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 legacyKey = KEY_DANMAKU_ALLOW_SPECIAL,
                 defaultValue = true
             ),
-            weightFilterLevel = (preferences[KEY_DANMAKU_WEIGHT_FILTER_LEVEL] ?: 0).coerceIn(0, 10),
+            weightFilterLevel = (preferences[KEY_DANMAKU_WEIGHT_FILTER_LEVEL] ?: 0).coerceIn(0, 11),
             hideInteractiveCommands = preferences[KEY_DANMAKU_BLOCK_ATTENTION_COMMANDS] ?: false,
             blockAttentionCommands = preferences[KEY_DANMAKU_BLOCK_ATTENTION_COMMANDS] ?: false,
             smartOcclusion = readScopedDanmakuPreference(
@@ -5187,14 +5162,12 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 legacyKey = KEY_DANMAKU_SMART_OCCLUSION,
                 defaultValue = false
             ),
-            portraitDisplayAreaMode = if (scope == DanmakuSettingsScope.PORTRAIT) {
-                PortraitDanmakuDisplayAreaMode.fromValue(
-                    preferences[keyDanmakuPortraitDisplayAreaMode()]
-                        ?: PortraitDanmakuDisplayAreaMode.VIDEO_VIEWPORT.value
-                )
-            } else {
-                PortraitDanmakuDisplayAreaMode.VIDEO_VIEWPORT
-            },
+            // Profiles distinguish inline/fullscreen; this option is still portrait-only
+            // at the renderer, so preserve it for portrait fullscreen's shared profile.
+            portraitDisplayAreaMode = PortraitDanmakuDisplayAreaMode.fromValue(
+                preferences[keyDanmakuPortraitDisplayAreaMode()]
+                    ?: PortraitDanmakuDisplayAreaMode.VIDEO_VIEWPORT.value
+            ),
             fullscreenPanelWidthMode = normalizeDanmakuFullscreenPanelWidthMode(
                 DanmakuPanelWidthMode.fromValue(
                     preferences[KEY_DANMAKU_FULLSCREEN_PANEL_WIDTH_MODE]
@@ -5569,12 +5542,12 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     // --- 弹幕智能云屏蔽等级 (0=关闭, 1~10) ---
     fun getDanmakuWeightFilterLevel(context: Context): Flow<Int> =
         context.settingsDataStore.data.map { preferences ->
-            (preferences[KEY_DANMAKU_WEIGHT_FILTER_LEVEL] ?: 0).coerceIn(0, 10)
+            (preferences[KEY_DANMAKU_WEIGHT_FILTER_LEVEL] ?: 0).coerceIn(0, 11)
         }
 
     suspend fun setDanmakuWeightFilterLevel(context: Context, value: Int) {
         context.settingsDataStore.edit { preferences ->
-            preferences[KEY_DANMAKU_WEIGHT_FILTER_LEVEL] = value.coerceIn(0, 10)
+            preferences[KEY_DANMAKU_WEIGHT_FILTER_LEVEL] = value.coerceIn(0, 11)
         }
     }
 

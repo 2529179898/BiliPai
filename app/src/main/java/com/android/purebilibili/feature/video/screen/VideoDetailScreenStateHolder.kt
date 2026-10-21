@@ -252,8 +252,6 @@ import com.android.purebilibili.feature.video.player.PlaylistManager
 import com.android.purebilibili.feature.video.player.PlaylistUiState
 import com.android.purebilibili.feature.video.player.ExternalPlaylistSource
 import com.android.purebilibili.core.ui.performance.TrackJankStateFlag
-// 📱 [新增] 竖屏全屏
-import com.android.purebilibili.feature.video.ui.overlay.PortraitFullscreenOverlay
 import com.android.purebilibili.feature.video.ui.overlay.PlayerProgress
 import com.android.purebilibili.feature.video.ui.components.VideoAspectRatio
 import com.android.purebilibili.core.ui.blur.shouldAllowRuntimeShaderBackedHazeEffect
@@ -622,7 +620,7 @@ internal fun VideoDetailScreenStateHolder(
             viewModel.setPageIdentityCommitListener(null)
         }
     }
-    val playbackActions = remember(viewModel, context, presentationState) {
+    val playbackActions = remember(viewModel, engagementViewModel, context, presentationState) {
         VideoDetailPlaybackActions(
             resolveNextWatch = viewModel::resolveNextWatchSuggestion,
             playNextWatch = viewModel::playNextWatchSuggestion,
@@ -681,7 +679,15 @@ internal fun VideoDetailScreenStateHolder(
             likeDanmakuToggle = { dmid, like -> viewModel.likeDanmaku(dmid, like) },
             likedDanmakuIds = viewModel.likedDanmakuIds,
             reportDanmaku = { dmid, reason -> viewModel.reportDanmaku(dmid, reason) },
-            recallDanmaku = { viewModel.recallDanmaku(it) }
+            recallDanmaku = { viewModel.recallDanmaku(it) },
+            menuActions = com.android.purebilibili.feature.video.ui.overlay.PiliPlayerMenuActions(
+                onWatchLater = engagementViewModel::toggleWatchLater,
+                onReplacePlaybackSources = { expectedBvid, expectedCid, videoUrl, audioUrl ->
+                    if (!viewModel.replacePlaybackSourcesForMenu(expectedBvid, expectedCid, videoUrl, audioUrl)) {
+                        android.widget.Toast.makeText(context, "播放地址未应用，当前视频可能已切换", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+            ),
         )
     }
     val engagementActions = remember(engagementViewModel, viewModel) {
@@ -3615,7 +3621,7 @@ internal fun VideoDetailScreenStateHolder(
                 onToggleFollow = engagementViewModel::toggleFollow,
                 onFollow = engagementActions.followOwner,
                 onToggleLike = engagementViewModel::toggleLike,
-                onDislike = viewModel::markVideoNotInterested,
+                onDislike = engagementViewModel::toggleDislike,
                 onCoin = engagementViewModel::openCoinDialog,
                 onToggleFavorite = {
                     openFavoriteFolders(VideoFavoriteEntryPoint.FullscreenOverlay, false)
@@ -3825,6 +3831,7 @@ internal fun VideoDetailScreenStateHolder(
                         isFollowSubmitting = engagementState.isFollowSubmitting,
                         isTripleSubmitting = engagementState.isTripleSubmitting,
                         isLiked = engagementState.isLiked,
+                        isDisliked = engagementState.isDisliked,
                         likeStatusKnown = engagementState.likeStatusKnown,
                         isCoined = engagementState.coinCount > 0,
                         isFavorited = engagementState.isFavorited,
@@ -3853,6 +3860,8 @@ internal fun VideoDetailScreenStateHolder(
                         onHomeClick = {
                             handleTopBarAction(resolveVideoDetailTopBarAction(isHomeButton = true))
                         },
+                        menuActions = playbackActions.menuActions,
+                        onQuickFavorite = { engagementActions.onFavoriteAction(true) },
                         onLandscapeCommentClick = {
                             landscapeCommentPanelVisible = !landscapeCommentPanelVisible
                         },
@@ -3915,7 +3924,7 @@ internal fun VideoDetailScreenStateHolder(
                         onToggleFollow = { engagementViewModel.toggleFollow() },
                         onFollow = engagementActions.followOwner,
                         onToggleLike = { engagementViewModel.toggleLike() },
-                        onDislike = { viewModel.markVideoNotInterested() },
+                        onDislike = engagementViewModel::toggleDislike,
                         onCoin = { engagementViewModel.openCoinDialog() },
                         onToggleFavorite = {
                             openFavoriteFolders(VideoFavoriteEntryPoint.FullscreenOverlay, false)

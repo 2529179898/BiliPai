@@ -33,7 +33,8 @@ import com.android.purebilibili.core.player.SharedPlaybackRepository
 import com.android.purebilibili.core.player.SharedPlaybackRequest
 import com.android.purebilibili.core.store.MultiProcessPreferences
 import com.android.purebilibili.core.store.TokenManager
-import com.android.purebilibili.data.model.response.getBestAudio
+import com.android.purebilibili.core.util.MediaUtils
+import com.android.purebilibili.feature.video.playback.audio.resolveAudioStreamSelection
 import com.android.purebilibili.feature.video.player.PlayMode
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
@@ -292,8 +293,15 @@ class BackgroundAudioService : MediaSessionService() {
         TokenManager.refreshServiceSession(this)
         check(request.accountMid == TokenManager.midCache)
         // Audio-only DASH is required; a video-only fallback is left to the foreground player.
-        val audio = loaded.streams.dash?.getBestAudio(request.audioQuality)?.getValidUrl()
-            ?.takeIf { it.startsWith("https://") } ?: error("Audio stream unavailable")
+        val audio = loaded.streams.dash?.let { dash ->
+            resolveAudioStreamSelection(
+                dash = dash,
+                requestedAudioQuality = request.audioQuality,
+                playbackSpeed = player.playbackParameters.speed,
+                isDolbyAudioSupported = MediaUtils.isDolbyAtmosAudioSupported(),
+                isDolbyAudioSoftwareDecoded = MediaUtils.isDolbySoftwareAudioDecoderRequired()
+            ).selected?.track?.getValidUrl()
+        }?.takeIf { it.startsWith("https://") } ?: error("Audio stream unavailable")
         return mediaItem(index, entry.copy(cid = loaded.info.cid), audio)
     }
 

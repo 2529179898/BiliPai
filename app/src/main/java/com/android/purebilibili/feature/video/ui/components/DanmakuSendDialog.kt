@@ -82,7 +82,7 @@ internal fun resolveDanmakuSendSelectionState(
     val fallbackFontSize = 25.takeIf { it in fontSizeOptions } ?: fontSizeOptions.firstOrNull() ?: 25
     return DanmakuSendSelectionState(
         color = initialColor.takeIf {
-            it in colorOptions || it == DANMAKU_SEND_VIP_GRADUAL_COLOR || it >= 0
+            it in colorOptions || it in 0..0xFFFFFF
         } ?: fallbackColor,
         mode = initialMode.takeIf { it in modeOptions } ?: fallbackMode,
         fontSize = initialFontSize.takeIf { it in fontSizeOptions } ?: fallbackFontSize
@@ -125,8 +125,9 @@ fun DanmakuSendDialog(
         visible = inputActive,
         onDismissStarted = { nativeClosing = true },
         onDismissRequest = { if (latestVisible) latestDismiss() },
-        modifier = modifier,
-        sheetSurfaceModifier = Modifier.imePadding(),
+        modifier = modifier.widthIn(max = 450.dp),
+        presentationOverride = com.android.purebilibili.core.ui.AppModalPresentation.BottomSheet,
+        sheetSurfaceModifier = Modifier.imePadding().widthIn(max = 450.dp),
     ) {
         DanmakuSendDialogContent(
             visible = inputActive && !nativeClosing,
@@ -281,6 +282,14 @@ private fun DanmakuSendDialogContent(
             enabled = visible && !isSending,
             placeholderText = "发个友善的弹幕见证当下",
             singleLine = true,
+            trailingIcon = {
+                if (text.isNotBlank() && !isSending) {
+                    AppIconButton(onClick = {
+                        text = ""
+                        onDraftChange("", attentionCommandChecked)
+                    }) { AppIcon(Icons.Outlined.Close, contentDescription = "清空") }
+                }
+            },
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Send),
             keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = {
                 if (visible && text.isNotBlank() && !isSending) {

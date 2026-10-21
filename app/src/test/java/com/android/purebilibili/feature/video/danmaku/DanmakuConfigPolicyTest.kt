@@ -71,9 +71,19 @@ class DanmakuConfigPolicyTest {
 
     @Test
     fun `pinned duration should clamp to safe bounds`() {
-        assertEquals(2000L, resolveDanmakuPinnedDurationMillis(0.5f))
+        assertEquals(1000L, resolveDanmakuPinnedDurationMillis(0.5f))
         assertEquals(4000L, resolveDanmakuPinnedDurationMillis(4.0f))
-        assertEquals(15000L, resolveDanmakuPinnedDurationMillis(18.0f))
+        assertEquals(18000L, resolveDanmakuPinnedDurationMillis(18.0f))
+        assertEquals(50000L, resolveDanmakuPinnedDurationMillis(60f))
+    }
+
+    @Test
+    fun `Pili selected range endpoints reach renderer unchanged`() {
+        assertEquals(0f, normalizeDanmakuOpacity(0f), 0f)
+        assertEquals(37.5f, resolveDanmakuTextSizePx(1f, 2.5f, false), 0f)
+        assertEquals(60f, resolveDanmakuLayerLineHeightPx(20f, 3f), 0f)
+        assertEquals(1000L, resolveDanmakuScrollDurationMillis(1f, 1f, false, 1080))
+        assertEquals(50000L, resolveDanmakuScrollDurationMillis(50f, 1f, false, 1080))
     }
 
     @Test

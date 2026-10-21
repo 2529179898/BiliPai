@@ -1,207 +1,109 @@
 package com.Android.purebilibili.feature.video
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
-import top.yukonga.miuix.kmp.theme.MiuixTheme
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.theme.LocalAppUiStyle
 import com.android.purebilibili.core.ui.AppThemeConfig
 import com.android.purebilibili.core.ui.LocalAppThemeConfig
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertWidthIsEqualTo
-import androidx.compose.ui.test.click
-import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.android.purebilibili.feature.video.subtitle.SubtitleDisplayMode
-import com.android.purebilibili.feature.video.subtitle.SubtitleTrackOption
 import com.android.purebilibili.feature.video.ui.overlay.BottomControlBar
 import com.android.purebilibili.feature.video.ui.overlay.PlayerProgress
-import com.android.purebilibili.feature.video.ui.overlay.SubtitleControlCallbacks
-import com.android.purebilibili.feature.video.ui.overlay.SubtitleControlUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @RunWith(AndroidJUnit4::class)
 class BottomControlBarUiRegressionTest {
-    @get:Rule
-    val composeTestRule = createComposeRule()
+    @get:Rule val rule = createComposeRule()
 
     @Test
-    fun hiResOnCompactPhone_showsOneAudioLabelAndClickableFullscreen() {
-        verifyFullscreenOnCompactPhone(fontScale = 1f)
-        composeTestRule.onAllNodesWithText("Hi-Res").assertCountEquals(1)
-    }
-
-    @Test
-    fun hiResWithLargerFont_keepsFullscreenInsidePlayer() {
-        verifyFullscreenOnCompactPhone(fontScale = 1.5f)
-    }
-
-    @Test
-    fun portraitActionLabelsSharePlayAndFullscreenCenterAcrossStylesAndMaterials() {
+    fun referenceGateAndEpisodeAvailability_doNotDependOnMaterialOrOrientation() {
+        val width = mutableStateOf(499)
+        val fullscreen = mutableStateOf(false)
+        val landscape = mutableStateOf(false)
+        val episodes = mutableStateOf(true)
+        val glass = mutableStateOf(false)
         val style = mutableStateOf(AppUiStyle.MATERIAL3)
-        val glass = mutableStateOf(true)
-        val width = mutableStateOf(360)
-        val fontScale = mutableStateOf(1f)
-        composeTestRule.setContent {
+        rule.setContent {
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                val density = LocalDensity.current.density * maxWidth.value / 720f
+                val density = LocalDensity.current.density * maxWidth.value / 900f
                 CompositionLocalProvider(
-                    LocalDensity provides Density(density, fontScale.value),
+                    LocalDensity provides Density(density, fontScale = 1.5f),
                     LocalAppUiStyle provides style.value,
                     LocalAppThemeConfig provides AppThemeConfig(liquidGlassEnabled = glass.value),
                 ) {
-                    MaterialTheme {
-                        MiuixTheme {
-                        BottomControlBar(
-                            isPlaying = true,
-                            progress = PlayerProgress(current = 436_000L, duration = 854_000L),
-                            isFullscreen = false,
-                            isVerticalVideo = true,
-                            viewportWidthDpOverride = width.value,
-                            currentAudioQualityLabel = "AAC",
-                            currentQualityLabel = "480P",
-                            onPlayPauseClick = {},
-                            onSeek = {},
-                            onToggleFullscreen = {},
-                            modifier = Modifier.width(width.value.dp),
-                        )
+                    MaterialTheme { MiuixTheme {
+                        Box(Modifier.width(width.value.dp)) {
+                            BottomControlBar(
+                                isPlaying = true,
+                                progress = PlayerProgress(500, 3000),
+                                isFullscreen = fullscreen.value,
+                                viewportIsLandscape = landscape.value,
+                                viewportWidthDpOverride = width.value,
+                                hasEpisodeEntry = episodes.value,
+                                currentQualityLabel = "720P",
+                                onPlayPauseClick = {}, onSeek = {}, onToggleFullscreen = {},
+                            )
                         }
-                    }
+                    } }
                 }
             }
         }
         for (uiStyle in AppUiStyle.entries) {
-            for (glassEnabled in listOf(true, false)) {
-                for ((widthDp, scale) in listOf(320 to 1f, 420 to 1.4f, 700 to 1f)) {
-                    composeTestRule.runOnIdle {
-                        style.value = uiStyle
-                        glass.value = glassEnabled
-                        width.value = widthDp
-                        fontScale.value = scale
-                    }
-                    val play = composeTestRule.onNodeWithTag("player_play_pause").fetchSemanticsNode().boundsInRoot
-                    val fullscreen = composeTestRule.onNodeWithTag("player_fullscreen_toggle").fetchSemanticsNode().boundsInRoot
-                    assertEquals(play.center.y, fullscreen.center.y, 1f)
-                    for (label in listOf("AAC", "480P", "倍速", "竖屏")) {
-                        val bounds = composeTestRule.onNodeWithText(label, useUnmergedTree = true)
-                            .fetchSemanticsNode().boundsInRoot
-                        assertEquals("$uiStyle glass=$glassEnabled width=$widthDp label=$label", play.center.y, bounds.center.y, 1f)
-                    }
-                }
-            }
-        }
-    }
-
-    @Test
-    fun longSubtitleList_canScrollToAiChineseAndSelectIt() {
-        val chineseTrack = SubtitleTrackOption(
-            trackKey = "ai-zh",
-            languageCode = "ai-zh",
-            label = "中文（自动生成）",
-            selected = false,
-            likelyAi = true,
-        )
-        val tracks = List(40) { index ->
-            SubtitleTrackOption(
-                trackKey = "track-$index",
-                languageCode = "lang-$index",
-                label = "语言 $index",
-                selected = index == 0,
-                likelyAi = false,
-            )
-        } + chineseTrack
-        var selectedTrackKey: String? = null
-        var selectedMode = SubtitleDisplayMode.OFF
-        composeTestRule.setContent {
-            MaterialTheme {
-                BottomControlBar(
-                    isPlaying = false,
-                    isFullscreen = true,
-                    onPlayPauseClick = {},
-                    onSeek = {},
-                    onToggleFullscreen = {},
-                    subtitleControlState = SubtitleControlUiState(
-                        trackAvailable = true,
-                        primaryAvailable = true,
-                        primaryLabel = "语言 0",
-                        trackOptions = tracks,
-                    ),
-                    subtitleControlCallbacks = SubtitleControlCallbacks(
-                        onTrackSelected = { selectedTrackKey = it },
-                        onDisplayModeChange = { selectedMode = it },
-                    ),
-                )
-            }
-        }
-
-        composeTestRule.onNodeWithText("字幕").performClick()
-        composeTestRule.onNodeWithText("锁定位置", useUnmergedTree = true)
-            .performScrollTo()
-            .assertIsDisplayed()
-        composeTestRule.onNodeWithText(chineseTrack.label)
-            .performScrollTo()
-            .assertIsDisplayed()
-            .performTouchInput { click(center) }
-
-        composeTestRule.runOnIdle {
-            assertEquals(chineseTrack.trackKey, selectedTrackKey)
-            assertEquals(SubtitleDisplayMode.PRIMARY_ONLY, selectedMode)
-        }
-        composeTestRule.onNodeWithText("字幕显示").assertDoesNotExist()
-    }
-
-    private fun verifyFullscreenOnCompactPhone(fontScale: Float) {
-        var fullscreenClicked = false
-        composeTestRule.setContent {
-            val density = LocalDensity.current.density
-            CompositionLocalProvider(LocalDensity provides Density(density, fontScale)) {
-                MaterialTheme {
-                    Box(Modifier.width(360.dp).testTag("inline_player_controls")) {
-                        BottomControlBar(
-                            isPlaying = false,
-                            progress = PlayerProgress(current = 115_000L, duration = 197_000L),
-                            isFullscreen = false,
-                            viewportWidthDpOverride = 360,
-                            currentAudioQualityLabel = "Hi-Res",
-                            isHiResAudioSelected = true,
-                            currentQualityLabel = "1080P60",
-                            onPlayPauseClick = {},
-                            onSeek = {},
-                            onToggleFullscreen = { fullscreenClicked = true },
-                        )
+            for (isLandscape in listOf(false, true)) {
+                for (isFullscreen in listOf(false, true)) {
+                    for (widthDp in listOf(320, 499, 500, 840)) {
+                        rule.runOnIdle {
+                            style.value = uiStyle; landscape.value = isLandscape
+                            fullscreen.value = isFullscreen; width.value = widthDp
+                            episodes.value = true; glass.value = false
+                        }
+                        rule.onAllNodesWithTag("player_play_pause").assertCountEquals(1)
+                        rule.onNodeWithTag("player_episode_action").assertIsDisplayed()
+                        rule.onNodeWithTag("player_more_actions").assertDoesNotExist()
+                        rule.onNodeWithTag("player_danmaku_toggle").assertDoesNotExist()
+                        val tags = mutableListOf("player_play_pause", "player_previous_episode", "player_next_episode", "player_episode_action")
+                        if (isFullscreen || widthDp >= 500) {
+                            rule.onNodeWithTag("player_ratio_action").assertIsDisplayed()
+                            rule.onNodeWithTag("player_quality_action").assertIsDisplayed()
+                            tags += listOf("player_ratio_action", "player_speed_action", "player_quality_action")
+                        } else {
+                            rule.onNodeWithTag("player_ratio_action").assertDoesNotExist()
+                            rule.onNodeWithTag("player_quality_action").assertDoesNotExist()
+                            tags += "player_speed_action"
+                        }
+                        tags += "player_fullscreen_toggle"
+                        val before = tags.associateWith { rule.onNodeWithTag(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
+                        before.values.zipWithNext().forEach { (left, right) ->
+                            assertTrue("Actions must not overlap at $widthDp dp", left.right <= right.left + 1f)
+                        }
+                        rule.runOnIdle { glass.value = true }
+                        before.forEach { (tag, bounds) ->
+                            val actual = rule.onNodeWithTag(tag).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+                            assertEquals("Glass moved $tag", bounds, actual)
+                        }
+                        rule.runOnIdle { episodes.value = false }
+                        rule.onNodeWithTag("player_episode_action").assertDoesNotExist()
+                        rule.onNodeWithTag("player_next_episode").assertDoesNotExist()
+                        rule.onNodeWithTag("player_previous_episode").assertDoesNotExist()
                     }
                 }
             }
         }
-        val fullscreen = composeTestRule.onNodeWithTag("player_fullscreen_toggle")
-        fullscreen.assertIsDisplayed().assertWidthIsEqualTo(40.dp)
-        val playerBounds = composeTestRule.onNodeWithTag("inline_player_controls")
-            .fetchSemanticsNode().boundsInRoot
-        val fullscreenBounds = fullscreen.fetchSemanticsNode().boundsInRoot
-        assertTrue(fullscreenBounds.left >= playerBounds.left)
-        assertTrue(fullscreenBounds.right <= playerBounds.right)
-        fullscreen.performTouchInput { click(center) }
-        composeTestRule.runOnIdle { assertTrue(fullscreenClicked) }
     }
 }

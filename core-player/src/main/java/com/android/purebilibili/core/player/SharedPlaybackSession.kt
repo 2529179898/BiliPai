@@ -105,7 +105,7 @@ class SharedPlaybackSession(context: Context) : AutoCloseable {
             desiredPlaying = player.playWhenReady
             preservedSpeed = player.playbackParameters.speed
             val audioRenderer = error is ExoPlaybackException && error.rendererFormat?.sampleMimeType?.startsWith("audio/") == true
-            val audioError = (error.errorCode in 5000..5999 || audioRenderer) && mutableState.value.audioQuality in listOf(30250, 30251)
+            val audioError = (error.errorCode in 5000..5999 || audioRenderer) && mutableState.value.audioQuality in listOf(30250, 30255, 30251)
             fail(error, when {
                 audioError -> PlaybackFailureReason.Audio
                 isNetworkPlaybackError(error.errorCode) -> PlaybackFailureReason.Network
@@ -178,8 +178,15 @@ class SharedPlaybackSession(context: Context) : AutoCloseable {
                 qualities = qualities, durationMs = streams.timelength, positionMs = start,
                 startTsSec = previous.startTsSec.takeIf { recovering } ?: System.currentTimeMillis() / 1000L,
                 realPlayedMs = previous.realPlayedMs.takeIf { recovering } ?: 0,
-                audioOptions = (streams.dash?.audio.orEmpty() + streams.dash?.dolby?.audio.orEmpty() + listOfNotNull(streams.dash?.flac?.audio))
-                    .distinctBy { it.id }.map { PlaybackAudioOption(it.id, when (it.id) { 30250 -> "Dolby"; 30251 -> "FLAC"; else -> "AAC · ${it.bandwidth / 1000} kbps" }) },
+                audioOptions = (streams.dash?.audio.orEmpty() + streams.dash?.dolby?.takeIf { it.type > 0 }?.audio.orEmpty() + listOfNotNull(streams.dash?.flac?.audio))
+                    .filter { it.id > 0 && it.getValidUrl().isNotBlank() }
+                    .groupBy { it.id }.values.mapNotNull { tracks -> tracks.maxByOrNull { it.bandwidth } }.map { track ->
+                        PlaybackAudioOption(track.id, when {
+                            track.id == 30250 || track.id == 30255 -> "Dolby · ${track.id}"
+                            track.id == 30251 || track.codecs.equals("flac", ignoreCase = true) -> "FLAC"
+                            else -> "${track.bandwidth / 1000} kbps"
+                        } + track.codecs.takeIf { it.isNotBlank() }?.let { " · $it" }.orEmpty())
+                    },
                 audioQuality = prepared.audioId,
                 audioLanguages = streams.aiAudio?.items.orEmpty().filter { it.langCode.isNotBlank() }.map { it.langCode to it.langDoc },
                 audioLanguage = streams.curLanguage ?: request.audioLanguage,
@@ -211,7 +218,7 @@ class SharedPlaybackSession(context: Context) : AutoCloseable {
         val rawVideo = supported?.getBestVideo(quality, preferCodec = "avc1", secondPreferCodec = "hev1",
             isHevcSupported = decoderMimeTypes.contains(MimeTypes.VIDEO_H265),
             isAv1Supported = decoderMimeTypes.contains(MimeTypes.VIDEO_AV1))
-        val rawAudio = if (audioFallback) dash?.audio?.maxByOrNull { it.bandwidth } else dash?.getBestAudio(audioQuality)
+        val rawAudio = dash?.getBestAudio(if (audioFallback) -1 else audioQuality)
         val videoUrls = listOfNotNull(rawVideo?.baseUrl) + rawVideo?.backupUrl.orEmpty()
         val audioUrls = listOfNotNull(rawAudio?.baseUrl) + rawAudio?.backupUrl.orEmpty()
         alternatives = (videoUrls.filter { it.isNotBlank() }.distinct().size - 1).coerceAtLeast(0)

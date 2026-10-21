@@ -39,6 +39,7 @@ fun ViewPointSegmentBar(
     currentPositionMs: Long,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    interactive: Boolean = true,
 ) {
     val segments = remember(viewPoints, durationMs) {
         normalizeViewPointSegments(viewPoints, durationMs)
@@ -58,16 +59,13 @@ fun ViewPointSegmentBar(
             .height(18.dp)
             .clip(RoundedCornerShape(4.dp))
             .background(trackColor)
-            .pointerInput(segments, durationMs) {
+            .then(if (interactive) Modifier.pointerInput(segments, durationMs) {
                 detectTapGestures { offset ->
                     val positionMs = (offset.x / size.width.toFloat() * durationMs)
-                        .toLong()
-                        .coerceIn(0L, durationMs)
-                    findViewPointSegmentAt(segments, positionMs)?.let { segment ->
-                        onSeek(segment.fromMs)
-                    }
+                        .toLong().coerceIn(0L, durationMs)
+                    findViewPointSegmentAt(segments, positionMs)?.let { onSeek(it.fromMs) }
                 }
-            },
+            } else Modifier),
     ) {
         var cursorMs = 0L
         segments.forEachIndexed { index, segment ->

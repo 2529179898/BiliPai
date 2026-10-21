@@ -36,7 +36,6 @@ internal fun resolvePlayerInteractionIdentity(
 
 enum class VideoGestureMode { None, Brightness, Volume, Seek, SwipeToFullscreen }
 
-private const val PLAYER_DRAG_GESTURE_BOTTOM_EXCLUSION_BUFFER_DP = 12
 private const val PLAYBACK_STALL_LOG_THRESHOLD_MS = 700L
 private const val VIDEO_PLAYER_COVER_FADE_ENTER_DURATION_MILLIS = 200
 // 封面退出时长不再固定：由 surface 淡入时长派生，保证两者同一条时间轴（见
@@ -112,8 +111,8 @@ internal fun resolveSubtitleBottomOffsetPx(
 ): Int {
     val safeDensity = density.takeIf { it.isFinite() && it > 0f } ?: 1f
     fun dp(value: Int): Int = (value * safeDensity).roundToInt()
-    if (!isFullscreen) return dp(32)
-    val safeInset = navigationInsetPx.coerceAtLeast(0)
+    if (!isFullscreen && (!controlsVisible || positionLocked)) return dp(32)
+    val safeInset = if (isFullscreen) navigationInsetPx.coerceAtLeast(0) else 0
     return if (controlsVisible && !positionLocked) {
         maxOf(safeInset + bottomControlsHeightPx.coerceAtLeast(0) + dp(8), dp(56))
     } else {
@@ -158,21 +157,6 @@ internal fun shouldKeepVideoPlaybackAwake(
     return isPlaying || playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_READY
 }
 
-internal fun resolveVideoPlayerBottomGestureExclusionHeightDp(
-    controlBarBottomPaddingDp: Int,
-    progressSpacingDp: Int,
-    progressContainerHeightDp: Int,
-    controlRowHeightDp: Int,
-    extraBufferDp: Int = PLAYER_DRAG_GESTURE_BOTTOM_EXCLUSION_BUFFER_DP
-): Int {
-    return (
-        controlBarBottomPaddingDp +
-            progressSpacingDp +
-            progressContainerHeightDp +
-            controlRowHeightDp +
-            extraBufferDp
-        ).coerceAtLeast(0)
-}
 
 internal fun shouldIgnoreVideoPlayerDragStart(
     offsetY: Float,
@@ -553,16 +537,15 @@ internal fun shouldPollVideoPlayerProgress(
 }
 
 /**
- * Fullscreen is not by itself an orientation. During the transition into or out of the
- * portrait-fullscreen experience both flags can briefly be true, but those frames must keep
- * reading and writing the portrait danmaku profile.
+ * Persisted profile keys remain unchanged. The PiliPlus controls distinguish inline and
+ * fullscreen font sizes, so both fullscreen orientations must use the fullscreen profile.
  */
 internal fun resolveVideoPlayerDanmakuSettingsScope(
     isFullscreen: Boolean,
     isPortraitFullscreen: Boolean,
 ): DanmakuSettingsScope {
     return resolveDanmakuSettingsScope(
-        isLandscape = isFullscreen && !isPortraitFullscreen
+        isLandscape = isFullscreen || isPortraitFullscreen
     )
 }
 

@@ -302,6 +302,7 @@ internal fun PortraitInlineVideoPlayerHost(
                 isFollowSubmitting = fullscreenExtras?.isFollowSubmitting ?: engagementState.isFollowSubmitting,
                 isTripleSubmitting = fullscreenExtras?.isTripleSubmitting ?: engagementState.isTripleSubmitting,
                 isLiked = fullscreenExtras?.isLiked ?: engagementState.isLiked,
+                isDisliked = engagementState.isDisliked,
                 likeStatusKnown = fullscreenExtras?.likeStatusKnown ?: engagementState.likeStatusKnown,
                 isCoined = fullscreenExtras?.isCoined ?: (engagementState.coinCount > 0),
                 isFavorited = fullscreenExtras?.isFavorited ?: engagementState.isFavorited,
@@ -326,6 +327,8 @@ internal fun PortraitInlineVideoPlayerHost(
                 onQualityChange = { qid -> playbackActions.changeQuality(qid) },
                 onBack = onBack,
                 onHomeClick = onHomeClick,
+                menuActions = playbackActions.menuActions,
+                onQuickFavorite = { engagementActions.onFavoriteAction(true) },
                 onLandscapeCommentClick = if (isFullscreen) {
                     fullscreenExtras?.onLandscapeCommentClick ?: {}
                 } else {
@@ -371,11 +374,11 @@ internal fun PortraitInlineVideoPlayerHost(
                 onToggleFollow = fullscreenExtras?.onToggleFollow ?: engagementActions.toggleFollow,
                 onFollow = fullscreenExtras?.onFollow ?: engagementActions.followOwner,
                 onToggleLike = fullscreenExtras?.onToggleLike ?: engagementActions.toggleLike,
-                onDislike = fullscreenExtras?.onDislike ?: playbackActions.markVideoNotInterested,
+                onDislike = fullscreenExtras?.onDislike ?: engagementActions.toggleDislike,
                 onCoin = fullscreenExtras?.onCoin ?: engagementActions.openCoinDialog,
                 onToggleFavorite = fullscreenExtras?.onToggleFavorite ?: engagementActions.toggleFavorite,
                 onTriple = fullscreenExtras?.onTriple ?: engagementActions.doTripleAction,
-                onPageSelect = fullscreenExtras?.onPageSelect ?: {},
+                onPageSelect = fullscreenExtras?.onPageSelect ?: playbackActions.switchPage,
                 onFavoritePlaylistClick = fullscreenExtras?.onFavoritePlaylistClick ?: {},
                 onSubtitleDisplayModePreferenceOverrideChange =
                     onSubtitleDisplayModePreferenceOverrideChange,

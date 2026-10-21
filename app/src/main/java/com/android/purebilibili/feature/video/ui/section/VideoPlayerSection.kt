@@ -41,8 +41,6 @@ import com.android.purebilibili.feature.video.ui.overlay.SubtitleControlCallback
 import com.android.purebilibili.feature.video.ui.overlay.SubtitleControlUiState
 import com.android.purebilibili.feature.video.ui.overlay.nextFullscreenSeekFeedbackEvent
 import com.android.purebilibili.feature.video.ui.overlay.resolveFullscreenDoubleTapAction
-import com.android.purebilibili.feature.video.ui.overlay.resolveBottomControlBarLayoutPolicy
-import com.android.purebilibili.feature.video.ui.overlay.resolveVideoProgressBarLayoutPolicy
 import com.android.purebilibili.feature.video.ui.overlay.resolveLandscapeEndDrawerReservedWidthDp
 import com.android.purebilibili.feature.video.ui.overlay.resolveLandscapeEndDrawerLayoutPolicy
 import com.android.purebilibili.feature.video.ui.components.SponsorSkipButton
@@ -455,6 +453,19 @@ private fun BoxScope.VideoSubtitleOverlayHost(
     if (!keepSubtitleOverlayMounted) return
 
     val context = LocalContext.current
+    val subtitleOwner = uiState as VideoPlaybackUiState.Success
+    val subtitleSession = remember(subtitleOwner.info.bvid, subtitleOwner.info.cid) {
+        com.android.purebilibili.feature.video.subtitle.PiliSubtitleSessions.get(
+            subtitleOwner.info.bvid, subtitleOwner.info.cid
+        )
+    }
+    if (subtitleSession.selectedTrackKey != null) return
+    val appearance by remember(context) {
+        com.android.purebilibili.feature.video.subtitle.SubtitleToolsStore.appearance(context)
+    }.collectAsStateWithLifecycle(
+        initialValue = com.android.purebilibili.feature.video.ui.components.PlayerSubtitleAppearance()
+    )
+    val timingOffsetMs = subtitleSession.timeOffsetMs
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
     val settingsScope = rememberCoroutineScope()
@@ -496,6 +507,7 @@ private fun BoxScope.VideoSubtitleOverlayHost(
         subtitleFeatureEnabled,
         subtitlePositionMs,
         subtitleDisplayMode,
+        timingOffsetMs,
     ) {
         if (!subtitleFeatureEnabled) return@remember null
         val success = uiState as? VideoPlaybackUiState.Success ?: return@remember null
@@ -503,13 +515,15 @@ private fun BoxScope.VideoSubtitleOverlayHost(
             return@remember null
         }
         if (!shouldRenderPrimarySubtitle(subtitleDisplayMode)) return@remember null
-        resolveSubtitleTextAt(success.subtitlePrimaryCues, subtitlePositionMs)
+        resolveSubtitleTextAt(success.subtitlePrimaryCues,
+            com.android.purebilibili.feature.video.subtitle.subtitlePositionForOffset(subtitlePositionMs, timingOffsetMs))
     }
     val subtitleSecondaryRawText = remember(
         uiState,
         subtitleFeatureEnabled,
         subtitlePositionMs,
         subtitleDisplayMode,
+        timingOffsetMs,
     ) {
         if (!subtitleFeatureEnabled) return@remember null
         val success = uiState as? VideoPlaybackUiState.Success ?: return@remember null
@@ -517,13 +531,14 @@ private fun BoxScope.VideoSubtitleOverlayHost(
             return@remember null
         }
         if (!shouldRenderSecondarySubtitle(subtitleDisplayMode)) return@remember null
-        resolveSubtitleTextAt(success.subtitleSecondaryCues, subtitlePositionMs)
+        resolveSubtitleTextAt(success.subtitleSecondaryCues,
+            com.android.purebilibili.feature.video.subtitle.subtitlePositionForOffset(subtitlePositionMs, timingOffsetMs))
     }
 
-    var stickyPrimaryText by remember(subtitlePollingIdentity) { mutableStateOf<String?>(null) }
-    var stickySecondaryText by remember(subtitlePollingIdentity) { mutableStateOf<String?>(null) }
-    var primaryBlankSinceMs by remember(subtitlePollingIdentity) { mutableLongStateOf(-1L) }
-    var secondaryBlankSinceMs by remember(subtitlePollingIdentity) { mutableLongStateOf(-1L) }
+    var stickyPrimaryText by remember(subtitlePollingIdentity, timingOffsetMs) { mutableStateOf<String?>(null) }
+    var stickySecondaryText by remember(subtitlePollingIdentity, timingOffsetMs) { mutableStateOf<String?>(null) }
+    var primaryBlankSinceMs by remember(subtitlePollingIdentity, timingOffsetMs) { mutableLongStateOf(-1L) }
+    var secondaryBlankSinceMs by remember(subtitlePollingIdentity, timingOffsetMs) { mutableLongStateOf(-1L) }
     val nowForSticky = subtitlePositionMs
     val subtitlePrimaryText = remember(
         subtitlePrimaryRawText,
@@ -607,9 +622,9 @@ private fun BoxScope.VideoSubtitleOverlayHost(
                         subtitleBottomOffsetPx
                 )
             }
-            .fillMaxWidth(0.9f)
-            .padding(horizontal = 10.dp)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .fillMaxWidth()
+            .padding(horizontal = appearance.horizontalPadding.dp)
+            .padding(bottom = appearance.bottomPadding.dp)
             .then(
                 if (positionLocked) {
                     Modifier
@@ -646,33 +661,21 @@ private fun BoxScope.VideoSubtitleOverlayHost(
             ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        val subtitleShadow = Shadow(
-            color = Color.Black.copy(alpha = 0.85f),
-            offset = Offset(0f, 1.5f),
-            blurRadius = 6f
-        )
         val showPrimaryLine = !subtitlePrimaryText.isNullOrBlank()
         val showSecondaryLine = !subtitleSecondaryText.isNullOrBlank()
         val secondaryAsPrimaryLine = showSecondaryLine && !showPrimaryLine
-        AppText(
+        if (showSecondaryLine) com.android.purebilibili.feature.video.subtitle.PiliStyledSubtitleText(
             text = subtitleSecondaryText.orEmpty(),
-            color = Color.White.copy(alpha = if (showSecondaryLine) 0.88f else 0f),
-            fontSize = if (secondaryAsPrimaryLine) primaryTextSizeSp.sp else secondaryTextSizeSp.sp,
-            fontWeight = if (secondaryAsPrimaryLine) FontWeight.SemiBold else FontWeight.Normal,
-            maxLines = 2,
-            textAlign = TextAlign.Center,
-            style = LocalTextStyle.current.copy(shadow = subtitleShadow),
-            modifier = Modifier.then(if (showSecondaryLine) Modifier else Modifier.height(0.dp))
+            baseFontSizeSp = if (secondaryAsPrimaryLine) primaryTextSizeSp else secondaryTextSizeSp,
+            appearance = appearance,
+            isFullscreen = isFullscreen,
+            color = Color.White.copy(alpha = 0.88f),
         )
-        AppText(
+        if (showPrimaryLine) com.android.purebilibili.feature.video.subtitle.PiliStyledSubtitleText(
             text = subtitlePrimaryText.orEmpty(),
-            color = Color.White.copy(alpha = if (showPrimaryLine) 1f else 0f),
-            fontSize = primaryTextSizeSp.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-            textAlign = TextAlign.Center,
-            style = LocalTextStyle.current.copy(shadow = subtitleShadow),
-            modifier = Modifier.then(if (showPrimaryLine) Modifier else Modifier.height(0.dp))
+            baseFontSizeSp = primaryTextSizeSp,
+            appearance = appearance,
+            isFullscreen = isFullscreen,
         )
     }
 }
@@ -913,20 +916,8 @@ private fun VideoPlayerSectionContent(
             widthDp = uiLayoutWidthDp
         )
     }
-    val bottomControlBarLayoutPolicy = remember(uiLayoutWidthDp) {
-        resolveBottomControlBarLayoutPolicy(widthDp = uiLayoutWidthDp)
-    }
-    val videoProgressBarLayoutPolicy = remember(uiLayoutWidthDp) {
-        resolveVideoProgressBarLayoutPolicy(widthDp = uiLayoutWidthDp)
-    }
-    val bottomGestureExclusionHeightDp = remember(uiLayoutWidthDp) {
-        resolveVideoPlayerBottomGestureExclusionHeightDp(
-            controlBarBottomPaddingDp = bottomControlBarLayoutPolicy.bottomPaddingDp,
-            progressSpacingDp = bottomControlBarLayoutPolicy.progressSpacingDp,
-            progressContainerHeightDp = videoProgressBarLayoutPolicy.baseHeightWithChapterDp,
-            controlRowHeightDp = bottomControlBarLayoutPolicy.playButtonSizeDp
-        )
-    }
+    val bottomGestureExclusionHeightDp =
+        com.android.purebilibili.feature.video.ui.overlay.piliPlayerBottomControlsHeightDp(viewPoints.isNotEmpty())
     val gestureSeekFallbackDurationMs = remember(uiState) {
         (uiState as? VideoPlaybackUiState.Success)?.videoDurationMs ?: 0L
     }
@@ -3780,7 +3771,7 @@ private fun VideoPlayerSectionContent(
             usesTextureSurface = useTextureSurface,
         )
         key(isFlippedHorizontal, isFlippedVertical, isPortraitFullscreen, useTextureSurface) {
-            val viewportAspectRatio = if (isFullscreen) currentAspectRatio else VideoAspectRatio.FIT
+            val viewportAspectRatio = currentAspectRatio
             val playerVideoSize = playerState.player.videoSize
             BoxWithConstraints(
                 modifier = playerContentModifier
@@ -3796,12 +3787,14 @@ private fun VideoPlayerSectionContent(
                 contentAlignment = Alignment.Center
             ) {
                 val density = LocalDensity.current
-                val viewportLayout = remember(maxWidth, maxHeight, viewportAspectRatio) {
+                val viewportLayout = remember(maxWidth, maxHeight, viewportAspectRatio, playerVideoSize.width, playerVideoSize.height) {
                     with(density) {
                         resolveVideoViewportLayout(
                             containerWidth = maxWidth.roundToPx(),
                             containerHeight = maxHeight.roundToPx(),
-                            aspectRatio = viewportAspectRatio
+                            aspectRatio = viewportAspectRatio,
+                            videoWidth = playerVideoSize.width,
+                            videoHeight = playerVideoSize.height,
                         )
                     }
                 }
@@ -3933,7 +3926,7 @@ private fun VideoPlayerSectionContent(
                         val sizeModifier = if (fillMaxViewport) {
                             Modifier.fillMaxSize()
                         } else {
-                            Modifier.size(
+                            Modifier.requiredSize(
                                 width = viewportLayout.width.toDp(),
                                 height = viewportLayout.height.toDp()
                             )
@@ -3995,7 +3988,7 @@ private fun VideoPlayerSectionContent(
                         },
                         modifier = with(density) {
                             Modifier
-                                .size(
+                                .requiredSize(
                                     width = viewportLayout.width.toDp(),
                                     height = viewportLayout.height.toDp()
                                 )
@@ -4518,7 +4511,7 @@ private fun VideoPlayerSectionContent(
 
             //  [修复] 移除 key(isFullscreen)，避免横竖屏切换时重建 DanmakuView 导致弹幕消失
             // 使用 remember 保存 DanmakuView 引用，在 update 回调中处理尺寸变化
-            val viewportAspectRatio = if (isFullscreen) currentAspectRatio else VideoAspectRatio.FIT
+            val viewportAspectRatio = currentAspectRatio
             BoxWithConstraints(
                 modifier = playerContentModifier
                     .then(if (capturePlayerPage) playerPageBackdrop.danmaku.modifier else Modifier)
@@ -4538,12 +4531,14 @@ private fun VideoPlayerSectionContent(
                 }
             ) {
                 val density = LocalDensity.current
-                val viewportLayout = remember(maxWidth, maxHeight, viewportAspectRatio) {
+                val viewportLayout = remember(maxWidth, maxHeight, viewportAspectRatio, videoSizeState) {
                     with(density) {
                         resolveVideoViewportLayout(
                             containerWidth = maxWidth.roundToPx(),
                             containerHeight = maxHeight.roundToPx(),
-                            aspectRatio = viewportAspectRatio
+                            aspectRatio = viewportAspectRatio,
+                            videoWidth = videoSizeState.first,
+                            videoHeight = videoSizeState.second,
                         )
                     }
                 }
@@ -4552,7 +4547,7 @@ private fun VideoPlayerSectionContent(
                     Modifier.fillMaxSize()
                 } else {
                     with(density) {
-                        Modifier.size(
+                        Modifier.requiredSize(
                             width = viewportLayout.width.toDp(),
                             height = viewportLayout.height.toDp()
                         )
@@ -4624,38 +4619,10 @@ private fun VideoPlayerSectionContent(
                     renderingPaused = suppressTransientOverlaysForTransition,
                     modifier = Modifier.fillMaxSize()
                 )
-                // Keep the classic controls footprint reserved, including in compact/hidden chrome.
-                val commandControlsLayout = remember(uiLayoutWidthDp) {
-                    com.android.purebilibili.feature.video.ui.overlay.resolveBottomControlBarLayoutPolicy(uiLayoutWidthDp)
-                }
-                val commandProgressLayout = remember(uiLayoutWidthDp) {
-                    com.android.purebilibili.feature.video.ui.overlay.resolveVideoProgressBarLayoutPolicy(uiLayoutWidthDp)
-                }
-                val requestedCommandProgressPlacement by remember(context) {
-                    com.android.purebilibili.core.store.SettingsManager.getPlayerProgressPlacement(context)
-                }.collectAsStateWithLifecycle(
-                    initialValue = com.android.purebilibili.core.store.PlayerProgressPlacement.ABOVE_CONTROLS
-                )
-                val commandProgressPlacement = com.android.purebilibili.feature.video.ui.overlay.resolveVideoDetailProgressPlacement(
-                    requestedPlacement = requestedCommandProgressPlacement,
-                    isFullscreen = isFullscreen,
-                )
-                val commandControlsBottomPaddingDp = com.android.purebilibili.feature.video.ui.overlay.resolveBottomControlBarBottomPaddingDp(
-                    defaultBottomPaddingDp = commandControlsLayout.bottomPaddingDp,
-                    progressPlacement = commandProgressPlacement,
-                )
-                val commandControlsReservePx = with(density) {
-                    (maxOf(
-                        commandControlsLayout.playButtonSizeDp,
-                        commandControlsLayout.danmakuInputHeightDp,
-                        com.android.purebilibili.feature.video.ui.overlay.resolveFullscreenToggleTouchTargetDp(
-                            commandControlsLayout.fullscreenIconSizeDp
-                        ),
-                    ) +
-                        commandProgressLayout.touchContainerHeightDp +
-                        commandControlsLayout.progressSpacingDp +
-                        commandControlsBottomPaddingDp).dp.roundToPx()
-                } + if (isFullscreen) WindowInsets.navigationBarsIgnoringVisibility.getBottom(density) else 0
+                // Use measured common chrome when available; the first frame reserves PiliPlus'
+                // progress/optional chapter strip + 7dp gap + 34dp row + 12dp at either edge.
+                val commandControlsReservePx = measuredBottomControlsHeightPx.takeIf { it > 0 }
+                    ?: with(density) { bottomGestureExclusionHeightDp.dp.roundToPx() }
                 com.android.purebilibili.feature.video.ui.overlay.CommandDanmakuOverlay(
                     viewport = viewport,
                     bottomInsetPx = com.android.purebilibili.feature.video.ui.overlay.resolveCommandDanmakuBottomInsetPx(
@@ -5603,6 +5570,9 @@ private fun VideoPlayerSectionContent(
                         largeTextEnabled = subtitleLargeTextByUser,
                         positionLocked = playerInteractionSettings.subtitlePositionLocked
                     ),
+                    subtitleTracks = uiState.subtitleTracks.takeIf {
+                        uiState.subtitleOwnerBvid == bvid && uiState.subtitleOwnerCid == uiState.info.cid
+                    }.orEmpty(),
                     //  [新增] 定时关闭
                     sleepTimerMinutes = sleepTimerMinutes,
                     // 🖼️ [新增] 视频预览图数据
@@ -5618,6 +5588,9 @@ private fun VideoPlayerSectionContent(
                     highFrequencyProgressActive = isLongPressing,
                     // [New] Codec & Audio
                     currentCodec = currentCodec,
+                    availableCodecIds = remember(uiState.cachedDashVideos) {
+                        com.android.purebilibili.feature.video.ui.overlay.resolvePiliAvailableCodecIds(uiState.cachedDashVideos)
+                    },
                     currentSecondCodec = currentSecondCodec,
                     currentAudioQuality = currentAudioQuality,
                     selectedAudioQuality = uiState.selectedAudioQuality,
@@ -5646,6 +5619,7 @@ private fun VideoPlayerSectionContent(
                     isFollowed = isFollowed,
                     followStatusKnown = followStatusKnown,
                     isLiked = isLiked,
+                    isDisliked = state.isDisliked,
                     likeStatusKnown = likeStatusKnown,
                     isCoined = isCoined,
                     isFavorited = isFavorited,
@@ -6129,6 +6103,12 @@ private fun VideoPlayerSectionContent(
                     onFavoritePlaylistClick = onFavoritePlaylistClick,
                     onLandscapeCommentClick = onLandscapeCommentClick,
                     onShowDanmakuPool = { showDanmakuPoolSheet = true },
+                    menuActions = actions.menuActions.copy(
+                        videoUrlCandidates = uiState.allVideoUrls,
+                        audioUrlCandidates = uiState.allAudioUrls,
+                    ),
+                    onTripleAction = actions.onTriple,
+                    onQuickFavorite = actions.onQuickFavorite,
                 )
                 VideoPlayerOverlay(state = overlayState, actions = overlayActions)
             }
@@ -6173,11 +6153,18 @@ private fun VideoPlayerSectionContent(
             if (showDanmakuPoolSheet) {
                 val poolSheetDanmakuLikedIds by actions.likedDanmakuIds
                     .collectAsStateWithLifecycle()
-                val poolSheetBlockRulesRaw by com.android.purebilibili.core.store.SettingsManager
-                    .getDanmakuBlockRulesRaw(context, activeDanmakuScope)
-                    .collectAsStateWithLifecycle(initialValue = "", lifecycle = lifecycleOwner.lifecycle)
+                val poolVideoCid = uiState.info.cid
+                var poolReportSnapshot by remember(uiState.info.bvid, poolVideoCid) {
+                    mutableStateOf(danmakuManager.getLoadedDanmakuList().toList())
+                }
                 DanmakuPoolSheet(
-                    danmakuList = danmakuManager.getLoadedDanmakuList(),
+                    danmakuList = poolReportSnapshot,
+                    videoCid = poolVideoCid,
+                    onRefreshSnapshot = {
+                        danmakuManager.getLoadedDanmakuList().toList().also {
+                            poolReportSnapshot = it
+                        }
+                    },
                     upOwnerUserHash = danmakuManager.upOwnerUserHash,
                     currentPositionMs = playerState.player?.currentPosition ?: 0L,
                     onSeekTo = { posMs ->
@@ -6199,29 +6186,29 @@ private fun VideoPlayerSectionContent(
                     onLikeDanmaku = actions.onLikeDanmakuToggle,
                     onRecallDanmaku = onRecallDanmaku,
                     onReportDanmaku = actions.onReportDanmaku,
-                    onBlockSender = { userHash ->
-                        val updatedRules = com.android.purebilibili.feature.video.danmaku
-                            .appendDanmakuUserHashBlockRule(
-                                rawRules = poolSheetBlockRulesRaw,
-                                userHash = userHash
-                            )
+                    onReportDanmakuWithDetails = { dmid, reason, explanation, blockUser ->
+                        val sender = poolReportSnapshot.firstOrNull { it.danmakuId == dmid }?.userHash.orEmpty()
                         scope.launch {
-                            com.android.purebilibili.core.store.SettingsManager.setDanmakuBlockRulesRaw(
-                                context,
-                                updatedRules,
-                                activeDanmakuScope
+                            com.android.purebilibili.feature.video.ui.components.submitPiliDanmakuReport(
+                                context = context,
+                                cid = poolVideoCid,
+                                dmid = dmid,
+                                reason = reason,
+                                explanation = explanation,
+                                userHash = sender,
+                                blockUser = blockUser,
+                                settingsScope = activeDanmakuScope,
                             )
                         }
-                        Toast.makeText(
-                            context,
-                            com.android.purebilibili.feature.video.ui.components
-                                .resolveDanmakuBlockActionFeedbackMessage(
-                                    target = com.android.purebilibili.feature.video.ui.components
-                                        .DanmakuBlockActionTarget.USER,
-                                    changed = updatedRules != poolSheetBlockRulesRaw
-                                ),
-                            Toast.LENGTH_SHORT
-                        ).show()
+                    },
+                    onBlockSender = { userHash ->
+                        scope.launch {
+                            com.android.purebilibili.feature.video.ui.components.blockPiliDanmakuSender(
+                                context = context,
+                                userHash = userHash,
+                                settingsScope = activeDanmakuScope,
+                            )
+                        }
                     },
                     onDismiss = { showDanmakuPoolSheet = false }
                 )

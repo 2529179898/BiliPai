@@ -30,6 +30,22 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 
+private class VideoEngagementAccountScope(private val value: Any) {
+    fun matches(session: Any): Boolean = value == session
+    override fun equals(other: Any?): Boolean = other is VideoEngagementAccountScope && value == other.value
+    override fun hashCode(): Int = value.hashCode()
+    override fun toString(): String = "VideoEngagementAccountScope"
+}
+
+internal fun videoEngagementAccountScope(
+    session: Any = com.android.purebilibili.data.repository.ActionRepository.interactionSession(),
+): Any = VideoEngagementAccountScope(session)
+
+internal fun matchesVideoEngagementAccount(
+    marker: Any,
+    session: Any = com.android.purebilibili.data.repository.ActionRepository.interactionSession(),
+): Boolean = (marker as? VideoEngagementAccountScope)?.matches(session) == true
+
 data class VideoEngagementSeed(
     val isLoggedIn: Boolean = false,
     val isVip: Boolean = false,
@@ -38,6 +54,7 @@ data class VideoEngagementSeed(
     val isLiked: Boolean = false,
     val likeStatusKnown: Boolean = false,
     val followStatusKnown: Boolean = false,
+    val relationshipStatusKnown: Boolean = false,
     val isDisliked: Boolean = false,
     val likeCount: Int = 0,
     val coinCount: Int = 0,
@@ -46,6 +63,25 @@ data class VideoEngagementSeed(
     val isRepost: Boolean = false,
     val followingMids: Set<Long> = emptySet()
 )
+
+internal data class VideoEngagementAuthoritativeSnapshot(
+    val subject: VideoSubjectSnapshot,
+    val seed: VideoEngagementSeed,
+)
+
+internal fun VideoEngagementUiState.authoritativeSnapshot(): VideoEngagementAuthoritativeSnapshot? {
+    val owner = subject ?: return null
+    if (!relationshipStatusKnown || owner.aid <= 0L || owner.bvid.isBlank()) return null
+    return VideoEngagementAuthoritativeSnapshot(owner, VideoEngagementSeed(
+        isLoggedIn = isLoggedIn, isVip = isVip,
+        isLiked = isLiked, likeStatusKnown = likeStatusKnown,
+        isFollowing = isFollowing, followStatusKnown = followStatusKnown,
+        relationshipStatusKnown = true, isDisliked = isDisliked, isFavorited = isFavorited,
+        likeCount = likeCount, favoriteCount = favoriteCount, coinCount = coinCount,
+        isInWatchLater = isInWatchLater, isRepost = isRepost,
+        followingMids = if (isFollowing) setOf(owner.ownerMid) else emptySet(),
+    ))
+}
 
 enum class VideoMaidAction { DISLIKE, SHARE, COIN }
 
@@ -58,6 +94,8 @@ data class VideoEngagementUiState(
     val isLiked: Boolean = false,
     val likeStatusKnown: Boolean = false,
     val followStatusKnown: Boolean = false,
+    val relationshipStatusKnown: Boolean = false,
+    val accountSession: Any = videoEngagementAccountScope(),
     val isFollowSubmitting: Boolean = false,
     val isTripleSubmitting: Boolean = false,
     val isDisliked: Boolean = false,
@@ -182,6 +220,26 @@ class VideoEngagementViewModel(
     private var boundSession: Any = interactionSession()
     private var likeRevision = 0L
     private var followRevision = 0L
+    private var handoffSession: Any = boundSession
+    private val handoffSnapshots = java.util.LinkedHashMap<Pair<String, Long>, VideoEngagementAuthoritativeSnapshot>(16, 0.75f, true)
+    private val pendingMutationCount = MutableStateFlow(0)
+    private val pendingMoneyCount = MutableStateFlow(0)
+    internal val pendingMutations = pendingMutationCount.asStateFlow()
+    internal val pendingMoneyMutations = pendingMoneyCount.asStateFlow()
+
+    private fun launchMutation(
+        money: Boolean = false,
+        action: suspend kotlinx.coroutines.CoroutineScope.() -> Unit,
+    ): Job {
+        pendingMutationCount.update { it + 1 }
+        if (money) pendingMoneyCount.update { it + 1 }
+        return viewModelScope.launch(block = action).also { job ->
+            job.invokeOnCompletion {
+                pendingMutationCount.update { it - 1 }
+                if (money) pendingMoneyCount.update { it - 1 }
+            }
+        }
+    }
 
     private fun interactionSession(): Any = TokenManager.accountIdentity.value to TokenManager.sessDataCache
 
@@ -207,6 +265,7 @@ class VideoEngagementViewModel(
     }
 
     fun bindSubject(subject: VideoSubjectSnapshot, seed: VideoEngagementSeed) {
+        cacheAuthoritativeSnapshot(_uiState.value, boundSession)
         if (boundSession == interactionSession() && !shouldRebindVideoDomain(_uiState.value.subject, subject)) {
             sync(seed)
             return
@@ -230,6 +289,8 @@ class VideoEngagementViewModel(
             isLiked = seed.isLiked,
             likeStatusKnown = seed.likeStatusKnown,
             followStatusKnown = seed.followStatusKnown,
+            relationshipStatusKnown = seed.relationshipStatusKnown,
+            accountSession = videoEngagementAccountScope(boundSession),
             isDisliked = seed.isDisliked,
             likeCount = seed.likeCount,
             coinCount = seed.coinCount,
@@ -238,6 +299,7 @@ class VideoEngagementViewModel(
             isRepost = seed.isRepost,
             followingMids = seed.followingMids
         )
+        handoffSnapshots[subject.bvid to subject.aid]?.let { applyAuthoritativeSnapshot(it) }
     }
 
     fun sync(seed: VideoEngagementSeed) {
@@ -252,6 +314,7 @@ class VideoEngagementViewModel(
                 likeStatusKnown = if (VideoEngagementField.LIKE in locallyModifiedFields) current.likeStatusKnown else seed.likeStatusKnown,
                 followStatusKnown = if (VideoEngagementField.FOLLOWING in locallyModifiedFields) current.followStatusKnown else seed.followStatusKnown,
                 isDisliked = if (VideoEngagementField.DISLIKE in locallyModifiedFields) current.isDisliked else seed.isDisliked,
+                relationshipStatusKnown = current.relationshipStatusKnown || seed.relationshipStatusKnown,
                 likeCount = if (VideoEngagementField.LIKE in locallyModifiedFields) current.likeCount else seed.likeCount,
                 coinCount = if (VideoEngagementField.COIN in locallyModifiedFields) current.coinCount else seed.coinCount,
                 isRepost = seed.isRepost,
@@ -260,12 +323,82 @@ class VideoEngagementViewModel(
         }
     }
 
+    private fun cacheAuthoritativeSnapshot(state: VideoEngagementUiState, session: Any) {
+        if (session != interactionSession()) return
+        if (handoffSession != session) {
+            handoffSnapshots.clear()
+            handoffSession = session
+        }
+        val subject = state.subject ?: return
+        if (matchesVideoEngagementAccount(state.accountSession, session)) state.authoritativeSnapshot()?.let {
+            handoffSnapshots[subject.bvid to subject.aid] = it
+            if (handoffSnapshots.size > 256) handoffSnapshots.remove(handoffSnapshots.keys.first())
+        }
+    }
+
+    /** Cache another video without changing the bound owner or replaying UI side effects. */
+    internal fun recordExternalVideoEngagement(source: VideoEngagementUiState, session: Any) {
+        if (session != interactionSession() || !matchesVideoEngagementAccount(source.accountSession, session) ||
+            !source.relationshipStatusKnown) return
+        cacheAuthoritativeSnapshot(source, session)
+        if (boundSession == session) source.subject?.let { owner ->
+            handoffSnapshots[owner.bvid to owner.aid]?.let(::applyAuthoritativeSnapshot)
+        }
+    }
+
+    private fun applyAuthoritativeSnapshot(snapshot: VideoEngagementAuthoritativeSnapshot) {
+        val target = _uiState.value
+        val targetSubject = target.subject ?: return
+        val owner = snapshot.subject
+        val source = snapshot.seed
+        if (handoffSession != interactionSession() || boundSession != handoffSession ||
+            targetSubject.bvid != owner.bvid || targetSubject.aid != owner.aid) return
+        val sameOwner = targetSubject.ownerMid == owner.ownerMid
+        locallyModifiedFields = locallyModifiedFields + setOf(
+            VideoEngagementField.LIKE, VideoEngagementField.DISLIKE,
+            VideoEngagementField.FAVORITE, VideoEngagementField.COIN,
+        ) + if (sameOwner) setOf(VideoEngagementField.FOLLOWING, VideoEngagementField.FOLLOWING_MIDS) else emptySet()
+        _uiState.value = target.copy(
+            isLiked = source.isLiked,
+            likeStatusKnown = source.likeStatusKnown,
+            isDisliked = source.isDisliked,
+            isFavorited = source.isFavorited,
+            likeCount = source.likeCount,
+            favoriteCount = source.favoriteCount,
+            coinCount = source.coinCount,
+            relationshipStatusKnown = true,
+            isRepost = source.isRepost,
+            isFollowing = if (sameOwner) source.isFollowing else target.isFollowing,
+            followStatusKnown = if (sameOwner) source.followStatusKnown else target.followStatusKnown,
+            followingMids = if (sameOwner) {
+                (target.followingMids - owner.ownerMid) + if (source.isFollowing) setOf(owner.ownerMid) else emptySet()
+            } else target.followingMids,
+        )
+    }
+
+    internal fun applyFavoriteFolderResult(aid: Long, favorited: Boolean) {
+        val current = _uiState.value
+        if (current.subject?.aid != aid || !isCurrent(current, boundSession)) return
+        locallyModifiedFields = locallyModifiedFields + VideoEngagementField.FAVORITE
+        _uiState.value = current.copy(
+            isFavorited = favorited,
+            favoriteCount = (current.favoriteCount +
+                if (favorited == current.isFavorited) 0 else if (favorited) 1 else -1).coerceAtLeast(0),
+        )
+    }
+
+    internal fun notifyFavoriteFoldersChanged() {
+        viewModelScope.launch { _events.send(VideoEngagementEvent.InvalidateFavoriteFolders) }
+    }
+
     fun setCoinDialogVisible(visible: Boolean) {
         _uiState.update { it.copy(coinDialogVisible = visible) }
     }
 
     fun openCoinDialog() {
         val state = _uiState.value
+        if (state.subject == null) return
+        val session = interactionSession()
         if (state.coinCount >= state.coinLimit) {
             emitMessage(if (state.isRepost) "转载视频最多投1个硬币" else "已投满2个硬币")
             return
@@ -274,7 +407,7 @@ class VideoEngagementViewModel(
         viewModelScope.launch {
             val balance = coinBalanceLoader.load()
             _uiState.update { current ->
-                if (current.coinDialogVisible) current.copy(userCoinBalance = balance) else current
+                if (current.coinDialogVisible && isCurrent(state, session)) current.copy(userCoinBalance = balance) else current
             }
         }
     }
@@ -304,7 +437,7 @@ class VideoEngagementViewModel(
         if (isOwner && ownerFollowRequests++ == 0) {
             _uiState.update { it.copy(isFollowSubmitting = true) }
         }
-        viewModelScope.launch {
+        launchMutation {
             try {
                 followToggleMutex.withLock {
                     if (!isCurrent(state, session)) return@withLock
@@ -387,7 +520,7 @@ class VideoEngagementViewModel(
         if (targetAid != state.subject?.aid || targetBvid != state.subject?.bvid) return
         if (!state.likeStatusKnown && likeStatusRecoveryJob?.isActive == true) return
         val session = interactionSession()
-        val likeJob = viewModelScope.launch {
+        val likeJob = launchMutation {
             // 串行化点赞切换：快速连点时排队执行，且每次执行前重读最新
             // isLiked，避免两个在途请求基于同一个过期状态算出相同目标，
             // 导致某次点击"吞掉"（无状态变化、无动画）。
@@ -452,47 +585,54 @@ class VideoEngagementViewModel(
         currentlyDisliked: Boolean? = null
     ) {
         val state = _uiState.value
-        val targetAid = aid ?: state.subject?.aid ?: return
-        val targetBvid = bvid ?: state.subject?.bvid ?: return
-        val wasDisliked = currentlyDisliked ?: state.isDisliked
-        viewModelScope.launch {
-            actions.toggleDislike(targetAid, wasDisliked, targetBvid)
-                .onSuccess { disliked ->
-                    if (_uiState.value.subject?.generation != state.subject?.generation) return@onSuccess
-                    locallyModifiedFields = locallyModifiedFields + VideoEngagementField.DISLIKE +
-                        if (disliked) setOf(VideoEngagementField.LIKE) else emptySet()
-                    _uiState.update { current ->
-                        if (current.subject?.generation != state.subject?.generation) current
-                        else current.copy(
-                            isDisliked = disliked,
-                            likeBurstVisible = false,
-                            maidAction = if (disliked) VideoMaidAction.DISLIKE else null,
-                            maidActionId = if (disliked) current.maidActionId + 1 else current.maidActionId,
-                            // 点踩与点赞互斥：点踩时本地静默取消点赞（对齐 PiliPlus）
-                            isLiked = if (disliked) false else current.isLiked,
-                            likeCount = if (disliked && current.isLiked) {
-                                (current.likeCount - 1).coerceAtLeast(0)
-                            } else {
-                                current.likeCount
-                            }
-                        )
+        val subject = state.subject ?: return
+        val targetAid = aid ?: subject.aid
+        val targetBvid = bvid ?: subject.bvid
+        if (targetAid != subject.aid || targetBvid != subject.bvid) return
+        val session = interactionSession()
+        launchMutation {
+            likeToggleMutex.withLock {
+                if (!isCurrent(state, session)) return@withLock
+                val wasDisliked = currentlyDisliked ?: _uiState.value.isDisliked
+                actions.toggleDislike(targetAid, wasDisliked, targetBvid)
+                    .onSuccess { disliked ->
+                        if (!isCurrent(state, session)) return@onSuccess
+                        locallyModifiedFields = locallyModifiedFields + VideoEngagementField.DISLIKE +
+                            if (disliked) setOf(VideoEngagementField.LIKE) else emptySet()
+                        _uiState.update { current ->
+                            if (!isCurrent(state, session)) current else current.copy(
+                                isDisliked = disliked,
+                                likeBurstVisible = false,
+                                maidAction = if (disliked) VideoMaidAction.DISLIKE else null,
+                                maidActionId = if (disliked) current.maidActionId + 1 else current.maidActionId,
+                                isLiked = if (disliked) false else current.isLiked,
+                                likeCount = if (disliked && current.isLiked) (current.likeCount - 1).coerceAtLeast(0)
+                                    else current.likeCount,
+                            )
+                        }
+                        emitMessage(if (disliked) "已点踩" else "已取消点踩")
                     }
-                    emitMessage(if (disliked) "已点踩" else "已取消点踩")
-                }
-                .onFailure { emitMessage(it.message ?: "操作失败") }
+                    .onFailure {
+                        it.rethrowCancellation()
+                        if (isCurrent(state, session)) emitMessage(it.message ?: "操作失败")
+                    }
+            }
         }
     }
 
     fun toggleFavorite() {
         val state = _uiState.value
         val subject = state.subject ?: return
-        viewModelScope.launch {
-            actions.toggleFavorite(subject.aid, state.isFavorited, subject.bvid)
+        val session = interactionSession()
+        launchMutation {
+            likeToggleMutex.withLock {
+                if (!isCurrent(state, session)) return@withLock
+            actions.toggleFavorite(subject.aid, _uiState.value.isFavorited, subject.bvid)
                 .onSuccess { favorited ->
-                    if (_uiState.value.subject?.generation != subject.generation) return@onSuccess
+                    if (!isCurrent(state, session)) return@onSuccess
                     locallyModifiedFields = locallyModifiedFields + VideoEngagementField.FAVORITE
                     _uiState.update { current ->
-                        if (current.subject?.generation == subject.generation) {
+                        if (isCurrent(state, session)) {
                             current.copy(
                                 isFavorited = favorited,
                                 favoriteCount = (
@@ -505,14 +645,18 @@ class VideoEngagementViewModel(
                     _events.send(VideoEngagementEvent.InvalidateFavoriteFolders)
                     emitMessage(if (favorited) "已收藏" else "已取消收藏")
                 }
-                .onFailure { emitMessage(it.message ?: "收藏操作失败") }
+                .onFailure {
+                    it.rethrowCancellation()
+                    if (isCurrent(state, session)) emitMessage(it.message ?: "收藏操作失败")
+                }
+            }
         }
     }
 
     fun toggleWatchLater() {
         val state = _uiState.value
         val subject = state.subject ?: return
-        viewModelScope.launch {
+        launchMutation {
             actions.toggleWatchLater(subject.aid, state.isInWatchLater, subject.bvid)
                 .onSuccess { inWatchLater ->
                     if (_uiState.value.subject?.generation != subject.generation) return@onSuccess
@@ -537,9 +681,14 @@ class VideoEngagementViewModel(
             return
         }
         setCoinDialogVisible(false)
-        viewModelScope.launch {
+        launchMutation(money = true) {
             likeToggleMutex.withLock {
             if (!isCurrent(state, session) || (alsoLike && !_uiState.value.likeStatusKnown)) return@withLock
+            val latest = _uiState.value
+            if (count < 1 || count > latest.coinLimit - latest.coinCount) {
+                emitMessage("投币数量超过当前视频的剩余额度")
+                return@withLock
+            }
             actions.doCoin(subject.aid, count, alsoLike, subject.bvid)
                 .onSuccess {
                     if (!isCurrent(state, session)) return@onSuccess
@@ -595,7 +744,7 @@ class VideoEngagementViewModel(
         ) return
         val session = interactionSession()
         _uiState.update { it.copy(isTripleSubmitting = true) }
-        viewModelScope.launch {
+        launchMutation(money = true) {
             try {
             likeToggleMutex.withLock {
             if (!isCurrent(state, session) || !_uiState.value.likeStatusKnown) return@withLock
@@ -760,28 +909,32 @@ class VideoEngagementViewModel(
     }
 }
 
-internal fun VideoPlaybackUiState.Success.toEngagementSeed(): VideoEngagementSeed =
-    VideoEngagementSeed(
+internal fun VideoPlaybackUiState.Success.toEngagementSeed(): VideoEngagementSeed {
+    val currentAccount = matchesVideoEngagementAccount(interactionAccountSession)
+    return VideoEngagementSeed(
         isLoggedIn = !TokenManager.sessDataCache.isNullOrEmpty(),
         isVip = TokenManager.isVipCache,
-        isFollowing = isFollowing,
-        isFavorited = isFavorited,
-        isLiked = isLiked,
-        likeStatusKnown = likeStatusKnown,
-        followStatusKnown = followStatusKnown,
-        isDisliked = isDisliked,
+        isFollowing = currentAccount && isFollowing,
+        isFavorited = currentAccount && isFavorited,
+        isLiked = currentAccount && isLiked,
+        likeStatusKnown = currentAccount && likeStatusKnown,
+        followStatusKnown = currentAccount && followStatusKnown,
+        relationshipStatusKnown = currentAccount && relationshipStatusKnown,
+        isDisliked = currentAccount && isDisliked,
         likeCount = info.stat.like,
-        coinCount = coinCount,
+        coinCount = if (currentAccount) coinCount else 0,
         favoriteCount = info.stat.favorite,
-        isInWatchLater = isInWatchLater,
+        isInWatchLater = currentAccount && isInWatchLater,
         isRepost = info.isRepost,
-        followingMids = followingMids
+        followingMids = if (currentAccount) followingMids else emptySet(),
     )
+}
 
 internal fun VideoPlaybackUiState.Success.withEngagementUiState(
     engagement: VideoEngagementUiState
 ): VideoPlaybackUiState.Success {
     val subject = engagement.subject ?: return this
+    if (!matchesVideoEngagementAccount(engagement.accountSession)) return this
     if (subject.aid != info.aid || subject.bvid != info.bvid || subject.ownerMid != info.owner.mid) return this
     return copy(
         isFollowing = engagement.isFollowing,
@@ -789,6 +942,8 @@ internal fun VideoPlaybackUiState.Success.withEngagementUiState(
         isLiked = engagement.isLiked,
         likeStatusKnown = engagement.likeStatusKnown,
         followStatusKnown = engagement.followStatusKnown,
+        relationshipStatusKnown = engagement.relationshipStatusKnown,
+        interactionAccountSession = engagement.accountSession,
         isDisliked = engagement.isDisliked,
         coinCount = engagement.coinCount,
         isInWatchLater = engagement.isInWatchLater,

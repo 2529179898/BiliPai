@@ -395,6 +395,7 @@ internal fun MusicPlayerContent(
     audioQualityLabel: String = "音质",
     audioQualityOptions: List<AudioQualityOption> = emptyList(),
     requestedAudioQuality: Int = -1,
+    selectedAudioQuality: Int = requestedAudioQuality,
     isHiResAudioSelected: Boolean = false,
     isDolbyAudioSelected: Boolean = false,
     onAudioQualitySelected: ((Int) -> Unit)? = null,
@@ -1599,6 +1600,7 @@ internal fun MusicPlayerContent(
         AudioQualitySelectionMenu(
             options = audioQualityOptions,
             requestedAudioQuality = requestedAudioQuality,
+            selectedAudioQuality = selectedAudioQuality,
             onAudioQualitySelected = { quality ->
                 onAudioQualitySelected(quality)
                 showAudioQuality = false

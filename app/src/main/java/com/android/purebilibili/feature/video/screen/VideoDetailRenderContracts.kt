@@ -64,6 +64,8 @@ internal data class VideoDetailPlaybackActions(
         kotlinx.coroutines.flow.MutableStateFlow(emptySet()),
     val reportDanmaku: (dmid: Long, reason: Int) -> Unit = { _, _ -> },
     val recallDanmaku: (Long) -> Unit = {},
+    val menuActions: com.android.purebilibili.feature.video.ui.overlay.PiliPlayerMenuActions =
+        com.android.purebilibili.feature.video.ui.overlay.PiliPlayerMenuActions(),
     val retryPlayback: () -> Unit = reloadVideo
 )
 

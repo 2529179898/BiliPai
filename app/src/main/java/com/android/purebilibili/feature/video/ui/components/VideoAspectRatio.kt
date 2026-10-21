@@ -16,14 +16,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntRect
 import androidx.media3.ui.AspectRatioFrameLayout
 import com.android.purebilibili.core.ui.components.AppSurface
 import com.android.purebilibili.feature.anime4k.gl.Anime4KDisplayScaleMode
 import kotlin.math.roundToInt
 import com.android.purebilibili.core.ui.AppShapes
 import com.android.purebilibili.core.ui.ContainerLevel
-import top.yukonga.miuix.kmp.basic.DropdownImpl
-import top.yukonga.miuix.kmp.basic.DropdownItem
 //  已改用 AppContentColors.accent()
 
 /**
@@ -37,8 +36,8 @@ enum class VideoAspectRatio(
     val targetAspectRatio: Float? = null,
     val playerResizeMode: Int = resizeMode
 ) {
-    FIT("适应", AspectRatioFrameLayout.RESIZE_MODE_FIT),
-    FILL("填充", AspectRatioFrameLayout.RESIZE_MODE_ZOOM),
+    FIT("自动", AspectRatioFrameLayout.RESIZE_MODE_FIT),
+    FILL("裁剪", AspectRatioFrameLayout.RESIZE_MODE_ZOOM),
     /**
      * Fixed 16:9 frame: outer viewport is letterboxed to 16:9, content [FIT]s inside.
      * (Using ZOOM would crop non-16:9 sources and look like accidental FILL.)
@@ -58,7 +57,11 @@ enum class VideoAspectRatio(
         targetAspectRatio = 4f / 3f,
         playerResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
     ),
-    STRETCH("拉伸", AspectRatioFrameLayout.RESIZE_MODE_FILL);
+    STRETCH("拉伸", AspectRatioFrameLayout.RESIZE_MODE_FILL),
+    FIT_WIDTH("等宽", 100, playerResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT),
+    FIT_HEIGHT("等高", 101, playerResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT),
+    ORIGINAL("原始", 102, playerResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT),
+    SCALE_DOWN("限制", 103, playerResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT);
 
     companion object {
         fun fromResizeMode(mode: Int): VideoAspectRatio {
@@ -72,28 +75,37 @@ internal data class VideoViewportLayout(
     val height: Int
 )
 
-/**
- * BiliPai parity: never apply stretch/fill deformation to vertical content.
- * Cover (FILL/ZOOM) remains allowed for immersive portrait viewing.
- */
+/** Reference fit choices remain available for portrait and landscape source videos alike. */
 internal fun resolveSafeVideoAspectRatio(
     preferred: VideoAspectRatio,
-    isVerticalVideo: Boolean
-): VideoAspectRatio {
-    if (!isVerticalVideo) return preferred
-    return when (preferred) {
-        VideoAspectRatio.STRETCH -> VideoAspectRatio.FIT
-        else -> preferred
-    }
-}
+    @Suppress("UNUSED_PARAMETER") isVerticalVideo: Boolean,
+): VideoAspectRatio = preferred
 
 internal fun resolveVideoViewportLayout(
     containerWidth: Int,
     containerHeight: Int,
-    aspectRatio: VideoAspectRatio
+    aspectRatio: VideoAspectRatio,
+    videoWidth: Int = 0,
+    videoHeight: Int = 0,
 ): VideoViewportLayout {
     val safeWidth = containerWidth.coerceAtLeast(1)
     val safeHeight = containerHeight.coerceAtLeast(1)
+    if (videoWidth > 0 && videoHeight > 0) {
+        val sourceRatio = videoWidth.toDouble() / videoHeight
+        when (aspectRatio) {
+            VideoAspectRatio.FIT_WIDTH -> return VideoViewportLayout(
+                safeWidth, (safeWidth / sourceRatio).roundToInt().coerceAtLeast(1))
+            VideoAspectRatio.FIT_HEIGHT -> return VideoViewportLayout(
+                (safeHeight * sourceRatio).roundToInt().coerceAtLeast(1), safeHeight)
+            VideoAspectRatio.ORIGINAL -> return VideoViewportLayout(videoWidth, videoHeight)
+            VideoAspectRatio.SCALE_DOWN -> {
+                val scale = minOf(1.0, safeWidth.toDouble() / videoWidth, safeHeight.toDouble() / videoHeight)
+                return VideoViewportLayout((videoWidth * scale).roundToInt().coerceAtLeast(1),
+                    (videoHeight * scale).roundToInt().coerceAtLeast(1))
+            }
+            else -> Unit
+        }
+    }
     val targetAspectRatio = aspectRatio.targetAspectRatio
         ?.takeIf { it.isFinite() && it > 0f }
         ?: return VideoViewportLayout(width = safeWidth, height = safeHeight)
@@ -113,11 +125,11 @@ internal fun resolveVideoViewportLayout(
 }
 
 /**
- * FIT / FILL / STRETCH 占满容器；固定 16:9 / 4:3 才需要 letterbox 的精确尺寸。
- * FILL 走 fillMaxSize 可避免上滑全屏首帧约束未稳定时用旧 px 钉死视口。
+ * Native-size and source-axis modes also need an explicitly sized, centered viewport.
  */
 internal fun shouldUseFillMaxPlayerViewport(aspectRatio: VideoAspectRatio): Boolean {
-    return aspectRatio.targetAspectRatio == null
+    return aspectRatio == VideoAspectRatio.FIT || aspectRatio == VideoAspectRatio.FILL ||
+        aspectRatio == VideoAspectRatio.STRETCH
 }
 
 /**
@@ -280,6 +292,10 @@ internal fun VideoAspectRatio.toAnime4KDisplayScaleMode(): Anime4KDisplayScaleMo
         VideoAspectRatio.FILL -> Anime4KDisplayScaleMode.CROP
         VideoAspectRatio.STRETCH -> Anime4KDisplayScaleMode.STRETCH
         VideoAspectRatio.FIT,
+        VideoAspectRatio.FIT_WIDTH,
+        VideoAspectRatio.FIT_HEIGHT,
+        VideoAspectRatio.ORIGINAL,
+        VideoAspectRatio.SCALE_DOWN,
         VideoAspectRatio.RATIO_16_9,
         VideoAspectRatio.RATIO_4_3 -> Anime4KDisplayScaleMode.FIT
     }
@@ -293,24 +309,29 @@ fun AspectRatioMenu(
     currentRatio: VideoAspectRatio,
     onRatioSelected: (VideoAspectRatio) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    placement: PlayerListPopupPlacement = PlayerListPopupPlacement.END,
+    anchorBounds: IntRect? = null,
 ) {
-    PlayerMiuixListPopup(
+    PlayerSelectionPopup(
         title = "画面比例",
+        showTitle = false,
         onDismissRequest = onDismiss,
         modifier = modifier,
-        placement = PlayerListPopupPlacement.END,
+        placement = placement,
+        anchorBounds = anchorBounds,
         minWidth = 160.dp,
     ) {
-        VideoAspectRatio.entries.forEachIndexed { index, ratio ->
+        listOf(VideoAspectRatio.STRETCH, VideoAspectRatio.FIT, VideoAspectRatio.FILL,
+            VideoAspectRatio.FIT_WIDTH, VideoAspectRatio.FIT_HEIGHT, VideoAspectRatio.ORIGINAL,
+            VideoAspectRatio.SCALE_DOWN, VideoAspectRatio.RATIO_4_3, VideoAspectRatio.RATIO_16_9).forEach { ratio ->
             val selected = ratio == currentRatio
-            DropdownImpl(
-                item = DropdownItem(text = ratio.displayName),
-                optionSize = VideoAspectRatio.entries.size,
-                isSelected = selected,
-                index = index,
+            PlayerSelectionItem(
+                modifier = Modifier.playerPopupSelectedOption(selected),
+                text = ratio.displayName,
+                selected = selected,
                 enabled = !selected,
-                onSelectedIndexChange = {
+                onClick = {
                     onRatioSelected(ratio)
                     onDismiss()
                 },

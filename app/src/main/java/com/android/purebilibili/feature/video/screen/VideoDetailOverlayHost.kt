@@ -213,8 +213,6 @@ import com.android.purebilibili.feature.video.player.PlaylistUiState
 import com.android.purebilibili.feature.video.player.ExternalPlaylistSource
 import com.android.purebilibili.feature.video.player.buildPipPlaybackRemoteActions
 import com.android.purebilibili.core.ui.performance.TrackJankStateFlag
-// 📱 [新增] 竖屏全屏
-import com.android.purebilibili.feature.video.ui.overlay.PortraitFullscreenOverlay
 import com.android.purebilibili.feature.video.ui.overlay.PlayerProgress
 import com.android.purebilibili.feature.video.ui.components.VideoAspectRatio
 import com.android.purebilibili.feature.video.danmaku.rememberDanmakuManager
@@ -237,7 +235,6 @@ import com.android.purebilibili.feature.video.ui.components.DanmakuContextMenu
 import com.android.purebilibili.feature.video.ui.components.DanmakuBlockActionTarget
 import com.android.purebilibili.feature.video.ui.components.resolveDanmakuBlockActionFeedbackMessage
 import com.android.purebilibili.feature.video.danmaku.appendDanmakuKeywordBlockRule
-import com.android.purebilibili.feature.video.danmaku.appendDanmakuUserHashBlockRule
 import com.android.purebilibili.feature.video.ui.components.InteractiveChoiceOverlay
 import com.android.purebilibili.feature.video.ui.feedback.VideoFeedbackAnchor
 import com.android.purebilibili.feature.video.ui.feedback.TripleCelebrationPlacement
@@ -573,16 +570,49 @@ internal fun VideoDetailDanmakuContextMenu(
     val danmakuMenuState by viewModel.danmakuMenuState.collectAsStateWithLifecycle(
         context = kotlin.coroutines.EmptyCoroutineContext
     )
+    val playbackUiState by viewModel.uiState.collectAsStateWithLifecycle(
+        context = kotlin.coroutines.EmptyCoroutineContext
+    )
     if (!danmakuMenuState.visible) return
+    val playback = playbackUiState as? com.android.purebilibili.feature.video.viewmodel.VideoPlaybackUiState.Success
+    val menuIdentity = remember(danmakuMenuState.dmid, danmakuMenuState.text, danmakuMenuState.userHash) {
+        playback?.info?.let { it.bvid to it.cid }
+    }
+    if (menuIdentity == null || playback?.info?.let { it.bvid to it.cid } != menuIdentity) {
+        LaunchedEffect(menuIdentity, playbackUiState) { viewModel.hideDanmakuMenu() }
+        return
+    }
+    val menuDmid = danmakuMenuState.dmid
+    val menuUserHash = danmakuMenuState.userHash
+    val reportWithDetails: (Int, String, Boolean) -> Unit = { reason, explanation, blockUser ->
+        val current = viewModel.uiState.value as? com.android.purebilibili.feature.video.viewmodel.VideoPlaybackUiState.Success
+        if (current?.info?.let { it.bvid to it.cid } == menuIdentity) {
+            sortPreferenceScope.launch {
+                com.android.purebilibili.feature.video.ui.components.submitPiliDanmakuReport(
+                    context = context,
+                    cid = menuIdentity.second,
+                    dmid = menuDmid,
+                    reason = reason,
+                    explanation = explanation,
+                    userHash = menuUserHash,
+                    blockUser = blockUser,
+                    settingsScope = activeDanmakuScope,
+                )
+            }
+        } else {
+            viewModel.toast("视频已切换，请重新选择弹幕")
+        }
+    }
 
     DanmakuContextMenu(
         text = danmakuMenuState.text,
         onDismiss = { viewModel.hideDanmakuMenu() },
         onLike = { viewModel.likeDanmaku(danmakuMenuState.dmid) },
         onRecall = { viewModel.recallDanmaku(danmakuMenuState.dmid) },
-        onReport = { reason ->
-            viewModel.reportDanmaku(danmakuMenuState.dmid, reason)
-        },
+        onReport = { reason -> reportWithDetails(reason, "", false) },
+        onReportWithDetails = reportWithDetails,
+        durationMs = viewModel.getPlayerDuration().takeIf { it > 0L }
+            ?: playback?.videoDurationMs?.coerceAtLeast(0L) ?: 0L,
         voteCount = danmakuMenuState.voteCount,
         hasLiked = danmakuMenuState.hasLiked,
         voteLoading = danmakuMenuState.voteLoading,
@@ -613,27 +643,11 @@ internal fun VideoDetailDanmakuContextMenu(
         },
         canBlockUser = danmakuMenuState.userHash.isNotBlank(),
         onBlockUser = {
-            val userHash = danmakuMenuState.userHash
-            if (userHash.isBlank()) {
-                viewModel.toast("该弹幕缺少发送者标识")
-            } else {
-                val updatedRules = appendDanmakuUserHashBlockRule(
-                    rawRules = activeDanmakuBlockRulesRaw,
-                    userHash = userHash
-                )
-                val changed = updatedRules != activeDanmakuBlockRulesRaw
-                sortPreferenceScope.launch {
-                    com.android.purebilibili.core.store.SettingsManager.setDanmakuBlockRulesRaw(
-                        context,
-                        updatedRules,
-                        activeDanmakuScope
-                    )
-                }
-                viewModel.toast(
-                    resolveDanmakuBlockActionFeedbackMessage(
-                        target = DanmakuBlockActionTarget.USER,
-                        changed = changed
-                    )
+            sortPreferenceScope.launch {
+                com.android.purebilibili.feature.video.ui.components.blockPiliDanmakuSender(
+                    context = context,
+                    userHash = menuUserHash,
+                    settingsScope = activeDanmakuScope,
                 )
             }
         }

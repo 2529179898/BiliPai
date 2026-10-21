@@ -39,8 +39,8 @@ class DanmakuComposerPolicyTest {
 
     @Test
     fun sendOptions_includeExpectedDefaults() {
-        assertEquals(9, danmakuSendColorOptions().size)
-        assertEquals(3, danmakuSendModeOptions().size)
-        assertEquals(3, danmakuSendFontSizeOptions().size)
+        assertEquals(14, danmakuSendColorOptions().size)
+        assertEquals(listOf(1, 5, 4), danmakuSendModeOptions().map { it.value })
+        assertEquals(listOf(18, 25), danmakuSendFontSizeOptions().map { it.value })
     }
 }

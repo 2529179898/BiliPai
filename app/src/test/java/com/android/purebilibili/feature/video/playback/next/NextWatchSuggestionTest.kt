@@ -61,4 +61,33 @@ class NextWatchSuggestionTest {
         assertEquals("BV-one", resolveCollectionNextWatch(withParts)?.bvid)
     }
 
+    @Test fun reversedPartsChangeActualLookaheadAndRemainIndependentOfSeasonOrder() {
+        val info = ViewInfo(bvid = "BV-reverse-parts", cid = 20L,
+            pages = listOf(Page(cid = 10L), Page(cid = 20L)),
+            ugc_season = UgcSeason(id = 77L))
+        PiliPlaybackOrder.setReversed(77L, info.bvid, false)
+        PiliPlaybackOrder.setReversed(0L, info.bvid, true)
+        try {
+            assertEquals(10L, resolveCollectionNextWatch(info)?.cid)
+            assertEquals(0, resolveCollectionNextWatch(info)?.pageIndex)
+        } finally {
+            PiliPlaybackOrder.setReversed(0L, info.bvid, false)
+        }
+    }
+
+    @Test fun reversedCollectionMovesToPreviousEpisodeAcrossSections() {
+        val info = ViewInfo(bvid = "BV-reverse-two", cid = 20L,
+            ugc_season = UgcSeason(id = 88L, sections = listOf(
+                UgcSection(episodes = listOf(UgcEpisode(bvid = "BV-reverse-one", cid = 10L))),
+                UgcSection(episodes = listOf(UgcEpisode(bvid = "BV-reverse-two", cid = 20L)))
+            )))
+        PiliPlaybackOrder.setReversed(88L, info.bvid, true)
+        try {
+            assertEquals("BV-reverse-one", resolveCollectionNextWatch(info)?.bvid)
+            assertEquals(10L, resolveCollectionNextWatch(info)?.cid)
+        } finally {
+            PiliPlaybackOrder.setReversed(88L, info.bvid, false)
+        }
+    }
+
 }

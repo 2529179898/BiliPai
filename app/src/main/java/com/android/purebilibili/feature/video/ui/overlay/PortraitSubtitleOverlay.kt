@@ -32,6 +32,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import com.android.purebilibili.feature.video.subtitle.PiliSubtitleSessions
+import com.android.purebilibili.feature.video.subtitle.PiliStyledSubtitleText
+import com.android.purebilibili.feature.video.subtitle.SubtitleToolsStore
+import com.android.purebilibili.feature.video.subtitle.subtitlePositionForOffset
+import com.android.purebilibili.feature.video.ui.components.PlayerSubtitleAppearance
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -119,10 +125,7 @@ fun PortraitSubtitleHost(
     subtitleAutoPreference: SubtitleAutoPreference,
     isMuted: Boolean,
     onSubtitleTrackSelected: (String) -> Unit,
-    showSubtitlePanel: Boolean,
-    onShowSubtitlePanelChange: (Boolean) -> Unit,
-    onSubtitleEnabledChange: (Boolean) -> Unit = {},
-    onTrackAvailableChange: (Boolean) -> Unit = {},
+    onControlsChange: (SubtitleControlUiState, SubtitleControlCallbacks) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val featureEnabled = isSubtitleFeatureEnabledForUser()
@@ -132,13 +135,17 @@ fun PortraitSubtitleHost(
         pageCid = pageCid
     )
     if (!featureEnabled || !isCurrentPage || success == null || !belongsToPage) {
-        SideEffect {
-            onTrackAvailableChange(false)
-            onSubtitleEnabledChange(false)
+        LaunchedEffect(featureEnabled, isCurrentPage, belongsToPage) {
+            onControlsChange(SubtitleControlUiState(), SubtitleControlCallbacks())
         }
         return
     }
 
+    val subtitleSession = remember(pageBvid, pageCid) { PiliSubtitleSessions.get(pageBvid, pageCid) }
+    val subtitleContext = LocalContext.current
+    val subtitleAppearance by remember(subtitleContext) {
+        SubtitleToolsStore.appearance(subtitleContext)
+    }.collectAsStateWithLifecycle(initialValue = PlayerSubtitleAppearance())
     val primaryTrackBound = !success.subtitlePrimaryTrackKey.isNullOrBlank() ||
         !success.subtitlePrimaryLanguage.isNullOrBlank()
     val secondaryTrackBound = !success.subtitleSecondaryTrackKey.isNullOrBlank() ||
@@ -151,11 +158,10 @@ fun PortraitSubtitleHost(
         primaryCueAvailable = primaryCueAvailable,
         secondaryCueAvailable = secondaryCueAvailable
     )
-    SideEffect {
-        onTrackAvailableChange(availability.trackAvailable)
-    }
     if (!availability.trackAvailable) {
-        SideEffect { onSubtitleEnabledChange(false) }
+        LaunchedEffect(availability.trackAvailable) {
+            onControlsChange(SubtitleControlUiState(), SubtitleControlCallbacks())
+        }
         return
     }
 
@@ -212,9 +218,6 @@ fun PortraitSubtitleHost(
         hasSecondaryTrack = secondaryCueAvailable || secondaryTrackBound
     )
     val overlayEnabled = displayMode != SubtitleDisplayMode.OFF
-    SideEffect {
-        onSubtitleEnabledChange(overlayEnabled)
-    }
     val configuration = LocalConfiguration.current
     val textSizeSpec = remember(configuration.screenWidthDp, largeTextEnabled) {
         resolveSubtitleTextSizeSpec(
@@ -240,19 +243,19 @@ fun PortraitSubtitleHost(
     }
 
     val primaryRaw = if (shouldRenderPrimarySubtitle(displayMode)) {
-        resolveSubtitleTextAt(success.subtitlePrimaryCues, positionMs)
+        resolveSubtitleTextAt(success.subtitlePrimaryCues, subtitlePositionForOffset(positionMs, subtitleSession.timeOffsetMs))
     } else {
         null
     }
     val secondaryRaw = if (shouldRenderSecondarySubtitle(displayMode)) {
-        resolveSubtitleTextAt(success.subtitleSecondaryCues, positionMs)
+        resolveSubtitleTextAt(success.subtitleSecondaryCues, subtitlePositionForOffset(positionMs, subtitleSession.timeOffsetMs))
     } else {
         null
     }
-    var stickyPrimary by remember(pollingIdentity) { mutableStateOf<String?>(null) }
-    var stickySecondary by remember(pollingIdentity) { mutableStateOf<String?>(null) }
-    var primaryBlankSince by remember(pollingIdentity) { mutableLongStateOf(-1L) }
-    var secondaryBlankSince by remember(pollingIdentity) { mutableLongStateOf(-1L) }
+    var stickyPrimary by remember(pollingIdentity, subtitleSession.timeOffsetMs) { mutableStateOf<String?>(null) }
+    var stickySecondary by remember(pollingIdentity, subtitleSession.timeOffsetMs) { mutableStateOf<String?>(null) }
+    var primaryBlankSince by remember(pollingIdentity, subtitleSession.timeOffsetMs) { mutableLongStateOf(-1L) }
+    var secondaryBlankSince by remember(pollingIdentity, subtitleSession.timeOffsetMs) { mutableLongStateOf(-1L) }
     val primaryText = resolveStickySubtitleText(
         currentText = primaryRaw,
         previousText = stickyPrimary,
@@ -314,9 +317,41 @@ fun PortraitSubtitleHost(
             subtitleVerticalOffsetFraction = storedPortraitOffset
         }
     }
+    val controlState = SubtitleControlUiState(
+        trackAvailable = availability.trackAvailable,
+        primaryAvailable = availability.primarySelectable,
+        secondaryAvailable = availability.secondarySelectable,
+        enabled = overlayEnabled,
+        displayMode = displayMode,
+        primaryLabel = primaryLabel,
+        secondaryLabel = secondaryLabel,
+        trackOptions = trackOptions,
+        largeTextEnabled = largeTextEnabled,
+        positionLocked = subtitlePositionLocked,
+    )
+    val currentTrackSelected = rememberUpdatedState(onSubtitleTrackSelected)
+    val controlCallbacks = remember(sessionKey, context, scope) {
+        SubtitleControlCallbacks(
+            onDisplayModeChange = { displayModePreference = it },
+            onEnabledChange = {
+                displayModePreference = if (it) SubtitleDisplayMode.PRIMARY_ONLY else SubtitleDisplayMode.OFF
+            },
+            onTrackSelected = {
+                currentTrackSelected.value(it)
+                displayModePreference = SubtitleDisplayMode.PRIMARY_ONLY
+            },
+            onLargeTextChange = { largeTextEnabled = it },
+            onPositionLockedChange = { locked ->
+                scope.launch { SettingsManager.setSubtitlePositionLocked(context, locked) }
+            },
+        )
+    }
+    LaunchedEffect(controlState, controlCallbacks) {
+        onControlsChange(controlState, controlCallbacks)
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
-        if (keepMounted) {
+        if (keepMounted && subtitleSession.selectedTrackKey == null) {
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -330,10 +365,9 @@ fun PortraitSubtitleHost(
                             }
                         )
                     }
-                    .fillMaxWidth(0.92f)
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = bottomPaddingDp.dp)
-                    .padding(vertical = 6.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = subtitleAppearance.horizontalPadding.dp)
+                    .padding(bottom = (bottomPaddingDp + subtitleAppearance.bottomPadding).dp)
                     .then(
                         if (subtitlePositionLocked) {
                             Modifier
@@ -368,258 +402,25 @@ fun PortraitSubtitleHost(
                     ),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val shadow = Shadow(
-                    color = Color.Black.copy(alpha = 0.85f),
-                    offset = Offset(0f, 1.5f),
-                    blurRadius = 6f
-                )
                 val showPrimary = !primaryText.isNullOrBlank()
                 val showSecondary = !secondaryText.isNullOrBlank()
                 val secondaryAsPrimary = showSecondary && !showPrimary
-                AppText(
+                if (showSecondary) PiliStyledSubtitleText(
                     text = secondaryText.orEmpty(),
-                    color = Color.White.copy(alpha = if (showSecondary) 0.88f else 0f),
-                    fontSize = if (secondaryAsPrimary) {
-                        textSizeSpec.primarySp.sp
-                    } else {
-                        textSizeSpec.secondarySp.sp
-                    },
-                    fontWeight = if (secondaryAsPrimary) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 2,
-                    textAlign = TextAlign.Center,
-                    style = androidx.compose.ui.text.TextStyle(shadow = shadow),
-                    modifier = Modifier.then(
-                        if (showSecondary) Modifier else Modifier.height(0.dp)
-                    )
-                )
-                AppText(
-                    text = primaryText.orEmpty(),
-                    color = Color.White.copy(alpha = if (showPrimary) 1f else 0f),
-                    fontSize = textSizeSpec.primarySp.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    textAlign = TextAlign.Center,
-                    style = androidx.compose.ui.text.TextStyle(shadow = shadow),
-                    modifier = Modifier.then(
-                        if (showPrimary) Modifier else Modifier.height(0.dp)
-                    )
-                )
-            }
-        }
-
-        if (showSubtitlePanel) {
-            PortraitSubtitlePanel(
-                displayMode = displayMode,
-                primaryLabel = primaryLabel,
-                secondaryLabel = secondaryLabel,
-                primaryAvailable = availability.primarySelectable,
-                secondaryAvailable = availability.secondarySelectable,
-                trackOptions = trackOptions,
-                largeTextEnabled = largeTextEnabled,
-                positionLocked = subtitlePositionLocked,
-                canResetPosition = kotlin.math.abs(subtitleVerticalOffsetFraction) > 0.001f,
-                onDismiss = { onShowSubtitlePanelChange(false) },
-                onDisplayModeChange = { mode ->
-                    displayModePreference = mode
-                    onShowSubtitlePanelChange(false)
-                },
-                onTrackSelected = { trackKey ->
-                    onSubtitleTrackSelected(trackKey)
-                    displayModePreference = SubtitleDisplayMode.PRIMARY_ONLY
-                    onShowSubtitlePanelChange(false)
-                },
-                onLargeTextChange = { largeTextEnabled = it },
-                onPositionLockedChange = { locked ->
-                    scope.launch {
-                        SettingsManager.setSubtitlePositionLocked(context, locked)
-                    }
-                },
-                onResetPosition = {
-                    subtitleVerticalOffsetFraction = 0f
-                    scope.launch {
-                        SettingsManager.setSubtitlePortraitVerticalOffsetFraction(context, 0f)
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp, bottom = (bottomPaddingDp + 8).dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun PortraitSubtitlePanel(
-    displayMode: SubtitleDisplayMode,
-    primaryLabel: String,
-    secondaryLabel: String,
-    primaryAvailable: Boolean,
-    secondaryAvailable: Boolean,
-    trackOptions: List<SubtitleTrackOption>,
-    largeTextEnabled: Boolean,
-    positionLocked: Boolean,
-    canResetPosition: Boolean = false,
-    onDismiss: () -> Unit,
-    onDisplayModeChange: (SubtitleDisplayMode) -> Unit,
-    onTrackSelected: (String) -> Unit,
-    onLargeTextChange: (Boolean) -> Unit,
-    onPositionLockedChange: (Boolean) -> Unit,
-    onResetPosition: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.35f))
-            .clickable(onClick = onDismiss)
-    ) {
-        AppSurface(
-            modifier = modifier
-                .widthIn(min = 148.dp, max = 228.dp)
-                .clickable(enabled = false) {},
-            shape = AppShapes.container(ContainerLevel.Dialog),
-            color = Color.Black.copy(alpha = 0.82f)
-        ) {
-            Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                AppText(
-                    text = "字幕显示",
+                    baseFontSizeSp = if (secondaryAsPrimary) textSizeSpec.primarySp else textSizeSpec.secondarySp,
+                    appearance = subtitleAppearance,
+                    isFullscreen = false,
                     color = Color.White.copy(alpha = 0.88f),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
                 )
-                resolveSubtitleDisplayOptions(
-                    primaryLabel = primaryLabel,
-                    secondaryLabel = secondaryLabel,
-                    hasPrimaryTrack = primaryAvailable,
-                    hasSecondaryTrack = secondaryAvailable
-                ).forEach { option ->
-                    val selected = displayMode == option.mode
-                    AppSurface(
-                        onClick = {
-                            if (option.enabled) onDisplayModeChange(option.mode)
-                        },
-                        enabled = option.enabled,
-                        shape = AppShapes.container(ContainerLevel.Field),
-                        color = if (selected) {
-                            AppContentColors.accent().copy(alpha = 0.22f)
-                        } else {
-                            Color.Transparent
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        AppText(
-                            text = option.label,
-                            color = if (selected) {
-                                AppContentColors.accent()
-                            } else {
-                                Color.White.copy(alpha = if (option.enabled) 1f else 0.4f)
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-                        )
-                    }
-                }
-                if (trackOptions.isNotEmpty()) {
-                    AppHorizontalDivider(color = Color.White.copy(alpha = 0.10f))
-                    AppText(
-                        text = "字幕轨道",
-                        color = Color.White.copy(alpha = 0.72f),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 2.dp)
-                    )
-                    trackOptions.forEach { option ->
-                        AppSurface(
-                            onClick = { onTrackSelected(option.trackKey) },
-                            shape = AppShapes.container(ContainerLevel.Field),
-                            color = if (option.selected) {
-                                AppContentColors.accent().copy(alpha = 0.22f)
-                            } else {
-                                Color.Transparent
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            AppText(
-                                text = option.label,
-                                color = if (option.selected) {
-                                    AppContentColors.accent()
-                                } else {
-                                    Color.White
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = if (option.selected) FontWeight.SemiBold else FontWeight.Normal,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-                            )
-                        }
-                    }
-                }
-                AppHorizontalDivider(color = Color.White.copy(alpha = 0.10f))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
-                ) {
-                    AppText(
-                        text = "大字号",
-                        color = Color.White.copy(alpha = 0.85f),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                    AppSwitch(
-                        checked = largeTextEnabled,
-                        onCheckedChange = onLargeTextChange
-                    )
-                }
-                AppText(
-                    text = if (positionLocked) "字幕位置已固定" else "上下拖动字幕可调整位置",
-                    color = Color.White.copy(alpha = 0.55f),
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                if (showPrimary) PiliStyledSubtitleText(
+                    text = primaryText.orEmpty(),
+                    baseFontSizeSp = textSizeSpec.primarySp,
+                    appearance = subtitleAppearance,
+                    isFullscreen = false,
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
-                ) {
-                    AppText(
-                        text = "锁定位置",
-                        color = Color.White.copy(alpha = 0.85f),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                    AppSwitch(
-                        checked = positionLocked,
-                        onCheckedChange = onPositionLockedChange
-                    )
-                }
-                if (canResetPosition) {
-                    AppSurface(
-                        onClick = onResetPosition,
-                        shape = AppShapes.container(ContainerLevel.Field),
-                        color = Color.White.copy(alpha = 0.10f),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        AppText(
-                            text = "重置位置",
-                            color = Color.White.copy(alpha = 0.9f),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-                        )
-                    }
-                }
             }
         }
+
     }
 }
+

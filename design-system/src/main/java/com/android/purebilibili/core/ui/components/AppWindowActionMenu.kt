@@ -20,6 +20,11 @@ import top.yukonga.miuix.kmp.window.WindowCascadingListPopup
 import top.yukonga.miuix.kmp.basic.DropdownEntry
 import com.android.purebilibili.core.theme.LocalAppUiStyle
 import com.android.purebilibili.core.theme.AppUiStyle
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.runtime.key
+import top.yukonga.miuix.kmp.window.WindowListPopup
 
 /**
  * An action exposed from a page-level overflow menu.
@@ -50,8 +55,23 @@ fun AppWindowActionMenu(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onExpandedChange: ((Boolean) -> Unit)? = null,
+    // Explicit anchor sizing is opt-in; existing menus retain native button geometry.
+    anchorModifier: Modifier = Modifier,
+    compact: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    if (compact) {
+        AppCompactWindowActionMenu(
+            groups = groups,
+            modifier = modifier,
+            enabled = enabled,
+            onExpandedChange = onExpandedChange,
+            anchorModifier = anchorModifier,
+            content = content,
+        )
+        return
+    }
+
     if (LocalAppUiStyle.current != AppUiStyle.MIUIX || !LocalAppThemeConfig.current.nativeMiuixPopupsEnabled) {
         var expanded by remember { mutableStateOf(false) }
         var parentActions by remember { mutableStateOf(emptyList<AppWindowAction>()) }
@@ -59,6 +79,7 @@ fun AppWindowActionMenu(
             ?: groups.filter { it.isNotEmpty() }
         Box(modifier = modifier) {
             AppIconButton(
+                modifier = anchorModifier,
                 onClick = {
                     parentActions = emptyList()
                     expanded = true
@@ -129,6 +150,7 @@ fun AppWindowActionMenu(
     }
     Box(modifier = modifier) {
         AppIconButton(
+            modifier = anchorModifier,
             enabled = enabled && groups.any { it.isNotEmpty() },
             onClick = { expanded = true; onExpandedChange?.invoke(true) },
         ) { content() }
@@ -147,6 +169,111 @@ fun AppWindowActionMenu(
             alignment = PopupPositionProvider.Align.End,
             onDismissRequest = ::dismiss,
         )
+    }
+}
+
+@Composable
+private fun AppCompactWindowActionMenu(
+    groups: List<List<AppWindowAction>>,
+    modifier: Modifier,
+    enabled: Boolean,
+    onExpandedChange: ((Boolean) -> Unit)?,
+    anchorModifier: Modifier,
+    content: @Composable () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var parentActions by remember { mutableStateOf(emptyList<AppWindowAction>()) }
+    val visibleGroups = parentActions.lastOrNull()?.let { listOf(it.children) }
+        ?: groups.filter { it.isNotEmpty() }
+    fun dismiss() {
+        if (expanded) {
+            expanded = false
+            parentActions = emptyList()
+            onExpandedChange?.invoke(false)
+        }
+    }
+    val menuContent: @Composable (Boolean) -> Unit = { scrollable ->
+        key(parentActions) {
+            AppCompactMenuColumn(scrollable = scrollable) {
+                if (parentActions.isNotEmpty()) {
+                    AppCompactMenuItem(
+                        text = "返回",
+                        onClick = { parentActions = parentActions.dropLast(1) },
+                        leadingIcon = {
+                            AppIcon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        },
+                    )
+                }
+                visibleGroups.forEachIndexed { groupIndex, actions ->
+                    if (groupIndex > 0) {
+                        AppHorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        )
+                    }
+                    actions.forEach { action ->
+                        AppCompactMenuItem(
+                            text = action.label,
+                            summary = action.summary,
+                            selected = action.selected,
+                            enabled = action.enabled,
+                            leadingIcon = action.icon?.let { icon ->
+                                {
+                                    if (action.iconTint == null || !action.enabled) {
+                                        AppIcon(icon, contentDescription = null)
+                                    } else {
+                                        AppIcon(icon, contentDescription = null, tint = action.iconTint)
+                                    }
+                                }
+                            },
+                            trailingIcon = if (action.children.isNotEmpty()) {
+                                {
+                                    AppIcon(
+                                        Icons.AutoMirrored.Filled.ArrowForward,
+                                        contentDescription = null,
+                                    )
+                                }
+                            } else null,
+                            onClick = {
+                                if (expanded && action.enabled) {
+                                    if (action.children.isNotEmpty()) {
+                                        parentActions = parentActions + action
+                                    } else {
+                                        dismiss()
+                                        action.onClick?.invoke()
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+    Box(modifier = modifier) {
+        AppIconButton(
+            modifier = anchorModifier,
+            enabled = enabled && groups.any { it.isNotEmpty() },
+            onClick = {
+                parentActions = emptyList()
+                expanded = true
+                onExpandedChange?.invoke(true)
+            },
+        ) { content() }
+        if (LocalAppUiStyle.current == AppUiStyle.MIUIX &&
+            LocalAppThemeConfig.current.nativeMiuixPopupsEnabled
+        ) {
+            WindowListPopup(
+                show = expanded,
+                alignment = PopupPositionProvider.Align.End,
+                minWidth = 120.dp,
+                onDismissRequest = ::dismiss,
+            ) { menuContent(true) }
+        } else {
+            AppDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = ::dismiss,
+            ) { menuContent(false) }
+        }
     }
 }
 

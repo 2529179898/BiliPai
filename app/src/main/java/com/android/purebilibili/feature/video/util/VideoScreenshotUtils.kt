@@ -235,7 +235,7 @@ suspend fun saveScreenshotToGalleryUri(
     }
 }
 
-private suspend fun captureSurfaceViewBitmap(
+internal suspend fun captureSurfaceViewBitmap(
     surfaceView: SurfaceView,
     targetWidth: Int,
     targetHeight: Int,

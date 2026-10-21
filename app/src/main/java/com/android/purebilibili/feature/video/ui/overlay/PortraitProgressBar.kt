@@ -11,6 +11,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemGestures
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -63,18 +69,23 @@ fun PortraitBottomContainer(
             widthDp = configuration.screenWidthDp
         )
     }
+    val touchHeight = layoutPolicy.touchAreaHeightDp.dp * PlayerChromeLayout.FullscreenHeightScale
 
+    PlayerControlTouchBounds(height = touchHeight) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(
-                bottom = layoutPolicy.bottomPaddingDp.dp,
-                start = layoutPolicy.horizontalPaddingDp.dp,
-                end = layoutPolicy.horizontalPaddingDp.dp
+            // Use the larger margin, never fixed padding plus the gesture region.
+            .windowInsetsPadding(
+                WindowInsets.systemGestures.only(WindowInsetsSides.Horizontal).union(
+                    WindowInsets(
+                        left = PlayerChromeLayout.SeekEdgePaddingDp.dp,
+                        right = PlayerChromeLayout.SeekEdgePaddingDp.dp,
+                    )
+                )
             )
-            .height(layoutPolicy.touchAreaHeightDp.dp)
-            .playerControlGlassProgressDock()
-        ,
+            .padding(bottom = layoutPolicy.bottomPaddingDp.dp * PlayerChromeLayout.FullscreenHeightScale)
+            .height(touchHeight),
         contentAlignment = Alignment.Center
     ) {
          ThinWigglyProgressBar(
@@ -95,6 +106,7 @@ fun PortraitBottomContainer(
             videoshotData = videoshotData,
             videoAspectRatio = videoAspectRatio
         )
+    }
     }
 }
 

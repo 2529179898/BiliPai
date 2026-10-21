@@ -16,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class VideoPlaybackUseCaseQualitySwitchTest {
@@ -382,7 +383,7 @@ class VideoPlaybackUseCaseQualitySwitchTest {
         assertEquals("https://example.com/audio-192.m4s", result?.audioUrl)
         assertEquals(listOf(30280, 30216), result?.adaptiveDashSource?.audioTracks?.map { it.id })
         assertEquals(AUDIO_QUALITY_HI_RES, result?.requestedAudioQuality)
-        assertEquals(AUDIO_QUALITY_AUTO, result?.selectedAudioQuality)
+        assertEquals(30280, result?.selectedAudioQuality)
         assertEquals(AudioFallbackReason.SPEED_INCOMPATIBLE, result?.audioFallbackReason)
     }
 
@@ -422,7 +423,7 @@ class VideoPlaybackUseCaseQualitySwitchTest {
         assertEquals(listOf(AUDIO_QUALITY_HI_RES), result?.adaptiveDashSource?.audioTracks?.map { it.id })
         assertEquals(AUDIO_QUALITY_HI_RES, result?.selectedAudioQuality)
         assertEquals(
-            listOf(AUDIO_QUALITY_HI_RES, AUDIO_QUALITY_AUTO),
+            listOf(AUDIO_QUALITY_AUTO, AUDIO_QUALITY_HI_RES, 30280),
             result?.availableAudioQualities?.map { it.preferenceId }
         )
         assertEquals(hiResAudio, result?.cachedDash?.flac?.audio)
@@ -471,9 +472,68 @@ class VideoPlaybackUseCaseQualitySwitchTest {
 
         assertEquals(standardAudio.getValidUrl(), result?.audioUrl)
         assertEquals(listOf(30280), result?.adaptiveDashSource?.audioTracks?.map { it.id })
-        assertEquals(AUDIO_QUALITY_AUTO, result?.selectedAudioQuality)
+        assertEquals(30280, result?.selectedAudioQuality)
         assertEquals(AudioFallbackReason.REQUESTED_UNAVAILABLE, result?.audioFallbackReason)
         assertTrue(result?.availableAudioQualities?.none { it.preferenceId == AUDIO_QUALITY_DOLBY } == true)
+    }
+
+    @Test
+    fun `raw audio selection controls backend source and manifest while preserving fallback preference`() {
+        val standard64 = DashAudio(30216, baseUrl = "https://example.com/64.m4s", bandwidth = 64_000, codecs = "mp4a.40.2")
+        val standard192 = DashAudio(30280, baseUrl = "https://example.com/192.m4s", bandwidth = 192_000, codecs = "mp4a.40.2")
+        val alternateDolby = DashAudio(30255, baseUrl = "https://example.com/30255.m4s", bandwidth = 448_000, codecs = "ec-3")
+        val data = PlayUrlData(
+            quality = 80,
+            acceptQuality = listOf(80),
+            dash = Dash(
+                video = listOf(DashVideo(80, baseUrl = "https://example.com/video.m4s", codecs = "avc1")),
+                audio = listOf(standard64, standard192),
+                dolby = Dolby(type = 1, audio = listOf(alternateDolby))
+            )
+        )
+        val useCase = VideoPlaybackUseCase()
+        for ((request, speed, expectedTrack) in listOf(
+            Triple(30216, 1f, standard64),
+            Triple(30280, 1f, standard192),
+            Triple(30232, 1f, standard192),
+            Triple(30255, 1f, alternateDolby),
+            Triple(30255, 2f, standard192)
+        )) {
+            val result = useCase.resolvePlaybackSelection(
+                playUrlData = data,
+                targetQuality = 80,
+                audioQualityPreference = request,
+                playbackSpeed = speed,
+                videoCodecPreference = "avc1",
+                videoSecondCodecPreference = "hev1",
+                isHevcSupported = true,
+                isAv1Supported = false,
+                isDolbyAudioSupported = true
+            )
+
+            assertNotNull(result)
+            assertEquals(request, result?.requestedAudioQuality)
+            assertEquals(expectedTrack.id, result?.selectedAudioQuality)
+            assertEquals(expectedTrack.getValidUrl(), result?.audioUrl)
+            val manifestTracks = result?.adaptiveDashSource?.audioTracks.orEmpty()
+            assertSame(expectedTrack, manifestTracks.first())
+            assertEquals(
+                if (request == 30255 && speed > 1.5f) listOf(30280, 30216) else listOf(expectedTrack.id),
+                manifestTracks.map { it.id }
+            )
+            assertEquals(
+                when {
+                    speed > 1.5f -> AudioFallbackReason.SPEED_INCOMPATIBLE
+                    request == 30232 -> AudioFallbackReason.REQUESTED_UNAVAILABLE
+                    else -> null
+                },
+                result?.audioFallbackReason
+            )
+            assertEquals(
+                expectedTrack.codecs,
+                result?.availableAudioQualities?.single { it.preferenceId == expectedTrack.id }?.codecDescription
+            )
+        }
     }
 
     @Test

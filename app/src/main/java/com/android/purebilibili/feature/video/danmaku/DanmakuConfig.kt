@@ -141,7 +141,7 @@ class DanmakuConfig {
     }
 
     private fun resolveActiveDisplayBand(defaultArea: Float): DanmakuDisplayBand {
-        val fallback = DanmakuDisplayBand(0f, defaultArea.coerceIn(0.125f, 1f))
+        val fallback = DanmakuDisplayBand(0f, defaultArea.coerceIn(0.1f, 1f))
         if (!smartOcclusionEnabled) return fallback
 
         val requested = DanmakuDisplayBand(
@@ -197,7 +197,7 @@ internal fun resolveDanmakuTextSizePx(
     isFullscreen: Boolean
 ): Float {
     val baseSizeDp = if (isFullscreen) DANMAKU_FULLSCREEN_TEXT_SIZE_DP else DANMAKU_BASE_TEXT_SIZE_DP
-    return baseSizeDp * density * fontScale.coerceIn(0.3f, 2f)
+    return baseSizeDp * density * fontScale.coerceIn(0.5f, 2.5f)
 }
 
 internal fun resolveDanmakuStrokeWidthPx(density: Float, strokeWidth: Float): Float =
@@ -209,25 +209,25 @@ internal fun resolveDanmakuScrollDurationMillis(
     scrollFixedVelocity: Boolean,
     viewportWidthPx: Int
 ): Long {
-    val baseDurationMillis = (scrollDurationSeconds.coerceIn(2.0f, 15.0f) * 1000f).toLong()
+    val baseDurationMillis = (scrollDurationSeconds.coerceIn(1f, 50f) * 1000f).toLong()
     val scaledBySpeed = baseDurationMillis * speedFactor.coerceIn(0.5f, 2.0f)
     val viewportFactor = if (scrollFixedVelocity && viewportWidthPx > 0) {
         (viewportWidthPx / 1080f).coerceIn(0.75f, 2.5f)
     } else {
         1.0f
     }
-    return (scaledBySpeed * viewportFactor).toLong().coerceIn(2000L, 20000L)
+    return (scaledBySpeed * viewportFactor).toLong().coerceAtLeast(1L)
 }
 
 internal fun resolveDanmakuLayerLineHeightPx(
     fontSize: Float,
     lineHeightMultiplier: Float
 ): Float {
-    return fontSize * lineHeightMultiplier.coerceIn(0.8f, 2.2f)
+    return fontSize * lineHeightMultiplier.coerceIn(1f, 3f)
 }
 
 internal fun resolveDanmakuPinnedDurationMillis(staticDurationSeconds: Float): Long {
-    return (staticDurationSeconds.coerceIn(2.0f, 15.0f) * 1000f).toLong()
+    return (staticDurationSeconds.coerceIn(1f, 50f) * 1000f).toLong()
 }
 
 internal fun resolveDanmakuVisibleLineCount(
@@ -243,7 +243,7 @@ internal fun resolveDanmakuVisibleLineCount(
         return resolveDanmakuFallbackMaxLines(areaRatioHint)
     }
 
-    val lineHeightMultiplier = lineHeight.coerceIn(0.8f, 2.2f)
+    val lineHeightMultiplier = lineHeight.coerceIn(1f, 3f)
     val estimatedLineHeight =
         (fontSize + (if (strokeEnabled) strokeWidth else 0f) + 12f) * lineHeightMultiplier
     val estimatedLines = if (estimatedLineHeight > 0f) {

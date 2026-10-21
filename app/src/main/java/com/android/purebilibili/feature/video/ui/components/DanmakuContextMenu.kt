@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import com.android.purebilibili.core.ui.components.AppIconButton
+import com.android.purebilibili.core.ui.components.AppTextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,14 +87,19 @@ internal val DanmakuReportReasons: List<Pair<String, Int>> = listOf(
     "违法违禁" to 1,
     "色情低俗" to 2,
     "赌博诈骗" to 3,
-    "引战" to 4,
-    "人身攻击" to 5,
-    "剧透" to 6,
-    "刷屏" to 7,
-    "其他" to 8
+    "人身攻击" to 4,
+    "侵犯隐私" to 5,
+    "垃圾广告" to 6,
+    "引战" to 7,
+    "剧透" to 8,
+    "恶意刷屏" to 9,
+    "视频无关" to 10,
+    "青少年不良信息" to 12,
+    "违法信息外链" to 13,
+    "其它" to 11
 )
 
-private val DanmakuTimestampJumpRegex = Regex("(\\d{1,2}):(\\d{2})(?::(\\d{2}))?")
+private val DanmakuTimestampJumpRegex = Regex("(?<![\\d:])(\\d{1,2}):(\\d{2})(?::(\\d{2}))?(?![\\d:])")
 
 /**
  * 从弹幕文本中解析可跳转的时间戳（mm:ss 或 h:mm:ss），返回目标位置毫秒数；
@@ -109,6 +115,9 @@ internal fun resolveDanmakuTimestampJumpMs(text: String): Long? {
         else -> if (second < 60 && third < 60) ((first * 60L + second) * 60L + third) * 1000L else null
     }
 }
+
+internal fun resolveValidDanmakuTimestampJumpMs(text: String, durationMs: Long): Long? =
+    resolveDanmakuTimestampJumpMs(text)?.takeIf { it > 0 && it < durationMs }
 
 @Composable
 fun DanmakuContextMenu(
@@ -127,7 +136,9 @@ fun DanmakuContextMenu(
     onBlockKeyword: () -> Unit = {},
     canBlockKeyword: Boolean = true,
     canBlockUser: Boolean = true,
-    onBlockUser: () -> Unit = {}
+    onBlockUser: () -> Unit = {},
+    durationMs: Long = 0L,
+    onReportWithDetails: ((reason: Int, explanation: String, blockUser: Boolean) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var currentPage by remember { mutableStateOf(DanmakuContextMenuPage.MAIN) }
@@ -166,13 +177,21 @@ fun DanmakuContextMenu(
                     label = "MenuTransition"
                 ) { page ->
                     when (page) {
-                        DanmakuContextMenuPage.REPORT -> ReportReasonMenu(
-                            onSelectReason = { reason ->
-                                onReport(reason)
+                        DanmakuContextMenuPage.REPORT -> Column(
+                            Modifier.width(300.dp).background(MaterialTheme.colorScheme.surface).padding(12.dp)
+                        ) {
+                            AppTextButton(onClick = { currentPage = DanmakuContextMenuPage.MAIN }) {
+                                AppText("返回")
+                            }
+                            DanmakuReportForm(canBlockUser = canBlockUser, onSubmit = { reason, explanation, block ->
+                                if (onReportWithDetails != null) onReportWithDetails(reason, explanation, block)
+                                else {
+                                    onReport(reason)
+                                    if (block) onBlockUser()
+                                }
                                 onDismiss()
-                            },
-                            onBack = { currentPage = DanmakuContextMenuPage.MAIN }
-                        )
+                            })
+                        }
                         DanmakuContextMenuPage.RECALL_CONFIRM -> RecallConfirmMenu(
                             previewText = resolveDanmakuRecallConfirmationPreview(text),
                             onBack = { currentPage = DanmakuContextMenuPage.MAIN },
@@ -188,7 +207,7 @@ fun DanmakuContextMenu(
                             voteLoading = voteLoading,
                             canVote = canVote,
                             canRecall = canRecall,
-                            timestampJumpMs = timestampJumpMs,
+                            timestampJumpMs = timestampJumpMs?.takeIf { it > 0 && it < durationMs },
                             onSeekToTimestamp = {
                                 onSeekToTimestamp(it)
                                 onDismiss()
@@ -437,59 +456,6 @@ private fun MainMenu(
     }
 }
 
-@Composable
-private fun ReportReasonMenu(
-    onSelectReason: (Int) -> Unit,
-    onBack: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .width(280.dp)
-            .clip(AppShapes.container(ContainerLevel.Dialog))
-            .background(com.android.purebilibili.core.ui.AppSurfaceTokens.cardContainer()),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Header with Back
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
-            AppIconButton(
-                onClick = onBack,
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                AppIcon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "返回",
-                    tint = AppContentColors.neutralAction(),
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-            AppText(
-                text = "举报原因",
-                color = AppContentColors.primaryText(),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                modifier = Modifier.align(Alignment.Center)
-            )
-        }
-
-        MenuSeparator()
-
-        val reasons = DanmakuReportReasons
-
-        reasons.forEachIndexed { index, (label, code) ->
-            MenuItem(
-                label = label,
-                centered = true, // Center text for options
-                onClick = { onSelectReason(code) }
-            )
-            if (index < reasons.lastIndex) {
-                MenuSeparator()
-            }
-        }
-    }
-}
 
 private fun formatVoteCount(rawCount: Int): String {
     val count = rawCount.coerceAtLeast(0)

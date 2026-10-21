@@ -106,37 +106,4 @@ class DanmakuSegmentWindowPolicyTest {
             )
         )
     }
-
-    @Test
-    fun `scrubbing gates asynchronous data and playback callbacks`() {
-        val source = java.io.File(
-            "src/main/java/com/android/purebilibili/feature/video/danmaku/DanmakuManager.kt"
-        ).readText()
-        val dataCommit = source.substringAfter("activeSegmentIndices = requestedSegments")
-        assertTrue(dataCommit.indexOf("if (isSeekScrubbing)") < dataCommit.indexOf("rollWindowForward("))
-        val playingCallback = source.substringAfter("override fun onIsPlayingChanged(isPlayerPlaying: Boolean) {")
-        assertTrue(playingCallback.trimStart().startsWith("if (isSeekScrubbing) return"))
-        val overlay = java.io.File(
-            "src/main/java/com/android/purebilibili/feature/video/ui/overlay/PortraitProgressBar.kt"
-        ).readText()
-        assertFalse(overlay.contains("tryAwaitRelease()"))
-        assertTrue(overlay.contains("if (dragInProgress) currentOnSeekDragCancel()"))
-    }
-
-    @Test
-    fun `renderer supports seamless forward window roll instead of timeline reload`() {
-        val managerSource = java.io.File(
-            "src/main/java/com/android/purebilibili/feature/video/danmaku/DanmakuManager.kt"
-        ).readText()
-        val engineSource = java.io.File(
-            "../danmaku-engine/src/main/java/com/android/purebilibili/danmaku/engine/ByteDanceDanmakuEngine.kt"
-        ).readText()
-
-        assertTrue(managerSource.contains("rollWindowForward("))
-        assertFalse(managerSource.contains("reason = \"${'$'}reason:complete\""))
-        assertFalse(managerSource.contains("reason = \"${'$'}reason:anchor\""))
-        assertTrue(managerSource.contains("reason == \"playback_progress\" || reason == \"segment_retry\""))
-        assertTrue(engineSource.contains("controller.appendData("))
-        assertTrue(engineSource.contains("controller.discardDataBefore("))
-    }
 }

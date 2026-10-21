@@ -7,6 +7,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -30,6 +32,7 @@ internal fun CenterPlaybackControl(
     onPlayPause: () -> Unit,
     diameter: Dp,
     modifier: Modifier = Modifier,
+    height: Dp = diameter,
 ) {
     val glass = LocalAppThemeConfig.current.liquidGlassEnabled
     AnimatedVisibility(
@@ -38,12 +41,13 @@ internal fun CenterPlaybackControl(
         enter = fadeIn(tween(200, easing = AppMotionEasing.Continuity)),
         exit = fadeOut(tween(200, easing = AppMotionEasing.Continuity)),
     ) {
+        PlayerControlTouchBounds(height = height) {
         // The control stays mounted when play/pause toggles with chrome visible.
         // Read the current state so its glyph and accessibility label stay in sync.
         PlayerControlGlassDock(
             enabled = true,
             shape = CircleShape,
-            modifier = Modifier.size(diameter),
+            modifier = Modifier.width(diameter).height(height),
         ) {
             AppSurface(
                 shape = CircleShape,
@@ -63,6 +67,7 @@ internal fun CenterPlaybackControl(
                     )
                 }
             }
+        }
         }
     }
 }

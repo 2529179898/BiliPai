@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -53,7 +55,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
@@ -84,53 +85,6 @@ import kotlinx.coroutines.delay
 private val LandscapeDanmakuSurfaceColor = Color(0xFF0B0B0B)
 private val LandscapeDanmakuInputColor = Color(0xFFF4F5F7)
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-private fun GlassLandscapeDanmakuComposer(
-    visible: Boolean,
-    onDismiss: () -> Unit,
-    onSend: (message: String, color: Int, mode: Int, fontSize: Int, attentionCommand: Boolean) -> Unit,
-    isSending: Boolean,
-    initialColor: Int,
-    initialMode: Int,
-    initialFontSize: Int,
-    initialText: String,
-    initialAttentionCommand: Boolean,
-    onDraftChange: (String, Boolean) -> Unit,
-    onSelectionChange: (color: Int, mode: Int, fontSize: Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var nativeClosing by remember { mutableStateOf(false) }
-    val latestVisible by rememberUpdatedState(visible)
-    val latestDismiss by rememberUpdatedState(onDismiss)
-    LaunchedEffect(visible) {
-        nativeClosing = false
-    }
-    com.android.purebilibili.core.ui.AppModalBottomSheet(
-        visible = visible,
-        onDismissStarted = { nativeClosing = true },
-        onDismissRequest = { if (latestVisible) latestDismiss() },
-        modifier = modifier,
-        presentationOverride = com.android.purebilibili.core.ui.AppModalPresentation.BottomSheet,
-        sheetSurfaceModifier = Modifier.imePadding(),
-    ) {
-        LandscapeDanmakuComposerEditor(
-            visible = visible && !nativeClosing,
-            onSend = { message, color, mode, size, attention ->
-                if (visible && !nativeClosing) onSend(message, color, mode, size, attention)
-            },
-            isSending = isSending,
-            initialColor = initialColor,
-            initialMode = initialMode,
-            initialFontSize = initialFontSize,
-            initialText = initialText,
-            initialAttentionCommand = initialAttentionCommand,
-            onDraftChange = onDraftChange,
-            onSelectionChange = onSelectionChange,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}
 
 @Composable
 fun LandscapeDanmakuComposer(
@@ -147,41 +101,23 @@ fun LandscapeDanmakuComposer(
     onSelectionChange: (color: Int, mode: Int, fontSize: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Only the glass editor changes; native keeps its existing dialog, insets, and defaults.
-    if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
-        GlassLandscapeDanmakuComposer(
-            visible = visible,
-            onDismiss = onDismiss,
-            onSend = onSend,
-            isSending = isSending,
-            initialColor = initialColor,
-            initialMode = initialMode,
-            initialFontSize = initialFontSize,
-            initialText = initialText,
-            initialAttentionCommand = initialAttentionCommand,
-            onDraftChange = onDraftChange,
-            onSelectionChange = onSelectionChange,
-            modifier = modifier,
-        )
-    } else {
-        PlainLandscapeDanmakuComposer(
-            visible = visible,
-            onDismiss = onDismiss,
-            onSend = onSend,
-            isSending = isSending,
-            initialColor = initialColor,
-            initialMode = initialMode,
-            initialFontSize = initialFontSize,
-            initialText = initialText,
-            initialAttentionCommand = initialAttentionCommand,
-            onDraftChange = onDraftChange,
-            onSelectionChange = onSelectionChange,
-            modifier = modifier,
-        )
-    }
+    PlainLandscapeDanmakuComposer(
+        visible = visible,
+        onDismiss = onDismiss,
+        onSend = onSend,
+        isSending = isSending,
+        initialColor = initialColor,
+        initialMode = initialMode,
+        initialFontSize = initialFontSize,
+        initialText = initialText,
+        initialAttentionCommand = initialAttentionCommand,
+        onDraftChange = onDraftChange,
+        onSelectionChange = onSelectionChange,
+        modifier = modifier,
+    )
 }
 
-/** Shared editor; glass and native retain their own modal hosts. */
+/** Shared opaque editor; menu appearance is independent of player glass preferences. */
 @Composable
 internal fun LandscapeDanmakuComposerEditor(
     visible: Boolean,
@@ -285,7 +221,8 @@ internal fun LandscapeDanmakuComposerEditor(
     }
     CompositionLocalProvider(LocalAppButtonSlotColorCorrectionEnabled provides false) {
     Column(
-        modifier = modifier
+        modifier = modifier.widthIn(max = 450.dp)
+            .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
             .background(LandscapeDanmakuSurfaceColor)
             .pointerInput(Unit) { detectTapGestures { } }
             .windowInsetsPadding(
@@ -374,6 +311,14 @@ internal fun LandscapeDanmakuComposerEditor(
                     }
                 },
             )
+            if (text.isNotBlank() && !isSending) {
+                AppIconButton(onClick = {
+                    text = ""
+                    onDraftChange("", attentionCommandChecked)
+                }, modifier = Modifier.size(32.dp)) {
+                    AppIcon(Icons.Outlined.Close, contentDescription = "清空")
+                }
+            }
 
             AppIconButton(
                 onClick = sendMessage,
@@ -447,12 +392,7 @@ internal fun LandscapeDanmakuComposerEditor(
                 LandscapeDanmakuStyleRow("弹幕颜色") {
                     colorOptions.forEach { option ->
                         val selected = selectedColor == option.value
-                        val gradient = option.value == DANMAKU_SEND_VIP_GRADUAL_COLOR
-                        val swatch = if (gradient) {
-                            Brush.linearGradient(listOf(Color(0xFFFF8FC7), Color(0xFF6DCBFF)))
-                        } else {
-                            SolidColor(Color(0xFF000000.toInt() or option.value))
-                        }
+                        val swatch = SolidColor(Color(0xFF000000.toInt() or option.value))
                         Box(
                             modifier = Modifier.size(40.dp)
                                 .clip(RoundedCornerShape(8.dp))
@@ -462,9 +402,6 @@ internal fun LandscapeDanmakuComposerEditor(
                                 .semantics { contentDescription = option.label },
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (gradient) {
-                                AppText("会员", color = Color(0xFF242424), fontSize = 10.sp)
-                            }
                             if (selected) {
                                 AppIcon(
                                     Icons.Outlined.Check,

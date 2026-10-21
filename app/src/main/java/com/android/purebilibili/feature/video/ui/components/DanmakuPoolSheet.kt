@@ -78,6 +78,8 @@ fun DanmakuPoolSheet(
     upOwnerUserHash: String? = null,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    onRefreshSnapshot: (() -> List<DanmakuItem>)? = null,
+    onReportDanmakuWithDetails: ((dmid: Long, reason: Int, explanation: String, blockUser: Boolean) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
@@ -85,14 +87,15 @@ fun DanmakuPoolSheet(
     var selectedItemForAction by remember(videoCid) { mutableStateOf<DanmakuItem?>(null) }
     var showReportReasons by remember { mutableStateOf(false) }
     var pendingSendText by remember(videoCid) { mutableStateOf<String?>(null) }
+    var snapshot by remember(videoCid) { mutableStateOf(danmakuList.toList()) }
 
-    val filteredList by remember(danmakuList, searchQuery, sortMode) {
+    val filteredList by remember(snapshot, searchQuery, sortMode) {
         derivedStateOf {
             val query = searchQuery.trim()
             val base = if (query.isEmpty()) {
-                danmakuList
+                snapshot
             } else {
-                danmakuList.filter { (it.text ?: "").contains(query, ignoreCase = true) }
+                snapshot.filter { (it.text ?: "").contains(query, ignoreCase = true) }
             }
             when (sortMode) {
                 DanmakuPoolSortMode.TIME -> base.sortedBy { it.showAtTime }
@@ -130,12 +133,15 @@ fun DanmakuPoolSheet(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     AppText(
-                        text = "共 ${danmakuList.size} 条",
+                        text = "共 ${snapshot.size} 条",
                         style = MaterialTheme.typography.bodySmall,
                         color = AppContentColors.secondaryText(),
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    AppTextButton(onClick = { snapshot = (onRefreshSnapshot?.invoke() ?: danmakuList).toList() }) {
+                        AppText("刷新")
+                    }
                     // 排序切换按钮
                     Row(
                         modifier = Modifier
@@ -301,34 +307,19 @@ fun DanmakuPoolSheet(
             },
             text = {
                 if (showReportReasons) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        DanmakuReportReasons.forEachIndexed { index, (label, code) ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onReportDanmaku(item.danmakuId, code)
-                                        showReportReasons = false
-                                        selectedItemForAction = null
-                                    }
-                                    .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                AppText(
-                                    text = label,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                    DanmakuReportForm(
+                        canBlockUser = item.userHash.isNotBlank() && !item.isSelf,
+                        onSubmit = { reason, explanation, block ->
+                            if (onReportDanmakuWithDetails != null) {
+                                onReportDanmakuWithDetails(item.danmakuId, reason, explanation, block)
+                            } else {
+                                onReportDanmaku(item.danmakuId, reason)
+                                if (block) onBlockSender(item.userHash)
                             }
-                            if (index < DanmakuReportReasons.lastIndex) {
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                                )
-                            }
-                        }
-                    }
+                            showReportReasons = false
+                            selectedItemForAction = null
+                        },
+                    )
                 } else {
                     Column(
                         modifier = Modifier.fillMaxWidth(),

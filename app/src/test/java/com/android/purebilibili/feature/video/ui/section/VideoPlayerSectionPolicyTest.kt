@@ -256,50 +256,6 @@ class VideoPlayerSectionPolicyTest {
         assertFalse(shouldIgnoreVideoPlayerHorizontalEdgeDragStart(20f, 1_000f, false, 48f))
     }
 
-    @Test
-    fun bottomGestureExclusion_includesExpandedProgressPreviewContainer() {
-        assertEquals(
-            186,
-            resolveVideoPlayerBottomGestureExclusionHeightDp(
-                controlBarBottomPaddingDp = 14,
-                progressSpacingDp = 10,
-                progressContainerHeightDp = 120,
-                controlRowHeightDp = 30,
-                extraBufferDp = 12
-            )
-        )
-    }
-
-    @Test
-    fun bottomGestureExclusion_allowsLandscapeCenterDragWhenProgressPreviewIsHidden() {
-        val visibleControlExclusionPx = resolveVideoPlayerBottomGestureExclusionHeightDp(
-            controlBarBottomPaddingDp = 14,
-            progressSpacingDp = 10,
-            progressContainerHeightDp = 40,
-            controlRowHeightDp = 40,
-            extraBufferDp = 12
-        ).toFloat()
-
-        assertFalse(
-            shouldIgnoreVideoPlayerDragStart(
-                offsetY = 210f,
-                containerHeightPx = 360f,
-                topGestureExclusionPx = 48f,
-                bottomGestureExclusionPx = visibleControlExclusionPx
-            )
-        )
-    }
-
-    @Test
-    fun bottomGestureExclusion_usesVisibleProgressHeightInVideoPlayerSection() {
-        val source = File("src/main/java/com/android/purebilibili/feature/video/ui/section/VideoPlayerSection.kt")
-            .readText()
-
-        assertTrue(
-            source.contains("progressContainerHeightDp = videoProgressBarLayoutPolicy.baseHeightWithChapterDp"),
-            "Background drag exclusion should use the visible idle progress bar height; the expanded preview height is only visible while the progress bar itself is scrubbing."
-        )
-    }
 
     @Test
     fun dragStart_ignoresProgressPreviewZoneAboveBottomControls() {
@@ -579,7 +535,7 @@ class VideoPlayerSectionPolicyTest {
     }
 
     @Test
-    fun danmakuSettingsScope_keepsPortraitProfileDuringPortraitFullscreenTransition() {
+    fun danmakuSettingsScope_usesFullscreenFontProfileForBothFullscreenRoutes() {
         assertEquals(
             com.android.purebilibili.core.store.DanmakuSettingsScope.LANDSCAPE,
             resolveVideoPlayerDanmakuSettingsScope(
@@ -588,7 +544,7 @@ class VideoPlayerSectionPolicyTest {
             )
         )
         assertEquals(
-            com.android.purebilibili.core.store.DanmakuSettingsScope.PORTRAIT,
+            com.android.purebilibili.core.store.DanmakuSettingsScope.LANDSCAPE,
             resolveVideoPlayerDanmakuSettingsScope(
                 isFullscreen = true,
                 isPortraitFullscreen = true
@@ -599,6 +555,13 @@ class VideoPlayerSectionPolicyTest {
             resolveVideoPlayerDanmakuSettingsScope(
                 isFullscreen = false,
                 isPortraitFullscreen = false
+            )
+        )
+        assertEquals(
+            com.android.purebilibili.core.store.DanmakuSettingsScope.LANDSCAPE,
+            resolveVideoPlayerDanmakuSettingsScope(
+                isFullscreen = false,
+                isPortraitFullscreen = true
             )
         )
     }
@@ -1618,6 +1581,16 @@ class VideoPlayerSectionPolicyTest {
                 bottomControlsHeightPx = 0,
                 density = density
             )
+        )
+        assertEquals(
+            204,
+            resolveSubtitleBottomOffsetPx(
+                isFullscreen = false,
+                controlsVisible = true,
+                navigationInsetPx = 96,
+                bottomControlsHeightPx = 180,
+                density = density,
+            ),
         )
     }
 

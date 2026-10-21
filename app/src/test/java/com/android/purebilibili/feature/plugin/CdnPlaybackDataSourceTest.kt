@@ -176,10 +176,15 @@ class CdnPlaybackDataSourceTest {
         private var callback: Callback? = null
         @Volatile private var canceled = false
         private val computedTags = ConcurrentHashMap<Class<*>, Any>()
+        private val eventListeners = java.util.concurrent.CopyOnWriteArrayList<okhttp3.EventListener>()
+        override fun addEventListener(eventListener: okhttp3.EventListener) {
+            eventListeners.add(eventListener)
+        }
         override fun request(): Request = request
         override fun execute(): Response = error("Only asynchronous transport is supported")
         override fun enqueue(responseCallback: Callback) {
             callback = responseCallback
+            eventListeners.forEach { it.callStart(this) }
             if (canceled) responseCallback.onFailure(this, IOException("canceled"))
             else if (responder != null) responseCallback.onResponse(this, responder.invoke(request))
             queued?.countDown()
@@ -187,6 +192,7 @@ class CdnPlaybackDataSourceTest {
         override fun cancel() {
             if (!canceled) {
                 canceled = true
+                eventListeners.forEach { it.canceled(this) }
                 onCancel()
                 callback?.onFailure(this, IOException("canceled"))
             }

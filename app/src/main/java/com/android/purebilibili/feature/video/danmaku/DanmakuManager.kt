@@ -396,7 +396,7 @@ class DanmakuManager private constructor(
     var weightFilterLevel: Int
         get() = config.weightFilterLevel
         set(value) {
-            config.weightFilterLevel = value.coerceIn(0, 10)
+            config.weightFilterLevel = value.coerceIn(0, 11)
             applyConfigToController("filter_changed")
         }
 
@@ -1180,7 +1180,7 @@ class DanmakuManager private constructor(
         config.allowBottom = allowBottom
         config.allowColorful = allowColorful
         config.allowSpecial = allowSpecial
-        config.weightFilterLevel = weightFilterLevel.coerceIn(0, 10)
+        config.weightFilterLevel = weightFilterLevel.coerceIn(0, 11)
         config.blockedRules = blockedRules
         config.smartOcclusionEnabled = smartOcclusion
         if (blockedRulesChanged) {

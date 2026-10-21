@@ -13,6 +13,8 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -63,10 +65,37 @@ class DanmakuSettingsPanelUiRegressionTest {
             .fetchSemanticsNode().boundsInRoot.center
         composeTestRule.onNodeWithText("弹幕设置").performClick()
         composeTestRule.onNode(isDialog()).performTouchInput { click(relatedCenter) }
+        composeTestRule.waitUntil(timeoutMillis = 2_000) { !showSettings.value }
         composeTestRule.onNode(isDialog()).assertDoesNotExist()
         composeTestRule.runOnIdle { assertEquals(0, relatedClicks) }
 
         composeTestRule.onNodeWithText(relatedTitle).performClick()
         composeTestRule.runOnIdle { assertEquals(1, relatedClicks) }
+    }
+
+    @Test
+    fun selectedBlockTypeChipActuallyDisablesAndRestoresScrollingDanmaku() {
+        val allowScroll = mutableStateOf(true)
+        composeTestRule.setContent {
+            MaterialTheme {
+                DanmakuSettingsPanel(
+                    isFullscreen = false,
+                    opacity = 1f,
+                    fontScale = 1f,
+                    speed = 1f,
+                    allowScroll = allowScroll.value,
+                    onOpacityChange = {},
+                    onFontScaleChange = {},
+                    onSpeedChange = {},
+                    onAllowScrollChange = { allowScroll.value = it },
+                    onDismiss = {},
+                )
+            }
+        }
+        composeTestRule.onNodeWithText("滚动").assertIsNotSelected().performClick()
+        composeTestRule.runOnIdle { assertEquals(false, allowScroll.value) }
+        composeTestRule.onNodeWithText("滚动").assertIsSelected().performClick()
+        composeTestRule.runOnIdle { assertEquals(true, allowScroll.value) }
+        composeTestRule.onNodeWithText("滚动").assertIsNotSelected()
     }
 }

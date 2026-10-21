@@ -1076,6 +1076,8 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
         val currentState = _uiState.value as? BangumiPlayerState.Success ?: return
         if (!shouldRefreshPremiumAudioForPlaybackSpeedChange(
                 requestedAudioQuality = currentState.requestedAudioQuality,
+                requestedAudioKind = currentState.availableAudioQualities
+                    .firstOrNull { it.preferenceId == currentState.requestedAudioQuality }?.kind,
                 previousPlaybackSpeed = previousSpeed,
                 nextPlaybackSpeed = normalizedSpeed
             )

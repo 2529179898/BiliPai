@@ -491,6 +491,7 @@ internal fun AudioModeMusicPlayer(
         audioQualityLabel = audioQualityPresentation.label,
         audioQualityOptions = successState.availableAudioQualities,
         requestedAudioQuality = successState.requestedAudioQuality,
+        selectedAudioQuality = successState.selectedAudioQuality,
         isHiResAudioSelected = audioQualityPresentation.showHiResBadge,
         isDolbyAudioSelected = audioQualityPresentation.showDolbyBadge,
         onAudioQualitySelected = viewModel::setAudioQuality,

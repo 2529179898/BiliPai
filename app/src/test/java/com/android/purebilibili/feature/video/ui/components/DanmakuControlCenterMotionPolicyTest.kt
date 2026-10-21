@@ -1,26 +1,34 @@
 package com.android.purebilibili.feature.video.ui.components
 
+import com.android.purebilibili.core.ui.AppThemeConfig
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class DanmakuControlCenterMotionPolicyTest {
     @Test
-    fun fullscreenGlassEndPanelUsesGroupMotion() {
-        assertTrue(useDanmakuControlCenterMotion(true, DanmakuSettingsPanelAnchor.End, true, true, false))
+    fun playerMenusNeverInheritGlassOrCenteredMiuixPopups() {
+        for (glass in listOf(false, true)) {
+            val original = AppThemeConfig(liquidGlassEnabled = glass, nativeMiuixPopupsEnabled = true)
+            val menu = playerNativeMenuConfig(original)
+            assertFalse(menu.liquidGlassEnabled)
+            assertFalse(menu.nativeMiuixPopupsEnabled)
+            assertEquals(glass, original.liquidGlassEnabled)
+            assertTrue(original.nativeMiuixPopupsEnabled)
+        }
     }
 
     @Test
-    fun portraitAndCenteredPresentationsKeepNativeInteraction() {
-        assertFalse(useDanmakuControlCenterMotion(false, DanmakuSettingsPanelAnchor.End, true, true, false))
-        assertFalse(useDanmakuControlCenterMotion(true, DanmakuSettingsPanelAnchor.Center, true, true, false))
-        assertFalse(useDanmakuControlCenterMotion(true, DanmakuSettingsPanelAnchor.Bottom, true, true, false))
-    }
-
-    @Test
-    fun glassAndMotionPreferencesAreIndependentGates() {
-        assertFalse(useDanmakuControlCenterMotion(true, DanmakuSettingsPanelAnchor.End, false, true, false))
-        assertFalse(useDanmakuControlCenterMotion(true, DanmakuSettingsPanelAnchor.End, true, false, false))
-        assertFalse(useDanmakuControlCenterMotion(true, DanmakuSettingsPanelAnchor.End, true, true, true))
+    fun menuIsolationPreservesUnrelatedApplicationPreferences() {
+        val original = AppThemeConfig(
+            liquidGlassEnabled = true,
+            hapticFeedbackEnabled = false,
+            uiEntranceAnimationEnabled = false,
+            headerBlurEnabled = false,
+            globalTextTapCopyEnabled = true,
+        )
+        val menu = playerNativeMenuConfig(original)
+        assertEquals(original, menu.copy(liquidGlassEnabled = true, nativeMiuixPopupsEnabled = original.nativeMiuixPopupsEnabled))
     }
 }

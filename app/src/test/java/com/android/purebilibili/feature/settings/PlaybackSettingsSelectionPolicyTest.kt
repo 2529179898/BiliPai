@@ -34,10 +34,14 @@ class PlaybackSettingsSelectionPolicyTest {
     }
 
     @Test
-    fun `legacy concrete AAC preference is normalized to high quality AAC`() {
-        assertEquals(-1, normalizeDefaultAudioQualityOption(30280))
-        assertEquals(-1, normalizeDefaultAudioQualityOption(30232))
-        assertEquals(-1, normalizeDefaultAudioQualityOption(30216))
+    fun `raw audio preferences retain exact track identity in default settings`() {
+        for (id in listOf(30280, 30232, 30216, 30255, 30251, 100008, 100009, 100010)) {
+            assertEquals(id, normalizeDefaultAudioQualityOption(id))
+            assertEquals(1, resolveDefaultAudioQualityOptions(id).count { it.value == id })
+        }
+        assertEquals(-1, normalizeDefaultAudioQualityOption(0))
+        assertEquals(-1, normalizeDefaultAudioQualityOption(-999))
+        assertEquals(DEFAULT_AUDIO_QUALITY_FOLLOW_LAST, normalizeDefaultAudioQualityOption(DEFAULT_AUDIO_QUALITY_FOLLOW_LAST))
     }
 
     @Test
