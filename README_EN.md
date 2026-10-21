@@ -156,8 +156,6 @@ Share bugs and ideas through [Issues](https://github.com/jay3-yy/BiliPai/issues/
 | [Readability4J](https://github.com/dankito/Readability4J) | Article extraction |
 | [jsoup](https://jsoup.org/) | HTML parsing |
 | [Telegram](https://github.com/DrKLO/Telegram) | Particle effects and profile interaction reference |
-| [Nagram](https://github.com/NextAlone/Nagram) | Profile and article reader reference |
-| [NagramX](https://github.com/risin42/NagramX) | Particle dissolve effect reference |
 
 See [third-party notices](THIRD_PARTY_NOTICES.md) for more sources and licenses.
 

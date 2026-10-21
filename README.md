@@ -156,8 +156,6 @@ APK 输出至 `app/build/outputs/bilipai/dev/`；正式版输出至 `app/build/o
 | [Readability4J](https://github.com/dankito/Readability4J) | 文章正文提取 |
 | [jsoup](https://jsoup.org/) | HTML 解析 |
 | [Telegram](https://github.com/DrKLO/Telegram) | 粒子动效与资料页交互参考 |
-| [Nagram](https://github.com/NextAlone/Nagram) | 资料页与文章阅读参考 |
-| [NagramX](https://github.com/risin42/NagramX) | 粒子消散动效参考 |
 
 更多来源与许可证见 [第三方声明](THIRD_PARTY_NOTICES.md)。
 
