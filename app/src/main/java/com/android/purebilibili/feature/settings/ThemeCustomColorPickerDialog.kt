@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -77,6 +78,7 @@ internal fun ThemeCustomColorPickerDialog(
     val haptic = rememberHapticFeedback()
     val color = Color.hsv(hue, saturation, brightness)
     val colorHex = formatMd3CustomColorHex(color)
+    val roleTargetLabel = roleTarget?.let { stringResource(it.labelRes) }
     val validHex = isValidMd3CustomColorHex(pendingHex)
     val foreground = resolveReadableForeground(color)
     val previewDark = when {
@@ -151,7 +153,7 @@ internal fun ThemeCustomColorPickerDialog(
         ) {
             Column {
                 Column(Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
-                    AppText(exactRoleTitle ?: roleTarget?.label ?: "自定义主题颜色", style = MaterialTheme.typography.titleLarge)
+                    AppText(exactRoleTitle ?: roleTargetLabel ?: "自定义主题颜色", style = MaterialTheme.typography.titleLarge)
                     AppText("先预览，再保存", style = MaterialTheme.typography.bodySmall,
                         color = AppContentColors.secondaryText(), modifier = Modifier.padding(top = 4.dp))
                 }
@@ -170,7 +172,7 @@ internal fun ThemeCustomColorPickerDialog(
                                     .border(1.dp, AppSurfaceTokens.divider(), CircleShape))
                                 Column(Modifier.weight(1f)) {
                                     AppText(colorHex, style = MaterialTheme.typography.titleMedium)
-                                    AppText(if (exactRoleTitle != null) "角色颜色（精确值）" else if (controlColorPreview) "输入颜色（精确值）" else roleTarget?.label.orEmpty(), style = MaterialTheme.typography.bodySmall,
+                                    AppText(if (exactRoleTitle != null) "角色颜色（精确值）" else if (controlColorPreview) "输入颜色（精确值）" else roleTargetLabel.orEmpty(), style = MaterialTheme.typography.bodySmall,
                                         color = AppContentColors.secondaryText())
                                 }
                             }
