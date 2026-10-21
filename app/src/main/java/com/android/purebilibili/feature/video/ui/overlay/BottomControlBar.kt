@@ -249,12 +249,11 @@ fun BottomControlBar(
         Column(
             modifier = modifier.fillMaxWidth()
                 .semantics { testTagsAsResourceId = true }
-                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
                 .padding(vertical = PILI_PLAYER_BOTTOM_VERTICAL_PADDING_DP.dp),
         ) {
-            val seekInsets = WindowInsets.systemGestures.only(WindowInsetsSides.Horizontal).union(
-                WindowInsets(left = 20.dp, right = 20.dp),
-            )
+            val seekInsets = WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)
+                .union(WindowInsets.systemGestures.only(WindowInsetsSides.Horizontal))
+                .union(WindowInsets(left = 20.dp, right = 20.dp))
             val hasSegments = showViewPoints && viewPoints.isNotEmpty()
             Box(Modifier.windowInsetsPadding(seekInsets).padding(bottom = PILI_PLAYER_PROGRESS_GAP_DP.dp)
                 .height((if (hasSegments) PILI_PLAYER_CHAPTER_PROGRESS_HEIGHT_DP else PILI_PLAYER_PROGRESS_HEIGHT_DP).dp)) {
@@ -286,8 +285,14 @@ fun BottomControlBar(
                     modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter).height(PILI_PLAYER_PROGRESS_HEIGHT_DP.dp).testTag("player_viewpoint_segments"),
                 )
             }
+            // PiliPlus keeps the bottom row at its 10dp inner margin and lets the
+            // display cutout (its viewPadding) be the only extra side inset.
+            val controlSideInsets = WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)
+                .union(WindowInsets(left = 10.dp, right = 10.dp))
             PiliPlayerBar(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(PILI_PLAYER_BOTTOM_ROW_HEIGHT_DP.dp)
+                modifier = Modifier.fillMaxWidth()
+                    .windowInsetsPadding(controlSideInsets)
+                    .height(PILI_PLAYER_BOTTOM_ROW_HEIGHT_DP.dp)
                     .testTag("player_control_row"),
                 left = {
                     PlayerPlayPauseButton(isPlaying, onPlayPauseClick)
