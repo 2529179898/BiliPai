@@ -5,11 +5,11 @@
 </p>
 
 <p align="center">
-  <sub>Last updated: 2026-10-03 · Current source build: 0.2.7 · Latest documented release: v0.2.7</sub>
+  <sub>Last updated: 2026-10-22 · Current source build: 0.5.3 (501) · See CHANGELOG.md for version history</sub>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Release-0.2.7-fb7299?style=flat-square" alt="Release">
+  <img src="https://img.shields.io/badge/Source-0.5.3-fb7299?style=flat-square" alt="Source 0.5.3">
   <img src="https://img.shields.io/github/stars/jay3-yy/BiliPai?style=flat-square&color=yellow" alt="Stars">
   <img src="https://img.shields.io/github/forks/jay3-yy/BiliPai?style=flat-square&color=green" alt="Forks">
   <img src="https://img.shields.io/github/last-commit/jay3-yy/BiliPai?style=flat-square&color=purple" alt="Last Commit">
@@ -18,7 +18,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026)-brightgreen?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/APK-Varies-orange?style=flat-square" alt="Size">
-  <img src="https://img.shields.io/badge/License-Non--Commercial-blue?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/License-GPLv3-blue?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/Plugins-10%20Built--in-blueviolet?style=flat-square" alt="Plugins">
 </p>
 
@@ -66,6 +66,7 @@
 | **HD Quality** | Supports 4K / 1080P60 / HDR / Dolby Vision (Login/Premium required) |
 | **DASH Streaming** | Adaptive bitrate selection, seamless quality switching, smooth playback |
 | **Danmaku System** | Adjustable opacity, font size, speed, and density filtering |
+| **Subtitles** | Import JSON, BCC, WebVTT, SRT, or ASS; export JSON, WebVTT, or SRT; adjust styling, timing, and on-screen position |
 | **Video Notes** | Private notes, AI-summary drafts, rich text editing, timestamps, Markdown as the editor interchange format, and system sharing |
 | **Gesture Control** | Brightness (left), Volume (right), Seek (horizontal) |
 | **Playback Speed** | Edit the shared speed list (0.1x–8x) under Settings → Playback and choose the default speed from it. Temporary long-press speed has an independent 1.0x–8.0x slider, quick presets, and tap-to-enter value; player menus and two-finger speed gestures use the shared list. |
@@ -387,9 +388,9 @@ BiliPai/
 | Category | Technology | Description |
 |-----|-----|-----|
 | **Language** | Kotlin 2.4 | AGP built-in Kotlin toolchain |
-| **Build Baseline** | AGP 9.3.1 / Gradle 9.5 / Kotlin 2.4 / JDK 21 | compileSdk 37, minSdk 26 |
+| **Build Baseline** | AGP 9.3.2 / Gradle 9.5 / Kotlin 2.4 / JDK 21 | compileSdk 37, minSdk 26 |
 | **UI** | Jetpack Compose | Material 3, Miuix, Compose Cupertino |
-| **Navigation** | Navigation3 1.2.0-alpha07 | App-owned back stack, scenes and predictive back |
+| **Navigation** | Local miuix-navigation module / NavigationEvent 1.1.2 | App-owned back stack, scenes and predictive back |
 | **Architecture** | MVVM + Clean Architecture | Clear separation, maintainable |
 
 ### Network & Data
@@ -452,12 +453,15 @@ See the [current roadmap](docs/wiki/ROADMAP.md) for priorities, completion crite
 
 See full changelog: [CHANGELOG.md](CHANGELOG.md)
 
-### Current source build (v0.5.3 · 2026-10-21)
+### Current source build (v0.5.3)
 
-- Current source build: `0.5.3` / `versionCode 499`.
-- Unified dynamic comment composition, improved nested replies and drafts, and added missing related-post loading and retry feedback.
-- Fixed Miuix search selection colors, popular-tab alignment, player double-tap handling, and message account isolation.
-- Reduced feed and player refresh work, background visual tasks, download and plugin overhead, and image resource duplication.
+- Current source build: `0.5.3` / `versionCode 501`.
+- Added English language support, prioritizing settings and commonly used screens.
+- Improved Liquid Glass, Material 3, and Miuix player controls and menus; quality, speed, audio, and aspect-ratio options reflect available choices. Fullscreen comment and related-video panels are available with Liquid Glass disabled.
+- Added local subtitle import and export, styling, timing offsets, and drag positioning.
+- Added bangumi seek thumbnails and paid-content badges for collections; improved episode panel sizing and playback order across parts and collections.
+- Unified profile and sidebar icon colors, corrected favorites multi-selection hit areas, and stopped playback when the app is dismissed from recent tasks.
+- Added startup and interaction baseline profiles to reduce work on frequently used paths.
 - See [CHANGELOG.md](CHANGELOG.md) for the complete changelog.
 - Official Telegram: channel [@bilipai666](https://t.me/bilipai666), group [@bilipai888](https://t.me/bilipai888/1).
 
@@ -471,7 +475,7 @@ cd BiliPai
 ./gradlew :app:assembleDev
 ```
 
-The installable artifact is exported to `app/build/outputs/bilipai/dev/BiliPai-0.2.3-alpha.7-dev.apk`. Release builds use `app/build/outputs/bilipai/release/BiliPai-0.2.3-alpha.7.apk`; AGP's internal `app-*.apk` files are not delivery artifacts.
+The installable artifact is exported to `app/build/outputs/bilipai/dev/BiliPai-0.5.3-dev.apk`. Release builds use `app/build/outputs/bilipai/release/BiliPai-0.5.3.apk`; AGP's internal `app-*.apk` files are not delivery artifacts.
 
 ---
 
@@ -508,7 +512,7 @@ Issues and Pull Requests are welcome!
 
 > [!CAUTION]
 >
-> 1. This project is for **learning purposes only**. Commercial use is strictly prohibited.
+> 1. This project is licensed under GPLv3. Use, modification, and distribution must comply with the license and applicable laws.
 > 2. Data source: Bilibili Official API. Copyright belongs to Shanghai Hupu Information Technology Co., Ltd.
 > 3. Login info is stored locally and never uploaded.
 > 4. Please comply with local laws and regulations.
@@ -518,11 +522,9 @@ Issues and Pull Requests are welcome!
 
 ## 📄 License
 
-[BiliPai Non-Commercial License 1.0](LICENSE)
+[GNU General Public License v3.0](LICENSE)
 
-You may use, copy, modify, build, and distribute this project or modified versions for non-commercial purposes. Modified versions may be distributed as closed-source works, and no source disclosure or acknowledgement is required.
-
-Commercial use, paid distribution, commercial services, ad monetization, or any other profit-oriented use requires separate prior written permission from the copyright holder.
+You may use, study, modify, and distribute this project under GPLv3. When distributing modified versions or binaries, provide the corresponding source code and retain the license and copyright notices as required by GPLv3.
 
 ---
 

@@ -14,10 +14,10 @@
 </p>
 
 <p>
-  <img src="https://img.shields.io/badge/Release-0.2.7-007AFF?style=flat-square&labelColor=ffffff" alt="Release 0.2.7" />
+  <img src="https://img.shields.io/badge/Source-0.5.3-007AFF?style=flat-square&labelColor=ffffff" alt="Source 0.5.3" />
   <img src="https://img.shields.io/badge/Android-8.0%2B-34C759?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+" />
   <img src="https://img.shields.io/badge/Kotlin-100%25-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin" />
-  <img src="https://img.shields.io/badge/License-Non--Commercial-FF3B30?style=flat-square" alt="Non-Commercial License" />
+  <img src="https://img.shields.io/badge/License-GPLv3-FF3B30?style=flat-square" alt="GPLv3 License" />
   <img src="https://img.shields.io/github/stars/jay3-yy/BiliPai?style=flat-square&color=FF9500&labelColor=ffffff" alt="Stars" />
 </p>
 
@@ -33,7 +33,7 @@
   </a>
 </p>
 
-<sub>README 更新：2026-10-21 · 当前构建版本以 app/build.gradle.kts 为准 · 已发布版本以 <a href="CHANGELOG.md">CHANGELOG.md</a> 为准</sub>
+<sub>README 更新：2026-10-22 · 当前源码版本 0.5.3（501），以 app/build.gradle.kts 为准 · 版本变更见 <a href="CHANGELOG.md">CHANGELOG.md</a></sub>
 
 </div>
 
@@ -66,7 +66,7 @@ BiliPai 是一个基于 Kotlin 与 Jetpack Compose 的第三方 Bilibili Android
 
 ## 真机预览
 
-以下图片来自当前真机截图目录，后续 README 改版也会继续沿用这组资产。
+以下为应用界面预览，具体界面以当前版本和所选主题为准。
 
 <div align="center">
 
@@ -101,9 +101,10 @@ BiliPai 是一个基于 Kotlin 与 Jetpack Compose 的第三方 Bilibili Android
 | 模块 | 能力 |
 | --- | --- |
 | 视频播放 | DASH 自适应码率、4K / 1080P60 / HDR、弹幕、手势、倍速、后台播放、画中画、播放记忆 |
+| 字幕管理 | 导入 JSON / BCC / WebVTT / SRT / ASS，导出 JSON / WebVTT / SRT，支持样式、时间偏移与拖动定位 |
 | 视频笔记 | 私有笔记、新建/编辑/删除、AI 总结生成草稿、富文本编辑、时间点、Markdown 中间格式、系统分享 |
 | 听视频 | 沉浸式 / 黑胶唱片模式、歌词、播放列表、定时关闭、系统媒体中心联动 |
-| 番剧影视 | 选集面板、季度/版本切换、横屏顶部操作、追番与播放进度 |
+| 番剧影视 | 选集面板、季度/版本切换、追番与播放进度、拖动缩略图预览 |
 | 直播 | 分区浏览、HLS 播放、实时弹幕、动态卡片跳转直播间 |
 | 动态消息 | 关注流、GIF、图片预览/保存、消息分类、富文本链接跳转 |
 | 搜索空间 | 视频 / UP 主 / 番剧检索，UP 空间搜索，历史记录与实时建议 |
@@ -141,9 +142,9 @@ BiliPai 的界面围绕“内容优先、控制轻量、动效克制”调整。
 | 类别 | 选型 |
 | --- | --- |
 | 语言 | Kotlin |
-| 构建基线 | AGP 9.3.1、Gradle 9.5、Kotlin 2.4、JDK 21、compileSdk 37 |
+| 构建基线 | AGP 9.3.2、Gradle 9.5、Kotlin 2.4、JDK 21、compileSdk 37 |
 | UI | Jetpack Compose、Material 3、Miuix、Compose Cupertino、MVVM |
-| 导航 | Navigation3 runtime/UI 1.2.0-alpha07、NavigationEvent 1.2.0-alpha03 |
+| 导航 | 本地 miuix-navigation 模块、NavigationEvent 1.1.2 |
 | 网络 | Retrofit、OkHttp、Kotlinx Serialization |
 | 存储 | Room、DataStore |
 | 媒体 | AndroidX Media3 / ExoPlayer、MediaCodec |
@@ -184,13 +185,13 @@ cd BiliPai
 ./gradlew :app:compileDebugKotlin
 ```
 
-本地开发使用 JDK 21；Android Studio、Android SDK 与 Gradle 环境需兼容 AGP 9.3.1 和 compileSdk 37。如需生成可安装的本地测试 APK，可运行：
+本地开发使用 JDK 21；Android Studio、Android SDK 与 Gradle 环境需兼容 AGP 9.3.2 和 compileSdk 37。如需生成可安装的本地测试 APK，可运行：
 
 ```bash
 ./gradlew :app:assembleDev
 ```
 
-完成后可安装交付包位于 `app/build/outputs/bilipai/dev/BiliPai-0.2.3.5-dev.apk`。正式发布构建对应输出 `app/build/outputs/bilipai/release/BiliPai-0.2.3.5.apk`；AGP 内部的 `app-*.apk` 不作为交付文件。
+完成后可安装交付包位于 `app/build/outputs/bilipai/dev/BiliPai-0.5.3-dev.apk`。正式发布构建对应输出 `app/build/outputs/bilipai/release/BiliPai-0.5.3.apk`；AGP 内部的 `app-*.apk` 不作为交付文件。
 
 `google-services.json` 是可选项：放入 `app/` 后启用 Firebase Crashlytics / Analytics；缺失时构建脚本会跳过相关能力。
 
@@ -216,11 +217,14 @@ Crashlytics 的 mapping 上传在本地默认关闭，只有 release 且显式�
 
 ## 最近更新
 
-当前源码版本为 `0.5.3 / versionCode 499`；完整变更见 [CHANGELOG.md](CHANGELOG.md)。安装包与公告见 [Telegram 频道](https://t.me/bilipai666) / [交流群](https://t.me/bilipai888/1)：
+当前源码版本为 `0.5.3 / versionCode 501`；最新版本功能摘要如下，完整变更见 [CHANGELOG.md](CHANGELOG.md)。安装包与公告见 [Telegram 频道](https://t.me/bilipai666) / [交流群](https://t.me/bilipai888/1)：
 
-- 统一动态评论输入弹层，完善楼中楼回复、草稿及相关动态加载。
-- 修复 Miuix 搜索排序主题色、热门分类居中、播放器双击和私信账号隔离。
-- 优化首页与播放页刷新、后台动画任务、下载及插件处理，精简图片资源。
+- **英文与本地化**：应用语言支持英文，优先覆盖设置界面，并补齐常用页面文案。
+- **播放器与菜单**：完善液态玻璃、Material 3 与 Miuix 控制栏适配；画质、倍速、音质和画面比例菜单显示当前可用选项，关闭玻璃时恢复全屏评论与相关推荐侧栏。
+- **字幕管理**：支持导入多种本地字幕、导出常用格式，以及样式调整、时间偏移和拖动定位。
+- **番剧与合集**：番剧拖动进度可查看缩略图；合集显示付费与充电专属角标，选集弹窗按可用空间限高，完善分P与合集的播放顺序。
+- **资料与交互**：统一资料入口与侧栏功能图标配色，修复收藏夹长按多选命中位置；从最近任务划掉应用时停止播放。
+- **启动与常用操作**：补充启动和交互基线配置，减少关键路径开销。
 
 ## 路线图
 
@@ -292,17 +296,3 @@ Made by <a href="https://x.com/YangY_0x00">YangY</a>
 <sub>( ゜- ゜)つロ 干杯~</sub>
 
 </div>
-
-### 后台消息监测
-
-开启消息通知后，普通模式使用 WorkManager 定期补查；开启常驻监测时，前台服务运行于私有 `:message` 进程，并显示常驻通知。消息进程只初始化网络与通知所需的会话读取，不执行播放器、图片缓存、插件、首页或 Firebase 业务初始化。定期补查仍由主进程的 WorkManager 调度，不与常驻进程并行扫描。
-
-账号和通知 DataStore 使用同一文件路径的多进程实现，保留已有加密登录与通知基线；消息进程只读会话，并在请求前后检查账号变化。关闭常驻会停止服务，关闭通知总开关还会清除通知和已通知记录。独立进程仍受系统后台限制，不保证常驻不被回收。
-
-### 独立后台音频
-
-已离开视频页、启用听视频悬浮条的普通视频会话，可将 DASH 音频交给私有 `:playback` 进程。服务持有播放器、媒体会话和队列；远端音频准备完成后才停止本地播放，提交成功后释放无页面持有的本地播放器及旧通知封面。返回视频页通过控制器等待暂停确认，再交回位置、倍速和播放意图；重新打开应用会尝试连接仍在运行的音频会话。
-
-服务仅启用音频轨，缓冲目标 4 MiB、时间范围 10–30 秒，播放源窗口保留前一首、当前与下一首。队列最多 128 项、跨进程快照最多 256 KiB；队列与播放模式更新经控制器同步，无痕模式关闭服务器历史上报。暂停或结束 30 秒后保存状态、停止播放器缓冲并退出前台服务。消息进程与音频进程使用独立的生命周期。
-
-仍挂载的视频页面、画中画、直播、番剧、含重复视频标识的队列、独立播放账号、非 DASH 音频及开启响度均衡的会话沿用原有播放链路；接管失败时保留本地播放。此阶段覆盖离开视频页后的听视频托管，完整视频画面与画中画的跨进程渲染尚未迁移。
