@@ -4471,6 +4471,10 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                         }
                     ).miuixInnerShadow(shape = shellShape) {
                         MiuixInnerShadow(
+                            offset = if (glassEnabled) androidx.compose.ui.unit.DpOffset.Zero else
+                                androidx.compose.ui.unit.DpOffset(
+                                    0.dp, 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgress,
+                                ),
                             radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgress,
                             color = OpticalContrastPalette.Shadow.copy(alpha = 0.15f),
                             alpha = opticalProgress

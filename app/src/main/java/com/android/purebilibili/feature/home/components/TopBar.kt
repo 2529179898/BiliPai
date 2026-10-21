@@ -1618,60 +1618,6 @@ private fun LightweightHomeTopTabs(
                 }
             }
         }
-        val indicatorIsInteracting = pagerIsDragging || pagerIsScrolling ||
-            topTabIndicatorDirectDragActive
-        val topTabShouldStretchIndicator by remember(indicatorIsInteracting, topTabIndicatorPositionState) {
-            derivedStateOf {
-                shouldDeformTopTabIndicator(
-                    position = topTabIndicatorPositionState.value,
-                    isInMotion = indicatorIsInteracting
-                )
-            }
-        }
-        // 速度跟踪器必须是普通可变字段而非 snapshot state：derivedStateOf 的
-        // 计算体既读又写它们，若为 state 会自失效形成重组死循环（静止时全局
-        // 锁 120Hz）。作为纯记忆字段写入不触发任何失效，仅位置 state 变化
-        // 才重算，空闲时无读取即无开销。
-        val topTabVelocityTracker = remember {
-            object {
-                var previousPosition = Float.NaN
-                var previousNanos = 0L
-            }
-        }
-        val topTabMotionVelocityItemsPerSecondState = remember(topTabIndicatorPositionState) {
-            derivedStateOf {
-                val position = topTabIndicatorPositionState.value
-                val now = System.nanoTime()
-                val previousPosition = topTabVelocityTracker.previousPosition
-                val velocity = if (previousPosition.isNaN()) {
-                    0f
-                } else {
-                    resolveTopTabPagerVelocityItemsPerSecond(
-                        currentPosition = position,
-                        previousPosition = previousPosition,
-                        elapsedNanos = (now - topTabVelocityTracker.previousNanos).coerceAtLeast(1L)
-                    )
-                }
-                topTabVelocityTracker.previousPosition = position
-                topTabVelocityTracker.previousNanos = now
-                velocity
-            }
-        }
-        val topTabMotionVelocityPxPerSecondState = remember(density, itemWidth, topTabMotionVelocityItemsPerSecondState) {
-            derivedStateOf {
-                topTabMotionVelocityItemsPerSecondState.value * with(density) {
-                    itemWidth.toPx()
-                }
-            }
-        }
-        val topTabIndicatorInteractionSource = remember { MutableInteractionSource() }
-        val topTabIndicatorPressed by topTabIndicatorInteractionSource.collectIsPressedAsState()
-        // 指示器缩放弹簧、折射面板偏移、胶囊宽高与平移等连续管线全部下沉到
-        // LightweightTopTabIndicatorOverlay，在子组件 scope 内逐帧求值，
-        // 避免横滑期间外层 chrome 整体重组。
-        // Selected-tab pill position: item slot center minus half the pill width, so the
-        // capsule follows the pager offset and the row scroll while staying inside the dock.
-        // （推导移入 LightweightTopTabIndicatorOverlay，位置经 State 注入。）
         val shouldUseMovingIosCapsule = effectivePresentation == AppTopTabPresentation.MOVING_CAPSULE &&
             !skinPlainStyle &&
             !hasSkinStickerIcons
@@ -1702,6 +1648,92 @@ private fun LightweightHomeTopTabs(
             !skinPlainStyle &&
             !hasSkinStickerIcons &&
             !shouldUseMd3NativeUnderline
+
+        val indicatorIsInteracting = pagerIsDragging || pagerIsScrolling ||
+            topTabIndicatorDirectDragActive
+        val topTabShouldStretchIndicator by remember(indicatorIsInteracting, topTabIndicatorPositionState, shouldUseLiquidGlassIndicator) {
+            derivedStateOf {
+                if (shouldUseLiquidGlassIndicator) indicatorIsInteracting else shouldDeformTopTabIndicator(
+                    position = topTabIndicatorPositionState.value,
+                    isInMotion = indicatorIsInteracting
+                )
+            }
+        }
+        // 速度跟踪器必须是普通可变字段而非 snapshot state：derivedStateOf 的
+        // 计算体既读又写它们，若为 state 会自失效形成重组死循环（静止时全局
+        // 锁 120Hz）。作为纯记忆字段写入不触发任何失效，仅位置 state 变化
+        // 才重算，空闲时无读取即无开销。
+        val topTabVelocityTracker = remember {
+            object {
+                var previousPosition = Float.NaN
+                var previousNanos = 0L
+            }
+        }
+        val legacyTopTabMotionVelocityItemsPerSecondState = remember(topTabIndicatorPositionState) {
+            derivedStateOf {
+                val position = topTabIndicatorPositionState.value
+                val now = System.nanoTime()
+                val previousPosition = topTabVelocityTracker.previousPosition
+                val velocity = if (previousPosition.isNaN()) {
+                    0f
+                } else {
+                    resolveTopTabPagerVelocityItemsPerSecond(
+                        currentPosition = position,
+                        previousPosition = previousPosition,
+                        elapsedNanos = (now - topTabVelocityTracker.previousNanos).coerceAtLeast(1L)
+                    )
+                }
+                topTabVelocityTracker.previousPosition = position
+                topTabVelocityTracker.previousNanos = now
+                velocity
+            }
+        }
+        // Glass motion uses frame timestamps, not the timing of derived-state reads.
+        // Sampling the latest position once per frame also observes zero velocity at rest.
+        val glassTopTabVelocity = remember { mutableFloatStateOf(0f) }
+        LaunchedEffect(shouldUseLiquidGlassIndicator, indicatorIsInteracting, topTabIndicatorPositionState) {
+            glassTopTabVelocity.floatValue = 0f
+            if (!shouldUseLiquidGlassIndicator || !indicatorIsInteracting) return@LaunchedEffect
+            var previousPosition = topTabIndicatorPositionState.value
+            var previousFrame = withFrameNanos { it }
+            try {
+                while (true) {
+                    val frame = withFrameNanos { it }
+                    val position = topTabIndicatorPositionState.value
+                    glassTopTabVelocity.floatValue = resolveTopTabPagerVelocityItemsPerSecond(
+                        currentPosition = position,
+                        previousPosition = previousPosition,
+                        elapsedNanos = frame - previousFrame,
+                    )
+                    previousPosition = position
+                    previousFrame = frame
+                }
+            } finally {
+                glassTopTabVelocity.floatValue = 0f
+            }
+        }
+        val topTabMotionVelocityItemsPerSecondState: State<Float> =
+            if (shouldUseLiquidGlassIndicator) glassTopTabVelocity else legacyTopTabMotionVelocityItemsPerSecondState
+        val topTabMotionVelocityPxPerSecondState = remember(density, itemWidth, topTabMotionVelocityItemsPerSecondState) {
+            derivedStateOf {
+                topTabMotionVelocityItemsPerSecondState.value * with(density) {
+                    itemWidth.toPx()
+                }
+            }
+        }
+        val topTabIndicatorInteractionSource = remember { MutableInteractionSource() }
+        val topTabIndicatorPressed by topTabIndicatorInteractionSource.collectIsPressedAsState()
+        val topTabCapturePress = animateFloatAsState(
+            targetValue = if (indicatorIsInteracting || topTabIndicatorPressed) 1f else 0f,
+            animationSpec = com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.pressSpec(),
+            label = "top_tab_capture_press",
+        )
+        // 指示器缩放弹簧、折射面板偏移、胶囊宽高与平移等连续管线全部下沉到
+        // LightweightTopTabIndicatorOverlay，在子组件 scope 内逐帧求值，
+        // 避免横滑期间外层 chrome 整体重组。
+        // Selected-tab pill position: item slot center minus half the pill width, so the
+        // capsule follows the pager offset and the row scroll while staying inside the dock.
+        // （推导移入 LightweightTopTabIndicatorOverlay，位置经 State 注入。）
         val shouldPrimeTopTabLiquidGlassCapture =
             isLiquidGlassEnabled &&
                 !skinPlainStyle &&
@@ -1937,6 +1969,7 @@ private fun LightweightHomeTopTabs(
                     remember(captureHighlightScope, listState, rowHeight, topTabCaptureHeight, density, itemWidth, topTabHorizontalPadding) {
                         com.android.purebilibili.feature.home.components.miuix.InteractiveHighlight(
                             animationScope = captureHighlightScope,
+                            pressProgressProvider = { topTabCapturePress.value },
                             position = { _, point ->
                                 androidx.compose.ui.geometry.Offset(
                                     point.x - topTabHorizontalPaddingPx + topTabListScrollOffsetPxProvider(),
@@ -1946,6 +1979,16 @@ private fun LightweightHomeTopTabs(
                         )
                     }
                 } else null
+                SideEffect {
+                    topTabCaptureHighlight?.drawPositionProvider = { size ->
+                        // The capture row is in content coordinates; its layer already
+                        // applies padding/scroll. Keep tap light on the moving capsule.
+                        androidx.compose.ui.geometry.Offset(
+                            (topTabContentPositionState.value + 0.5f) * with(density) { itemWidth.toPx() },
+                            size.height / 2f,
+                        )
+                    }
+                }
                 Box(
                     modifier = Modifier.fillMaxSize()
                         .then(topTabCaptureHighlight?.gestureModifier ?: Modifier),

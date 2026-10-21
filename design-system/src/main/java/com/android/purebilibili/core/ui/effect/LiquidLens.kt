@@ -12,6 +12,7 @@ import androidx.compose.ui.util.fastCoerceAtMost
 import top.yukonga.miuix.kmp.blur.BackdropEffectScope
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.runtimeShaderEffect
+import kotlin.math.ceil
 
 /**
  * Rounded-rect refraction lens with optional chromatic dispersion.
@@ -51,6 +52,13 @@ fun BackdropEffectScope.lens(
     val key = if (dispersionEnabled) "LiquidGlassLensDispersion" else "LiquidGlassLens"
 
     val sf = downscaleFactor.coerceAtLeast(1).toFloat()
+    if (chromaticEdgeBand != null) {
+        // Miuix records at integer scaled padding and places the texture with an
+        // integer topLeft. Keep the rim's shader origin on that same grid; a
+        // fractional origin shifts the top and bottom masks in opposite directions.
+        // Round outwards so the lens never loses its requested sampling reach.
+        padding = ceil(padding / sf) * sf
+    }
     val scaledSizeW = size.width / sf
     val scaledSizeH = size.height / sf
     val scaledPadding = padding / sf

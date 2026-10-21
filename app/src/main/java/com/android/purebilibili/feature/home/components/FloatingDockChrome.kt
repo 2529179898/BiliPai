@@ -489,6 +489,7 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
                         )
                         .innerShadow(shape = shape) {
                             InnerShadow(
+                                offset = androidx.compose.ui.unit.DpOffset.Zero,
                                 radius = 8.dp * homeIndicatorOpticalScale(height.value) * pressProgress,
                                 color = Color.Black.copy(alpha = 0.15f),
                                 alpha = pressProgress,
