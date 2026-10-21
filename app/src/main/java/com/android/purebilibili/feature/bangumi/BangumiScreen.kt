@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import com.android.purebilibili.core.ui.rememberBackToTopButtonEnabled
 import com.android.purebilibili.core.ui.components.AppLiquidGlassBackToTopButton
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
@@ -111,6 +112,11 @@ private fun BangumiHubScreen(
     backEnabled: Boolean,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val channelPager = rememberBangumiChannelPagerState(
+        channel = state.channel,
+        enabled = state.page == BangumiHubPage.HOME,
+        onChannelSelected = viewModel::selectChannel,
+    )
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -167,7 +173,7 @@ private fun BangumiHubScreen(
     // Keep progressive sampling attached through skeleton → content transitions.
     // Recreating its graphics layers briefly exposes an empty/dark texture.
     val chromeSource = if (progressiveBlur || themeConfig.liquidGlassEnabled) {
-        rememberChromeBackdropSource()
+        rememberChromeBackdropSource(recordingBackground = MaterialTheme.colorScheme.background)
     } else {
         null
     }
@@ -270,6 +276,12 @@ private fun BangumiHubScreen(
                             role = com.android.purebilibili.core.ui.components.AppTabRowRole.PRIMARY,
                             options = BangumiChannel.entries.map { AppSegmentOption(it, it.label) },
                             selectedValue = state.channel,
+                            indicatorPositionProvider = if (state.page == BangumiHubPage.HOME) {
+                                { channelPager.currentPage + channelPager.currentPageOffsetFraction }
+                            } else null,
+                            isScrollInProgressProvider = {
+                                state.page == BangumiHubPage.HOME && channelPager.isScrollInProgress
+                            },
                             enabled = !selectionActive,
                             onSelectionChange = viewModel::selectChannel,
                             dragSelectionEnabled = true,
@@ -329,9 +341,16 @@ private fun BangumiHubScreen(
                     .then(if (hazeState != null) Modifier.hazeSourceCompat(hazeState) else Modifier)
                     .globalWallpaperAwareBackground(MaterialTheme.colorScheme.background),
             ) {
-                Box(modifier = Modifier.fillMaxSize().responsiveContentWidth()) {
+                // The header's visible background must also be the sampled background.
+                // Content padding alone lets scrolled lazy items draw under that region.
+                Box(
+                    modifier = Modifier.fillMaxSize().responsiveContentWidth()
+                        .padding(top = listTopPadding).clipToBounds(),
+                ) {
                     BangumiHubContent(
                         state = state,
+                        channelPagerState = channelPager,
+                        onPrepareChannel = viewModel::prepareHomeChannel,
                         onBangumiClick = onBangumiClick,
                         onEpisodeClick = onBangumiEpisodeClick,
                         onRefreshHome = { viewModel.refreshHome() },
@@ -370,7 +389,7 @@ private fun BangumiHubScreen(
                         },
                         scrollToTopRequestId = scrollToTopRequestId,
                         listBottomPadding = bangumiListBottomPadding,
-                        listTopPadding = listTopPadding,
+                        listTopPadding = 0.dp,
                         tabBackdrop = null,
                         showFollowStatusTabs = false,
                     )

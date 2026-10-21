@@ -543,6 +543,10 @@ class BangumiHubViewModel : ViewModel() {
         }
     }
 
+    fun prepareHomeChannel(channel: BangumiChannel) {
+        if (initialized) ensureHomeLoaded(channel)
+    }
+
     private fun ensureHomeLoaded(channel: BangumiChannel) {
         val home = homeState(channel)
         if (home.recommendations.page == 0 && !home.recommendations.isLoading) {

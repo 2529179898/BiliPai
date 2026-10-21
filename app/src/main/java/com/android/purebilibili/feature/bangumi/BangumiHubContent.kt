@@ -39,6 +39,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -57,6 +60,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -126,10 +130,32 @@ private val BangumiGridStatesSaver = Saver<MutableMap<String, LazyGridState>, Li
 
 
 @Composable
+internal fun rememberBangumiChannelPagerState(
+    channel: BangumiChannel,
+    enabled: Boolean,
+    onChannelSelected: (BangumiChannel) -> Unit,
+): PagerState {
+    val channels = BangumiChannel.entries
+    val pager = rememberPagerState(initialPage = channel.ordinal) { channels.size }
+    val latestChannelSelected by rememberUpdatedState(onChannelSelected)
+    LaunchedEffect(channel, enabled) {
+        if (enabled && pager.currentPage != channel.ordinal) pager.animateScrollToPage(channel.ordinal)
+    }
+    LaunchedEffect(pager, enabled) {
+        if (!enabled) return@LaunchedEffect
+        snapshotFlow { if (pager.isScrollInProgress) null else pager.settledPage }
+            .collect { page -> if (page != null) latestChannelSelected(channels[page]) }
+    }
+    return pager
+}
+
+@Composable
 internal fun BangumiHubContent(
     state: BangumiHubUiState,
     onBangumiClick: (Long) -> Unit,
     onEpisodeClick: (Long, Long) -> Unit,
+    channelPagerState: PagerState,
+    onPrepareChannel: (BangumiChannel) -> Unit,
     onRefreshHome: () -> Unit,
     onLoadMoreHomeRecommendations: () -> Unit,
     onLoadMoreHomeFollows: () -> Unit,
@@ -190,26 +216,38 @@ internal fun BangumiHubContent(
         }
     }
     when (state.page) {
-        BangumiHubPage.HOME -> BangumiHomeContent(
-            channel = state.channel,
-            state = state.homeStates[state.channel] ?: BangumiHomeState(),
-            gridState = activeHomeGrid,
-            isLoggedIn = state.isLoggedIn,
-            showPgcTimeline = state.showPgcTimeline,
-            onBangumiClick = onBangumiClick,
-            onEpisodeClick = onEpisodeClick,
-            onRefresh = onRefreshHome,
-            onLoadMoreRecommendations = onLoadMoreHomeRecommendations,
-            onLoadMoreFollows = onLoadMoreHomeFollows,
-            onRetryTimeline = onRetryTimeline,
-            onTimelineRangeSelected = onTimelineRangeSelected,
-            onOpenIndex = onOpenIndex,
-            onOpenFollow = onOpenFollow,
-            onSaveCover = onSaveCover,
-            listBottomPadding = listBottomPadding,
-            listTopPadding = listTopPadding,
-            tabBackdrop = tabBackdrop,
-        )
+        BangumiHubPage.HOME -> {
+            val channels = BangumiChannel.entries
+            val pager = channelPagerState
+            HorizontalPager(
+                state = pager,
+                modifier = Modifier.fillMaxSize(),
+                key = { channels[it].name },
+            ) { page ->
+                val channel = channels[page]
+                LaunchedEffect(channel, state.accountGeneration) { onPrepareChannel(channel) }
+                BangumiHomeContent(
+                    channel = channel,
+                    state = state.homeStates[channel] ?: BangumiHomeState(),
+                    gridState = homeGridStates.getOrPut(channel.name) { LazyGridState() },
+                    isLoggedIn = state.isLoggedIn,
+                    showPgcTimeline = state.showPgcTimeline,
+                    onBangumiClick = onBangumiClick,
+                    onEpisodeClick = onEpisodeClick,
+                    onRefresh = { if (channel == state.channel) onRefreshHome() },
+                    onLoadMoreRecommendations = { if (channel == state.channel) onLoadMoreHomeRecommendations() },
+                    onLoadMoreFollows = { if (channel == state.channel) onLoadMoreHomeFollows() },
+                    onRetryTimeline = { if (channel == state.channel) onRetryTimeline() },
+                    onTimelineRangeSelected = { if (channel == state.channel) onTimelineRangeSelected(it) },
+                    onOpenIndex = { if (channel == state.channel) onOpenIndex() },
+                    onOpenFollow = { if (channel == state.channel) onOpenFollow() },
+                    onSaveCover = onSaveCover,
+                    listBottomPadding = listBottomPadding,
+                    listTopPadding = listTopPadding,
+                    tabBackdrop = tabBackdrop,
+                )
+            }
+        }
 
         BangumiHubPage.INDEX -> BangumiIndexContent(
             channel = state.channel,
