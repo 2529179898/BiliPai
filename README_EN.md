@@ -1,435 +1,113 @@
-# BiliPai <img src="docs/images/233娘.jpeg" height="80" align="center">
+<div align="center">
 
-<p align="center">
-  <strong>Native, Pure, Extensible — Redefining your Bilibili experience</strong>
-</p>
+<img src="docs/images/233娘.jpeg" height="96" alt="BiliPai" />
 
-<p align="center">
-  <sub>Last updated: 2026-10-22 · Current source build: 0.5.3 (501) · See CHANGELOG.md for version history</sub>
-</p>
+# BiliPai
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Source-0.5.3-fb7299?style=flat-square" alt="Source 0.5.3">
-  <img src="https://img.shields.io/github/stars/jay3-yy/BiliPai?style=flat-square&color=yellow" alt="Stars">
-  <img src="https://img.shields.io/github/forks/jay3-yy/BiliPai?style=flat-square&color=green" alt="Forks">
-  <img src="https://img.shields.io/github/last-commit/jay3-yy/BiliPai?style=flat-square&color=purple" alt="Last Commit">
-</p>
+**A native, clean and extensible Bilibili client for Android**
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026)-brightgreen?style=flat-square" alt="Platform">
-  <img src="https://img.shields.io/badge/APK-Varies-orange?style=flat-square" alt="Size">
-  <img src="https://img.shields.io/badge/License-GPLv3-blue?style=flat-square" alt="License">
-  <img src="https://img.shields.io/badge/Plugins-10%20Built--in-blueviolet?style=flat-square" alt="Plugins">
-</p>
+[简体中文](README.md) · [English](README_EN.md)
 
-<p align="center">
-  <a href="https://t.me/bilipai666"><img src="https://img.shields.io/badge/Telegram-Channel-5AC8FA?style=flat-square&logo=telegram" alt="Telegram channel"></a>
-  <a href="https://t.me/bilipai888/1"><img src="https://img.shields.io/badge/Telegram-Group-2CA5E0?style=flat-square&logo=telegram" alt="Telegram group"></a>
-  <a href="https://x.com/YangY_0x00"><img src="https://img.shields.io/badge/X-Follow-000000?style=flat-square&logo=x" alt="X"></a>
-</p>
+<img src="https://img.shields.io/badge/Source-0.5.3-007AFF?style=flat-square" alt="Source 0.5.3" />
+<img src="https://img.shields.io/badge/Android-8.0%2B-34C759?style=flat-square" alt="Android 8.0+" />
+<img src="https://img.shields.io/badge/License-GPLv3-FF3B30?style=flat-square" alt="GPLv3" />
 
-## 🚀 Repository Navigation
+[Telegram channel](https://t.me/bilipai666) · [Telegram group](https://t.me/bilipai888/1) · [X](https://x.com/YangY_0x00)
 
-- [Download & Install](#-download--install) · [Preview](#-preview) · [Features](#-features)
-- [Changelog](CHANGELOG.md) · [Build](#️-build) · [Contributing](#-contributing)
-- [Open an issue](https://github.com/jay3-yy/BiliPai/issues/new/choose) · [Pull requests](https://github.com/jay3-yy/BiliPai/pulls)
+<sub>Source version 0.5.3 (501) · Updated 2026-10-22</sub>
 
-## 📸 Preview
+</div>
 
-<p align="center">
-  <img src="docs/images/screenshot1.png" alt="Preview 1" height="500">
-  <img src="docs/images/screenshot2.png" alt="Preview 2" height="500">
-  <img src="docs/images/screenshot3.png" alt="Preview 3" height="500">
-  <img src="docs/images/screenshot4.png" alt="Preview 4" height="500">
-  <img src="docs/images/screenshot5.png" alt="Preview 5" height="500">
-  <img src="docs/images/screenshot6.png" alt="Preview 6" height="500">
-  <img src="docs/images/screenshot7.png" alt="Preview 7" height="500">
-  <img src="docs/images/screenshot8.png" alt="Preview 8" height="500">
-  <img src="docs/images/screenshot9.png" alt="Preview 9" height="500">
-</p>
----
+Built with Kotlin and Jetpack Compose, BiliPai supports videos, bangumi, live streams, feeds, messages and offline downloads. It adapts to phones, tablets and foldables, with a separate TV app.
 
-## ✨ Features
+[Download](#download) · [Features](#features) · [Preview](#preview) · [Build](#build) · [Changelog](CHANGELOG.md)
 
-### 🎬 Video Playback
+## Features
 
-| Feature | Description |
-|-----|-----|
-| **HD Quality** | Supports 4K / 1080P60 / HDR / Dolby Vision (Login/Premium required) |
-| **DASH Streaming** | Adaptive bitrate selection, seamless quality switching, smooth playback |
-| **Danmaku System** | Adjustable opacity, font size, speed, and density filtering |
-| **Subtitles** | Import JSON, BCC, WebVTT, SRT, or ASS; export JSON, WebVTT, or SRT; adjust styling, timing, and on-screen position |
-| **Video Notes** | Private notes, AI-summary drafts, rich text editing, timestamps, Markdown as the editor interchange format, and system sharing |
-| **Gesture Control** | Brightness (left), Volume (right), Seek (horizontal) |
-| **Playback Speed** | Edit the shared speed list (0.1x–8x) under Settings → Playback and choose the default speed from it. Temporary long-press speed has an independent 1.0x–8.0x slider, quick presets, and tap-to-enter value; player menus and two-finger speed gestures use the shared list. |
-| **Picture-in-Picture** | Floating window playback for multitasking |
-| **Audio Mode** | 🆕 Dedicated audio player with immersive/vinyl modes, lyrics, playlists, and a sleep timer |
-| **In-app Update** | Check for updates from Settings; also follow the Telegram channel for releases |
-| **Background Play** | Continue listening when screen is off or in background, with dedicated background-play and audio-focus toggles plus more reliable prev/next controls from notifications and system media controls |
-| **Playback Order** | Supports Stop After Current / In-order / Single Loop / List Loop / Auto Continue, with quick toggle in landscape and portrait |
-| **Portrait Interaction Fixes** | Fixes like/favorite actions after swiping to the next portrait video, and favorites now open the folder picker directly |
-| **Seek Preview Optimization** | Preview image updates are quantized to videoshot frame boundaries to reduce redraw cost during drag/tap seeking |
-| **Comment Copy UX** | Long-press opens selectable-copy panel so users can drag-select exact comment text (including rich text scenarios) |
-| **Playback History** | Automatically resume playback, with a toggle and one-time prompt per target |
-| **TV Login** | Scan QR code to login as TV client to unlock high quality |
-| **Plugin System** | Built-in SponsorBlock, AdBlock, Danmaku Enhancement, Eye Protection, Today Watch, CDN Region, and First Visit Recommendation plugins |
-
-### 🔌 Plugin System
-
-| Plugin | Description |
-|-----|-----|
-| **SponsorBlock** | Automatically skip ads/sponsor segments based on BilibiliSponsorBlock database |
-| **AdBlock** | Smartly filter commercial content from recommendation feeds |
-| **Danmaku Plus** | Keyword blocking and highlighting for personalized danmaku experience |
-| **Eye Protection** | Scheduled eye care, 3 presets + DIY tuning, real-time preview, warm filter, humane reminders with snooze |
-| **🆕 Today Watch** | Local recommendation plugin with Relax/Learn modes, collapse/expand, independent refresh, UP ranking, and reason tags |
-| **🆕 CDN Region** | Off by default; prioritizes same-region CDN candidates for normal video playback while preserving original URLs for fallback |
-| **🆕 First Visit Recommendation** | Off by default; removes cookies only from the Web home recommendation API so the feed is closer to public guest recommendations |
-| **Plugin Center** | Unified management for all plugins with independent configurations |
-| **🆕 External Plugins** | Support loading dynamic JSON rule plugins via URL |
-
-First Visit Recommendation credits wangdaodao's original [TabulaBili](https://github.com/wangdaodaodao/TabulaBili) and tjsky's [TabulaBili-Plus](https://github.com/tjsky/TabulaBili), adapted here as a built-in Android plugin.
-
-#### Implemented Details (Supplement)
-
-- `Today Watch`:
-  - dual mode switch: `Relax Tonight` / `Deep Learning`
-  - UP ranking + recommendation queue + per-item explanation tags
-  - queue rows display uploader avatar + name for better readability
-  - linked with eye-care night signal (prefers shorter, lower-stimulation content at night)
-  - local negative-feedback learning (disliked video/uploader/keywords)
-  - one-shot cold-start exposure strategy so users can see the card on first screen
-  - one-tap reset of local profile + feedback in plugin settings
-- `Eye Protection 2.0`:
-  - 3 presets (`Gentle/Balanced/Focus`) + full DIY controls
-  - real-time brightness and warm-filter preview
-  - schedule + usage reminders + snooze
-  - improved humane reminder copy and pacing strategy
-- `Quality Switching`:
-  - quality options now follow the API list, while real DASH tracks decide which tiers stay switchable
-  - cache switching requires exact target quality match; falls back to API when missing
-  - clearer fallback toast when requested quality is unavailable
-
-#### Today Watch UI Example
-
-<p align="center">
-  <img src="docs/images/screenshot_today_watch_plan.png" alt="Today Watch screenshot" height="560">
-</p>
-
-#### Today Watch Algorithm (Detailed)
-
-1. Inputs
-
-- history sample from local watch history
-- candidate videos from home recommend feed
-- mode (`Relax` or `Learn`)
-- eye-care night signal
-- creator profile signals (cross-session local memory)
-- penalty signals (disliked video/uploader/keywords)
-
-2. Creator affinity build-up
-
-- filter valid history items (`bvid` not empty, valid `owner.mid`)
-- aggregate per-creator score with completion + recency bonus
-- merge cross-session profile signals from local store
-
-3. Candidate scoring
-
-- score = base popularity + creator affinity + freshness + mode score + night adjustment + feedback penalty + seen penalty
-- seen videos are explicitly penalized
-- mode score differs for Relax and Learn (duration + keyword orientation)
-- night adjustment favors short, low-stimulation items
-
-4. Diversity queue
-
-- queue is not pure score sort
-- each round applies anti-streak penalties for repeated creators
-- includes novelty bonus for unseen creators in the current queue
-
-5. Explainability and privacy
-
-- each queued item has explanation tags (e.g. `Learn · Mid Length · Night Friendly · Preferred Uploader`)
-- runs fully local; no history upload for personalization
-- users can clear local profile/feedback and restart recommendation learning
-
-<details>
-<summary><b>📖 JSON Rule Plugin Quick Start (Click to expand)</b></summary>
-
-#### What is a JSON Rule Plugin?
-
-A lightweight plugin format requiring **no coding**, just a simple JSON file to implement content filtering.
-
-#### Plugin Structure
-
-```json
-{
-    "id": "my_plugin",
-    "name": "My Plugin",
-    "description": "Plugin description",
-    "version": "1.0.0",
-    "author": "Your Name",
-    "type": "feed",
-    "rules": [
-        {
-            "field": "title",
-            "op": "contains",
-            "value": "Ad",
-            "action": "hide"
-        }
-    ]
-}
-```
-
-#### Supported Fields
-
-| Type | Field | Description |
-|------|------|------|
-| **Feed** | `title` | Video Title |
-| **Feed** | `duration` | Video Duration (seconds) |
-| **Feed** | `owner.mid` | Uploader UID |
-| **Feed** | `owner.name` | Uploader Name |
-| **Feed** | `stat.view` | Play Count |
-| **Danmaku** | `content` | Danmaku Content |
-
-#### Operators
-
-| Operator | Description | Example |
-|--------|------|------|
-| `contains` | Contains string | `"value": "Ad"` |
-| `regex` | Regular expression | `"value": "Shocking.*Must Watch"` |
-| `lt` / `gt` | Less than / Greater than | `"value": 60` |
-| `eq` / `ne` | Equal / Not Equal | `"value": 123456` |
-| `startsWith` | Starts with | `"value": "【"` |
-
-#### Example: Short Video Filter
-
-```json
-{
-    "id": "short_video_filter",
-    "name": "Short Video Filter",
-    "type": "feed",
-    "rules": [
-        { "field": "duration", "op": "lt", "value": 60, "action": "hide" }
-    ]
-}
-```
-
-#### Installation
-
-1. Upload the JSON file to a publicly accessible URL (e.g., GitHub Gist)
-2. In BiliPai, go to **Settings → Plugin Center → Import External Plugin**
-3. Paste the URL and install
-
-</details>
-
->
-> 🧩 **Sample Plugins**: [plugins/samples/](plugins/samples/)
-
-### 📺 Anime / Bangumi
-
-| Feature | Description |
-|-----|-----|
-| **Bangumi Home** | Hot recommendations, schedule, categorical browsing |
-| **Episode Selection** | Official style bottom sheet for switching episodes/seasons |
-| **Landscape Top Bar Actions** | Like / coin / share are now available in landscape/fullscreen and stay closer to the regular video player behavior |
-| **Tracking** | Watch list management and progress synchronization |
-| **Danmaku** | Full danmaku support for anime |
-
-### 📡 Live Streaming
-
-| Feature | Description |
-|-----|-----|
-| **Live List** | Hot live streams, categories, followed streamers |
-| **HD Streaming** | HLS adaptive bitrate playback |
-| **Live Danmaku** | Real-time danmaku display |
-| **Quick Access** | Jump to live room directly from dynamic cards |
-
-### 📱 Dynamic Feed
-
-| Feature | Description |
-|-----|-----|
-| **Feeds** | View videos/posts/reposts from followed uploaders |
-| **Filtering** | Switch between All / Video Only |
-| **GIF Support** | Perfect rendering of GIF images in dynamic posts |
-| **Image Download** | Long press to preview and save to gallery |
-| **Image Preview** | Global non-dialog overlay with iOS-style open/close motion; comment scene uses top caption to avoid covering image content, with 3D-like text transition |
-| **@ Highlighting** | Auto-highlight @User mentions |
-
-### 💬 Message Center & Direct Messages
-
-| Feature | Description |
-|-----|-----|
-| **Message Center** | Unified entry for replies, mentions, likes, and system notices |
-| **History List** | View session history with pagination |
-| **Rich Content** | Supports stickers, mentions, and image viewing |
-| **Video Link Preview** | Detects BV links and renders inline preview cards |
-| **Deep Link Routing** | Opens video, dynamic, space, live, bangumi, music, and web targets directly from messages |
-
-### 📥 Offline Cache
-
-| Feature | Description |
-|-----|-----|
-| **Download** | Select quality, auto-merge audio/video |
-| **Resumable** | Auto-resume downloads after network interruption |
-| **Management** | Clear download list and progress display |
-| **Local Playback** | Manage and play offline videos |
-
-### 🔍 Smart Search
-
-| Feature | Description |
-|-----|-----|
-| **Real-time Suggestions** | Search suggestions while typing (300ms debounce) |
-| **Trending** | Display current hot search terms |
-| **History** | Auto-save search history with deduplication |
-| **Categories** | Search by Video / Uploader / Anime |
-
-### 🎨 Modern UI Design
-
-| Feature | Description |
-|-----|-----|
-| **Material You** | Dynamic theming based on wallpaper |
-| **Dark Mode** | Perfect dark mode support |
-| **iOS Style Bar** | Elegant frosted glass navigation bar |
-| **Animations** | Wave entrance, elastic scaling, shared element transitions |
-| **Shimmer** | Elegant loading placeholders |
-| **Lottie** | Beautiful interactions for Like/Coin/Fav |
-| **Celebration** | Particle effects for successful interactions |
-
-### 👤 Profile
-
-| Feature | Description |
-|-----|-----|
-| **Login Methods** | TV QR, phone/password, SMS verification, and cookie import |
-| **Info** | Avatar, nickname, level, coin display |
-| **History** | Local history browsing, deletion, and article-aware navigation; cloud synchronization remains planned |
-| **Favorites** | Manage favorites and playlists |
-| **Following** | Browse following/fans list |
-
-### 🔒 Privacy Friendly
-
-- 🚫 **No Ads** - Pure viewing experience, no ad injections
-- 🔐 **Minimal Permissions** - Only essential permissions (No Location/Contacts/Phone)
-- 💾 **Local Storage** - Login credentials stored locally, no privacy data upload
-- 🛡️ **More conservative telemetry defaults** - Crash tracking stays on by default, usage analytics is off by default, and player diagnostic logging remains separately available for troubleshooting
-- 🪵 **Runtime logs no longer persist by default** - Ordinary runtime logs are no longer written to disk by default, while crash snapshots and manual export remain available
-- 🔍 **Open Source** - Full source code available for review
-
----
-
-## 📦 Download & Install
-
-<p>
-  <a href="https://t.me/bilipai666"><img src="https://img.shields.io/badge/Telegram-Channel-5AC8FA?style=for-the-badge&logo=telegram" alt="Telegram channel"></a>
-  <a href="https://t.me/bilipai888/1"><img src="https://img.shields.io/badge/Telegram-Group-2CA5E0?style=for-the-badge&logo=telegram" alt="Telegram group"></a>
-</p>
-
-| Channel | Link |
+| Feature | Details |
 | --- | --- |
-| Announcements / releases | [t.me/bilipai666](https://t.me/bilipai666) |
-| Community group | [t.me/bilipai888](https://t.me/bilipai888/1) |
-| Source code | [GitHub](https://github.com/jay3-yy/BiliPai) |
+| Playback | DASH, HD quality, danmaku, gestures, speed controls, resume, background play and picture-in-picture |
+| Audio mode | Immersive and vinyl layouts, lyrics, queues, sleep timer and system media controls |
+| Subtitles and notes | Local subtitle import/export, styling and timing; private notes, timestamps and AI-summary drafts |
+| Bangumi and live | Following, episode selection, seek previews, live categories and danmaku |
+| Feeds and messages | Followed creators, comments, replies, image previews and direct messages |
+| Search and downloads | Video, creator and bangumi search; resumable downloads and local playback |
+| Appearance | Material 3, Miuix, optional Liquid Glass, dynamic colors and large-screen layouts |
+| Extensions | Plugins, DLNA / Google Cast and WebDAV settings backup |
 
-### Requirements
+Some quality tiers require login or account privileges. Appearance, playback, danmaku and background behavior are configurable in Settings.
 
-| Item | Requirement |
-|-----|-----|
-| **Android Version** | Android 8.0+ (API 26) |
-| **Architecture** | 64-bit (arm64-v8a) |
-| **Recommended** | Android 12+ for full Material You experience |
-| **Size** | Varies by ABI/build variant |
+## Preview
 
-### Installation
+Appearance varies by version, theme and screen size.
 
-1. Download the latest APK from the [Telegram channel](https://t.me/bilipai666) or [group](https://t.me/bilipai888/1)
-2. Install on your device (Unknown Sources permission may be required)
-3. Open the app and sign in with TV QR, phone/password, SMS verification, or cookie import
-4. Enjoy the pure Bilibili experience!
+<div align="center">
 
----
+<img src="docs/images/screenshot1.png" height="400" alt="BiliPai 1" />
+<img src="docs/images/screenshot2.png" height="400" alt="BiliPai 2" />
+<img src="docs/images/screenshot3.png" height="400" alt="BiliPai 3" />
+<img src="docs/images/screenshot4.png" height="400" alt="BiliPai 4" />
+<img src="docs/images/screenshot5.png" height="400" alt="BiliPai 5" />
+<img src="docs/images/screenshot6.png" height="400" alt="BiliPai 6" />
+<img src="docs/images/screenshot7.png" height="400" alt="BiliPai 7" />
+<img src="docs/images/screenshot8.png" height="400" alt="BiliPai 8" />
+<img src="docs/images/screenshot9.png" height="400" alt="BiliPai 9" />
 
-## 🧱 Project Structure
+</div>
+
+## Download
+
+Get APKs and release notes from the [Telegram channel](https://t.me/bilipai666). Join the [Telegram group](https://t.me/bilipai888/1) for feedback.
+
+- Requires Android 8.0+; supported architectures depend on the APK.
+- Sign in with a TV QR code, password, SMS code or imported cookies.
+- Allow installation from the source used to open the APK.
+
+## Plugins
+
+Built-in plugins cover sponsor skipping, ad filtering, Anime4K, danmaku, eye care, recommendations and casting. Import JSON / `.bp` rules by URL. Source plugins require compilation; external `.bpplugin` execution remains in preview.
+
+Review the source and declared permissions before importing third-party plugins.
+
+## Recent updates
+
+- Added English support, local subtitle import/export and styling.
+- Improved player menus, bangumi seek previews and paid-content badges.
+- Fixed favorites multi-selection, unified profile/sidebar icons and added startup and interaction profiles.
+
+See [CHANGELOG.md](CHANGELOG.md) for details. The source version is defined in `app/build.gradle.kts`.
+
+## Project structure
 
 ```text
 BiliPai/
-├── app/                         # App shell, product features, navigation, player, state and tests
-│   └── src/main/java/com/android/purebilibili/
-│       ├── app/                 # Application startup and top-level assembly
-│       ├── core/                # Shared network, storage, player, plugin, theme and UI capabilities
-│       ├── data/                # API/database models and repositories
-│       ├── domain/              # Reusable use cases and business policies
-│       ├── feature/             # Home, video, dynamic, live, settings and other product areas
-│       ├── navigation/          # Route compatibility and top-level navigation policies
-│       └── navigation3/         # NavKey, back stack, entries/scenes and predictive back
-├── design-system/               # Shared MD3, Miuix and iOS visual primitives and policies
-├── settings-core/               # Reusable settings policies
-├── network-core/                # Reusable network fallback and feed policies
-├── plugin-sdk/                  # Recommendation, player and danmaku plugin contracts
-├── baselineprofile/             # Startup and frame-timing benchmarks/profiles
-├── docs/                        # Image assets and third-party source notices
-├── plugins/                     # Plugin SDK, JSON/source samples and skins
-└── scripts/                     # CI, release, profiling and device collection tools
+├── app/                     # Phone and tablet app
+├── app-tv/                  # TV app
+├── core-data/               # Networking, data and storage
+├── core-player/             # Playback sessions and media
+├── design-system/           # Themes and UI components
+├── design-tokens/           # Colors, typography and sizing
+├── brand-motion/            # Brand assets and motion
+├── settings-core/           # Settings policies
+├── network-core/            # Network and feed policies
+├── plugin-sdk/              # Plugin interfaces
+├── plugins/                 # Plugin and skin samples
+├── danmaku-engine/          # Danmaku engine
+├── dolby-ffmpeg-decoder/    # Audio decoder extension
+├── miuix-navigation/        # Navigation components
+├── baselineprofile/         # Startup and interaction profiles
+├── ci-lint/                 # Static analysis rules
+├── build-logic/             # Build plugins
+├── gradle/                  # Dependencies and Gradle Wrapper
+├── scripts/                 # Build and maintenance scripts
+└── docs/                    # Screenshots and source notices
 ```
 
----
+## Build
 
-## 🛠 Tech Stack
+Use JDK 21 and Android SDK 37. The repository manages Gradle Wrapper and dependency versions.
 
-### Core Framework
-
-| Category | Technology | Description |
-|-----|-----|-----|
-| **Language** | Kotlin 2.4 | AGP built-in Kotlin toolchain |
-| **Build Baseline** | AGP 9.3.2 / Gradle 9.5 / Kotlin 2.4 / JDK 21 | compileSdk 37, minSdk 26 |
-| **UI** | Jetpack Compose | Material 3, Miuix, Compose Cupertino |
-| **Navigation** | Local miuix-navigation module / NavigationEvent 1.1.2 | App-owned back stack, scenes and predictive back |
-| **Architecture** | MVVM + Clean Architecture | Clear separation, maintainable |
-
-### Network & Data
-
-| Category | Technology | Description |
-|-----|-----|-----|
-| **Network** | Retrofit + OkHttp | RESTful API |
-| **Serialization** | Kotlinx Serialization | JSON parsing |
-| **Storage** | Room + DataStore | Database + Preferences |
-| **Image** | Coil Compose | GIF support |
-
-### Media
-
-| Category | Technology | Description |
-|-----|-----|-----|
-| **Player** | ExoPlayer (Media3) | DASH / HLS / MP4 |
-| **Danmaku** | DanmakuRenderEngine + app policies | GPU rendering, filtering, layout, and live-overlay integration |
-| **Decoding** | MediaCodec | Hardware acceleration |
-
-### UI Enhancements
-
-| Category | Technology | Description |
-|-----|-----|-----|
-| **Animation** | Compose Animation / SharedTransition + Lottie | Card morphs, predictive back and vector motion |
-| **Blur** | Haze 2 + Miuix Backdrop / Liquid Glass | Frosted and liquid-glass surfaces with fallbacks |
-| **Theming** | Material 3 + Miuix + iOS preset | Dynamic color, dark mode and adaptive components |
-
----
-
-## 🔄 Changelog
-
-See full changelog: [CHANGELOG.md](CHANGELOG.md)
-
-### Current source build (v0.5.3)
-
-- Current source build: `0.5.3` / `versionCode 501`.
-- Added English language support, prioritizing settings and commonly used screens.
-- Improved Liquid Glass, Material 3, and Miuix player controls and menus; quality, speed, audio, and aspect-ratio options reflect available choices. Fullscreen comment and related-video panels are available with Liquid Glass disabled.
-- Added local subtitle import and export, styling, timing offsets, and drag positioning.
-- Added bangumi seek thumbnails and paid-content badges for collections; improved episode panel sizing and playback order across parts and collections.
-- Unified profile and sidebar icon colors, corrected favorites multi-selection hit areas, and stopped playback when the app is dismissed from recent tasks.
-- Added startup and interaction baseline profiles to reduce work on frequently used paths.
-- See [CHANGELOG.md](CHANGELOG.md) for the complete changelog.
-- Official Telegram: channel [@bilipai666](https://t.me/bilipai666), group [@bilipai888](https://t.me/bilipai888/1).
-
----
-
-## 🏗️ Build
+Miuix dependencies require GitHub Packages access. Set `gpr.user` and `gpr.key` in your local `~/.gradle/gradle.properties`, or use `GITHUB_ACTOR` and `GITHUB_TOKEN`. Credentials need read access to the package.
 
 ```bash
 git clone https://github.com/jay3-yy/BiliPai.git
@@ -437,63 +115,50 @@ cd BiliPai
 ./gradlew :app:assembleDev
 ```
 
-The installable artifact is exported to `app/build/outputs/bilipai/dev/BiliPai-0.5.3-dev.apk`. Release builds use `app/build/outputs/bilipai/release/BiliPai-0.5.3.apk`; AGP's internal `app-*.apk` files are not delivery artifacts.
+APKs are exported to `app/build/outputs/bilipai/dev/` or `app/build/outputs/bilipai/release/`.
 
----
+`app/google-services.json` is optional; Firebase is skipped when absent. Main libraries include Compose, Media3, Room, DataStore, Retrofit, OkHttp and Coil.
 
-## 🤝 Contributing
+## Contributing
 
-Want to help localize the app? Pull requests to improve translations are welcome. English copy is the current priority.
+[Issues](https://github.com/jay3-yy/BiliPai/issues/new/choose), [pull requests](https://github.com/jay3-yy/BiliPai/pulls) and translation improvements are welcome. Describe the problem, scope and validation results.
 
-Issues and Pull Requests are welcome!
+## Acknowledgements
 
-1. Fork the repository
-2. Create feature branch
-3. Commit changes
-4. Push to branch
-5. Submit Pull Request
+| Project | Use |
+| --- | --- |
+| [Jetpack Compose](https://developer.android.com/jetpack/compose) | UI framework |
+| [AndroidX Media](https://github.com/androidx/media) | Media3 / ExoPlayer |
+| [DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine) | Danmaku rendering |
+| [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) | Bilibili API reference |
+| [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus) | Playback and mobile UX reference |
+| [Bili Pilot](https://github.com/siwei-yuan/bili-pilot) | CDN routing and prefetch reference |
+| [BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) | Sponsor-skip data and API |
+| [Haze](https://github.com/chrisbanes/haze) | Blur effects |
+| [Compose Cupertino](https://github.com/alexzhirkevich/compose-cupertino) | Cupertino components |
+| [Miuix](https://github.com/compose-miuix-ui/miuix) | Miuix components |
+| [BiliPai-miuix](https://github.com/Piracola/BiliPai-miuix) | UI and design-system contributions (@piracola) |
+| [Lottie](https://github.com/airbnb/lottie-android) | Vector animation |
+| [Coil](https://github.com/coil-kt/coil) | Image loading |
+| [Retrofit](https://github.com/square/retrofit) / [OkHttp](https://github.com/square/okhttp) | Networking |
+| [Room](https://developer.android.com/training/data-storage/room) / [DataStore](https://developer.android.com/topic/libraries/architecture/datastore) | Local data and preferences |
+| [TabulaBili](https://github.com/wangdaodaodao/TabulaBili) / [TabulaBili-Plus](https://github.com/tjsky/TabulaBili) | First-visit recommendation reference |
+| [biliSendCommAntifraud](https://github.com/freedom-introvert/biliSendCommAntifraud) | Comment anti-fraud reference |
 
----
+See [third-party notices](THIRD_PARTY_NOTICES.md) for more sources and licenses.
 
-## 🙏 Acknowledgements
+## License and disclaimer
 
-| Project | Description |
-|-----|-----|
-| [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus) | Playback flow, comment presentation, and mobile UX reference |
-| [Bili Pilot](https://github.com/siwei-yuan/bili-pilot) | Signed CDN candidate, segment-level routing, and prefetch design reference; independently implemented in Kotlin without copying its JavaScript |
-| [biliSendCommAntifraud](https://github.com/freedom-introvert/biliSendCommAntifraud) | Reference implementation for comment anti-fraud detection |
-| [BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) | Sponsor skip segment data and API reference |
-| [DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine) | High-performance danmaku rendering engine |
-| [Miuix](https://github.com/compose-miuix-ui/miuix) | Miuix-style Compose Multiplatform components |
-| [Haze](https://github.com/chrisbanes/haze) | Blur and frosted-glass effects |
-| [Compose Cupertino](https://github.com/alexzhirkevich/compose-cupertino) | Cupertino-style Compose UI components |
+Licensed under [GPLv3](LICENSE). When distributing, provide the corresponding source code and retain copyright notices as required by the license.
 
----
+This is an unofficial client and is not affiliated with Bilibili. Content belongs to its respective rights holders. Follow applicable laws and platform rules. Login information is stored locally; usage statistics can be managed in Settings.
 
-## ⚠️ Disclaimer
+## Support
 
-> [!CAUTION]
->
-> 1. This project is licensed under GPLv3. Use, modification, and distribution must comply with the license and applicable laws.
-> 2. Data source: Bilibili Official API. Copyright belongs to Shanghai Hupu Information Technology Co., Ltd.
-> 3. Login info is stored locally and never uploaded.
-> 4. Please comply with local laws and regulations.
-> 5. Contact for deletion if copyright infringement occurs.
+<img src="docs/donate.jpg" alt="Donation" width="260" />
 
----
+<div align="center">
 
-## 📄 License
+Made by [YangY](https://x.com/YangY_0x00)
 
-[GNU General Public License v3.0](LICENSE)
-
-You may use, study, modify, and distribute this project under GPLv3. When distributing modified versions or binaries, provide the corresponding source code and retain the license and copyright notices as required by GPLv3.
-
----
-
-## ☕ Support
-
-If you like BiliPai, buy me a coffee ☕
-
-<p align="center">
-  <img src="docs/donate.jpg" alt="Donation" width="300">
-</p>
+</div>
