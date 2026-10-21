@@ -1528,15 +1528,23 @@ private fun TabletCollectionPane(
                 shape = AppShapes.container(ContainerLevel.Card),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                coil3.compose.AsyncImage(
-                    model = com.android.purebilibili.core.util.FormatUtils.fixImageUrl(episode.arc?.pic.orEmpty()),
-                    contentDescription = episode.title,
-                    contentScale = ContentScale.Crop,
+                Box(
                     modifier = Modifier
                         .width(112.dp)
                         .aspectRatio(16f / 9f)
-                        .clip(AppShapes.container(ContainerLevel.Chip))
-                )
+                        .clip(AppShapes.container(ContainerLevel.Chip)),
+                ) {
+                    coil3.compose.AsyncImage(
+                        model = com.android.purebilibili.core.util.FormatUtils.fixImageUrl(episode.arc?.pic.orEmpty()),
+                        contentDescription = episode.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    com.android.purebilibili.feature.video.ui.components.CollectionAccessBadge(
+                        episode = episode,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                    )
+                }
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     AppText(

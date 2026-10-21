@@ -138,6 +138,7 @@ internal fun resolvePlayerPanelBounds(
     isFullscreen: Boolean,
     landscape: Boolean,
     maxSideWidth: Int,
+    maxBottomHeight: Int? = null,
 ): androidx.compose.ui.unit.IntRect {
     if (!isFullscreen && player != null) {
         if (landscape && player.right < safe.right) {
@@ -145,7 +146,8 @@ internal fun resolvePlayerPanelBounds(
             if (left < safe.right) return androidx.compose.ui.unit.IntRect(left, safe.top, safe.right, safe.bottom)
         }
         if (!landscape && player.bottom < safe.bottom) {
-            val top = player.bottom.coerceIn(safe.top, safe.bottom)
+            val heightLimit = maxBottomHeight?.coerceIn(0, safe.height) ?: safe.height
+            val top = maxOf(player.bottom, safe.bottom - heightLimit).coerceIn(safe.top, safe.bottom)
             if (top < safe.bottom) return androidx.compose.ui.unit.IntRect(safe.left, top, safe.right, safe.bottom)
         }
     }
@@ -153,6 +155,7 @@ internal fun resolvePlayerPanelBounds(
         val width = minOf(safe.width / 2, maxSideWidth.coerceAtLeast(0))
         androidx.compose.ui.unit.IntRect(safe.right - width, safe.top, safe.right, safe.bottom)
     } else {
-        androidx.compose.ui.unit.IntRect(safe.left, safe.bottom - (safe.height * 0.7f).toInt(), safe.right, safe.bottom)
+        val height = minOf((safe.height * 0.7f).toInt(), maxBottomHeight?.coerceIn(0, safe.height) ?: safe.height)
+        androidx.compose.ui.unit.IntRect(safe.left, safe.bottom - height, safe.right, safe.bottom)
     }
 }

@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -75,7 +74,7 @@ fun PlayerEpisodeMenu(
         if (index in entries.indices) listState.scrollToItem(index)
     }
     PlayerDetailPanel(title = if (pages.size > 1) "分P" else "合集", isFullscreen = isFullscreen,
-        playerBounds = playerBounds, onDismiss = onDismiss) {
+        playerBounds = playerBounds, onDismiss = onDismiss, compactHeight = true) {
         Row(Modifier.fillMaxWidth().height(45.dp).horizontalScroll(rememberScrollState())
             .padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (pages.size > 1) "分P" else "合集", fontSize = 16.sp)
@@ -106,7 +105,7 @@ fun PlayerEpisodeMenu(
             }
         }
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f), overscrollEffect = null,
-            contentPadding = PaddingValues(top = 7.dp, bottom = 100.dp),
+            contentPadding = PaddingValues(top = 7.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)) {
             itemsIndexed(entries) { _, group ->
                 val current = content.sections.getOrNull(content.currentSectionIndex)?.entries?.getOrNull(content.currentEntryIndex)
@@ -129,6 +128,7 @@ fun PlayerEpisodeMenu(
                         selected = selected,
                         indexLabel = entry.indexLabel.substringBefore(" · "),
                         onCoverLongPress = onCoverLongPress,
+                        accessEpisode = episode,
                     ) { if (!selected) select(entry) }
                     if (group.size > 1) Row(Modifier.fillMaxWidth().height(55.dp)
                         .padding(start = 12.dp, end = 12.dp, top = 10.dp)
@@ -157,7 +157,7 @@ internal fun PanelAction(icon: ImageVector, label: String, onClick: () -> Unit) 
 /** Ordinary native page surface, independent of the application's Miuix/glass setting. */
 @Composable
 internal fun PlayerDetailPanel(title: String, isFullscreen: Boolean, playerBounds: IntRect?,
-    onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    onDismiss: () -> Unit, compactHeight: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
     val size = LocalWindowInfo.current.containerSize
@@ -166,8 +166,10 @@ internal fun PlayerDetailPanel(title: String, isFullscreen: Boolean, playerBound
     val top = insets.getTop(density).coerceIn(0, size.height)
     val safe = IntRect(left, top, (size.width - insets.getRight(density, direction)).coerceIn(left, size.width),
         (size.height - insets.getBottom(density)).coerceIn(top, size.height))
-    val landscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val bounds = resolvePlayerPanelBounds(safe, playerBounds, isFullscreen, landscape, with(density) { 500.dp.roundToPx() })
+    val landscape = size.width > size.height
+    val compactMaxHeight = if (compactHeight) with(density) { episodeSheetMaxHeight().roundToPx() } else null
+    val bounds = resolvePlayerPanelBounds(safe, playerBounds, isFullscreen, landscape,
+        with(density) { 500.dp.roundToPx() }, maxBottomHeight = compactMaxHeight)
     if (bounds.width <= 0 || bounds.height <= 0) return
     val provider = remember(bounds) { object : PopupPositionProvider {
         override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection,
@@ -185,7 +187,8 @@ internal fun PlayerDetailPanel(title: String, isFullscreen: Boolean, playerBound
 
 @Composable
 internal fun PlayerPanelMediaRow(title: String, cover: String, durationSeconds: Long, selected: Boolean,
-    indexLabel: String = "", onCoverLongPress: ((String) -> Unit)? = null, onClick: () -> Unit) {
+    indexLabel: String = "", onCoverLongPress: ((String) -> Unit)? = null,
+    accessLabel: String? = null, accessEpisode: com.android.purebilibili.data.model.response.UgcEpisode? = null, onClick: () -> Unit) {
     val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     Row(Modifier.fillMaxWidth().height(110.dp).semantics(mergeDescendants = true) { this.selected = selected }
         .combinedClickable(onClick = onClick,
@@ -194,6 +197,11 @@ internal fun PlayerPanelMediaRow(title: String, cover: String, durationSeconds: 
         horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         if (cover.isNotBlank()) Box(Modifier.width(160.dp).height(100.dp)) {
             AsyncImage(model = cover, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            if (accessEpisode != null) {
+                CollectionAccessBadge(episode = accessEpisode, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp))
+            } else {
+                CollectionAccessBadge(label = accessLabel, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp))
+            }
             if (durationSeconds > 0) Text(FormatUtils.formatDuration(durationSeconds.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()),
                 fontSize = 12.sp, color = Color.White,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 3.dp))
@@ -201,6 +209,10 @@ internal fun PlayerPanelMediaRow(title: String, cover: String, durationSeconds: 
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, fontSize = 14.sp, lineHeight = 20.sp, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+            if (cover.isBlank()) {
+                if (accessEpisode != null) CollectionAccessBadge(episode = accessEpisode)
+                else CollectionAccessBadge(label = accessLabel)
+            }
             if (indexLabel.isNotBlank()) Text(indexLabel, fontSize = 12.sp, color = color)
             if (cover.isBlank() && durationSeconds > 0) Text(FormatUtils.formatDuration(durationSeconds.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()), fontSize = 12.sp)
             if (selected) Text("正在播放", fontSize = 12.sp, color = color)
