@@ -4,7 +4,7 @@
 
 # BiliPai
 
-**原生、纯净、可扩展的第三方 Bilibili Android 客户端**
+**原生、纯净、可扩展的第三方 BiliBili Android 客户端**
 
 [简体中文](README.md) · [English](README_EN.md)
 
@@ -130,10 +130,10 @@ APK 输出至 `app/build/outputs/bilipai/dev/`；正式版输出至 `app/build/o
 | [Jetpack Compose](https://developer.android.com/jetpack/compose) | 声明式 UI 框架 |
 | [AndroidX Media](https://github.com/androidx/media) | Media3 / ExoPlayer 播放引擎 |
 | [DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine) | 高性能弹幕渲染参考 |
-| [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) | B 站 API 文档 |
+| [BiliBili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) | B 站 API 文档 |
 | [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus) | 播放链路与移动端体验参考 |
 | [Bili Pilot](https://github.com/siwei-yuan/bili-pilot) | CDN 选线与预缓存设计参考 |
-| [BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) | 空降助手数据与 API |
+| [BiliBiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) | 空降助手数据与 API |
 | [Haze](https://github.com/chrisbanes/haze) | 毛玻璃效果 |
 | [Compose Cupertino](https://github.com/alexzhirkevich/compose-cupertino) | iOS 风格组件 |
 | [Miuix](https://github.com/compose-miuix-ui/miuix) | 界面组件与液态玻璃动效参考 |
@@ -144,6 +144,20 @@ APK 输出至 `app/build/outputs/bilipai/dev/`；正式版输出至 `app/build/o
 | [Room](https://developer.android.com/training/data-storage/room) / [DataStore](https://developer.android.com/topic/libraries/architecture/datastore) | 本地数据与偏好存储 |
 | [TabulaBili](https://github.com/wangdaodaodao/TabulaBili) / [TabulaBili-Plus](https://github.com/tjsky/TabulaBili) | 初见推荐参考 |
 | [biliSendCommAntifraud](https://github.com/freedom-introvert/biliSendCommAntifraud) | 评论反诈检测参考 |
+| [Kotlin](https://kotlinlang.org/) | 开发语言 |
+| [Kotlinx Coroutines](https://github.com/Kotlin/kotlinx.coroutines) | 协程与异步任务 |
+| [Kotlinx Serialization](https://github.com/Kotlin/kotlinx.serialization) | 数据序列化 |
+| [MaterialKolor](https://github.com/jordond/MaterialKolor) | 动态主题配色 |
+| [Compose Rich Editor](https://github.com/MohamedRejeb/Compose-Rich-Editor) | 富文本编辑 |
+| [ZXing](https://github.com/zxing/zxing) | 二维码处理 |
+| [CameraX](https://developer.android.com/media/camera/camerax) | 扫码相机 |
+| [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager) | 后台任务调度 |
+| [FFmpeg](https://ffmpeg.org/) | 音频解码 |
+| [Readability4J](https://github.com/dankito/Readability4J) | 文章正文提取 |
+| [jsoup](https://jsoup.org/) | HTML 解析 |
+| [Telegram](https://github.com/DrKLO/Telegram) | 粒子动效与资料页交互参考 |
+| [Nagram](https://github.com/NextAlone/Nagram) | 资料页与文章阅读参考 |
+| [NagramX](https://github.com/risin42/NagramX) | 粒子消散动效参考 |
 
 更多来源与许可证见 [第三方声明](THIRD_PARTY_NOTICES.md)。
 
@@ -151,7 +165,7 @@ APK 输出至 `app/build/outputs/bilipai/dev/`；正式版输出至 `app/build/o
 
 本项目采用 [GPLv3](LICENSE)。分发时请遵守许可证，提供对应源代码并保留版权声明。
 
-本项目为非官方客户端，与 Bilibili 无隶属关系。内容版权归对应权利方所有，使用时请遵守相关法律法规与平台规则。登录信息保存在本地；使用统计可在设置中管理。
+本项目为非官方客户端，与 BiliBili 无隶属关系。内容版权归对应权利方所有，使用时请遵守相关法律法规与平台规则。登录信息保存在本地；使用统计可在设置中管理。
 
 <div align="center">
 

@@ -4,7 +4,7 @@
 
 # BiliPai
 
-**A native, clean and extensible Bilibili client for Android**
+**A native, clean and extensible BiliBili client for Android**
 
 [简体中文](README.md) · [English](README_EN.md)
 
@@ -130,10 +130,10 @@ Share bugs and ideas through [Issues](https://github.com/jay3-yy/BiliPai/issues/
 | [Jetpack Compose](https://developer.android.com/jetpack/compose) | UI framework |
 | [AndroidX Media](https://github.com/androidx/media) | Media3 / ExoPlayer |
 | [DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine) | Danmaku rendering |
-| [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) | Bilibili API reference |
+| [BiliBili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect) | BiliBili API reference |
 | [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus) | Playback and mobile UX reference |
 | [Bili Pilot](https://github.com/siwei-yuan/bili-pilot) | CDN routing and prefetch reference |
-| [BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) | Sponsor-skip data and API |
+| [BiliBiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) | Sponsor-skip data and API |
 | [Haze](https://github.com/chrisbanes/haze) | Blur effects |
 | [Compose Cupertino](https://github.com/alexzhirkevich/compose-cupertino) | Cupertino components |
 | [Miuix](https://github.com/compose-miuix-ui/miuix) | UI components and liquid-glass motion reference |
@@ -144,6 +144,20 @@ Share bugs and ideas through [Issues](https://github.com/jay3-yy/BiliPai/issues/
 | [Room](https://developer.android.com/training/data-storage/room) / [DataStore](https://developer.android.com/topic/libraries/architecture/datastore) | Local data and preferences |
 | [TabulaBili](https://github.com/wangdaodaodao/TabulaBili) / [TabulaBili-Plus](https://github.com/tjsky/TabulaBili) | First-visit recommendation reference |
 | [biliSendCommAntifraud](https://github.com/freedom-introvert/biliSendCommAntifraud) | Comment anti-fraud reference |
+| [Kotlin](https://kotlinlang.org/) | Programming language |
+| [Kotlinx Coroutines](https://github.com/Kotlin/kotlinx.coroutines) | Coroutines and asynchronous tasks |
+| [Kotlinx Serialization](https://github.com/Kotlin/kotlinx.serialization) | Data serialization |
+| [MaterialKolor](https://github.com/jordond/MaterialKolor) | Dynamic theme colors |
+| [Compose Rich Editor](https://github.com/MohamedRejeb/Compose-Rich-Editor) | Rich text editing |
+| [ZXing](https://github.com/zxing/zxing) | QR code processing |
+| [CameraX](https://developer.android.com/media/camera/camerax) | Camera integration for scanning |
+| [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager) | Background task scheduling |
+| [FFmpeg](https://ffmpeg.org/) | Audio decoding |
+| [Readability4J](https://github.com/dankito/Readability4J) | Article extraction |
+| [jsoup](https://jsoup.org/) | HTML parsing |
+| [Telegram](https://github.com/DrKLO/Telegram) | Particle effects and profile interaction reference |
+| [Nagram](https://github.com/NextAlone/Nagram) | Profile and article reader reference |
+| [NagramX](https://github.com/risin42/NagramX) | Particle dissolve effect reference |
 
 See [third-party notices](THIRD_PARTY_NOTICES.md) for more sources and licenses.
 
@@ -151,7 +165,7 @@ See [third-party notices](THIRD_PARTY_NOTICES.md) for more sources and licenses.
 
 Licensed under [GPLv3](LICENSE). When distributing, provide the corresponding source code and retain copyright notices as required by the license.
 
-This is an unofficial client and is not affiliated with Bilibili. Content belongs to its respective rights holders. Follow applicable laws and platform rules. Login information is stored locally; usage statistics can be managed in Settings.
+This is an unofficial client and is not affiliated with BiliBili. Content belongs to its respective rights holders. Follow applicable laws and platform rules. Login information is stored locally; usage statistics can be managed in Settings.
 
 ## Support
 
