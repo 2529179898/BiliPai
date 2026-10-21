@@ -33,7 +33,7 @@
   </a>
 </p>
 
-<sub>README 更新：2026-10-01 · 当前构建版本以 app/build.gradle.kts 为准 · 已发布版本以 <a href="CHANGELOG.md">CHANGELOG.md</a> 为准</sub>
+<sub>README 更新：2026-10-21 · 当前构建版本以 app/build.gradle.kts 为准 · 已发布版本以 <a href="CHANGELOG.md">CHANGELOG.md</a> 为准</sub>
 
 </div>
 
@@ -216,7 +216,7 @@ Crashlytics 的 mapping 上传在本地默认关闭，只有 release 且显式�
 
 ## 最近更新
 
-当前源码版本为 `0.5.2 / versionCode 496`；完整变更见 [CHANGELOG.md](CHANGELOG.md)。安装包与公告见 [Telegram 频道](https://t.me/bilipai666) / [交流群](https://t.me/bilipai888/1)：
+当前源码版本为 `0.5.3 / versionCode 499`；完整变更见 [CHANGELOG.md](CHANGELOG.md)。安装包与公告见 [Telegram 频道](https://t.me/bilipai666) / [交流群](https://t.me/bilipai888/1)：
 
 - 统一动态评论输入弹层，完善楼中楼回复、草稿及相关动态加载。
 - 修复 Miuix 搜索排序主题色、热门分类居中、播放器双击和私信账号隔离。
@@ -235,6 +235,8 @@ Crashlytics 的 mapping 上传在本地默认关闭，只有 release 且显式�
 ## 参与贡献
 
 欢迎提交 Issue 和 Pull Request。
+
+想帮助本地化 App 语言？欢迎提交 PR，一起来完善翻译；目前优先推进英文文案。
 
 1. Fork 本仓库。
 2. 从主分支创建 `feature/xxx` 或 `fix/xxx` 分支。

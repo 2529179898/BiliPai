@@ -452,9 +452,9 @@ See the [current roadmap](docs/wiki/ROADMAP.md) for priorities, completion crite
 
 See full changelog: [CHANGELOG.md](CHANGELOG.md)
 
-### Current source build (v0.5.2 · 2026-10-21)
+### Current source build (v0.5.3 · 2026-10-21)
 
-- Current source build: `0.5.2` / `versionCode 496`.
+- Current source build: `0.5.3` / `versionCode 499`.
 - Unified dynamic comment composition, improved nested replies and drafts, and added missing related-post loading and retry feedback.
 - Fixed Miuix search selection colors, popular-tab alignment, player double-tap handling, and message account isolation.
 - Reduced feed and player refresh work, background visual tasks, download and plugin overhead, and image resource duplication.
@@ -476,6 +476,8 @@ The installable artifact is exported to `app/build/outputs/bilipai/dev/BiliPai-0
 ---
 
 ## 🤝 Contributing
+
+Want to help localize the app? Pull requests to improve translations are welcome. English copy is the current priority.
 
 Issues and Pull Requests are welcome!
 
