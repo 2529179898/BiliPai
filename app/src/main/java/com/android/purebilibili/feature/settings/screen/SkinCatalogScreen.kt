@@ -2,6 +2,7 @@
 
 package com.android.purebilibili.feature.settings.screen
 
+import com.android.purebilibili.feature.settings.SettingsFunctionIcon
 import com.android.purebilibili.core.ui.AppContentColors
 
 import coil3.request.crossfade
@@ -443,7 +444,10 @@ private fun SkinCatalogPreviewDialog(
 ) {
     com.android.purebilibili.core.ui.AppAlertDialog(
         onDismissRequest = { if (!installing) onDismiss() },
-        icon = { AppIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_brush_fill_24), contentDescription = null) },
+        icon = { SettingsFunctionIcon(
+            com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_brush_fill_24),
+            title = entry.displayName,
+        ) },
         title = { AppText(entry.displayName) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

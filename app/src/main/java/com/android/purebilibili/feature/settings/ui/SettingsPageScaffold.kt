@@ -189,6 +189,9 @@ internal fun SettingsPageScaffold(
 
     CompositionLocalProvider(
         LocalAppPreferenceIconTreatment provides AppPreferenceIconTreatment.FILLED,
+        // Settings-only Miuix icons; shared defaults and MD3 remain unchanged in both glass states.
+        com.android.purebilibili.core.ui.components.LocalAppPreferenceIconColors provides
+            com.android.purebilibili.feature.settings.settingsIconColors(),
         LocalAppPreferenceGroupPresentation provides if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
             AppPreferenceGroupPresentation.CARD
         } else {

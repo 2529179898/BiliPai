@@ -50,6 +50,11 @@ import com.android.purebilibili.feature.settings.share.SettingsShareImportSessio
 import com.android.purebilibili.feature.settings.share.flattenSettingsShareSections
 import com.android.purebilibili.core.ui.transition.VIDEO_SHARED_TRANSITION_CUSTOM_MIN_MILLIS
 import com.android.purebilibili.core.ui.transition.VideoSharedTransitionSpeed
+import com.android.purebilibili.core.ui.transition.VideoSharedTransitionSpeedSettings
+import com.android.purebilibili.core.ui.transition.VideoTransitionAdaptiveInfo
+import com.android.purebilibili.core.ui.transition.resolveVideoSharedTransitionDurationMillis
+import com.android.purebilibili.core.ui.adaptive.toAdaptiveFoldPosture
+import com.android.purebilibili.core.util.LocalAppWindowAdaptiveInfo
 import com.android.purebilibili.core.ui.transition.normalizeVideoSharedTransitionCustomDurationMillis
 import com.android.purebilibili.core.util.LocalWindowSizeClass
 import com.android.purebilibili.navigation3.predictiveback.BiliPaiPredictiveBackAnimationStyle
@@ -110,6 +115,15 @@ fun AnimationSettingsContent(
     advancedOnly: Boolean = false,
 ) {
     val context = LocalContext.current
+    val previewWindowSize = LocalWindowSizeClass.current
+    val previewWindowInfo = LocalAppWindowAdaptiveInfo.current
+    val previewTransitionDurationMillis = resolveVideoSharedTransitionDurationMillis(
+        VideoSharedTransitionSpeedSettings(state.videoSharedTransitionSpeed, state.videoSharedTransitionCustomDurationMillis),
+        VideoTransitionAdaptiveInfo(
+            widthSizeClass = previewWindowSize.widthSizeClass,
+            foldPosture = previewWindowInfo.posture.toAdaptiveFoldPosture(),
+        ),
+    )
     val scope = rememberCoroutineScope()
     val liquidGlassShareService = remember(context.applicationContext) {
         SettingsShareService(context.applicationContext)
@@ -395,7 +409,20 @@ fun AnimationSettingsContent(
             //  卡片动画
             item(key = "animation_card_title") {
                 Box(modifier = Modifier.entrance()) {
-                    AppPreferenceSectionTitle("卡片动画")
+                    SettingsCardPreviewGroupHeader(
+                        enabledStates = mapOf(
+                            SettingsFeaturePreview.CARD_ENTRANCE to state.cardAnimationEnabled,
+                            SettingsFeaturePreview.CARD_EXPAND to state.cardTransitionEnabled,
+                            SettingsFeaturePreview.RELATED_EXPAND to relatedVideoTransitionEnabled,
+                            SettingsFeaturePreview.LIVE_FRAME to liveSurfaceCardTransitionEnabled,
+                            SettingsFeaturePreview.RETURN_CONTENT to appNavigationSettings.videoReturnContentFollowProgressEnabled,
+                            SettingsFeaturePreview.RETURN_TILT to appNavigationSettings.videoSharedReturnGestureFollowEnabled,
+                            SettingsFeaturePreview.RETURN_FOLLOW to appNavigationSettings.videoSharedReturnGestureTranslationEnabled,
+                            SettingsFeaturePreview.TRANSITION_BLUR to videoTransitionRealtimeBlurEnabled,
+                        ),
+                        transitionDurationMillis = previewTransitionDurationMillis,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
             item(key = "animation_card") {
@@ -818,6 +845,12 @@ fun AnimationSettingsContent(
                                 subtitle = "顶栏模糊随滚动渐变（需 Android 13+）",
                                 checked = state.progressiveTopBlurEnabled,
                                 onCheckedChange = { viewModel.toggleProgressiveTopBlur(it) },
+                                titleTrailingContent = {
+                                    SettingsFeaturePreviewEntry(
+                                        feature = SettingsFeaturePreview.TOP_BLUR,
+                                        currentEnabled = state.progressiveTopBlurEnabled,
+                                    )
+                                },
                                 iconTint = AppContentColors.secondaryText()
                             )
                         }

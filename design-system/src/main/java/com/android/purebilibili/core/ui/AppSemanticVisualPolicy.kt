@@ -17,15 +17,18 @@ enum class AppSemanticIconFamily {
 
 /**
  * 全局图标呈现样式(用户可切换的两套方案)。
- * - [AUTO]:跟随运行时主题 —— MIUIX 使用中性图标和原生形状，MATERIAL3 解析为官方推荐。
+ * - [AUTO]:跟随运行时主题 —— MIUIX 设置使用柔和彩色，MATERIAL3 解析为官方推荐。
  * - [THEME_CONTAINER]:主题色容器 —— 图标置于主题色(primaryContainer)
  *   圆角容器内,图标用 onPrimaryContainer,对齐官方 Settings 容器图标规范。
  * - [MD3_STANDARD]:MD3 官方推荐 —— onSurfaceVariant 单色图标、无容器。
+ * - [SOFT_COLORFUL] / [VIVID_COLORFUL]:共享偏好入口使用柔和或鲜明的多色容器。
  */
 enum class AppIconStyle {
     AUTO,
     THEME_CONTAINER,
     MD3_STANDARD,
+    SOFT_COLORFUL,
+    VIVID_COLORFUL,
 }
 
 /**

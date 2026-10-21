@@ -51,7 +51,8 @@ fun LongPressSpeedPreferenceControl(
     onSpeedChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
     title: String? = "长按临时加速",
-    subtitle: String? = null
+    subtitle: String? = null,
+    titleTrailingContent: (@Composable () -> Unit)? = null,
 ) {
     val displayedSpeed = normalizeLongPressSpeed(currentSpeed)
     var showSpeedEditor by rememberSaveable { mutableStateOf(false) }
@@ -64,11 +65,19 @@ fun LongPressSpeedPreferenceControl(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 if (title != null) {
-                    AppText(
-                        text = title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    if (titleTrailingContent == null) {
+                        AppText(
+                            text = title,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            AppText(text = title, style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                            titleTrailingContent()
+                        }
+                    }
                 }
                 if (subtitle != null) {
                     AppText(
@@ -78,29 +87,23 @@ fun LongPressSpeedPreferenceControl(
                     )
                 }
             }
-            AppSurface(
+            AppTextButton(
                 onClick = {
                     speedInput = formatPlaybackSpeed(displayedSpeed).removeSuffix("x")
                     showSpeedEditor = true
                 },
-                shape = AppShapes.container(ContainerLevel.Pill),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.semantics {
-                    contentDescription = "输入长按倍速，当前 ${formatPlaybackSpeed(displayedSpeed)}"
-                }
+                modifier = Modifier
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    .semantics {
+                        contentDescription = "输入长按倍速，当前 ${formatPlaybackSpeed(displayedSpeed)}"
+                    },
             ) {
-                Box(
-                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                        .padding(horizontal = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AppText(
-                        text = formatPlaybackSpeed(displayedSpeed),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                AppText(
+                    text = formatPlaybackSpeed(displayedSpeed),
+                    color = com.android.purebilibili.core.ui.AppContentColors.link(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }

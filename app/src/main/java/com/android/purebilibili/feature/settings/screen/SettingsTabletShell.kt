@@ -1,5 +1,8 @@
 package com.android.purebilibili.feature.settings.screen
 
+import com.android.purebilibili.feature.settings.SettingsFunctionIcon
+import com.android.purebilibili.core.theme.LocalAppUiStyle
+import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.ui.AppContentColors
 
 import android.os.Build
@@ -234,7 +237,13 @@ fun SettingsTabletShell(
                                     }
                                 },
                                 icon = {
-                                    Box(
+                                    if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+                                        SettingsFunctionIcon(
+                                            title = category.title,
+                                            imageVector = visual.icon,
+                                            painter = visual.iconResId?.let { androidx.compose.ui.res.painterResource(it) },
+                                        )
+                                    } else Box(
                                         modifier = Modifier
                                             .size(resolveSettingsVisualSpec().categoryIconBubbleSize)
                                             .clip(AppShapes.container(ContainerLevel.Field))

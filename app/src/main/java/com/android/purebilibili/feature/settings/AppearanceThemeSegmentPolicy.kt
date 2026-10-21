@@ -209,8 +209,10 @@ internal fun resolveMd3ColorSourceOptions(): List<AppSegmentOption<Md3ColorSourc
 internal fun resolveAppIconStyleOptions(): List<AppSegmentOption<AppIconStyle>> {
     return listOf(
         AppSegmentOption(AppIconStyle.AUTO, "跟随预设"),
+        AppSegmentOption(AppIconStyle.SOFT_COLORFUL, "柔和彩色"),
+        AppSegmentOption(AppIconStyle.VIVID_COLORFUL, "鲜明彩色"),
         AppSegmentOption(AppIconStyle.THEME_CONTAINER, "主题色容器"),
-        AppSegmentOption(AppIconStyle.MD3_STANDARD, "MD3 官方推荐")
+        AppSegmentOption(AppIconStyle.MD3_STANDARD, "单色线性（MD3）")
     )
 }
 

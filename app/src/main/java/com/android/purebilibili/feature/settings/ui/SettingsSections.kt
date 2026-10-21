@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.theme.LocalAppUiStyle
+import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.ui.AppContentColors
 
 import com.android.purebilibili.core.ui.components.AppIconButton
@@ -282,7 +284,9 @@ private fun SettingsRootCategoryRow(
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
+        if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+            SettingsFunctionIcon(title = title, imageVector = icon, painter = iconPainter)
+        } else Box(
             modifier = Modifier
                 .size(visualSpec.categoryIconBubbleSize)
                 .clip(AppShapes.container(ContainerLevel.Field))
@@ -934,11 +938,12 @@ fun ReleaseChannelPinnedCard(
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AppIcon(
+                SettingsFunctionIcon(
+                    title = "官方渠道",
                     imageVector = releaseChannelIcon,
                     contentDescription = null,
                     tint = disclaimerTint,
-                    modifier = Modifier.size(20.dp)
+                    nativeSize = 20.dp,
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -1184,7 +1189,12 @@ private fun FeedDynamicTabVisibilityItem(
             )
     ) {
         Row(verticalAlignment = Alignment.Top) {
-            Box(
+            if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+                SettingsFunctionIcon(
+                    title = "动态分类",
+                    imageVector = icon,
+                )
+            } else Box(
                 modifier = Modifier
                     .size(visualSpec.iconContainerSizeDp.dp)
                     .adaptiveSquircleBackground(

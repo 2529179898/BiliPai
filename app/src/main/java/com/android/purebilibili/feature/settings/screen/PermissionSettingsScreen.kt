@@ -1,6 +1,8 @@
 // 文件路径: feature/settings/PermissionSettingsScreen.kt
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.theme.LocalAppUiStyle
+import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -281,7 +283,12 @@ private fun PermissionItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 图标
-        Box(
+        if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+            SettingsFunctionIcon(
+                title = info.name,
+                imageVector = permissionIcon,
+            )
+        } else Box(
             modifier = Modifier
                 .size(visualSpec.iconContainerSizeDp.dp)
                 .adaptiveSquircleBackground(
