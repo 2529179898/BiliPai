@@ -141,7 +141,7 @@ fun Modifier.jiggleOnDissolve(
     }
 }
 
-// ==================== Telegram / NagramX ThanosEffect ====================
+// ==================== Particle dissolve effect ====================
 
 @Composable
 fun DissolvableVideoCard(

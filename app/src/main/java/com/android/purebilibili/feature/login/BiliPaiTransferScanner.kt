@@ -151,7 +151,7 @@ fun BiliPaiTransferScanner(
     // SurfaceView renders on a separate window layer that ignores view bounds clipping,
     // so the camera preview bleeds over surrounding text. TextureView (COMPATIBLE) clips.
     previewView.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-    // NagramX-style viewfinder: spring-in appearance, corner brackets, recognition pulse.
+    // Viewfinder with spring-in appearance, corner brackets and a recognition pulse.
     val appear = remember { androidx.compose.animation.core.Animatable(0f) }
     val pulse = remember { androidx.compose.animation.core.Animatable(0f) }
     var cameraControl by remember { mutableStateOf<androidx.camera.core.CameraControl?>(null) }
@@ -211,7 +211,7 @@ fun BiliPaiTransferScanner(
                                             if (!active.get()) return@execute
                                             if (singleShot) {
                                                 // Recognition pulse before handing the code over,
-                                                // mirroring NagramX's lock-on feedback.
+                                                // providing lock-on feedback.
                                                 coroutineScope.launch {
                                                     pulse.animateTo(
                                                         1f,
@@ -333,7 +333,7 @@ fun BiliPaiTransferScanner(
 }
 
 /**
- * NagramX-inspired viewfinder: a centered square (short edge / 1.5) with 50% black
+ * Viewfinder: a centered square (short edge / 1.5) with 50% black
  * mask outside, white rounded corner brackets that spring in on appear, and a
  * pulse that thickens the brackets and darkens the mask when a code is recognized.
  */
@@ -372,7 +372,7 @@ private fun ScannerViewfinderOverlay(appear: Float, pulse: Float) {
             join = androidx.compose.ui.graphics.StrokeJoin.Round,
         )
 
-        // Bracket with an arc bend at the corner, like NagramX's rounded corner path.
+        // Bracket with a rounded arc bend at the corner.
         val bendRadius = minOf(stroke * 1.5f, cornerLen / 2f)
         fun cornerPath(corner: Offset, dx: Float, dy: Float) = androidx.compose.ui.graphics.Path().apply {
             moveTo(corner.x + dx * cornerLen, corner.y + dy * half)

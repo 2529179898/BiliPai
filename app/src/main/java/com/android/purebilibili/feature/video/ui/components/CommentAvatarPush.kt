@@ -37,7 +37,7 @@ internal fun Modifier.commentAvatarRowBackground(
     background(color)
 }
 
-/** Compose adapter for the source-derived Nagram placement kernel. */
+/** Compose adapter for the comment avatar placement kernel. */
 internal fun resolveCommentAvatarPushOffset(
     itemOffsetPx: Int,
     itemHeightPx: Int,

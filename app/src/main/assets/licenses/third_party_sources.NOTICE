@@ -1,0 +1,76 @@
+Third-party source notices
+
+Source and copyright notices consolidated from implementation comments.
+
+app/src/main/java/com/android/purebilibili/feature/profile/ProfileAvatarExpansion.kt
+/*
+ * Pull-down avatar expansion adapted from NextAlone/Nagram ProfileActivity.java,
+ * revision 87863c8a57854c739e1452e56591c07ea52415d3 (GPL-3.0).
+ * Telegram source copyright Nikolai Kudashov and Telegram/Nagram contributors.
+ * See scrollVerticallyBy, needLayout and setAvatarExpandProgress upstream.
+ */
+
+app/src/main/java/com/android/purebilibili/feature/profile/ProfileExpandedAvatar.kt
+/* Avatar geometry/overlays adapted from Nagram ProfileActivity.java (87863c8a), GPL-3.0. */
+
+app/src/main/java/com/android/purebilibili/feature/profile/ProfileIdentityHeader.kt
+/*
+ * Centered profile geometry ported from NextAlone/Nagram ProfileActivity.java
+ * (fb56ea9801e5de68c60f0152b444bbe2a0fda520), GPL-2.0-or-later / GPL-3.0.
+ * Telegram source copyright Nikolai Kudashov, 2013-2018, and Nagram contributors.
+ */
+
+app/src/main/java/com/android/purebilibili/feature/profile/ProfileAvatarEffect.kt
+/*
+ * Avatar fusion hosted from NextAlone/Nagram ProfileGooeyView.java,
+ * revision fb56ea9801e5de68c60f0152b444bbe2a0fda520; GPL-3.0.
+ * Telegram and Nagram contributors.
+ */
+
+app/src/main/java/com/android/purebilibili/feature/profile/ProfileHeaderMotion.kt
+/*
+ * Profile motion adapted from NextAlone/Nagram ProfileActivity.java.
+ * Upstream: fb56ea9801e5de68c60f0152b444bbe2a0fda520
+ * Telegram source copyright Nikolai Kudashov, 2013-2018; GPL-2.0-or-later.
+ * Nagram modifications by its contributors; this Compose port is GPL-3.0.
+ */
+
+app/src/main/java/com/android/purebilibili/feature/profile/ProfileAvatarFusionView.java
+/* Avatar/cutout fusion ported from NextAlone/Nagram ProfileGooeyView.java
+ * revision fb56ea9801e5de68c60f0152b444bbe2a0fda520; GPL-3.0.
+ * Telegram and Nagram contributors. GPU/CPU compositing retained; host lifecycle adapted. */
+
+app/src/main/java/com/android/purebilibili/feature/profile/ProfileCameraCutout.java
+/* Camera cutout parsing adapted from NextAlone/Nagram NotchInfoUtils.java
+ * revision fb56ea9801e5de68c60f0152b444bbe2a0fda520; GPL-3.0.
+ * Telegram and Nagram contributors. */
+
+app/src/main/java/com/android/purebilibili/feature/video/ui/components/NagramChatAvatarPlacement.kt
+/*
+ * Derived from Telegram for Android / NextAlone Nagram, ChatActivity.drawChild().
+ * Copyright Nikolai Kudashov, 2013-2018.
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * Distributed as part of BiliPai under GPLv3.
+ *
+ * Source revision: fb56ea9801e5de68c60f0152b444bbe2a0fda520
+ * https://github.com/NextAlone/Nagram/blob/fb56ea9801e5de68c60f0152b444bbe2a0fda520/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java#L6607
+ *
+ * Kotlin extraction of the ordinary, non-round-video avatar placement path.
+ * Keep the original clamp order: viewport bottom, group top, then cell bottom.
+ * Comment records are independent groups; Telegram albums, sender grouping,
+ * checkbox swipes and round-video playback are not BiliPai comment models.
+ */
+
+app/src/main/java/com/android/purebilibili/core/ui/animation/gl/ParticleRenderer.kt
+/*
+ * ThanosEffect rendering core ported from Telegram / NagramX (GPL).
+ * See docs/telegram-thanos-port.md for pinned upstream versions and integration changes.
+ */
+
+app/src/main/java/com/android/purebilibili/feature/profile/ProfileBackgroundMotion.kt
+/**
+ * Compose adapter for Nagram TopView: draw to toolbar + extraHeight and translate
+ * the background's origin with avatarY. Nagram uses a peer-color/pattern gradient;
+ * BiliPai applies that geometry to its existing wallpaper without changing its crop.
+ * Upstream: ProfileActivity.java, 87863c8a, TopView.onDraw / updateExtraViews (GPL-3.0).
+ */
