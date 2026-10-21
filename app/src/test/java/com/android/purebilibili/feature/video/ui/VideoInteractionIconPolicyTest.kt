@@ -101,7 +101,6 @@ class VideoInteractionIconPolicyTest {
     fun `common video close buttons use app clear icon`() {
         val paths = listOf(
             "src/main/java/com/android/purebilibili/feature/video/ui/overlay/MiniPlayerOverlay.kt",
-            "src/main/java/com/android/purebilibili/feature/video/ui/components/CommentInputBar.kt",
             "src/main/java/com/android/purebilibili/feature/video/ui/components/SponsorSkipUI.kt",
             "src/main/java/com/android/purebilibili/feature/video/ui/components/CollectionSheet.kt"
         )

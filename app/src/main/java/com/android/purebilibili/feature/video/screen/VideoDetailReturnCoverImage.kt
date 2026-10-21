@@ -11,6 +11,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -141,5 +144,49 @@ internal fun VideoDetailReturnCoverImage(
                 if (needsGroupAlpha) canvas.restore()
             }
         }
+    }
+}
+
+/** The cover canvas paints an opaque black backing even while its image is still loading. */
+internal fun resolveVideoDetailOpaqueCoverInterior(
+    frame: VideoDetailReturnMediaLayoutFrame,
+    coverAlpha: Float,
+    cornerRadiusPx: Float,
+): Rect? {
+    // Crossfades still need the complete backing beneath the live player.
+    if (!coverAlpha.isFinite() || coverAlpha < 1f || !cornerRadiusPx.isFinite()) return null
+    // Stay inside rounded corners and their antialiased boundary; never cull an exposed edge.
+    val inset = cornerRadiusPx.coerceAtLeast(0f) + 1f
+    val left = frame.offsetXPx + inset
+    val top = frame.offsetYPx + inset
+    val right = frame.offsetXPx + frame.widthPx - inset
+    val bottom = frame.offsetYPx + frame.heightPx - inset
+    return if (right > left && bottom > top) Rect(left, top, right, bottom) else null
+}
+
+/** Cull only the black pixels that the opaque resident cover will paint again above us. */
+internal fun DrawScope.drawVideoDetailMediaBacking(
+    frame: VideoDetailReturnMediaLayoutFrame,
+    alpha: Float,
+    cornerRadiusPx: Float,
+    opaqueCoverInterior: Rect?,
+) {
+    if (alpha <= 0f) return
+    fun DrawScope.paintBacking() {
+        drawRoundRect(
+            color = Color.Black.copy(alpha = alpha),
+            topLeft = Offset(frame.offsetXPx.toFloat(), frame.offsetYPx.toFloat()),
+            size = Size(frame.widthPx.toFloat(), frame.heightPx.toFloat()),
+            cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx),
+        )
+    }
+    if (opaqueCoverInterior == null) {
+        paintBacking()
+    } else {
+        clipRect(
+            left = opaqueCoverInterior.left, top = opaqueCoverInterior.top,
+            right = opaqueCoverInterior.right, bottom = opaqueCoverInterior.bottom,
+            clipOp = ClipOp.Difference,
+        ) { paintBacking() }
     }
 }

@@ -1,8 +1,4 @@
-/*
- * Avatar fusion hosted from NextAlone/Nagram ProfileGooeyView.java,
- * revision fb56ea9801e5de68c60f0152b444bbe2a0fda520; GPL-3.0.
- * Telegram and Nagram contributors.
- */
+/** 头像融合视图的 Compose 宿主与生命周期适配。 */
 package com.android.purebilibili.feature.profile
 
 import android.widget.FrameLayout
@@ -28,6 +24,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -53,6 +51,7 @@ internal fun ProfileAvatarEffect(
     flingBehavior: FlingBehavior,
     onAvatarClick: () -> Unit,
     modifier: Modifier = Modifier,
+    photoScrollConnection: NestedScrollConnection? = null,
 ) {
     val density = LocalDensity.current
     val latestDensity = rememberUpdatedState(density)
@@ -66,6 +65,7 @@ internal fun ProfileAvatarEffect(
     val motionEnabled = LocalComponentMotionEnabled.current && !rememberSystemReduceMotion() && !lowBudget
     val latestMotion = rememberUpdatedState(motionEnabled)
     val latestProvider = rememberUpdatedState(expandedFractionProvider)
+    val latestPhotoScrollConnection = rememberUpdatedState(photoScrollConnection)
     val latestTop = rememberUpdatedState(with(density) { statusBarTopPadding.toPx() })
     val host = remember { arrayOfNulls<ProfileAvatarFusionView>(1) }
     // Refresh the native display list even when Compose reuses its cached draw layer,
@@ -110,6 +110,7 @@ internal fun ProfileAvatarEffect(
                                 modifier = Modifier.fillMaxSize()
                                     .clip(CircleShape)
                                     .border(2.dp, latestBorder.value, CircleShape)
+                                    .then(latestPhotoScrollConnection.value?.let { Modifier.nestedScroll(it) } ?: Modifier)
                                     .scrollable(listState, Orientation.Vertical, reverseDirection = true, flingBehavior = latestFling.value)
                                     .clickable { latestClick.value() },
                             )

@@ -1626,7 +1626,7 @@ fun ReplyItemView(
                 hasBiliPaiDecoration = biliPaiDecoration != null,
                 policy = layoutPolicy,
             ).dp
-            // The Nagram geometry is explicitly opt-in in every material style.
+            // Avatar push geometry is explicitly opt-in in every material style.
             // Disabled retains native avatar dimensions and narrow-window defaults.
             val pushAvatar = avatarListState != null
             val avatarSize = if (pushAvatar) NAGRAM_CHAT_AVATAR_SIZE_DP.dp else layoutPolicy.avatarSizeDp.dp

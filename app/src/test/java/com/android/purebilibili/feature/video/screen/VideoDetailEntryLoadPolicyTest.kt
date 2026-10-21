@@ -7,6 +7,39 @@ import org.junit.Test
 
 class VideoDetailEntryLoadPolicyTest {
     @Test
+    fun playerHostWaitsOnlyForFreshCoveredCardEntry() {
+        assertFalse(shouldMountVideoDetailPlayerHost(
+            alreadyMounted = false, deferEntryLoad = true, entryPlaybackReady = false,
+            hasResidentCover = true, preserveLivePlayer = false,
+        ))
+        assertTrue(shouldMountVideoDetailPlayerHost(
+            alreadyMounted = false, deferEntryLoad = true, entryPlaybackReady = true,
+            hasResidentCover = true, preserveLivePlayer = false,
+        ))
+        // A return preview or a new episode must not detach the previously mounted host.
+        assertTrue(shouldMountVideoDetailPlayerHost(
+            alreadyMounted = true, deferEntryLoad = true, entryPlaybackReady = false,
+            hasResidentCover = true, preserveLivePlayer = false,
+        ))
+    }
+
+    @Test
+    fun playerHostDoesNotWaitWithoutCoverOrForExistingPlayback() {
+        assertTrue(shouldMountVideoDetailPlayerHost(
+            alreadyMounted = false, deferEntryLoad = true, entryPlaybackReady = false,
+            hasResidentCover = false, preserveLivePlayer = false,
+        ))
+        assertTrue(shouldMountVideoDetailPlayerHost(
+            alreadyMounted = false, deferEntryLoad = true, entryPlaybackReady = false,
+            hasResidentCover = true, preserveLivePlayer = true,
+        ))
+        assertTrue(shouldMountVideoDetailPlayerHost(
+            alreadyMounted = false, deferEntryLoad = false, entryPlaybackReady = false,
+            hasResidentCover = true, preserveLivePlayer = false,
+        ))
+    }
+
+    @Test
     fun heroEntryGateObservesDriverBeforeLegacyTimeoutIsCreated() {
         val source = listOf(
             java.io.File("app/src/main/java/com/android/purebilibili/feature/video/screen/VideoDetailEntryTransitionObserver.kt"),

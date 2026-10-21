@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.home.components.cards
 
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,12 +55,29 @@ internal class VideoCardOnlineCountStore(
     private val states = ConcurrentHashMap<String, MutableStateFlow<String>>()
     private val cache = ConcurrentHashMap<String, VideoCardOnlineCountCacheEntry>()
     private val inFlight = ConcurrentHashMap<String, Unit>()
+    // A composed card keeps its flow even when scroll/transition budgets pause collection.
+    private val owners = ConcurrentHashMap<String, Int>()
+    internal val stateEntryCount: Int get() = states.size
+
+    fun retain(bvid: String, cid: Long) {
+        owners.merge(resolveVideoCardOnlineCountKey(bvid, cid), 1) { count, increment -> count + increment }
+    }
+
+    fun release(bvid: String, cid: Long) {
+        owners.computeIfPresent(resolveVideoCardOnlineCountKey(bvid, cid)) { _, count ->
+            (count - 1).takeIf { it > 0 }
+        }
+        sweepCachesIfOverCap()
+    }
 
     fun observe(bvid: String, cid: Long): StateFlow<String> {
         val key = resolveVideoCardOnlineCountKey(bvid = bvid, cid = cid)
-        return states.computeIfAbsent(key) {
+        val state = states.computeIfAbsent(key) {
             MutableStateFlow(cache[key]?.text.orEmpty())
-        }.asStateFlow()
+        }
+        // Observation alone can allocate thousands of entries without a successful request.
+        sweepCachesIfOverCap(protectedKey = key)
+        return state.asStateFlow()
     }
 
     suspend fun refreshIfNeeded(bvid: String, cid: Long) {
@@ -102,6 +120,7 @@ internal class VideoCardOnlineCountStore(
             state.value = ""
         } finally {
             inFlight.remove(key)
+            sweepCachesIfOverCap(protectedKey = key)
         }
     }
 
@@ -110,15 +129,17 @@ internal class VideoCardOnlineCountStore(
      * 超过容量上限后：过期条目直接清 cache，未被订阅（卡片已不可见）的 StateFlow 一并清；
      * 仍超限再按最旧 fetchedAtMs 淘汰。仍被订阅的 StateFlow 保留，避免冻结可见卡片。
      */
-    private fun sweepCachesIfOverCap() {
-        if (cache.size <= maxEntries) return
-        val now = nowMs()
-        val staleIterator = cache.entries.iterator()
-        while (staleIterator.hasNext()) {
-            val entry = staleIterator.next()
-            if (now - entry.value.fetchedAtMs >= ttlMs) {
-                staleIterator.remove()
-                removeUnsubscribedState(entry.key)
+    @Synchronized
+    private fun sweepCachesIfOverCap(protectedKey: String? = null) {
+        if (cache.size > maxEntries) {
+            val now = nowMs()
+            val staleIterator = cache.entries.iterator()
+            while (staleIterator.hasNext()) {
+                val entry = staleIterator.next()
+                if (now - entry.value.fetchedAtMs >= ttlMs) {
+                    staleIterator.remove()
+                    removeUnsubscribedState(entry.key, protectedKey)
+                }
             }
         }
         if (cache.size > maxEntries) {
@@ -128,15 +149,19 @@ internal class VideoCardOnlineCountStore(
                 .toList()
                 .forEach { entry ->
                     cache.remove(entry.key)
-                    removeUnsubscribedState(entry.key)
+                    removeUnsubscribedState(entry.key, protectedKey)
                 }
         }
         if (states.size > maxEntries) {
-            states.entries.removeIf { it.value.subscriptionCount.value == 0 }
+            for (key in states.keys) {
+                if (states.size <= maxEntries) break
+                removeUnsubscribedState(key, protectedKey)
+            }
         }
     }
 
-    private fun removeUnsubscribedState(key: String) {
+    private fun removeUnsubscribedState(key: String, protectedKey: String? = null) {
+        if (key == protectedKey || owners.containsKey(key) || inFlight.containsKey(key)) return
         val flow = states[key] ?: return
         if (flow.subscriptionCount.value == 0) {
             states.remove(key, flow)
@@ -180,6 +205,10 @@ private fun rememberActiveVideoCardOnlineCount(
             bvid = bvid,
             cid = cid
         )
+    }
+    DisposableEffect(bvid, cid, onlineCountFlow) {
+        defaultVideoCardOnlineCountStore.retain(bvid, cid)
+        onDispose { defaultVideoCardOnlineCountStore.release(bvid, cid) }
     }
     val workAllowed = LocalPageImageLoadingAllowed.current && LocalHomeCardAuxiliaryWorkAllowed.current
     // Keep the last displayed text while home is covered or morphing. Dropping only the

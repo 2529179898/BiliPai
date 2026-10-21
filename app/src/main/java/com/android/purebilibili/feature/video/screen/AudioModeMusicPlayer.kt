@@ -56,6 +56,9 @@ import com.android.purebilibili.feature.video.viewmodel.VideoCommentViewModel
 import com.android.purebilibili.feature.video.viewmodel.VideoEngagementViewModel
 import com.android.purebilibili.feature.video.viewmodel.VideoPlaybackUiState
 import com.android.purebilibili.feature.video.viewmodel.VideoPlaybackViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.isActive
@@ -177,22 +180,26 @@ internal fun AudioModeMusicPlayer(
         )
     }
     // 播放中每 5 秒保存续播会话，供「启动自动播放」使用
-    LaunchedEffect(playback.isPlaying, info.bvid, info.cid) {
-        if (!playback.isPlaying) return@LaunchedEffect
-        while (true) {
-            kotlinx.coroutines.delay(5_000L)
-            PlayHistoryStore.saveLastSession(
-                context,
-                PlayLastSession(
-                    bvid = info.bvid,
-                    cid = info.cid,
-                    title = displayTitle,
-                    cover = info.pic,
-                    owner = info.owner.name,
-                    positionMs = playback.positionMs,
-                    savedAtMs = System.currentTimeMillis()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(player, playback.isPlaying, info.bvid, info.cid, lifecycleOwner) {
+        if (player == null || !playback.isPlaying) return@LaunchedEffect
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                delay(5_000L)
+                if (!player.isPlaying) continue
+                PlayHistoryStore.saveLastSession(
+                    context,
+                    PlayLastSession(
+                        bvid = info.bvid,
+                        cid = info.cid,
+                        title = displayTitle,
+                        cover = info.pic,
+                        owner = info.owner.name,
+                        positionMs = player.currentPosition.coerceAtLeast(0L),
+                        savedAtMs = System.currentTimeMillis()
+                    )
                 )
-            )
+            }
         }
     }
     LaunchedEffect(player) {
@@ -383,7 +390,7 @@ internal fun AudioModeMusicPlayer(
     }
 
     MusicPlayerContent(
-        state = MusicPlayerUiState(
+        sourceState = MusicPlayerUiState(
             title = displayTitle,
             artist = info.owner.name,
             coverUrl = coverUrl,
@@ -404,6 +411,8 @@ internal fun AudioModeMusicPlayer(
             shuffleEnabled = shuffleEnabled,
             playbackSpeed = playback.playbackSpeed
         ),
+        // Video audio mode owns this player; the position clock stays inside content.
+        playbackPositionSource = player,
         onBack = onBack,
         onPlayPause = { player?.handleAudioModePlayPause() },
         onSeek = { positionMs ->
@@ -658,12 +667,6 @@ private fun rememberAudioPlaybackSnapshot(player: Player?): AudioPlaybackSnapsho
         onDispose { player?.removeListener(listener) }
     }
 
-    LaunchedEffect(player) {
-        while (isActive && player != null) {
-            snapshot = player.readAudioPlaybackSnapshot()
-            delay(250L)
-        }
-    }
     return snapshot
 }
 

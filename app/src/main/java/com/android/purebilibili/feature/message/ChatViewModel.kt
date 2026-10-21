@@ -7,6 +7,8 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.android.purebilibili.core.coroutines.AccountScopedRequests
+import com.android.purebilibili.core.store.AccountSessionIdentity
 import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.data.model.response.EmoteInfo
 import com.android.purebilibili.data.model.response.PrivateMessageItem
@@ -25,6 +27,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+
+private const val MAX_PRIVATE_IMAGE_BYTES = 15 * 1024 * 1024
 
 /**
  * 视频预览信息 (用于链接预览)
@@ -40,6 +45,7 @@ data class VideoPreviewInfo(
 )
 
 data class ChatUiState(
+    val accountIdentity: AccountSessionIdentity = TokenManager.accountIdentity.value,
     val isLoading: Boolean = true,
     val isSending: Boolean = false,
     val isUploadingImage: Boolean = false,
@@ -69,7 +75,8 @@ class ChatViewModel(
     
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
-    private val messageLoadMutex = Mutex()
+    private val accountRequests = AccountScopedRequests(viewModelScope)
+    private var messageLoadMutex = Mutex()
     private var latestMessagesJob: Job? = null
     private var lastReadSeqno = 0L
     
@@ -88,6 +95,16 @@ class ChatViewModel(
     private val avPattern = Regex("av(\\d+)", RegexOption.IGNORE_CASE)
     
     init {
+        accountRequests.observe {
+            latestMessagesJob = null
+            messageLoadMutex = Mutex()
+            lastReadSeqno = 0L
+            videoPreviewCache.clear()
+            loadingBvids.clear()
+            _uiState.value = ChatUiState(accountIdentity = accountRequests.identity)
+            loadMessages()
+            loadSessionControlInfo()
+        }
         loadMessages()
         loadSessionControlInfo()
     }
@@ -97,7 +114,7 @@ class ChatViewModel(
      */
     fun loadMessages(scrollToLatest: Boolean = false) {
         if (latestMessagesJob?.isActive == true && !scrollToLatest) return
-        latestMessagesJob = viewModelScope.launch {
+        latestMessagesJob = accountRequests.launch {
             loadLatestMessages(showLoading = true, scrollToLatest = scrollToLatest)
         }
     }
@@ -109,7 +126,10 @@ class ChatViewModel(
     }
 
     private suspend fun loadLatestMessages(showLoading: Boolean, scrollToLatest: Boolean) {
-        messageLoadMutex.withLock {
+        val requestedIdentity = accountRequests.identity
+        val requestMutex = messageLoadMutex
+        requestMutex.withLock {
+            if (!accountRequests.isCurrent(requestedIdentity)) return@withLock
             if (showLoading) {
                 _uiState.update {
                     it.copy(isLoading = !it.messagesLoaded, error = null, refreshError = null)
@@ -121,6 +141,7 @@ class ChatViewModel(
                     sessionType = sessionType,
                     size = 30,
                 ).getOrThrow()
+                if (!accountRequests.isCurrent(requestedIdentity)) return@withLock
                 var incoming = data.messages.orEmpty().reversed()
                 var emotes = data.e_infos.orEmpty()
                 val existingKeys = _uiState.value.messages.map(::chatMessageKey).toSet()
@@ -131,6 +152,7 @@ class ChatViewModel(
                     existingKeys.isNotEmpty() && incoming.isNotEmpty() && gapHasMore && gapCursor > 0L &&
                     incoming.none { chatMessageKey(it) in existingKeys }
                 ) {
+                    if (!accountRequests.isCurrent(requestedIdentity)) return@withLock
                     val gapPage = MessageRepository.getMessages(
                         talkerId = talkerId,
                         sessionType = sessionType,
@@ -144,6 +166,7 @@ class ChatViewModel(
                         gapPage.min_seqno in 1L until gapCursor
                     gapCursor = gapPage.min_seqno
                 }
+                if (!accountRequests.isCurrent(requestedIdentity)) return@withLock
                 _uiState.update { current ->
                     val replaceCursor = current.messages.isEmpty()
                     current.copy(
@@ -166,6 +189,7 @@ class ChatViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (!accountRequests.isCurrent(requestedIdentity)) return@withLock
                 _uiState.update { current ->
                     current.copy(
                         isLoading = false,
@@ -210,7 +234,7 @@ class ChatViewModel(
         
         loadingBvids.add(bvid)
         
-        viewModelScope.launch {
+        accountRequests.launch {
             try {
                 val result = VideoRepository.getVideoDetails(bvid)
                 result.onSuccess { (viewInfo, _) ->
@@ -279,7 +303,7 @@ class ChatViewModel(
         val current = _uiState.value
         if (current.isLoadingMore || current.isLoading || !current.hasMore || current.minSeqno <= 0L) return
         _uiState.update { it.copy(isLoadingMore = true, loadMoreError = null) }
-        viewModelScope.launch {
+        accountRequests.launch {
             try {
                 messageLoadMutex.withLock {
                     val cursor = _uiState.value.minSeqno
@@ -318,7 +342,7 @@ class ChatViewModel(
         if (content.isBlank() || _uiState.value.isSending || _uiState.value.isUploadingImage) return
         _uiState.update { it.copy(isSending = true, sendError = null) }
         
-        viewModelScope.launch {
+        accountRequests.launch {
             try {
                 MessageRepository.sendTextMessage(
                     receiverId = talkerId,
@@ -344,20 +368,15 @@ class ChatViewModel(
     fun sendImageMessage(context: Context, imageUri: Uri) {
         if (_uiState.value.isUploadingImage || _uiState.value.isSending) return
 
-        viewModelScope.launch {
+        accountRequests.launch {
             _uiState.value = _uiState.value.copy(isUploadingImage = true, sendError = null)
 
             withContext(Dispatchers.IO) {
                 runCatching {
-                    val bytes = context.contentResolver.openInputStream(imageUri)?.use { stream ->
-                        stream.readBytes()
-                    } ?: error("无法读取图片文件")
+                    val bytes = readPrivateImageBytes(context, imageUri)
 
                     if (bytes.isEmpty()) {
                         error("图片内容为空")
-                    }
-                    if (bytes.size > 15 * 1024 * 1024) {
-                        error("图片过大（单张最大 15MB）")
                     }
 
                     val mimeType = context.contentResolver.getType(imageUri) ?: "image/jpeg"
@@ -397,7 +416,7 @@ class ChatViewModel(
     }
 
     fun loadSessionControlInfo() {
-        viewModelScope.launch {
+        accountRequests.launch {
             _uiState.value = _uiState.value.copy(isSessionControlLoading = true)
             MessageRepository.getSessionControlInfo(talkerId, sessionType)
                 .onSuccess { info ->
@@ -437,7 +456,7 @@ class ChatViewModel(
 
     private fun updateSessionControl(action: suspend () -> Result<Unit>) {
         if (_uiState.value.isSessionControlUpdating) return
-        viewModelScope.launch {
+        accountRequests.launch {
             _uiState.value = _uiState.value.copy(isSessionControlUpdating = true, sendError = null)
             action().fold(
                 onSuccess = {
@@ -457,7 +476,7 @@ class ChatViewModel(
     fun withdrawMessage(message: PrivateMessageItem) {
         if (message.msg_key <= 0L || message.msg_status == 1) return
 
-        viewModelScope.launch {
+        accountRequests.launch {
             _uiState.value = _uiState.value.copy(
                 withdrawingMessageKey = message.msg_key,
                 sendError = null
@@ -492,7 +511,7 @@ class ChatViewModel(
      */
     private fun markAsRead(seqno: Long) {
         if (seqno <= lastReadSeqno) return
-        viewModelScope.launch {
+        accountRequests.launch {
             MessageRepository.markAsRead(talkerId, sessionType, seqno).onSuccess {
                 lastReadSeqno = maxOf(lastReadSeqno, seqno)
             }
@@ -514,6 +533,36 @@ class ChatViewModel(
                     if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
                 }
         }.getOrNull()
+    }
+
+    private fun readPrivateImageBytes(context: Context, uri: Uri): ByteArray {
+        val resolver = context.contentResolver
+        val declaredSize = runCatching {
+            resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
+                ?.use { cursor ->
+                    val index = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (index >= 0 && cursor.moveToFirst() && !cursor.isNull(index)) {
+                        cursor.getLong(index)
+                    } else null
+                }
+        }.getOrNull()
+        if (declaredSize != null && declaredSize > MAX_PRIVATE_IMAGE_BYTES) {
+            error("图片过大（单张最大 15MB）")
+        }
+
+        return resolver.openInputStream(uri)?.use { stream ->
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(32 * 1024)
+            while (true) {
+                val count = stream.read(buffer)
+                if (count < 0) break
+                if (output.size() + count > MAX_PRIVATE_IMAGE_BYTES) {
+                    error("图片过大（单张最大 15MB）")
+                }
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        } ?: error("无法读取图片文件")
     }
     
     /**

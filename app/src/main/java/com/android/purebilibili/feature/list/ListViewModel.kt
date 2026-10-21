@@ -1988,27 +1988,43 @@ class FavoriteViewModel(application: Application) : BaseListViewModel(applicatio
         
         accountRequests.launch {
             val originalState = stateFlow.value
+            val removedIndex = originalState.items.indexOfFirst { it.id == video.id }
+            val removedItem = originalState.items.getOrNull(removedIndex)
+            if (removedItem == null) return@launch
+            fun restoreFailedRemoval(message: String) {
+                if (allFolderIds.getOrNull(folderIndex) != currentMediaId) return
+                fun restore(items: List<VideoItem>): List<VideoItem> {
+                    if (items.any { it.id == removedItem.id }) return items
+                    return items.toMutableList().apply {
+                        add(removedIndex.coerceIn(0, size), removedItem)
+                    }
+                }
+                stateFlow.update { it.copy(items = restore(it.items), error = message) }
+                if (_selectedFolderIndex.value == folderIndex) {
+                    _uiState.update { it.copy(items = restore(it.items), error = message) }
+                }
+            }
             try {
                 // Optimistic update: remove from current folder state immediately.
-                val updatedItems = originalState.items.filter { it.id != video.id }
-                stateFlow.value = originalState.copy(items = updatedItems, error = null)
-                if (_uiState.value.items.isNotEmpty()) {
-                    _uiState.value = _uiState.value.copy(items = updatedItems)
+                stateFlow.update { current ->
+                    current.copy(items = current.items.filter { it.id != video.id }, error = null)
+                }
+                if (_selectedFolderIndex.value == folderIndex && _uiState.value.items.isNotEmpty()) {
+                    _uiState.update { current ->
+                        current.copy(items = current.items.filter { it.id != video.id })
+                    }
                 }
                 
                 val result = com.android.purebilibili.data.repository.FavoriteRepository.removeResource(currentMediaId, resourceId)
                 if (result.isFailure) {
-                    // Revert if failed
                     val error = "取消收藏失败: ${result.exceptionOrNull()?.message}"
-                    stateFlow.value = originalState.copy(error = error)
-                    _uiState.value = _uiState.value.copy(error = error)
+                    restoreFailedRemoval(error)
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                  e.printStackTrace()
                  val message = e.message ?: "取消收藏失败"
-                 stateFlow.value = originalState.copy(error = message)
-                 _uiState.value = _uiState.value.copy(error = message)
+                 restoreFailedRemoval(message)
             }
         }
     }

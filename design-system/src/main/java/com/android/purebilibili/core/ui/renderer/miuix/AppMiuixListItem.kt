@@ -1,5 +1,6 @@
 package com.android.purebilibili.core.ui.renderer.miuix
 
+import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,7 +26,7 @@ internal fun AppMiuixListItem(
 ) = Row(
     modifier = modifier
         .fillMaxWidth()
-        .heightIn(min = 48.dp)
+        .heightIn(min = AppChromeSizeTokens.CompactRowMinHeightDp.dp)
         .padding(horizontal = 16.dp, vertical = 8.dp),
     verticalAlignment = Alignment.CenterVertically,
 ) {

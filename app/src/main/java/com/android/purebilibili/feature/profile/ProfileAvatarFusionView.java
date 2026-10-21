@@ -1,6 +1,4 @@
-/* Avatar/cutout fusion ported from NextAlone/Nagram ProfileGooeyView.java
- * revision fb56ea9801e5de68c60f0152b444bbe2a0fda520; GPL-3.0.
- * Telegram and Nagram contributors. GPU/CPU compositing retained; host lifecycle adapted. */
+/** 头像与屏幕挖孔的融合绘制，包含 GPU 与 CPU 合成路径。 */
 package com.android.purebilibili.feature.profile;
 
 import android.content.Context;

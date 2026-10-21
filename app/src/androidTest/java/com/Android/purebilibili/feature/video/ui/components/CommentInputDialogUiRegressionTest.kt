@@ -78,6 +78,29 @@ class CommentInputDialogUiRegressionTest {
     }
 
     @Test
+    fun restrictedReplyComposer_hidesImagesSyncAndProgressActions() {
+        composeRule.setContent {
+            MaterialTheme {
+                CommentInputDialog(
+                    visible = true,
+                    draftKey = "dynamic-reply",
+                    replyToName = "小明",
+                    allowImageAttachment = false,
+                    showSyncToDynamic = false,
+                    showProgressInsert = false,
+                    onDismiss = {},
+                    onSend = { _, _, _ -> },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("comment_composer_input").assertExists()
+        composeRule.onNodeWithContentDescription("图片").assertDoesNotExist()
+        composeRule.onNodeWithText("转发到动态").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("插入当前播放进度").assertDoesNotExist()
+    }
+
+    @Test
     fun selectingEmotes_preservesChooserModeAndReturnsToEditingOnInputTap() {
         composeRule.setContent {
             MaterialTheme {
@@ -277,7 +300,7 @@ class CommentInputDialogUiRegressionTest {
     }
 
     @Test
-    fun longReplyAndDraft_useFullWidthBelowExpandButton() {
+    fun longReplyAndDraft_keepFullWidthWithOverlayExpandButton() {
         composeRule.setContent {
             MaterialTheme {
                 CommentInputDialog(
@@ -293,14 +316,28 @@ class CommentInputDialogUiRegressionTest {
 
         val input = composeRule.onNodeWithTag("comment_composer_input")
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        val editor = composeRule.onNodeWithTag("comment_composer_editor")
+        val editorSurface = composeRule.onNodeWithTag("comment_composer_editor_surface")
             .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val expand = composeRule.onNodeWithTag("comment_composer_expand_toggle")
             .assertHasClickAction().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        assertTrue("展开按钮应位于正文上方留白", expand.bottom <= input.top)
+        val expandCenter = expand.center
+        val surfaceCenter = editorSurface.center
+        assertTrue(
+            "展开按钮应以浮层形式落在编辑区右上角，而不是独占上方一行",
+            expandCenter.x > surfaceCenter.x &&
+                expandCenter.y < surfaceCenter.y
+        )
+        assertTrue(
+            "展开按钮应压住编辑区顶部留白，而不是把正文整体下推",
+            expand.bottom > editorSurface.top
+        )
+        assertTrue(
+            "浮层按钮应伸入编辑区右侧留白，而不是在正文内新增一列",
+            expand.right > editorSurface.right
+        )
         assertTrue(
             "正文两侧只保留对称内边距，不应为按钮另留右侧槽位",
-            abs((input.left - editor.left) - (editor.right - input.right)) < 1f
+            abs((input.left - editorSurface.left) - (editorSurface.right - input.right)) < 1f
         )
     }
 

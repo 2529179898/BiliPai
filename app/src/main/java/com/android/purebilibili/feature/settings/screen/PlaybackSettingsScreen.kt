@@ -598,6 +598,13 @@ SettingsItemAnchor("playback.video_second_codec_preference") {
                                 },
                                 title = "长按临时加速",
                                 subtitle = "点按右侧倍速，选择预设或输入 1–8x",
+                                titleTrailingContent = {
+                                    SettingsFeaturePreviewEntry(
+                                        feature = SettingsFeaturePreview.LONG_PRESS,
+                                        currentEnabled = true,
+                                        speed = longPressSpeed,
+                                    )
+                                },
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                             )
                         }
@@ -1655,10 +1662,10 @@ SettingsItemAnchor("playback.subtitle_auto_preference") {
                 AppText("无需开启；B站返回属地时会在评论时间旁自动显示。部分评论没有属地数据。")
             },
             leadingContent = {
-                AppIcon(
+                SettingsFunctionIcon(
                     rememberMaterialSymbol(R.drawable.ms_info_24),
+                    title = "评论 IP 属地",
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp),
                 )
             },
         )
@@ -1935,6 +1942,12 @@ SettingsItemAnchor("playback.comment_collapsed_reply_preview_limit") {
                         com.android.purebilibili.core.store.SettingsManager
                             .setImagePreview3dPageEnabled(context, enabled)
                     }
+                },
+                titleTrailingContent = {
+                    SettingsFeaturePreviewEntry(
+                        feature = SettingsFeaturePreview.IMAGE_PAGE,
+                        currentEnabled = imagePreview3dPageEnabled,
+                    )
                 },
                 iconTint = AppContentColors.secondaryText()
             )

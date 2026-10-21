@@ -220,7 +220,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             if (TokenManager.sessDataCache.isNullOrEmpty()) {
                 if (isCurrentProfileLoad(generation)) {
                     _uiState.value = ProfileUiState.LoggedOut(
-                        topPhoto = resolveProfileTopPhoto(customBgUri, "")
+                        topPhoto = resolveProfileTopPhoto(customBgUri)
                     )
                 }
                 return
@@ -274,7 +274,9 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             dynamic = cached?.user?.dynamic ?: 0,
             isVip = data.vip.status == 1,
             vipLabel = data.vip.label.text,
-            topPhoto = resolveProfileTopPhoto(customBgUri, data.top_photo)
+            // The theme gradient is the default header. Only an explicitly chosen
+            // wallpaper replaces it; the account's remote banner must not mask it.
+            topPhoto = resolveProfileTopPhoto(customBgUri)
         )
         _uiState.value = ProfileUiState.Success(
             user = user,
@@ -576,7 +578,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             AccountSessionStore.clearActiveAccount(getApplication())
             refreshSavedAccounts()
             _uiState.value = ProfileUiState.LoggedOut(
-                topPhoto = resolveProfileTopPhoto(customBgUri, "")
+                topPhoto = resolveProfileTopPhoto(customBgUri)
             )
         }
     }
@@ -604,7 +606,7 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
             return
         }
         _uiState.value = if (TokenManager.sessDataCache.isNullOrEmpty()) {
-            ProfileUiState.LoggedOut(topPhoto = resolveProfileTopPhoto(customBgUri, ""))
+            ProfileUiState.LoggedOut(topPhoto = resolveProfileTopPhoto(customBgUri))
         } else {
             ProfileUiState.Error(
                 if (isNetworkError(error)) "网络不可用，请检查网络连接" else "加载失败，点击重试"
@@ -635,8 +637,8 @@ class ProfileViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun resolveProfileTopPhoto(customBgUri: String, fallback: String): String {
-        if (customBgUri.isBlank()) return fallback
+    private fun resolveProfileTopPhoto(customBgUri: String): String {
+        if (customBgUri.isBlank()) return ""
         if (!customBgUri.startsWith("file://")) return customBgUri
         return runCatching {
             val file = File(Uri.parse(customBgUri).path.orEmpty())

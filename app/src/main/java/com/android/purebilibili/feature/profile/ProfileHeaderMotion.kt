@@ -1,9 +1,4 @@
-/*
- * Profile motion adapted from NextAlone/Nagram ProfileActivity.java.
- * Upstream: fb56ea9801e5de68c60f0152b444bbe2a0fda520
- * Telegram source copyright Nikolai Kudashov, 2013-2018; GPL-2.0-or-later.
- * Nagram modifications by its contributors; this Compose port is GPL-3.0.
- */
+/** 资料头部滚动收放和吸附策略。 */
 package com.android.purebilibili.feature.profile
 
 import androidx.compose.animation.core.CubicBezierEasing

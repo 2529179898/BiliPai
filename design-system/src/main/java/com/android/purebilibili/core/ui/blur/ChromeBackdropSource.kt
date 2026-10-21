@@ -73,6 +73,8 @@ fun rememberChromeBackdropSource(
                         // the backdrop/layer identities stable throughout theme changes.
                         val background = recordingBackgroundState.value
                         if (background != Color.Unspecified) drawRect(background)
+                        // Page viewports own clipping. Hidden optical captures need their
+                        // overflow intact; a global clip also changes glass rim sampling.
                         this@drawWithContent.drawContent()
                     }
                     if (drawContentToScreen) drawLayer(contentLayer)

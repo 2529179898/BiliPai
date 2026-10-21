@@ -1,5 +1,7 @@
 package com.android.purebilibili.feature.settings
 
+import com.android.purebilibili.core.theme.LocalAppUiStyle
+import com.android.purebilibili.core.theme.AppUiStyle
 import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
@@ -222,7 +224,12 @@ private fun TipItem(
             .padding(16.dp),
         verticalAlignment = Alignment.Top
     ) {
-        Box(
+        if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+            SettingsFunctionIcon(
+                title = title,
+                imageVector = icon,
+            )
+        } else Box(
             modifier = Modifier
                 .size(36.dp)
                 .clip(AppShapes.container(ContainerLevel.Field))

@@ -192,7 +192,7 @@ fun PluginsScreen(
             plugin = plugin,
             onBack = { editingPlugin = null },
             onSave = { updated ->
-                com.android.purebilibili.core.plugin.json.JsonPluginManager.updatePlugin(updated)
+                scope.launch { com.android.purebilibili.core.plugin.json.JsonPluginManager.updatePlugin(updated) }
             }
         )
         return
@@ -253,6 +253,9 @@ fun PluginsContent(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
+    LaunchedEffect(context) {
+        com.android.purebilibili.core.plugin.json.JsonPluginManager.initialize(context)
+    }
     val effectMatchHintsEnabledFlow = remember(context) {
         PluginStore.effectMatchHintsEnabledFlow(context)
     }
@@ -720,7 +723,12 @@ fun PluginsContent(
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
+                        if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+                            SettingsFunctionIcon(
+                                title = "导入外部插件",
+                                imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_cloud_download_24),
+                            )
+                        } else Box(
                             modifier = Modifier
                                 .size(36.dp)
                                 .adaptiveSquircleBackground(importTint, 10.dp),
@@ -772,7 +780,12 @@ fun PluginsContent(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
+                            if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+                                SettingsFunctionIcon(
+                                    title = "导入 JS 媒体插件",
+                                    imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_terminal_24),
+                                )
+                            } else Box(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .adaptiveSquircleBackground(jsImportTint, 10.dp),
@@ -897,7 +910,12 @@ fun PluginsContent(
                             .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
+                        if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+                            SettingsFunctionIcon(
+                                title = "开放 Kotlin 插件包",
+                                imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_shield_fill_24),
+                            )
+                        } else Box(
                             modifier = Modifier
                                 .size(36.dp)
                                 .adaptiveSquircleBackground(kotlinPackageTint, 10.dp),
@@ -1029,7 +1047,12 @@ fun PluginsContent(
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
+                            if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+                                SettingsFunctionIcon(
+                                    title = "在线装扮",
+                                    imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_cloud_fill_24),
+                                )
+                            } else Box(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .adaptiveSquircleBackground(uiSkinTint, 10.dp),
@@ -1083,7 +1106,12 @@ fun PluginsContent(
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(
+                            if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+                                SettingsFunctionIcon(
+                                    title = "导入界面皮肤包",
+                                    imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_brush_fill_24),
+                                )
+                            } else Box(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .adaptiveSquircleBackground(uiSkinTint, 10.dp),
@@ -1223,26 +1251,30 @@ fun PluginsContent(
                                     filterCount = filterStats[loadedPlugin.plugin.id] ?: 0,
                                     index = index,
                                     onToggle = { enabled ->
-                                        com.android.purebilibili.core.plugin.json.JsonPluginManager.setEnabled(
-                                            loadedPlugin.plugin.id, enabled
-                                        )
+                                        scope.launch {
+                                            com.android.purebilibili.core.plugin.json.JsonPluginManager.setEnabled(
+                                                loadedPlugin.plugin.id, enabled
+                                            )
+                                        }
                                     },
                                     onEdit = {
                                         //  Callback to editing
                                         onEditJsonPlugin(loadedPlugin.plugin)
                                     },
                                     onDelete = {
-                                        com.android.purebilibili.core.plugin.json.JsonPluginManager.removePlugin(
-                                            loadedPlugin.plugin.id
-                                        )
+                                        scope.launch {
+                                            com.android.purebilibili.core.plugin.json.JsonPluginManager.removePlugin(loadedPlugin.plugin.id)
+                                        }
                                     },
                                     onResetStats = {
-                                        com.android.purebilibili.core.plugin.json.JsonPluginManager.resetStats(loadedPlugin.plugin.id)
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "统计已重置",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
+                                        scope.launch {
+                                            com.android.purebilibili.core.plugin.json.JsonPluginManager.resetStats(loadedPlugin.plugin.id)
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "统计已重置",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     },
                                     onTest = {
                                         //  获取首页样本视频进行测试
@@ -1336,7 +1368,7 @@ fun PluginsContent(
                     jsImportError = null
                 }
             },
-            icon = { AppIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_terminal_24), contentDescription = null) },
+            icon = { SettingsFunctionIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_terminal_24), title = "导入 JS 媒体插件") },
             title = { AppText("导入 JS 媒体插件") },
             text = {
                 Column {
@@ -1402,7 +1434,7 @@ fun PluginsContent(
                     jsPreview = null
                 }
             },
-            icon = { AppIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_shield_fill_24), contentDescription = null) },
+            icon = { SettingsFunctionIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_shield_fill_24), title = "JS 插件预览") },
             title = { AppText("JS 插件预览") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1499,7 +1531,7 @@ fun PluginsContent(
                 importUrl = ""
                 importError = null
             },
-            icon = { AppIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_cloud_download_24), contentDescription = null) },
+            icon = { SettingsFunctionIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_cloud_download_24), title = "导入外部插件") },
             title = { AppText("导入外部插件") },
             text = {
                 Column {
@@ -1610,7 +1642,10 @@ fun PluginsContent(
                                 .clip(AppShapes.container(ContainerLevel.Chip))
                         )
                     } else {
-                        AppIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_extension_24), contentDescription = null)
+                        SettingsFunctionIcon(
+                            com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_extension_24),
+                            title = "确认安装插件",
+                        )
                     }
                 },
                 title = { AppText("确认安装插件") },
@@ -1704,7 +1739,7 @@ fun PluginsContent(
                     kotlinPackageBytes = null
                 }
             },
-            icon = { AppIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_shield_fill_24), contentDescription = null) },
+            icon = { SettingsFunctionIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_shield_fill_24), title = "Kotlin 插件包预览") },
             title = { AppText("Kotlin 插件包预览") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1794,7 +1829,7 @@ fun PluginsContent(
                     uiSkinPreviewAssetFiles = emptyMap()
                 }
             },
-            icon = { AppIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_brush_fill_24), contentDescription = null) },
+            icon = { SettingsFunctionIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_brush_fill_24), title = "界面皮肤包预览") },
             title = { AppText("界面皮肤包预览") },
             text = {
                 Column(
@@ -1938,7 +1973,7 @@ fun PluginsContent(
         val imagePreviewItems = buildUiSkinImagePreviewItems(installed.assetFiles)
         AppAlertDialog(
             onDismissRequest = { uiSkinInstalledPreview = null },
-            icon = { AppIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_visibility_24), contentDescription = null) },
+            icon = { SettingsFunctionIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_visibility_24), title = "皮肤预览") },
             title = { AppText("皮肤预览") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2018,7 +2053,7 @@ fun PluginsContent(
     uiSkinPendingDelete?.let { skin ->
         AppAlertDialog(
             onDismissRequest = { uiSkinPendingDelete = null },
-            icon = { AppIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_delete_24), contentDescription = null) },
+            icon = { SettingsFunctionIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_delete_24), title = "删除皮肤") },
             title = { AppText("删除皮肤") },
             text = { AppText("确定要删除皮肤 \"${skin.displayName}\" 吗？删除后会清理本地包和已解压资源。") },
             confirmButton = {
@@ -2250,7 +2285,20 @@ private fun PluginItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 图标
-            Box(
+            if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+                SettingsFunctionIcon(
+                    title = plugin.name,
+                    imageVector = when (plugin.id) {
+                        com.android.purebilibili.feature.plugin.SubscriptionFeedPlugin.PLUGIN_ID ->
+                            com.android.purebilibili.feature.settings.rememberMaterialSymbol(
+                                com.android.purebilibili.R.drawable.ms_rss_feed_24,
+                            )
+                        else -> plugin.icon ?: com.android.purebilibili.feature.settings.rememberMaterialSymbol(
+                            com.android.purebilibili.R.drawable.ms_extension_24,
+                        )
+                    },
+                )
+            } else Box(
                 modifier = Modifier
                     .size(36.dp)
                     .adaptiveSquircleBackground(effectiveIconTint, 10.dp),
@@ -2456,7 +2504,12 @@ private fun InstalledJsPluginItem(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
+            if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+                SettingsFunctionIcon(
+                    title = installed.manifest.title,
+                    imageVector = rememberMaterialSymbol(R.drawable.ms_data_object_fill_24),
+                )
+            } else Box(
                 modifier = Modifier
                     .size(36.dp)
                     .adaptiveSquircleBackground(iconTint, 10.dp),
@@ -2564,7 +2617,7 @@ private fun JsPluginTestDialog(
 
     AppAlertDialog(
         onDismissRequest = { if (!isRunning) onDismiss() },
-        icon = { AppIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_terminal_24), contentDescription = null) },
+        icon = { SettingsFunctionIcon(com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_terminal_24), title = "测试：${installed.manifest.title}") },
         title = { AppText("测试：${installed.manifest.title}") },
         text = {
             Column {
@@ -2763,7 +2816,12 @@ private fun JsonPluginStatsNotificationSection(
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
+                if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+                    SettingsFunctionIcon(
+                        title = "插件统计通知",
+                        imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_notifications_24),
+                    )
+                } else Box(
                     modifier = Modifier
                         .size(36.dp)
                         .adaptiveSquircleBackground(notificationIconTint, 10.dp),
@@ -2847,8 +2905,11 @@ private fun JsonPluginItem(
             // 图标
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .adaptiveSquircleBackground(jsonPluginTint, 10.dp),
+                    .size(if ((LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) && plugin.iconUrl.isNullOrBlank()) 32.dp else 36.dp)
+                    .adaptiveSquircleBackground(
+                        if ((LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) && plugin.iconUrl.isNullOrBlank()) Color.Transparent else jsonPluginTint,
+                        10.dp,
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 if (!plugin.iconUrl.isNullOrBlank()) {
@@ -2860,11 +2921,12 @@ private fun JsonPluginItem(
                             .clip(AppShapes.container(ContainerLevel.Field))
                     )
                 } else {
-                    AppIcon(
+                    SettingsFunctionIcon(
+                        title = plugin.name,
                         imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_terminal_24),
                         contentDescription = null,
                         tint = jsonPluginIconContentColor,
-                        modifier = Modifier.size(20.dp)
+                        nativeSize = 20.dp
                     )
                 }
             }
@@ -3048,8 +3110,9 @@ private fun TestResultDialog(
     AppAlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            AppIcon(
+            SettingsFunctionIcon(
                 com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_lightbulb_24),
+                title = "规则测试结果",
                 contentDescription = null,
                 tint = dialogIconTint
             )

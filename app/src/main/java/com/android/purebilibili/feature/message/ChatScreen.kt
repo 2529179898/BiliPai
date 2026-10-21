@@ -156,19 +156,22 @@ fun ChatScreen(
     onOpenBilibiliLink: (String) -> Unit = {},
     viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory(talkerId, sessionType))
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var inputText by rememberSaveable(talkerId, sessionType) { mutableStateOf("") }
+    val accountIdentity by com.android.purebilibili.core.store.TokenManager.accountIdentity.collectAsStateWithLifecycle()
+    val rawUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState = rawUiState.takeIf { it.accountIdentity == accountIdentity }
+        ?: ChatUiState(accountIdentity = accountIdentity)
+    var inputText by rememberSaveable(talkerId, sessionType, accountIdentity) { mutableStateOf("") }
     LaunchedEffect(viewModel, uiState.sentText) {
         val sentText = uiState.sentText ?: return@LaunchedEffect
         if (inputText == sentText) inputText = ""
         viewModel.consumeSentText(sentText)
     }
-    val listState = rememberLazyListState()
+    val listState = androidx.compose.runtime.key(accountIdentity) { rememberLazyListState() }
     val scrollScope = rememberCoroutineScope()
-    var followLatest by rememberSaveable(talkerId, sessionType) { mutableStateOf(true) }
-    var handledScrollVersion by remember(viewModel) { mutableStateOf(uiState.scrollToLatestVersion) }
+    var followLatest by rememberSaveable(talkerId, sessionType, accountIdentity) { mutableStateOf(true) }
+    var handledScrollVersion by remember(viewModel, accountIdentity) { mutableStateOf(uiState.scrollToLatestVersion) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(viewModel, lifecycleOwner) {
+    LaunchedEffect(viewModel, lifecycleOwner, accountIdentity) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (isActive) {
                 viewModel.refreshMessages()
@@ -183,15 +186,17 @@ fun ChatScreen(
                 if (scrolling || !canScrollToNewer) followLatest = !canScrollToNewer
             }
     }
-    var pendingWithdrawMessage by remember { mutableStateOf<PrivateMessageItem?>(null) }
-    var showInterceptConfirm by remember { mutableStateOf(false) }
+    var pendingWithdrawMessage by remember(accountIdentity) { mutableStateOf<PrivateMessageItem?>(null) }
+    var showInterceptConfirm by remember(accountIdentity) { mutableStateOf(false) }
+    var imagePickIdentity by remember { mutableStateOf<com.android.purebilibili.core.store.AccountSessionIdentity?>(null) }
     val context = LocalContext.current
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = PickGalleryVisualMedia()
     ) { uri ->
-        if (uri != null) {
+        if (uri != null && imagePickIdentity == com.android.purebilibili.core.store.TokenManager.accountIdentity.value) {
             viewModel.sendImageMessage(context, uri)
         }
+        imagePickIdentity = null
     }
 
     val latestMessageKey = uiState.messages.lastOrNull()?.let(::chatMessageKey)
@@ -460,6 +465,7 @@ fun ChatScreen(
                         }
                     },
                     onPickImage = {
+                        imagePickIdentity = accountIdentity
                         imagePickerLauncher.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )

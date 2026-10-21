@@ -470,7 +470,12 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
                                     progress = progress,
                                     tuning = liquidGlassTuning,
                                     shellHeightDp = dockHeight.value,
-                                    indicatorScaleY = scaleY,
+                                    // Match the exact layer transform used below, including
+                                    // velocity compression, so the rim follows the visible pill.
+                                    indicatorScaleY = resolveFloatingDockIndicatorLayerScaleY(
+                                        baseScaleY = scaleY,
+                                        velocity = velocity,
+                                    ),
                                 )
                             },
                             highlight = { pillHighlight.value.copy(alpha = pressProgress) },
@@ -484,6 +489,7 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
                         )
                         .innerShadow(shape = shape) {
                             InnerShadow(
+                                offset = androidx.compose.ui.unit.DpOffset.Zero,
                                 radius = 8.dp * homeIndicatorOpticalScale(height.value) * pressProgress,
                                 color = Color.Black.copy(alpha = 0.15f),
                                 alpha = pressProgress,

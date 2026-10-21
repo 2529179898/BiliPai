@@ -675,7 +675,7 @@ private fun PartitionSideRail(
         )
     }
 
-    val dampedDragAnimation = remember(animationScope, itemCount, density) {
+    val dampedDragAnimation = remember(animationScope, itemCount, density, liquidGlassIndicatorEnabled) {
         DampedDragAnimation(
             animationScope = animationScope,
             initialValue = selectedIndex.toFloat(),
@@ -684,6 +684,7 @@ private fun PartitionSideRail(
             initialScale = 1f,
             pressedScale = indicatorGeometry.pressedScale,
             trackingMode = DampedDragTrackingMode.DIRECT,
+            useMiuixIndicatorMotion = liquidGlassIndicatorEnabled,
             canDrag = { offset ->
                 val animation = holder.instance ?: return@DampedDragAnimation true
                 if (holder.itemSlotHeightPx <= 0f) return@DampedDragAnimation false
@@ -695,7 +696,8 @@ private fun PartitionSideRail(
             onDragStarted = {},
             onDragStopped = {
                 val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, maxTabIndex)
-                animateToValue(targetIndex.toFloat(), animatePress = false)
+                if (liquidGlassIndicatorEnabled) updateValue(targetIndex.toFloat())
+                else animateToValue(targetIndex.toFloat(), animatePress = false)
                 partitionsLatest.getOrNull(targetIndex)?.let(onSelectedLatest)
                 holder.offsetJob?.cancel()
                 holder.offsetJob = animationScope.launch(start = CoroutineStart.UNDISPATCHED) {

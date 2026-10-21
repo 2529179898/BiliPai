@@ -117,7 +117,6 @@ import com.android.purebilibili.feature.dynamic.components.DynamicCardActions
 import com.android.purebilibili.feature.dynamic.components.DynamicCardInteractionActions
 import com.android.purebilibili.feature.dynamic.components.DynamicCardNavigationActions
 import com.android.purebilibili.feature.dynamic.components.DynamicCardPresentation
-import com.android.purebilibili.feature.dynamic.components.DynamicCommentOverlayHost
 import com.android.purebilibili.feature.dynamic.components.DynamicSidebar
 import com.android.purebilibili.feature.dynamic.components.DynamicUserLiveBadge
 import com.android.purebilibili.feature.dynamic.components.DynamicTopBarWithTabs
@@ -128,9 +127,7 @@ import com.android.purebilibili.feature.dynamic.components.isHorizontalUserList
 import com.android.purebilibili.feature.dynamic.components.isRightAligned
 import com.android.purebilibili.feature.dynamic.components.isDrawer
 import com.android.purebilibili.feature.dynamic.components.resolveDynamicReportReasons
-import com.android.purebilibili.feature.dynamic.components.DynamicCommentSheet
 import com.android.purebilibili.feature.dynamic.components.RepostDialog
-import com.android.purebilibili.feature.dynamic.components.DynamicSubReplyPreviewHost
 import com.android.purebilibili.feature.home.LocalHomeFeedScrollInProgress
 import com.android.purebilibili.feature.home.resolveOldContentDividerContainerColor
 import com.android.purebilibili.feature.home.LocalHomeScrollOffset
@@ -228,6 +225,14 @@ fun DynamicScreen(
     val checkDynamicFallback: (String) -> Unit = { id ->
         viewModel.checkDynamic(id) { _, message ->
             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val unfoldRelatedDynamics: (String) -> Unit = { id ->
+        viewModel.unfoldRelatedDynamics(id) { _, message ->
+            if (message.isNotBlank()) {
+                android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -903,7 +908,7 @@ fun DynamicScreen(
                                         onBangumiClick = onBangumiClick,
                                         onArticleClick = onArticleClick,
                                         onDynamicDetailClick = onDynamicDetailClick,
-                                        onUnfoldRelatedClick = viewModel::unfoldRelatedDynamics,
+                                        onUnfoldRelatedClick = unfoldRelatedDynamics,
                                         onUserClick = onUserClick,
                                         onTopicClick = onTopicClick,
                                         onTopicKeywordClick = onTopicKeywordClick,
@@ -1097,7 +1102,7 @@ fun DynamicScreen(
                                     onBangumiClick = onBangumiClick,
                                     onArticleClick = onArticleClick,
                                     onDynamicDetailClick = onDynamicDetailClick,
-                                    onUnfoldRelatedClick = viewModel::unfoldRelatedDynamics,
+                                    onUnfoldRelatedClick = unfoldRelatedDynamics,
                                     onUserClick = onUserClick,
                                     onTopicClick = onTopicClick,
                                     onTopicKeywordClick = onTopicKeywordClick,
@@ -1296,14 +1301,6 @@ fun DynamicScreen(
             onDismiss = { showAuthorSearch = false },
         )
     }
-
-    DynamicCommentOverlayHost(
-        viewModel = viewModel,
-        primaryItems = filteredItems,
-        secondaryItems = state.userItems,
-        toastContext = context,
-        onUserClick = onUserClick,
-    )
 
     //  [新增] 转发弹窗
     showRepostDialog?.let { dynamicId ->

@@ -696,7 +696,7 @@ fun AppearanceSettingsContent(
                         SettingsItemAnchor("appearance.app_icon_style") {
                             SettingsSingleChoicePreference(
                                 title = settingItemTitle("appearance.app_icon_style"),
-                                subtitle = "彩色底图或单色图标，全局生效",
+                                subtitle = "柔和或鲜明的多色、主题色容器、单色线性；所有设置入口统一切换",
                                 options = resolveAppIconStyleOptions(),
                                 selectedValue = state.appIconStyle,
                                 onSelectionChange = { style ->

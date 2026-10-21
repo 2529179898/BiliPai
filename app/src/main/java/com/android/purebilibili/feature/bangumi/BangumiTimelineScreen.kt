@@ -21,7 +21,7 @@ import com.android.purebilibili.core.ui.components.AppFilterChip
 import com.android.purebilibili.core.ui.components.AppSurface
 import com.android.purebilibili.core.ui.skeleton.ContentSkeletonBlock
 import com.android.purebilibili.core.ui.skeleton.rememberContentSkeletonBlockColor
-import com.android.purebilibili.core.ui.skeleton.rememberContentSkeletonPulse
+import com.android.purebilibili.core.ui.skeleton.rememberContentSkeletonPulseState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -82,7 +82,7 @@ fun BangumiTimelineContent(
 
 @Composable
 private fun BangumiTimelineScreenSkeleton(modifier: Modifier = Modifier) {
-    val blockColor = rememberContentSkeletonBlockColor(rememberContentSkeletonPulse())
+    val blockColor = rememberContentSkeletonBlockColor(rememberContentSkeletonPulseState())
     Column(modifier = modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),

@@ -216,11 +216,11 @@ Crashlytics 的 mapping 上传在本地默认关闭，只有 release 且显式�
 
 ## 最近更新
 
-当前源码版本为 `0.5.0 / versionCode 492`；完整变更见 [CHANGELOG.md](CHANGELOG.md)。安装包与公告见 [Telegram 频道](https://t.me/bilipai666) / [交流群](https://t.me/bilipai888/1)：
+当前源码版本为 `0.5.2 / versionCode 496`；完整变更见 [CHANGELOG.md](CHANGELOG.md)。安装包与公告见 [Telegram 频道](https://t.me/bilipai666) / [交流群](https://t.me/bilipai888/1)：
 
-- 完善首页滚动、动态标签、播放进度和下载任务界面。
-- 优化 Miuix 页签在不同容器与文字长度下的布局，修复选中背景错位和视频详情标签挤压。
-- 加固 WebView 链接导航与崩溃处理，重组设置分类、搜索和导航。
+- 统一动态评论输入弹层，完善楼中楼回复、草稿及相关动态加载。
+- 修复 Miuix 搜索排序主题色、热门分类居中、播放器双击和私信账号隔离。
+- 优化首页与播放页刷新、后台动画任务、下载及插件处理，精简图片资源。
 
 ## 路线图
 

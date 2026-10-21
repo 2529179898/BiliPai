@@ -21,8 +21,8 @@ class AdaptiveListComponentPolicyTest {
     fun `material3 style should use more native material search and group geometry`() {
         val spec = resolveAdaptiveListComponentVisualSpec(AppUiStyle.MATERIAL3)
 
-        assertEquals(56, spec.searchBarHeightDp)
-        assertEquals(28, spec.searchBarCornerRadiusDp)
+        assertEquals(48, spec.searchBarHeightDp)
+        assertEquals(14, spec.searchBarCornerRadiusDp)
         assertEquals(40, spec.iconContainerSizeDp)
         assertEquals(22, spec.iconGlyphSizeDp)
         assertEquals(24, spec.groupCornerRadiusDp)
@@ -34,24 +34,24 @@ class AdaptiveListComponentPolicyTest {
 
 
     @Test
-    fun `miuix style should align list row spacing with miuix inside margin default`() {
+    fun `miuix style should use compact list row spacing`() {
         val spec = resolveAdaptiveListRowVisualSpec(AppUiStyle.MIUIX)
 
         assertEquals(16, spec.insideHorizontalPaddingDp)
-        assertEquals(16, spec.insideVerticalPaddingDp)
+        assertEquals(12, spec.insideVerticalPaddingDp)
         assertEquals(14, spec.trailingIconSizeDp)
         assertEquals(6, spec.trailingSpacingDp)
     }
 
     @Test
-    fun `material3 style should align list row spacing with md3 list item padding`() {
+    fun `material3 style should use compact app authored list row spacing`() {
         val spec = resolveAdaptiveListRowVisualSpec(AppUiStyle.MATERIAL3)
 
         assertEquals(16, spec.insideHorizontalPaddingDp)
-        assertEquals(16, spec.insideVerticalPaddingDp)
+        assertEquals(12, spec.insideVerticalPaddingDp)
         assertEquals(16, spec.trailingIconSizeDp)
         assertEquals(8, spec.trailingSpacingDp)
-        assertEquals(48, spec.minTouchTargetHeightDp)
+        assertEquals(44, spec.minTouchTargetHeightDp)
     }
 
 

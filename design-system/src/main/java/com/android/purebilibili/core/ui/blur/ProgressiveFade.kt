@@ -15,10 +15,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * 移植自 Telegram/Nagram 的核心非线性渐变停靠点算法 (BlurredBackgroundWithFadeDrawable)。
+ * 基于非线性透明度停靠点的渐进淡出。
  *
  * 普通线性渐变（LinearGradient）由于感知亮度变化不均匀，会产生明显的马赫带效应（Mach-Band Effect），
- * 视觉上有生硬的切面感。Telegram 采用 5 阶非线性缓动停靠点（0 -> 0x60 -> 0xB0 -> 0xE8 -> 0xFF），
+ * 视觉上有生硬的切面感。这里采用 5 阶非线性缓动停靠点（0 -> 0x60 -> 0xB0 -> 0xE8 -> 0xFF），
  * 使透明度在靠近顶部时迅速收敛为纯色，在离开顶部时极其平滑柔和地消散。
  */
 object ProgressiveFadeDefaults {

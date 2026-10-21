@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import com.android.purebilibili.feature.login.OfficialQrAuthorizationDialog
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -74,6 +76,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -881,6 +884,7 @@ private fun BoxScope.ProfileBackground(
     val isTablet = windowSizeClass.shouldUseSplitLayout
     val hasSkinVideo = !skinVideoBackgroundPath.isNullOrBlank()
     val hasWallpaper = user.topPhoto.isNotEmpty() || hasSkinVideo
+    val headerMotion = LocalProfileBackgroundMotion.current
     val bgTransform by viewModel.getProfileBgTransform(isTablet).collectAsStateWithLifecycle(initialValue = ProfileWallpaperTransform())
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -891,6 +895,14 @@ private fun BoxScope.ProfileBackground(
         screenHeightDp = configuration.screenHeightDp,
         widthSizeClass = windowSizeClass.widthSizeClass
     ).dp
+    val backgroundVisible by remember(headerMotion, heroHeight, density) {
+        derivedStateOf {
+            // Expanded photos leave the statistics background visible. Pause media
+            // only when scrolling has actually removed the whole header.
+            headerMotion == null || headerMotion.scrollOffsetPx() <
+                with(density) { heroHeight.toPx() } + headerMotion.pullOffsetPx()
+        }
+    }
     val wallpaperDecodeSize = remember(configuration.screenWidthDp, density.density) {
         resolveProfileWallpaperDecodeSizePx(
             screenWidthDp = configuration.screenWidthDp,
@@ -918,15 +930,6 @@ private fun BoxScope.ProfileBackground(
             onSurfaceVariantColor = colorScheme.onSurfaceVariant
         )
     }
-    val heroFallbackGradient = remember(hasWallpaper, isDarkTheme, colorScheme.surface, colorScheme.surfaceVariant, colorScheme.primaryContainer) {
-        resolveProfileHeroFallbackGradient(
-            hasWallpaper = hasWallpaper,
-            isDarkTheme = isDarkTheme,
-            surfaceColor = colorScheme.surface,
-            surfaceVariantColor = colorScheme.surfaceVariant,
-            primaryContainerColor = colorScheme.primaryContainer
-        )
-    }
 
     Box(
         modifier = Modifier
@@ -937,7 +940,7 @@ private fun BoxScope.ProfileBackground(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(heroHeight)
+            .profileHeaderBackgroundMotion(heroHeight)
             .align(Alignment.TopCenter)
     ) {
         if (shouldRenderProfileImmersiveBackground(user.topPhoto.isNotEmpty(), deferImmersiveRenderBudget)) {
@@ -945,7 +948,7 @@ private fun BoxScope.ProfileBackground(
                 com.android.purebilibili.core.ui.wallpaper.WallpaperMedia(
                     uri = user.topPhoto,
                     imageModel = wallpaperRequest,
-                    playbackEnabled = playSkinVideo && !deferImmersiveRenderBudget,
+                    playbackEnabled = playSkinVideo && backgroundVisible && !deferImmersiveRenderBudget,
                     alignment = androidx.compose.ui.BiasAlignment(
                         bgTransform.offsetX,
                         bgTransform.offsetY
@@ -962,7 +965,7 @@ private fun BoxScope.ProfileBackground(
                 ProfileSkinVideoBackground(
                     videoPath = requireNotNull(skinVideoBackgroundPath),
                     playMode = skinVideoPlayMode,
-                    playbackEnabled = playSkinVideo,
+                    playbackEnabled = playSkinVideo && backgroundVisible,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -970,21 +973,8 @@ private fun BoxScope.ProfileBackground(
             ProfileSkinVideoBackground(
                 videoPath = requireNotNull(skinVideoBackgroundPath),
                 playMode = skinVideoPlayMode,
-                playbackEnabled = playSkinVideo,
+                playbackEnabled = playSkinVideo && backgroundVisible,
                 modifier = Modifier.fillMaxSize(),
-            )
-        } else if (heroFallbackGradient != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                heroFallbackGradient.topColor,
-                                heroFallbackGradient.bottomColor
-                            )
-                        )
-                    )
             )
         }
 
@@ -1284,6 +1274,43 @@ private fun ProfileSpaceContent(
             mobileListState.firstVisibleItemScrollOffset.toFloat(), profileCollapseRangeProvider(),
         )
     }
+    val photoConfiguration = LocalConfiguration.current
+    // Pull-down avatar expansion belongs to the portrait phone header.
+    // Both MD3/Miuix and both glass states use this same geometry and gesture logic.
+    val photoExpansionEnabled = !isTablet &&
+        photoConfiguration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE && user.face.isNotBlank()
+    val photoState = remember(user.mid, user.face, isTablet, photoConfiguration.orientation, density) {
+        ProfileAvatarExpansionState()
+    }
+    val photoRangeProvider: () -> Float = {
+        (photoState.viewportWidthPx - profileStatsTopProvider()).coerceAtLeast(0f)
+    }
+    val photoFractionProvider: () -> Float = { photoState.fraction(photoRangeProvider()) }
+    val photoBottomProvider: () -> Float = { profileStatsTopProvider() + photoState.visualOffsetPx }
+    val backgroundMotion = ProfileBackgroundMotion(
+        scrollOffsetPx = {
+            if (mobileListState.firstVisibleItemIndex > 0) Float.POSITIVE_INFINITY
+            else mobileListState.firstVisibleItemScrollOffset.toFloat()
+        },
+        pullOffsetPx = { photoState.visualOffsetPx },
+        avatarShiftYPx = {
+            with(density) {
+                -(statusBarTopPadding + (PROFILE_EXPANDED_AVATAR_TOP_DP + 29f).dp).toPx() *
+                    (1f - profileExpandedFractionProvider())
+            }
+        },
+    )
+    val photoConnection = rememberProfileAvatarExpansionConnection(photoState, mobileListState, photoExpansionEnabled, photoRangeProvider)
+    val photoScope = rememberCoroutineScope()
+    val photoMotion = com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current &&
+        !com.android.purebilibili.core.ui.motion.rememberSystemReduceMotion() &&
+        !com.android.purebilibili.core.ui.performance.isLowBlurBudgetForced()
+    val collapsePhoto: () -> Unit = {
+        photoScope.launch { photoState.settle(false, photoRangeProvider(), 0f, density.density, photoMotion) }
+    }
+    val photoVisible by remember(photoState) { derivedStateOf { photoState.offsetPx > 0f } }
+    androidx.activity.compose.BackHandler(enabled = photoVisible) { collapsePhoto() }
+    LaunchedEffect(photoState, scrollToTopRequestId, space.selectedTab) { photoState.reset() }
     val profileHeaderFling = rememberProfileHeaderFlingBehavior(mobileListState, profileCollapseRangeProvider)
     val isMobileScrolling by remember(mobileListState) {
         derivedStateOf { mobileListState.isScrollInProgress }
@@ -1296,7 +1323,17 @@ private fun ProfileSpaceContent(
 
     var mobileFeedRootTopPx by remember { mutableStateOf(0f) }
     var mobileTabsRootBottomPx by remember { mutableStateOf(Float.POSITIVE_INFINITY) }
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(photoConnection)
+            .onSizeChanged {
+                if (photoState.viewportWidthPx != it.width) {
+                    photoState.reset()
+                    photoState.viewportWidthPx = it.width
+                }
+            },
+    ) {
         if (isTablet) {
             // 悬浮底栏会盖在双栏内容上，列表尾部需要与手机分支同等的让位。
             val bottomDockClearance = LocalBottomBarContentPadding.current
@@ -1382,25 +1419,22 @@ private fun ProfileSpaceContent(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .graphicsLayer {
-                            translationY = if (mobileListState.firstVisibleItemIndex > 0) {
-                                -100000f
-                            } else {
-                                -mobileListState.firstVisibleItemScrollOffset.toFloat()
-                            }
-                        }
                 ) {
-                    captureBackground()
+                    CompositionLocalProvider(LocalProfileBackgroundMotion provides backgroundMotion) {
+                        captureBackground()
+                    }
                 }
                 AppHorizontalPager(
                     state = pagerState,
                     userScrollEnabled = false,
                     key = { profileTabs[it].tab },
-                    modifier = Modifier.fillMaxSize().contentTabPagerGestures(
-                        pager = pagerState,
-                        enabled = true,
-                        contentTopPx = { mobileTabsRootBottomPx - mobileFeedRootTopPx },
-                    ),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .contentTabPagerGestures(
+                            pager = pagerState,
+                            enabled = true,
+                            contentTopPx = { mobileTabsRootBottomPx - mobileFeedRootTopPx },
+                        ),
                 ) { page ->
                 val mobileListState = mobilePageListStates.getValue(profileTabs[page].tab)
                 val space = space.copy(selectedTab = profileTabs[page].tab)
@@ -1416,7 +1450,15 @@ private fun ProfileSpaceContent(
                     contentPadding = PaddingValues(bottom = paddingValues.calculateBottomPadding() + 120.dp)
                 ) {
                 item {
-                    Box(Modifier.stationaryPagerHeader(pagerState, page)) {
+                    Box(
+                        Modifier
+                            .stationaryPagerHeader(pagerState, page)
+                            .layout { measurable, constraints ->
+                                val extra = photoState.visualOffsetPx.toInt()
+                                val child = measurable.measure(constraints)
+                                layout(child.width, child.height + extra) { child.placeRelative(0, extra) }
+                            },
+                    ) {
                     ProfileSpaceHeroHeader(
                         user = user,
                         editableAccount = editableAccount,
@@ -1433,7 +1475,7 @@ private fun ProfileSpaceContent(
                         identityReserve = with(density) { profileStatsTopProvider().toDp() },
                         topClipProvider = {
                             with(density) { (statusBarTopPadding + 56.dp).toPx() } +
-                                mobileListState.firstVisibleItemScrollOffset.toFloat()
+                                mobileListState.firstVisibleItemScrollOffset.toFloat() - photoState.visualOffsetPx
                         },
                     )
                 }
@@ -1502,7 +1544,7 @@ private fun ProfileSpaceContent(
                 contentColor = contentChrome.onSurfaceColor,
                 statusBarTopPadding = statusBarTopPadding,
                 privacyModeEnabled = privacyModeEnabled,
-                onBack = onBack,
+                onBack = if (photoVisible) collapsePhoto else onBack,
                 onSearchClick = onSearchClick,
                 onInboxClick = onInboxClick,
                 onPrivacyClick = onPrivacyClick,
@@ -1511,6 +1553,7 @@ private fun ProfileSpaceContent(
                 onSettingsClick = onSettingsClick,
                 onWallpaperClick = { showWallpaperActionSheet = true },
                 onEditClick = { showEditDialog = true },
+                photoFractionProvider = photoFractionProvider,
                 // Only transparent actions sit above the avatar; the chrome background stays below it.
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1536,6 +1579,11 @@ private fun ProfileSpaceContent(
                 listState = mobileListState,
                 flingBehavior = profileHeaderFling,
                 onAvatarClick = { showEditDialog = true },
+                photoState = photoState.takeIf { photoExpansionEnabled },
+                photoFractionProvider = photoFractionProvider,
+                photoBottomProvider = photoBottomProvider,
+                photoScrollConnection = photoConnection,
+                onCollapsePhoto = collapsePhoto,
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.TopCenter)
@@ -1546,7 +1594,7 @@ private fun ProfileSpaceContent(
                         val statsTop = if (mobileListState.firstVisibleItemIndex > 0) {
                             toolbarHeight
                         } else {
-                            profileStatsTopProvider().toInt() - mobileListState.firstVisibleItemScrollOffset
+                            (profileStatsTopProvider() + photoState.visualOffsetPx).toInt() - mobileListState.firstVisibleItemScrollOffset
                         }
                         val height = statsTop.coerceIn(
                             toolbarHeight.coerceAtMost(constraints.maxHeight),
@@ -1599,6 +1647,7 @@ private fun ProfilePinnedSpaceTopBar(
     onWallpaperClick: () -> Unit,
     onEditClick: () -> Unit,
     modifier: Modifier = Modifier,
+    photoFractionProvider: () -> Float = { 0f },
 ) {
     val topChromeScrim = remember(listState) {
         derivedStateOf {
@@ -1626,7 +1675,7 @@ private fun ProfilePinnedSpaceTopBar(
             OfficialQrAuthorizationDialog(onDismiss = { showQrAuthorization = false })
         }
         AppIconButton(onClick = { showQrAuthorization = true }) {
-            AppIcon(Icons.Rounded.QrCodeScanner, contentDescription = "扫码授权登录", tint = topBarIconColor)
+            ProfilePhotoToolbarIcon(Icons.Rounded.QrCodeScanner, "扫码授权登录", topBarIconColor, photoFractionProvider)
         }
         Spacer(modifier = Modifier.weight(1f))
         AppWindowActionMenu(
@@ -1656,7 +1705,7 @@ private fun ProfilePinnedSpaceTopBar(
                 ),
             ),
         ) {
-            AppIcon(Icons.Rounded.MoreVert, contentDescription = "更多", tint = topBarIconColor)
+            ProfilePhotoToolbarIcon(Icons.Rounded.MoreVert, "更多", topBarIconColor, photoFractionProvider)
         }
     }
 }
@@ -1911,6 +1960,15 @@ private fun ProfileSpaceHeroHeader(
 ) {
     val configuration = LocalConfiguration.current
     val windowSizeClass = LocalWindowSizeClass.current
+    val colorScheme = MaterialTheme.colorScheme
+    // The separate phone identity overlay owns wallpaper/photo colors. Statistics
+    // use an opaque page surface in both native themes and both glass states.
+    val statisticsChrome = if (!showIdentity) resolveProfileHeroChrome(
+        hasWallpaper = false,
+        isDarkTheme = colorScheme.surface.luminance() < 0.5f,
+        onSurfaceColor = colorScheme.onSurface,
+        onSurfaceVariantColor = colorScheme.onSurfaceVariant,
+    ) else heroChrome
     val heroHeight = resolveProfileHeroHeightDp(
         screenHeightDp = configuration.screenHeightDp,
         widthSizeClass = windowSizeClass.widthSizeClass
@@ -1922,6 +1980,14 @@ private fun ProfileSpaceHeroHeader(
             .drawWithContent {
                 // Clip only hero metadata; the feed remains available to the backdrop blur.
                 clipRect(top = topClipProvider().coerceIn(0f, size.height)) {
+                    if (!showIdentity) {
+                        val top = identityReserve.toPx().coerceIn(0f, size.height)
+                        drawRect(
+                            color = colorScheme.surface,
+                            topLeft = androidx.compose.ui.geometry.Offset(0f, top),
+                            size = androidx.compose.ui.geometry.Size(size.width, size.height - top),
+                        )
+                    }
                     this@drawWithContent.drawContent()
                 }
             }
@@ -1931,7 +1997,7 @@ private fun ProfileSpaceHeroHeader(
             editableAccount = editableAccount,
             compact = false,
             showIdentity = showIdentity,
-            heroChrome = heroChrome,
+            heroChrome = statisticsChrome,
             showWallpaperAction = showWallpaperAction,
             showEditProfileButton = showEditProfileButton,
             onEditClick = onEditClick,
@@ -1958,16 +2024,9 @@ private fun ProfileContentSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        contentChrome.sheetGradientTopColor,
-                        contentChrome.sheetGradientBottomColor
-                    ),
-                    startY = 0f,
-                    endY = 360f
-                )
-            )
+            // An opaque, uniform content plane meets the
+            // clipped colored header. It does not inherit the header's gradient.
+            .background(contentChrome.surfaceColor)
             .padding(
                 top = layoutTokens.contentSheetTopPaddingDp.dp,
                 bottom = layoutTokens.contentSheetBottomPaddingDp.dp

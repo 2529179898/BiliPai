@@ -136,7 +136,7 @@ python3 validate.py
 
 ## 资源体积优化：共享角色图片
 
-14 段应用 Lottie JSON 的 `maid_bitmap` 现在只引用对应静态回退 PNG 文件名，`e=0`、`u` 为空。播放器等待解析后，在 IO 协程中读取 `drawable-nodpi` 原图、检查文件名和尺寸，并通过当前 Lottie 6.7.1 的 `LottieImageAsset.setBitmap` 提供图片，再开始播放；缺失或解码失败进入原有静态回退。无需复制一套图片到 assets。图片像素、关键帧、蒙版、角色表情、播放时长与位置均未修改。
+14 段应用 Lottie JSON 的 `maid_bitmap` 现在只引用对应静态回退无损 WebP 文件名，`e=0`、`u` 为空。播放器等待解析后，在 IO 协程中读取 `drawable-nodpi` 原图、检查文件名和尺寸，并通过当前 Lottie 6.7.1 的 `LottieImageAsset.setBitmap` 提供图片，再开始播放；缺失或解码失败进入原有静态回退。无需复制一套图片到 assets。图片像素、关键帧、蒙版、角色表情、播放时长与位置均未修改。
 
 `generate.py` 新生成资源同样引用共享 PNG。`package_assets.py` 可转换已有资源并生成包含 14 段动效的离线预览；预览单独内嵌图片，仅用于制作。`render-cleaning-frames.py` 同时支持共享图片及归档的内嵌图片。
 
@@ -148,3 +148,7 @@ python3 validate.py
 | 同方式 ZIP 压缩模拟 | 9,182,289 bytes | 4,580,755 bytes |
 
 压缩模拟节省 4,601,534 bytes（约 4.60 MB，50.1%）；这是资源 ZIP 估算，不是 APK 实测。完整数字和测量方式见 `size-optimization-report.json`。转换前后全部 PNG 和剔除图片包装字段后的时间轴哈希相同。14 段资源、枚举路径、预览内嵌图均已检查；重新采样的分享与投币帧图哈希与优化前完全相同。未运行编译或 Gradle 测试，应用内共享图片加载、失败回退和播放尚未验证。
+
+## 2026-10-21：无损图片打包
+
+14 张应用状态图使用 `cwebp -lossless -exact -m 4` 编码；包含完全透明像素的 RGBA 字节逐一与原 PNG 比对，512×512 尺寸、蒙版、关键帧和静态回退语义保持不变。原画保留在 artwork，应用仅打包一份 WebP；Lottie `maid_bitmap.p` 与同名静态回退共享图片。`static-image-pixels.json` 保存像素摘要，`validate.py` 校验枚举、时间轴、引用和像素，`package_assets.py` 保持离线预览内嵌同一张 WebP。重新制作需要 Pillow 与 cwebp，生成与抽样工具均读取 `brand-motion` 模块。

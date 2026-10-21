@@ -66,6 +66,8 @@ fun <T> AppThemeAdaptiveTabRow(
     indicatorPositionProvider: (() -> Float)? = null,
     isScrollInProgressProvider: () -> Boolean = { false },
     liquidGlassAnimateLabelWidthChanges: Boolean = false,
+    // Explicit fixed slots; callers can disable rail scrolling without losing indicator gestures.
+    forceEqualWidth: Boolean = false,
 ) {
     AppLiquidAwareTabRow(
         options = options,
@@ -90,6 +92,7 @@ fun <T> AppThemeAdaptiveTabRow(
         indicatorPositionProvider = indicatorPositionProvider,
         isScrollInProgressProvider = isScrollInProgressProvider,
         liquidGlassAnimateLabelWidthChanges = liquidGlassAnimateLabelWidthChanges,
+        forceEqualWidth = forceEqualWidth,
     )
 }
 
@@ -123,6 +126,8 @@ fun <T> AppLiquidAwareTabRow(
     indicatorPositionProvider: (() -> Float)? = null,
     isScrollInProgressProvider: () -> Boolean = { false },
     liquidGlassAnimateLabelWidthChanges: Boolean = false,
+    // Fixed slots apply to all renderers only when explicitly requested by a page.
+    forceEqualWidth: Boolean = false,
 ) {
     if (options.isEmpty()) return
     // Material boundary: glass-only spacing, wrapping and typography must never change
@@ -138,6 +143,7 @@ fun <T> AppLiquidAwareTabRow(
             modifier = modifier,
             enabled = enabled,
             scrollable = scrollable,
+            forceEqualWidth = forceEqualWidth,
             centerContent = centerContent,
             minTabWidth = resolveAppAdaptiveTabMinWidth(minTabWidth),
             compactMiuixWhenTwoOptions = compactMiuixWhenTwoOptions,
@@ -187,13 +193,13 @@ fun <T> AppLiquidAwareTabRow(
     val isCompact = (compactMiuixWhenTwoOptions && options.size <= 2) ||
         (minTabWidth.isSpecified && !scrollable)
     // Secondary categories and filters wrap their labels; primary navigation may fill its track.
-    val contentSizedRail = isCompact || scrollable ||
-        (liquidGlassEnabled && role != AppTabRowRole.PRIMARY)
+    val contentSizedRail = !forceEqualWidth && (isCompact || scrollable ||
+        (liquidGlassEnabled && role != AppTabRowRole.PRIMARY))
     BoxWithConstraints(modifier = modifier, contentAlignment = if (centerContent) Alignment.Center else Alignment.CenterStart) {
         val contentWidth = readableTabWidth * options.size + AppSpacingTokens.ExtraSmall * 2
         // A wide label is not itself overflow. Fitting rails must stay outside
         // the rounded scroll viewport so a pressed glass lens can bloom freely.
-        val needsHorizontalScroll = (if (liquidGlassEnabled) contentSizedRail else scrollable) &&
+        val needsHorizontalScroll = !forceEqualWidth && (if (liquidGlassEnabled) contentSizedRail else scrollable) &&
             constraints.hasBoundedWidth && contentWidth > maxWidth
         if (needsHorizontalScroll) {
             val indicatorCaptureInsets = resolveFloatingDockCaptureInsets(
@@ -241,9 +247,9 @@ fun <T> AppLiquidAwareTabRow(
                         options.getOrNull(index)?.let { onSelectionChange(it.value) }
                     },
                     modifier = Modifier.liquidDockViewport(
-                    verticalOverflow = indicatorOverflow,
-                    horizontalOverflow = indicatorHorizontalOverflow,
-                ),
+                        verticalOverflow = indicatorOverflow,
+                        horizontalOverflow = indicatorHorizontalOverflow,
+                    ),
                     scrollState = scrollState,
                     enabled = enabled,
                     itemWidth = readableTabWidth,
@@ -321,6 +327,7 @@ fun <T> AppLiquidAwareTabRow(
                     LocalWindowSizeClass.current.let { it.isTabletDevice && it.isTablet },
                 enabled = enabled,
                 itemWidth = rowItemWidth,
+                forceEqualWidth = forceEqualWidth,
                 height = height,
                 indicatorHeight = indicatorHeight,
                 labelFontSize = resolvedLabelFontSize,

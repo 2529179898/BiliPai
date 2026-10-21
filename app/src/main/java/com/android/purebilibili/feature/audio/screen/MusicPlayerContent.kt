@@ -14,6 +14,10 @@ import coil3.request.allowHardware
 
 import android.os.Build
 import android.provider.Settings
+import androidx.media3.common.Player
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.EnterTransition
@@ -104,11 +108,13 @@ import com.android.purebilibili.core.ui.components.AppTextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -209,6 +215,8 @@ import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.VolumeDown
 import androidx.compose.material.icons.outlined.VolumeUp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -368,7 +376,8 @@ internal val MusicArtworkScrimColors = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MusicPlayerContent(
-    state: MusicPlayerUiState,
+    sourceState: MusicPlayerUiState,
+    playbackPositionSource: Player? = null,
     onBack: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Long) -> Unit,
@@ -418,6 +427,28 @@ internal fun MusicPlayerContent(
     reduceMotion: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    // Only video audio mode supplies a player. Keep its frequent position updates below
+    // the parent screen, while ordinary music continues using its existing state flow.
+    val playerSurfaceActive = com.android.purebilibili.core.ui.rememberVisualWorkActive() && !isInPipMode
+    var livePositionMs by remember(playbackPositionSource) {
+        mutableLongStateOf(sourceState.positionMs)
+    }
+    LaunchedEffect(playbackPositionSource, sourceState.positionMs) {
+        livePositionMs = sourceState.positionMs
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(playbackPositionSource, sourceState.isPlaying, playerSurfaceActive, lifecycleOwner) {
+        val player = playbackPositionSource ?: return@LaunchedEffect
+        if (!sourceState.isPlaying || !playerSurfaceActive) return@LaunchedEffect
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive && player.isPlaying) {
+                livePositionMs = player.currentPosition.coerceAtLeast(0L)
+                delay(250L)
+            }
+        }
+    }
+    val state = if (playbackPositionSource == null) sourceState
+        else sourceState.copy(positionMs = livePositionMs)
     val context = LocalContext.current
     val themeSurfaceColor = MaterialTheme.colorScheme.surface
     val adaptiveInfo = LocalAppWindowAdaptiveInfo.current
@@ -591,6 +622,7 @@ internal fun MusicPlayerContent(
     )
 
     CompositionLocalProvider(
+        com.android.purebilibili.feature.audio.lyrics.halcyon.LocalPlayerSurfaceActive provides playerSurfaceActive,
         LocalMusicPlayerMaterial provides musicMaterial,
         com.android.purebilibili.core.ui.LocalAppButtonSlotColorCorrectionEnabled provides false,
     ) {
@@ -842,6 +874,11 @@ internal fun MusicPlayerContent(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize()
                     ) { page ->
+                        val childPageVisible by remember(pagerState, page) {
+                            derivedStateOf {
+                                kotlin.math.abs(pagerState.currentPage + pagerState.currentPageOffsetFraction - page) < 1f
+                            }
+                        }
                         Box(modifier = Modifier.fillMaxSize()) {
                         if (page == 0) {
                             PlayerPage(
@@ -894,6 +931,7 @@ internal fun MusicPlayerContent(
                             )
                         } else {
                             LyricsPage(
+                                pageVisible = childPageVisible,
                                 state = displayState,
                                 glassEnabled = glassEnabled,
                                 onPlayPause = onPlayPause,
@@ -2544,13 +2582,14 @@ private fun MusicArtwork(
             }
         }
     } else if (coverStyle == MusicCoverStyle.TURNTABLE) {
+        val artworkGate = com.android.purebilibili.core.ui.rememberDecorativeAnimationGate()
         val rotationDegrees = rememberMusicArtworkRotationDegrees(
-            active = rotate,
+            active = rotate && artworkGate.active,
             contentKey = coverUrl,
             playbackSpeed = playbackSpeed
         )
         Box(
-            modifier = modifier
+            modifier = modifier.then(artworkGate.modifier)
                 .aspectRatio(1f)
                 .shadow(
                     elevation = if (isPlaying) 18.dp else 10.dp,
@@ -3059,8 +3098,12 @@ private fun LyricsPage(
     onPageTap: (() -> Unit)? = null,
     isDarkEnvironment: Boolean = true,
     lyricsUiStyle: SettingsManager.MusicLyricsUiStyle = SettingsManager.MusicLyricsUiStyle.CLASSIC,
+    pageVisible: Boolean = true,
     modifier: Modifier = Modifier
 ) {
+    val pageActive = pageVisible &&
+        com.android.purebilibili.feature.audio.lyrics.halcyon.LocalPlayerSurfaceActive.current &&
+        com.android.purebilibili.core.ui.rememberVisualWorkActive()
     val document = state.lyrics
     val immersiveLyrics = lyricsUiStyle == SettingsManager.MusicLyricsUiStyle.IMMERSIVE
     val fullScreenLyrics = onPageTap != null
@@ -3099,9 +3142,9 @@ private fun LyricsPage(
             isAutoFollowPaused = true
         }
     }
-    LaunchedEffect(currentIndex, isAutoFollowPaused, reduceMotion, immersiveLyrics) {
+    LaunchedEffect(currentIndex, isAutoFollowPaused, reduceMotion, immersiveLyrics, pageActive) {
         // Immersive list owns its spring auto-follow; classic list uses this effect.
-        if (!immersiveLyrics && currentIndex >= 0 && !isAutoFollowPaused) {
+        if (pageActive && !immersiveLyrics && currentIndex >= 0 && !isAutoFollowPaused) {
             val focusOffset = resolveLyricFocusScrollOffsetPx(
                 listState.layoutInfo.viewportSize.height
             )
@@ -3206,7 +3249,7 @@ private fun LyricsPage(
                         currentPositionMs = lyricMs,
                         isPlaying = state.isPlaying,
                         isPaused = !state.isPlaying,
-                        pageVisible = true,
+                        pageVisible = pageActive,
                         showTranslation = showTranslations,
                         showPronunciation = false,
                         fontFamily = null,

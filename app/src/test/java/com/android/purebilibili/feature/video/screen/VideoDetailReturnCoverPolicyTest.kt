@@ -13,6 +13,51 @@ import java.io.File
 
 class VideoDetailReturnCoverPolicyTest {
     @Test
+    fun entryCoverFadeNeverExposesAnEmptyMediaSlot() {
+        for (step in 0..20) {
+            val frame = resolveVideoDetailReturnMediaFrame(
+                transitionProgress = 1f,
+                isCommittedCardReturn = false,
+                hasResidentCover = true,
+                entryCoverAlpha = step / 20f,
+            )
+            // Source-over alpha: the video stays opaque underneath throughout entry.
+            val compositedAlpha = frame.coverAlpha + frame.playerAlpha * (1f - frame.coverAlpha)
+            assertEquals(1f, compositedAlpha, 0.0001f)
+            assertEquals(1f, frame.playerAlpha, 0.0001f)
+        }
+        val waiting = resolveVideoDetailReturnMediaFrame(
+            transitionProgress = 1f,
+            isCommittedCardReturn = false,
+            hasResidentCover = true,
+            showResidentCoverUntilFirstFrame = true,
+            entryCoverAlpha = 0f,
+        )
+        assertEquals(VideoDetailReturnMediaFrame(1f, 0f), waiting)
+    }
+
+    @Test
+    fun returnAndGestureCancellationKeepTheirTimelineDuringFirstFrameFade() {
+        for (depth in listOf(1f, 0.6f, 0.2f, 0.05f, 0.2f, 0.6f, 1f)) {
+            for (committed in listOf(false, true)) {
+                fun frame(entryAlpha: Float) = resolveVideoDetailReturnMediaFrame(
+                    transitionProgress = depth,
+                    isCommittedCardReturn = committed,
+                    isReturnGestureInProgress = !committed,
+                    hasResidentCover = true,
+                    liveReturnMorph = true,
+                    entryCoverAlpha = entryAlpha,
+                )
+                assertEquals(frame(0f), frame(0.7f))
+            }
+        }
+        assertEquals(
+            VideoDetailReturnMediaFrame(0f, 1f),
+            resolveVideoDetailReturnMediaFrame(1f, false, false, entryCoverAlpha = 1f),
+        )
+    }
+
+    @Test
     fun nativeCardInfoFillsTheBodyYieldDuringOpeningReturnAndCancel() {
         for (layout in listOf(VideoCardSourceLayout.STACKED, VideoCardSourceLayout.SIDE_BY_SIDE)) {
             for (phase in listOf(

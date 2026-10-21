@@ -2911,6 +2911,7 @@ private fun VideoPlayerSectionContent(
                     return@pointerInput
                 }
                 detectPlayerTapGestures(
+                    doubleTapSlopPx = android.view.ViewConfiguration.get(context).scaledDoubleTapSlop.toFloat(),
                     captureSingleTap = { offset ->
                         if (!isScreenLocked && danmakuTapEnabled) {
                             danmakuManager.captureTap(danmakuTapCoordinates.value, offset)

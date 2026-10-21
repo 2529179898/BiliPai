@@ -36,7 +36,7 @@ internal fun rememberDecorativeAnimationGate(): DecorativeAnimationGate {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val gate = remember(lifecycle) { DecorativeAnimationGate() }
     val allowed = LocalComponentMotionEnabled.current && !LocalSystemReduceMotion.current &&
-        LocalWindowInfo.current.isWindowFocused
+        LocalWindowInfo.current.isWindowFocused && rememberVisualWorkActive()
     androidx.compose.runtime.SideEffect { gate.allowed = allowed }
     DisposableEffect(lifecycle, gate) {
         gate.resumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)

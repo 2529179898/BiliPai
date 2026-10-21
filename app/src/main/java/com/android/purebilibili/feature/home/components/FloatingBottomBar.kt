@@ -688,6 +688,7 @@ fun FloatingBottomBar(
         density,
         isLtr,
         dragTrackingMode,
+        isLiquidGlassMode,
         interactiveHighlight,
     ) {
         DampedDragAnimation(
@@ -698,6 +699,7 @@ fun FloatingBottomBar(
             initialScale = 1f,
             pressedScale = pressedScale,
             trackingMode = dragTrackingMode,
+            useMiuixIndicatorMotion = isLiquidGlassMode,
             canDrag = { offset ->
                 val animation = holder.instance ?: return@DampedDragAnimation true
                 if (tabWidthPx == 0f) return@DampedDragAnimation false
@@ -738,7 +740,8 @@ fun FloatingBottomBar(
                 val targetIndex = targetValue.fastRoundToInt().fastCoerceIn(0, maxTabIndex)
                 // The pointer gesture already owns press/release. Only settle the value here so
                 // release is not launched twice and the indicator cannot visibly rebound twice.
-                animateToValue(targetIndex.toFloat(), animatePress = false)
+                if (isLiquidGlassMode) updateValue(targetIndex.toFloat())
+                else animateToValue(targetIndex.toFloat(), animatePress = false)
                 val selected = selectedIndexLatest.value().coerceIn(0, maxTabIndex)
                 pagerFollowGate.ownedTargetIndex = resolveIndicatorOwnedTargetOnDragStop(
                     targetIndex = targetIndex,
@@ -1293,7 +1296,6 @@ fun FloatingBottomBar(
                 Row(
                     Modifier
                         .clearAndSetSemantics {}
-                        .then(tabsBackdropSource?.modifier ?: Modifier)
                         .graphicsLayer {
                             translationX = panelOffset
                             translationY = dockDragTranslationY()
@@ -1301,6 +1303,10 @@ fun FloatingBottomBar(
                                 clip = false
                             }
                         }
+                        // Record local, unshifted material; source coordinates carry the
+                        // same dock translation as the consuming capsule. Recording the
+                        // transform inside the texture offsets its top/bottom sampling.
+                        .then(tabsBackdropSource?.modifier ?: Modifier)
                         .drawBackdrop(
                             backdrop = backdrop,
                             shape = { indicatorShape },
@@ -1415,6 +1421,7 @@ fun FloatingBottomBar(
                         )
                         .innerShadow(shape = indicatorShape) {
                             InnerShadow(
+                                offset = androidx.compose.ui.unit.DpOffset.Zero,
                                 radius = 8.dp * homeIndicatorOpticalScale(fittedIndicatorHeight.value) * indicatorOpticalProgressProvider(),
                                 color = Color.Black.copy(alpha = 0.15f),
                                 alpha = indicatorOpticalProgressProvider(),

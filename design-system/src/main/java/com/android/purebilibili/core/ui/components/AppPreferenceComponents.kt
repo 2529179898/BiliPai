@@ -53,6 +53,7 @@ fun AppPreferenceGroup(
     }
 }
 
+/** 标题附加操作独立响应点击；未提供插槽时保留原有玻璃和原生设置行布局。 */
 @Composable
 fun AppSwitchPreference(
     icon: ImageVector? = null,
@@ -64,6 +65,7 @@ fun AppSwitchPreference(
     iconTint: Color = AppContentColors.secondaryText(),
     textColor: Color = AppContentColors.primaryText(),
     subtitleColor: Color = AppContentColors.secondaryText(),
+    titleTrailingContent: (@Composable () -> Unit)? = null,
 ) = AdaptiveSwitchPreferenceContent(
     icon = icon,
     title = title,
@@ -74,6 +76,7 @@ fun AppSwitchPreference(
     iconTint = iconTint,
     textColor = textColor,
     subtitleColor = subtitleColor,
+    titleTrailingContent = titleTrailingContent,
 )
 
 @Composable

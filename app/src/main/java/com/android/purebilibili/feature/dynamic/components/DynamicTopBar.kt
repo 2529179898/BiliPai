@@ -171,9 +171,10 @@ fun DynamicTopBarWithTabs(
                 selectedValue = selectedTab,
                 onSelectionChange = onTabSelected,
                 modifier = Modifier.weight(1f).height(tabHeight),
-                scrollable = true,
-                // Glass needs extra label room and scrollable overflow; native MD3/Miuix
-                // keep their own slot spacing.
+                // Fixed slots: only the page or indicator changes selection; the rail
+                // itself never scrolls. Keep the same interaction across all materials.
+                scrollable = false,
+                forceEqualWidth = true,
                 liquidGlassLabelHorizontalPadding = if (liquidGlassEnabled) 20.dp else null,
                 compactMiuixWhenTwoOptions = false,
                 height = tabHeight,

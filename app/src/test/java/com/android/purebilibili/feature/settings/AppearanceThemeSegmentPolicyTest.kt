@@ -44,16 +44,20 @@ class AppearanceThemeSegmentPolicyTest {
     }
 
     @Test
-    fun `resolveAppIconStyleOptions exposes auto plus the two icon styles`() {
+    fun `resolveAppIconStyleOptions exposes colorful and neutral styles`() {
         val options = resolveAppIconStyleOptions()
 
-        assertEquals(3, options.size)
+        assertEquals(5, options.size)
         assertEquals(AppIconStyle.AUTO, options[0].value)
         assertEquals("跟随预设", options[0].label)
-        assertEquals(AppIconStyle.THEME_CONTAINER, options[1].value)
-        assertEquals("主题色容器", options[1].label)
-        assertEquals(AppIconStyle.MD3_STANDARD, options[2].value)
-        assertEquals("MD3 官方推荐", options[2].label)
+        assertEquals(AppIconStyle.SOFT_COLORFUL, options[1].value)
+        assertEquals("柔和彩色", options[1].label)
+        assertEquals(AppIconStyle.VIVID_COLORFUL, options[2].value)
+        assertEquals("鲜明彩色", options[2].label)
+        assertEquals(AppIconStyle.THEME_CONTAINER, options[3].value)
+        assertEquals("主题色容器", options[3].label)
+        assertEquals(AppIconStyle.MD3_STANDARD, options[4].value)
+        assertEquals("单色线性（MD3）", options[4].label)
     }
 
     @Test

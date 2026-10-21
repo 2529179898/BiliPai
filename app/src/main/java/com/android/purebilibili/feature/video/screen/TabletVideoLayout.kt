@@ -226,10 +226,10 @@ internal fun TabletVideoLayout(
     playerState: VideoPlayerState,
     uiState: VideoPlaybackUiState,
     detailContentState: VideoPlaybackUiState.Success? = null,
-    commentState: CommentUiState,
+    commentStateHandle: androidx.compose.runtime.State<CommentUiState>,
     engagementState: VideoEngagementUiState,
-    subReplyState: SubReplyUiState,
-    downloadProgress: Float,
+    subReplyStateHandle: androidx.compose.runtime.State<SubReplyUiState>,
+    downloadProgress: androidx.compose.runtime.State<Float>,
     commentMemberDecorationsEnabled: Boolean,
     playbackActions: VideoDetailPlaybackActions,
     engagementActions: VideoDetailEngagementActions,
@@ -568,8 +568,8 @@ internal fun TabletVideoLayout(
                     Box(modifier = Modifier.fillMaxSize()) {
                         TabletSecondaryContent(
                             success = success,
-                            commentState = commentState,
-                            subReplyState = subReplyState,
+                            commentStateHandle = commentStateHandle,
+                            subReplyStateHandle = subReplyStateHandle,
                             playbackActions = playbackActions,
                             engagementState = engagementState,
                             engagementActions = engagementActions,
@@ -633,8 +633,8 @@ internal fun TabletVideoLayout(
                     if (contentState != null) {
                         TabletSecondaryContent(
                             success = contentState,
-                            commentState = commentState,
-                            subReplyState = subReplyState,
+                            commentStateHandle = commentStateHandle,
+                            subReplyStateHandle = subReplyStateHandle,
                             playbackActions = playbackActions,
                             engagementState = engagementState,
                             engagementActions = engagementActions,
@@ -670,7 +670,7 @@ internal fun TabletVideoLayout(
 internal fun TabletVideoInfoPane(
     success: VideoPlaybackUiState.Success,
     engagementState: VideoEngagementUiState,
-    downloadProgress: Float,
+    downloadProgress: androidx.compose.runtime.State<Float>,
     playbackActions: VideoDetailPlaybackActions,
     engagementActions: VideoDetailEngagementActions,
     onBgmClick: (BgmInfo) -> Unit,
@@ -722,7 +722,7 @@ internal fun TabletVideoInfoPane(
         isDisliked = engagementState.isDisliked,
         coinCount = engagementState.coinCount,
         currentPageIndex = currentPageIndex,
-        downloadProgress = downloadProgress,
+        downloadProgress = downloadProgress.value,
         isInWatchLater = engagementState.isInWatchLater,
         onShareClick = {
             pendingVideoShare = buildVideoSharePayload(
@@ -807,8 +807,8 @@ internal fun TabletVideoInfoPane(
 @Composable
 internal fun TabletSecondaryContent(
     success: VideoPlaybackUiState.Success,
-    commentState: CommentUiState,
-    subReplyState: SubReplyUiState,
+    commentStateHandle: androidx.compose.runtime.State<CommentUiState>,
+    subReplyStateHandle: androidx.compose.runtime.State<SubReplyUiState>,
     playbackActions: VideoDetailPlaybackActions,
     engagementState: VideoEngagementUiState,
     engagementActions: VideoDetailEngagementActions,
@@ -834,6 +834,8 @@ internal fun TabletSecondaryContent(
     onDanmakuSendClick: () -> Unit = {},
     onDanmakuToggle: () -> Unit = {},
 ) {
+    val commentState by commentStateHandle
+    val subReplyState by subReplyStateHandle
     val commentAppearance = rememberVideoCommentAppearance()
     // 首屏骨架按视口高度铺够槽位：少铺会让列表在数据到达时被撑长、整体跳一下。
     val commentSkeletonSlotCount = resolveVideoCommentSkeletonSlotCount(

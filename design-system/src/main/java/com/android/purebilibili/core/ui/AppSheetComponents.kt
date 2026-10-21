@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -36,7 +38,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -52,6 +53,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -60,6 +62,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.NavigationEventTransitionState
 import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
@@ -70,7 +73,6 @@ import com.android.purebilibili.core.theme.resolveAndroidNativeChromeTokens
 import top.yukonga.miuix.kmp.window.WindowBottomSheet
 import top.yukonga.miuix.kmp.window.WindowDialog
 import com.android.purebilibili.core.ui.motion.AppMotionTokens
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 
 data class AdaptiveBottomSheetVisualSpec(
@@ -207,7 +209,7 @@ internal fun bottomSheetContentExitTransition(
 private fun ModalSheetNavigationHost(
     dismissOnBackPress: Boolean,
     onDismissRequest: () -> Unit,
-    content: @Composable () -> Unit,
+    content: @Composable (Modifier) -> Unit,
 ) {
     val owner = LocalView.current.findViewTreeNavigationEventDispatcherOwner()
     val host: @Composable () -> Unit = {
@@ -217,7 +219,21 @@ private fun ModalSheetNavigationHost(
             isBackEnabled = dismissOnBackPress,
             onBackCompleted = onDismissRequest,
         )
-        content()
+        val transition = backState.transitionState as? NavigationEventTransitionState.InProgress
+        val reducedMotion = LocalSystemReduceMotion.current || !LocalComponentMotionEnabled.current
+        val backProgress = animateFloatAsState(
+            targetValue = if (dismissOnBackPress && !reducedMotion && transition != null &&
+                transition.direction == NavigationEventTransitionState.TRANSITIONING_BACK
+            ) transition.latestEvent.progress.coerceIn(0f, 1f) else 0f,
+            animationSpec = if (transition != null || reducedMotion) snap() else tween(180),
+            label = "centered_sheet_predictive_back",
+        )
+        content(Modifier.graphicsLayer {
+            // Read gesture frames in the layer; keep the surface inside its adaptive region.
+            val progress = backProgress.value
+            scaleX = 1f - 0.08f * progress
+            scaleY = 1f - 0.08f * progress
+        })
     }
     if (owner == null) {
         host()
@@ -252,7 +268,7 @@ fun AppModalBottomSheet(
     windowInsets: androidx.compose.foundation.layout.WindowInsets = androidx.compose.material3.BottomSheetDefaults.modalWindowInsets,
     presentationOverride: AppModalPresentation? = null,
     sheetSurfaceModifier: Modifier = Modifier,
-    backgroundBlurBehind: Boolean = true,
+    backgroundBlurBehind: Boolean = false,
     visible: Boolean = true,
     onDismissStarted: () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
@@ -274,7 +290,8 @@ fun AppModalBottomSheet(
     if (!visible && !retained) return
     val uiStyle = LocalAppUiStyle.current
     val miuix = uiStyle == AppUiStyle.MIUIX
-    // Window blur is independent of theme and the header's haze/glass preferences.
+    // Collection-style sheets keep the covered page sharp in glass, MD3 and Miuix,
+    // including centered/hinge-safe hosts. Surface material and scrim stay independent.
     val blurBehind = backgroundBlurBehind
     val configuration = LocalConfiguration.current
     val hingeSafeRegions = LocalHingeSafeOverlayRegions.current.sheet
@@ -339,10 +356,10 @@ fun AppModalBottomSheet(
             ),
         ) {
             ModalWindowBlurBehindEffect(enabled = blurBehind)
-            ModalSheetNavigationHost(dismissOnBackPress, onDismissRequest) {
+            ModalSheetNavigationHost(dismissOnBackPress, onDismissRequest) { backModifier ->
                 val surface: @Composable () -> Unit = {
                     BoxWithConstraints {
-                        val surfaceModifier = modifier.widthIn(max = layoutSpec.maxWidthDp.dp)
+                        val surfaceModifier = modifier.then(backModifier).widthIn(max = layoutSpec.maxWidthDp.dp)
                             .heightIn(max = minOf(maxHeight, (configuration.screenHeightDp * layoutSpec.maxHeightFraction).dp))
                             .fillMaxWidth().pointerInput(Unit) { detectTapGestures { } }
                         val surfaceContent: @Composable () -> Unit = {
@@ -382,10 +399,9 @@ fun AppModalBottomSheet(
         }
         return
     }
-    val scope = rememberCoroutineScope()
     var wasClosing by remember { mutableStateOf(false) }
     LaunchedEffect(sheetState) {
-        // Covers native scrim/swipe dismissal as well as the explicit back handler below.
+        // Covers native scrim, swipe and predictive-back dismissal.
         snapshotFlow { sheetState.isVisible && sheetState.targetValue == SheetValue.Hidden }
             .collect { closing -> if (closing) latestDismissStarted() }
     }
@@ -399,18 +415,13 @@ fun AppModalBottomSheet(
             sheetState.show()
         }
     }
-    val requestMaterialDismiss: () -> Unit = {
-        latestDismissStarted()
-        scope.launch {
-            sheetState.hide()
-            if (!sheetState.isVisible) finishDismiss()
-        }
-    }
     ModalBottomSheet(
         onDismissRequest = finishDismiss,
         modifier = modifier,
         sheetState = sheetState,
-        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = false),
+        // Let MD3 own gesture progress, cancellation and the final native hide animation.
+        // Comment/reply callers opt out and keep their window-scoped back handlers.
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = dismissOnBackPress),
         shape = shape ?: BottomSheetDefaults.ExpandedShape,
         containerColor = resolvedColor,
         contentColor = contentColor,
@@ -420,9 +431,7 @@ fun AppModalBottomSheet(
         contentWindowInsets = { windowInsets },
     ) {
         val blurMotionModifier = rememberSheetBlurMotionModifier(blurBehind)
-        ModalSheetNavigationHost(dismissOnBackPress, requestMaterialDismiss) {
-            Column(Modifier.fillMaxWidth().then(blurMotionModifier).then(sheetSurfaceModifier), content = content)
-        }
+        Column(Modifier.fillMaxWidth().then(blurMotionModifier).then(sheetSurfaceModifier), content = content)
     }
 }
 

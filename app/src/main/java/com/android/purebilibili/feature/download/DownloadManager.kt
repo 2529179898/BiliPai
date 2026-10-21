@@ -380,7 +380,8 @@ object DownloadManager {
         
         // 1. 下载视频流 (如果不是仅音频模式)
         if (!task.isAudioOnly) {
-            val videoResult = downloadFileWithUrlRefresh(task, isVideoStream = true, file = videoFile) { progress ->
+            val videoResult = downloadFileWithUrlRefresh(task, isVideoStream = true, file = videoFile) { downloadedBytes, totalBytes ->
+                val progress = downloadedBytes.toFloat() / totalBytes.toFloat()
                 // 如果不仅音频，总进度 = (video + audio) / 2
                 updateTaskInMemory(task.id) {
                     it.copy(videoProgress = progress, progress = (progress + it.audioProgress) / 2)
@@ -388,7 +389,8 @@ object DownloadManager {
                             buildDownloadAssetProgressState(
                                 kind = DownloadAssetKind.VIDEO,
                                 file = videoFile,
-                                progress = progress
+                                downloadedBytes = downloadedBytes,
+                                totalBytes = totalBytes
                             )
                         )
                 }
@@ -413,7 +415,8 @@ object DownloadManager {
         }
         
         // 2. 下载音频流
-        val audioResult = downloadFileWithUrlRefresh(task, isVideoStream = false, file = audioFile) { progress ->
+        val audioResult = downloadFileWithUrlRefresh(task, isVideoStream = false, file = audioFile) { downloadedBytes, totalBytes ->
+            val progress = downloadedBytes.toFloat() / totalBytes.toFloat()
             updateTaskInMemory(task.id) {
                 val totalProgress = if (task.isAudioOnly) progress else (it.videoProgress + progress) / 2
                 it.copy(audioProgress = progress, progress = totalProgress)
@@ -421,7 +424,8 @@ object DownloadManager {
                         buildDownloadAssetProgressState(
                             kind = DownloadAssetKind.AUDIO,
                             file = audioFile,
-                            progress = progress
+                            downloadedBytes = downloadedBytes,
+                            totalBytes = totalBytes
                         )
                     )
             }
@@ -501,9 +505,10 @@ object DownloadManager {
         url: String, 
         file: File, 
         taskId: String,
-        onProgress: (Float) -> Unit
+        onProgress: (downloadedBytes: Long, totalBytes: Long) -> Unit
     ): HttpDownloadAssetResult = withContext(Dispatchers.IO) {
         ensureTaskCanRun(taskId)
+        val progressGate = DownloadProgressUpdateGate()
         assetDownloader.download(
             request = HttpDownloadAssetRequest(
                 url = url,
@@ -513,7 +518,7 @@ object DownloadManager {
             ensureActive = { ensureTaskCanRun(taskId) },
             onProgress = { downloadedBytes, totalBytes ->
                 if (totalBytes > 0L) {
-                    onProgress(downloadedBytes.toFloat() / totalBytes.toFloat())
+                    progressGate.emit(downloadedBytes, totalBytes, onProgress)
                 }
             }
         )
@@ -523,7 +528,7 @@ object DownloadManager {
         task: DownloadTask,
         isVideoStream: Boolean,
         file: File,
-        onProgress: (Float) -> Unit
+        onProgress: (downloadedBytes: Long, totalBytes: Long) -> Unit
     ): HttpDownloadAssetResult {
         var activeTask = task
         var initialUrl = if (isVideoStream) activeTask.videoUrl else activeTask.audioUrl
@@ -782,20 +787,15 @@ object DownloadManager {
     private fun buildDownloadAssetProgressState(
         kind: DownloadAssetKind,
         file: File,
-        progress: Float
+        downloadedBytes: Long,
+        totalBytes: Long
     ): DownloadAssetState {
         val partFile = File(file.parentFile, "${file.name}.part")
-        val downloadedBytes = partFile.takeIf(File::exists)?.length() ?: file.takeIf(File::exists)?.length() ?: 0L
-        val totalBytes = if (progress > 0f) {
-            (downloadedBytes / progress).toLong()
-        } else {
-            0L
-        }
         return DownloadAssetState(
             kind = kind,
             status = DownloadAssetStatus.DOWNLOADING,
             totalBytes = totalBytes.coerceAtLeast(downloadedBytes),
-            downloadedBytes = downloadedBytes,
+            downloadedBytes = downloadedBytes.coerceAtLeast(0L),
             filePath = file.absolutePath,
             tempPath = partFile.absolutePath
         )

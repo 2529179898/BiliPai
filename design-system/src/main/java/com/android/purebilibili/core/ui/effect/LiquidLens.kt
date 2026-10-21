@@ -12,6 +12,7 @@ import androidx.compose.ui.util.fastCoerceAtMost
 import top.yukonga.miuix.kmp.blur.BackdropEffectScope
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.runtimeShaderEffect
+import kotlin.math.ceil
 
 /**
  * Rounded-rect refraction lens with optional chromatic dispersion.
@@ -38,7 +39,10 @@ fun BackdropEffectScope.lens(
 
     val radii = roundedRectCornerRadii() ?: return
 
-    val dispersionEnabled = chromaticAberration > 0f && chromaticEdgeBand != 0f
+    // A moving overflow band can cross zero on every spring/velocity reversal.
+    // Keep the same shader and let its mask reach zero continuously instead of
+    // replacing the whole effect chain at the track boundary.
+    val dispersionEnabled = chromaticAberration > 0f
     val shaderString =
         if (dispersionEnabled) {
             ROUNDED_RECT_REFRACTION_WITH_DISPERSION_SHADER
@@ -48,6 +52,13 @@ fun BackdropEffectScope.lens(
     val key = if (dispersionEnabled) "LiquidGlassLensDispersion" else "LiquidGlassLens"
 
     val sf = downscaleFactor.coerceAtLeast(1).toFloat()
+    if (chromaticEdgeBand != null) {
+        // Miuix records at integer scaled padding and places the texture with an
+        // integer topLeft. Keep the rim's shader origin on that same grid; a
+        // fractional origin shifts the top and bottom masks in opposite directions.
+        // Round outwards so the lens never loses its requested sampling reach.
+        padding = ceil(padding / sf) * sf
+    }
     val scaledSizeW = size.width / sf
     val scaledSizeH = size.height / sf
     val scaledPadding = padding / sf
@@ -194,7 +205,10 @@ half4 main(float2 coord) {
     float dispersionWeight = (centeredCoord.x * centeredCoord.y) / (halfSize.x * halfSize.y);
     if (chromaticEdgeBand >= 0.0) {
         float edgeDistance = halfSize.y - abs(centeredCoord.y);
-        float feather = min(chromaticEdgeBand, 1.0);
+        // A fixed local-pixel feather makes subpixel bands fade in from zero.
+        // Shrinking feather with the band made the outermost pixel jump straight
+        // to full dispersion for any positive band (and degenerate at zero).
+        float feather = 1.0;
         dispersionWeight = 1.0 - smoothstep(chromaticEdgeBand - feather, chromaticEdgeBand, edgeDistance);
         if (dispersionWeight <= 0.0) return content.eval(refractedCoord);
     }

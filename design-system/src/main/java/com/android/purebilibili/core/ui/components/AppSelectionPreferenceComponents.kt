@@ -116,14 +116,17 @@ fun <T> AppSingleChoicePreference(
             modifier = modifier.alpha(if (enabled) 1f else 0.6f),
             startAction = icon?.let { imageVector ->
                 {
-                    Icon(
-                        imageVector = imageVector,
-                        contentDescription = null,
-                        // 与其他设置条目一致：MD3 官方推荐预设下为 onSurfaceVariant 单色，
-                        // 其余预设保留多彩语义色（MIUIX 等）。
-                        tint = rememberAdaptivePreferenceIconTint(iconTint),
-                        modifier = Modifier.size(24.dp),
-                    )
+                    if (useColorfulPreferenceIcons() || com.android.purebilibili.core.ui.rememberResolvedAppIconStyle() == com.android.purebilibili.core.ui.AppIconStyle.THEME_CONTAINER) {
+                        AppPreferenceLeadingIcon(title = title, imageVector = imageVector)
+                    } else {
+                        // Keep the original spinner renderer outside Miuix settings.
+                        Icon(
+                            imageVector = imageVector,
+                            contentDescription = null,
+                            tint = rememberAdaptivePreferenceIconTint(iconTint),
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
                 }
             },
             onSelectedIndexChange = { index ->

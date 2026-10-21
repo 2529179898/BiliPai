@@ -55,3 +55,16 @@ internal fun shouldFinishVideoDetailNavigationEntry(
     isHeroSettled: Boolean,
 ): Boolean = !isNavigationRunning && isEntryTop &&
     !isSharedTransitionActive && !isLegacyNavRunning && isHeroSettled
+
+/**
+ * A fresh card entry can show its resident cover while media preparation is gated.
+ * Keep an attached/live player mounted across return previews, cancellation and episode changes.
+ */
+internal fun shouldMountVideoDetailPlayerHost(
+    alreadyMounted: Boolean,
+    deferEntryLoad: Boolean,
+    entryPlaybackReady: Boolean,
+    hasResidentCover: Boolean,
+    preserveLivePlayer: Boolean,
+): Boolean = alreadyMounted || !deferEntryLoad || entryPlaybackReady ||
+    !hasResidentCover || preserveLivePlayer

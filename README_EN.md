@@ -452,13 +452,13 @@ See the [current roadmap](docs/wiki/ROADMAP.md) for priorities, completion crite
 
 See full changelog: [CHANGELOG.md](CHANGELOG.md)
 
-### Current source build (v0.2.7 · 2026-10-03)
+### Current source build (v0.5.2 · 2026-10-21)
 
-- Current source build: `0.2.7` / `versionCode 432`.
-- RSS subscriptions now include reading recaps, saved article progress, and dedicated reading wallpapers; home recommendations, search, and history recaps have also been refined.
-- Comment input, refresh, timestamps, and typography have been improved, alongside clearer hot-danmaku counters and massive-mode behavior.
-- The home dock supports drag navigation and edge auto-scroll; video-card alignment, foldable layouts, and list/navigation stability have been improved.
-- See [CHANGELOG.md](CHANGELOG.md) for the complete changelog since v0.2.5.
+- Current source build: `0.5.2` / `versionCode 496`.
+- Unified dynamic comment composition, improved nested replies and drafts, and added missing related-post loading and retry feedback.
+- Fixed Miuix search selection colors, popular-tab alignment, player double-tap handling, and message account isolation.
+- Reduced feed and player refresh work, background visual tasks, download and plugin overhead, and image resource duplication.
+- See [CHANGELOG.md](CHANGELOG.md) for the complete changelog.
 - Official Telegram: channel [@bilipai666](https://t.me/bilipai666), group [@bilipai888](https://t.me/bilipai888/1).
 
 ---
