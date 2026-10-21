@@ -1,5 +1,5 @@
 [versions]
-agp = "9.3.1"
+agp = "9.3.2"
 kotlin = "2.4.0"
 # AGP 9 兼容线：1.4.x 及以下与 AGP 9.2+ 不兼容，必须用 1.5.0+
 baselineprofile = "1.5.0"

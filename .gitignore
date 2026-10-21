@@ -68,6 +68,11 @@ app/release/
 .worktrees/
 *.ai.md
 *.txt
+# 发布所需的手写与交互采集优化规则必须随源码保存。
+!app/src/main/baseline-prof.txt
+!app/src/main/baselineProfiles/startup-prof.txt
+!app/src/main/generated/baselineProfiles/baseline-prof.txt
+!app/src/main/generated/baselineProfiles/startup-prof.txt
 bilipai_log_*.txt
 !AI.txt
 !llm.txt
