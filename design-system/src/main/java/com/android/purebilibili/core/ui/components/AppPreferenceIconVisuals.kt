@@ -60,6 +60,16 @@ private val preferenceIconBottomColors = listOf(
 )
 
 fun preferenceIconColorForKey(key: String): Color = when {
+    // 个人功能入口按用途固定分色，同名入口在抽屉与资料页保持一致。
+    key == "切换账号" -> AppPreferenceIconPalette[4]
+    key == "历史记录" -> AppPreferenceIconPalette[7]
+    key == "番剧影视" -> AppPreferenceIconPalette[3]
+    key == "我的收藏" -> AppPreferenceIconPalette[1]
+    key == "我的点赞" -> AppPreferenceIconPalette[9]
+    key == "稍后再看" -> AppPreferenceIconPalette[2]
+    key == "消息中心" -> AppPreferenceIconPalette[0]
+    key == "退出登录" -> AppPreferenceIconPalette[5]
+    key == "立即登录" -> AppPreferenceIconPalette[2]
     listOf("通知", "提醒", "警告", "屏蔽").any(key::contains) -> AppPreferenceIconPalette[5]
     listOf("隐私", "权限", "安全", "认证", "播放", "解码", "音频", "音量").any(key::contains) -> AppPreferenceIconPalette[2]
     listOf("语言", "主题", "外观", "颜色", "字体", "动画", "壁纸", "图标").any(key::contains) -> AppPreferenceIconPalette[3]
