@@ -30,17 +30,9 @@
 
 ## 🚀 Repository Navigation
 
-| I want to… | Quick entry |
-| --- | --- |
-| Download and try BiliPai | [Install](#-download--install) · [Changelog](CHANGELOG.md) · [Telegram channel](https://t.me/bilipai666) · [FAQ](docs/wiki/FAQ.md) |
-| Explore the project | [Device previews](#-preview) · [Features](#-features) · [Feature matrix](docs/wiki/FEATURE_MATRIX.md) · [Roadmap](docs/wiki/ROADMAP.md) |
-| Read the docs | [Wiki home](docs/wiki/README.md) · [Architecture](docs/wiki/ARCHITECTURE.md) · [QA guide](docs/wiki/QA.md) |
-| Build and develop | [Build](#️-build) · [Structure guidelines](STRUCTURE_GUIDELINES.adoc) · [Versioning](docs/wiki/VERSIONING.md) · [Release workflow](docs/wiki/RELEASE_WORKFLOW.md) |
-| Develop plugins | [JSON plugin guide](docs/PLUGIN_DEVELOPMENT.md) · [Native plugin guide](docs/NATIVE_PLUGIN_DEVELOPMENT.md) · [Plugin SDK](plugins/sdk/README.md) · [Samples](plugins/samples/) |
-| Contribute | [Contributing](#-contributing) · [Open an issue](https://github.com/jay3-yy/BiliPai/issues/new/choose) · [Pull requests](https://github.com/jay3-yy/BiliPai/pulls) · [AI / LLM entry](llms.txt) |
-
-> [!CAUTION]
-> `README`, `AI.txt`, `llms.txt`, and the Wiki are maintained periodically, but fast-moving main-branch changes can still make parts of them stale. Treat them as reference only; verify current behavior with source, `CHANGELOG.md`, and real builds.
+- [Download & Install](#-download--install) · [Preview](#-preview) · [Features](#-features)
+- [Changelog](CHANGELOG.md) · [Build](#️-build) · [Contributing](#-contributing)
+- [Open an issue](https://github.com/jay3-yy/BiliPai/issues/new/choose) · [Pull requests](https://github.com/jay3-yy/BiliPai/pulls)
 
 ## 📸 Preview
 
@@ -374,8 +366,8 @@ BiliPai/
 ├── network-core/                # Reusable network fallback and feed policies
 ├── plugin-sdk/                  # Recommendation, player and danmaku plugin contracts
 ├── baselineprofile/             # Startup and frame-timing benchmarks/profiles
-├── docs/                        # Wiki, plugin guides and image assets
-├── plugins/                     # SDK docs, JSON/source samples, skins and community index
+├── docs/                        # Image assets and third-party source notices
+├── plugins/                     # Plugin SDK, JSON/source samples and skins
 └── scripts/                     # CI, release, profiling and device collection tools
 ```
 
@@ -417,35 +409,6 @@ BiliPai/
 | **Animation** | Compose Animation / SharedTransition + Lottie | Card morphs, predictive back and vector motion |
 | **Blur** | Haze 2 + Miuix Backdrop / Liquid Glass | Frosted and liquid-glass surfaces with fallbacks |
 | **Theming** | Material 3 + Miuix + iOS preset | Dynamic color, dark mode and adaptive components |
-
----
-
-## 📚 Wiki
-
-- AI / LLM Entry: [`llms.txt`](llms.txt)
-- Current Roadmap: [`docs/wiki/ROADMAP.md`](docs/wiki/ROADMAP.md)
-- Compatibility alias: `AI.txt`
-- AI Navigation Guide: [`docs/wiki/AI.md`](docs/wiki/AI.md)
-- Wiki Home: [`docs/wiki/README.md`](docs/wiki/README.md)
-- Feature Matrix: [`docs/wiki/FEATURE_MATRIX.md`](docs/wiki/FEATURE_MATRIX.md)
-- Architecture: [`docs/wiki/ARCHITECTURE.md`](docs/wiki/ARCHITECTURE.md)
-- Release Workflow: [`docs/wiki/RELEASE_WORKFLOW.md`](docs/wiki/RELEASE_WORKFLOW.md)
-- QA Checklist: [`docs/wiki/QA.md`](docs/wiki/QA.md)
-
----
-
-## 🗺️ Roadmap
-
-> [!TIP]
-> This summary reflects the current direction. For implemented behavior and source status, prefer the code and `CHANGELOG.md`.
-
-| Status | Direction |
-| --- | --- |
-| Product baseline | Home, playback, bangumi, live, dynamic feed, messages, offline/audio mode, video notes, casting, WebDAV, account sessions, plugins, large-screen layouts and three visual presets |
-| Current P0 | End-to-end video-card/predictive-return acceptance, transition steady-state performance, Navigation3 1.2 device regression, and restoration of the AGP 9 unit-test pipeline |
-| Next | Controlled external-plugin execution, per-account data isolation, favorites management, complete localization, and evaluation of history cloud sync |
-
-See the [current roadmap](docs/wiki/ROADMAP.md) for priorities, completion criteria, guardrails, and non-goals.
 
 ---
 

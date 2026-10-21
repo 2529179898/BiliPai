@@ -41,14 +41,9 @@
 
 ## 仓库导航
 
-| 我想要…… | 快速入口 |
-| --- | --- |
-| 下载与体验 | [下载说明](#下载与安装) · [版本变更](CHANGELOG.md) · [Telegram 频道](https://t.me/bilipai666) · [常见问题](docs/wiki/FAQ.md) |
-| 了解项目 | [真机预览](#真机预览) · [核心能力](#核心能力) · [功能矩阵](docs/wiki/FEATURE_MATRIX.md) · [路线图](docs/wiki/ROADMAP.md) |
-| 阅读文档 | [Wiki 首页](docs/wiki/README.md) · [架构说明](docs/wiki/ARCHITECTURE.md) · [QA 手册](docs/wiki/QA.md) |
-| 开发与构建 | [构建说明](#构建) · [代码结构规范](STRUCTURE_GUIDELINES.adoc) · [版本规范](docs/wiki/VERSIONING.md) · [发布流程](docs/wiki/RELEASE_WORKFLOW.md) |
-| 开发插件 | [JSON 插件](docs/PLUGIN_DEVELOPMENT.md) · [原生插件](docs/NATIVE_PLUGIN_DEVELOPMENT.md) · [Plugin SDK](plugins/sdk/README.md) · [示例](plugins/samples/) |
-| 参与项目 | [贡献说明](#参与贡献) · [提交 Issue](https://github.com/jay3-yy/BiliPai/issues/new/choose) · [Pull Requests](https://github.com/jay3-yy/BiliPai/pulls) · [AI / LLM 入口](llms.txt) |
+- [下载与安装](#下载与安装) · [真机预览](#真机预览) · [核心能力](#核心能力)
+- [版本变更](CHANGELOG.md) · [构建说明](#构建) · [参与贡献](#参与贡献)
+- [提交 Issue](https://github.com/jay3-yy/BiliPai/issues/new/choose) · [Pull Requests](https://github.com/jay3-yy/BiliPai/pulls)
 
 ## 项目定位
 
@@ -125,12 +120,12 @@ BiliPai 的界面围绕“内容优先、控制轻量、动效克制”调整。
 
 ## 插件生态
 
-| 形态 | 当前状态 | 文档 |
-| --- | --- | --- |
-| 内置插件 | 随主应用分发，当前注册空降助手、去广告、Anime4K、弹幕增强、夜间护眼、今日推荐单、CDN 属地优选、初见推荐、DLNA 与 Google Cast 共 10 个插件 | 应用内插件中心 |
-| JSON / `.bp` 规则插件 | 支持 URL 导入，适合推荐流过滤、弹幕过滤与高亮 | [JSON 插件开发](docs/PLUGIN_DEVELOPMENT.md) |
-| 外部 `.bpplugin` 包 | SDK、包格式、manifest、签名校验已就绪；外部 Dex 执行仍处于预览阶段 | [Plugin SDK](plugins/sdk/README.md) |
-| 源码级原生插件 | 适合复杂播放器、推荐、弹幕能力，需要重新编译 APK | [原生插件开发](docs/NATIVE_PLUGIN_DEVELOPMENT.md) |
+| 形态 | 当前状态 |
+| --- | --- |
+| 内置插件 | 随主应用分发，当前注册空降助手、去广告、Anime4K、弹幕增强、夜间护眼、今日推荐单、CDN 属地优选、初见推荐、DLNA 与 Google Cast 共 10 个插件 |
+| JSON / `.bp` 规则插件 | 支持 URL 导入，适合推荐流过滤、弹幕过滤与高亮 |
+| 外部 `.bpplugin` 包 | SDK、包格式、manifest、签名校验已就绪；外部 Dex 执行仍处于预览阶段 |
+| 源码级原生插件 | 适合复杂播放器、推荐、弹幕能力，需要重新编译 APK |
 
 > [!CAUTION]
 > 导入第三方插件前请审阅规则和能力声明，尤其是 `NETWORK`、`LOCAL_HISTORY_READ`、`LOCAL_FEEDBACK_READ`、`PLAYER_CONTROL` 等敏感能力。
@@ -172,8 +167,8 @@ BiliPai/
 ├── network-core/                # 可复用网络回退与推荐策略
 ├── plugin-sdk/                  # 推荐、播放器、弹幕插件接口与能力声明
 ├── baselineprofile/             # 启动、首页、设置和视频详情性能基准
-├── docs/                        # Wiki、插件开发文档与截图资源
-├── plugins/                     # SDK 文档、JSON/源码示例、皮肤示例与社区索引
+├── docs/                        # 截图资源与第三方来源资料
+├── plugins/                     # 插件 SDK、JSON/源码与皮肤示例
 └── scripts/                     # CI、发布、性能采集与 Baseline Profile 工具
 ```
 
@@ -200,21 +195,6 @@ Crashlytics 的 mapping 上传在本地默认关闭，只有 release 且显式�
 播放质量统计使用 `video_error`（固定错误分类、`load`/`playback` 阶段和可选播放器错误码）、`quality_switch_request` 与 `quality_switch_result`。清晰度结果包括 `success`（目标清晰度的播放源进入 READY）、`fallback`（回退清晰度进入 READY）、`blocked`、`failed`、`timeout` 和 `canceled`，同一请求只记录一次结果，30 秒未就绪记为超时。分析手动切换时使用 `source=user`，权限触发的回退使用 `source=permission_fallback`，启动 HDR 自动升级不混入手动切换统计。目标成功率可按 `success / (success + fallback + failed + timeout)` 统计，权限拦截与取消单独观察；所有事件沿用使用情况统计开关，不携带视频标识、播放地址或原始错误文案。
 
 
-## 文档入口
-
-| 内容 | 链接 |
-| --- | --- |
-| Wiki 首页 | [docs/wiki/README.md](docs/wiki/README.md) |
-| 当前路线图 | [docs/wiki/ROADMAP.md](docs/wiki/ROADMAP.md) |
-| AI / LLM 入口 | [llms.txt](llms.txt) · [docs/wiki/AI.md](docs/wiki/AI.md) |
-| 功能矩阵 | [docs/wiki/FEATURE_MATRIX.md](docs/wiki/FEATURE_MATRIX.md) |
-| 架构说明 | [docs/wiki/ARCHITECTURE.md](docs/wiki/ARCHITECTURE.md) |
-| QA 手册 | [docs/wiki/QA.md](docs/wiki/QA.md) |
-| 用户问答 | [docs/wiki/FAQ.md](docs/wiki/FAQ.md) |
-| 发布流程 | [docs/wiki/RELEASE_WORKFLOW.md](docs/wiki/RELEASE_WORKFLOW.md) |
-| 版本规范 | [docs/wiki/VERSIONING.md](docs/wiki/VERSIONING.md) |
-| 变更日志 | [CHANGELOG.md](CHANGELOG.md) |
-
 ## 最近更新
 
 当前源码版本为 `0.5.3 / versionCode 501`；最新版本功能摘要如下，完整变更见 [CHANGELOG.md](CHANGELOG.md)。安装包与公告见 [Telegram 频道](https://t.me/bilipai666) / [交流群](https://t.me/bilipai888/1)：
@@ -225,16 +205,6 @@ Crashlytics 的 mapping 上传在本地默认关闭，只有 release 且显式�
 - **番剧与合集**：番剧拖动进度可查看缩略图；合集显示付费与充电专属角标，选集弹窗按可用空间限高，完善分P与合集的播放顺序。
 - **资料与交互**：统一资料入口与侧栏功能图标配色，修复收藏夹长按多选命中位置；从最近任务划掉应用时停止播放。
 - **启动与常用操作**：补充启动和交互基线配置，减少关键路径开销。
-
-## 路线图
-
-| 状态 | 方向 |
-| --- | --- |
-| 已完成基线 | 首页、播放、番剧、直播、动态、消息、离线、听视频、视频笔记、投屏、WebDAV、多账号会话、插件、大屏与三套视觉风格 |
-| 当前 P0 | 视频整卡/预测返回全入口验收、转场稳态性能、Navigation3 1.2 真机回归、AGP 9 单元测试链路恢复 |
-| 后续 | 外部插件可控执行、多账户数据隔离、收藏夹管理、完整本地化与历史云同步评估 |
-
-完整优先级、完成条件与非目标见 [路线图](docs/wiki/ROADMAP.md)。
 
 ## 参与贡献
 
