@@ -4130,7 +4130,6 @@ internal fun VideoDetailScreenStateHolder(
                         },
                         followProgressProvider = videoCardDepthBackgroundState.returnContentFollowProgressEnabledProvider,
                     )
-                    CompositionLocalProvider(LocalVideoDetailWholeCardReturnActive provides wholeCardReturn.active) {
                     Box(modifier = Modifier
                         .fillMaxSize()
                         .then(wholeCardReturn.modifier)
@@ -5091,10 +5090,7 @@ internal fun VideoDetailScreenStateHolder(
                                 videoCardDepthBackgroundState.isReturnGestureInProgressProvider() ||
                                     videoCardDepthBackgroundState
                                         .isGestureRestoreInProgressProvider()
-                            if (wholeCardReturn.active()) {
-                                // 整卡组统一交接，播放器不再与独立封面做第二次透明度交接。
-                                VideoDetailReturnMediaFrame(coverAlpha = 0f, playerAlpha = 1f)
-                            } else resolveVideoDetailReturnMediaFrame(
+                            resolveVideoDetailReturnMediaFrame(
                                 transitionProgress = resolveVideoDetailReturnVisualProgress(
                                     animatedVisibilityProgress = detailTransitionProgress.value,
                                     morphDepthProgress =
@@ -5371,8 +5367,7 @@ internal fun VideoDetailScreenStateHolder(
                                                 com.android.purebilibili.core.ui.transition
                                                     .resolveNowPlayingBarLiveHandoff(miuixLandingState.progressProvider())
                                             } else 0f
-                                            alpha = if (wholeCardReturn.active()) 0f else
-                                                flyingSourceChromeAlphaProvider() * (1f - liveHandoff)
+                                            alpha = flyingSourceChromeAlphaProvider() * (1f - liveHandoff)
                                         },
                                 )
                             }
@@ -5794,13 +5789,10 @@ internal fun VideoDetailScreenStateHolder(
                                         .isGestureRestoreInProgressProvider()
                             },
                             isCommittedCardReturn = isCommittedCardReturn,
-                            modifier = Modifier.align(Alignment.TopStart).drawWithContent {
-                                if (!wholeCardReturn.active()) drawContent()
-                            },
+                            modifier = Modifier.align(Alignment.TopStart),
                         )
                     }
                     }  // Full-viewport source-card chrome host (phone + tablet)
-                    }  // Complete source-card return ownership
                 }  // else shouldUseSplitLayout / immersive parent
             }  // else targetIsLandscape
     }

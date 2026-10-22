@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.video
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,24 +9,37 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.android.purebilibili.feature.video.screen.videoDetailWholeCardReturnLayer
+import com.android.purebilibili.feature.video.screen.rememberVideoDetailWholeCardReturn
+import com.android.purebilibili.feature.video.screen.VideoDetailReturnCoverImage
+import com.android.purebilibili.feature.video.screen.resolveVideoDetailReturnMediaFrame
+import com.android.purebilibili.core.ui.transition.VideoCardSourceLayout
+import com.android.purebilibili.core.ui.transition.VideoCardTransitionBackgroundPhase
+import com.android.purebilibili.core.util.CardPositionManager
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -36,6 +50,98 @@ import kotlinx.coroutines.launch
 class VideoDetailWholeCardReturnUiRegressionTest {
     @get:Rule
     val rule = createComposeRule()
+
+
+    @Test
+    fun quickPredictiveReturnKeepsResidentCoverUntilSnapshotAndRestoresItOnCancel() {
+        val depth = mutableFloatStateOf(0.9f)
+        val gesture = mutableStateOf(true)
+        val follow = mutableStateOf(true)
+        val decoded = mutableIntStateOf(0)
+        val residentCover = Bitmap.createBitmap(240, 135, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(android.graphics.Color.BLUE)
+        }
+        val snapshot = Bitmap.createBitmap(240, 180, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(android.graphics.Color.GREEN)
+        }.asImageBitmap()
+        try {
+            rule.runOnIdle {
+                CardPositionManager.clear()
+                CardPositionManager.lastClickedVideoSourceKey = "home:BVquick"
+            }
+            rule.setContent {
+                val context = LocalContext.current
+                val request = remember(context) {
+                    ImageRequest.Builder(context).data(residentCover).size(240, 135).crossfade(false).build()
+                }
+                val wholeCard = rememberVideoDetailWholeCardReturn(
+                    bvid = "BVquick", sourceRoute = "home", ownsTransition = true,
+                    committedReturn = false, keepLoadedContentForBackPreview = false,
+                    sourceBounds = Rect(0f, 0f, 240f, 180f), sourceLayout = VideoCardSourceLayout.STACKED,
+                    isNowPlayingBar = false, depthProvider = { depth.floatValue },
+                    phaseProvider = {
+                        if (gesture.value) VideoCardTransitionBackgroundPhase.RETURNING
+                        else VideoCardTransitionBackgroundPhase.HELD
+                    },
+                    gestureProvider = { gesture.value }, followProgressProvider = { follow.value },
+                )
+                // Player has no decoded frame yet; the resident cover must hide its black backing.
+                Box(Modifier.size(240.dp, 240.dp).background(Color.Black)
+                    .then(wholeCard.modifier).testTag("quick-return")) {
+                    Column {
+                        VideoDetailReturnCoverImage(
+                            request = request, landingLayout = null,
+                            handoffProgressProvider = { 0f }, inverseScaleXProvider = { 1f },
+                            inverseScaleYProvider = { 1f }, alphaProvider = {
+                                resolveVideoDetailReturnMediaFrame(
+                                    transitionProgress = depth.floatValue, isCommittedCardReturn = false,
+                                    hasResidentCover = true, isReturnGestureInProgress = gesture.value,
+                                    showResidentCoverUntilFirstFrame = true,
+                                ).coverAlpha
+                            },
+                            modifier = Modifier.fillMaxWidth().height(135.dp),
+                            onDecoded = { decoded.intValue++ },
+                        )
+                        Box(Modifier.fillMaxWidth().height(45.dp).background(Color.Yellow))
+                    }
+                }
+            }
+            rule.waitUntil(timeoutMillis = 5_000) { decoded.intValue > 0 }
+            fun assertPixels(snapshotWeight: Float) {
+                val pixels = rule.onNodeWithTag("quick-return").captureToImage().toPixelMap()
+                val cover = pixels[pixels.width / 2, (pixels.height * 50 / 240)]
+                val info = pixels[pixels.width / 2, (pixels.height * 150 / 240)]
+                // Both groups use source-over blending above a black player backing.
+                val liveWeight = (1f - snapshotWeight) * (1f - snapshotWeight)
+                assertTrue("Cover disappeared at depth=${depth.floatValue}",
+                    kotlin.math.abs(cover.blue - liveWeight) < 0.04f &&
+                        kotlin.math.abs(cover.green - snapshotWeight) < 0.04f && cover.red < 0.04f)
+                assertTrue("Source info disappeared before takeover",
+                    kotlin.math.abs(info.green - (liveWeight + snapshotWeight)) < 0.04f &&
+                        kotlin.math.abs(info.red - liveWeight) < 0.04f)
+            }
+            assertPixels(0f) // No snapshot is ready yet.
+            rule.runOnIdle { CardPositionManager.recordWholeCardReturnBitmap(snapshot, "home:BVquick") }
+            // Early return, full takeover, reverse/cancel, and restart all use the same depth.
+            for (progress in listOf(0.9f, 0.45f, 0.25f, 0.01f, 0.25f, 0.9f, 1f)) {
+                rule.runOnIdle { depth.floatValue = progress }
+                val weight = com.android.purebilibili.feature.video.screen.resolveVideoDetailWholeCardReturnAlpha(
+                    progress, returning = true, followProgress = true, committedIdle = false,
+                )
+                assertPixels(weight)
+            }
+            rule.runOnIdle { follow.value = false; depth.floatValue = 0.001f }
+            assertPixels(0f)
+            rule.runOnIdle { depth.floatValue = 0f }
+            assertPixels(1f)
+            rule.runOnIdle { gesture.value = false; depth.floatValue = 1f }
+            assertPixels(0f)
+        } finally {
+            rule.runOnIdle {
+                CardPositionManager.clear()
+            }
+        }
+    }
 
     @Test
     fun nativeCoverBadgeAndInfoKeepOneGeometryThroughReturnAndCancellation() {

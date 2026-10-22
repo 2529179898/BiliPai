@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -19,9 +18,6 @@ import com.android.purebilibili.core.ui.transition.VideoCardSourceLayout
 import com.android.purebilibili.core.ui.transition.VideoCardTransitionBackgroundPhase
 import com.android.purebilibili.core.ui.transition.normalizeSharedElementSourceRoute
 import com.android.purebilibili.core.util.CardPositionManager
-
-/** 仅约束飞行详情内的独立封面/角标层，不影响静止卡片和普通页面布局。 */
-internal val LocalVideoDetailWholeCardReturnActive = compositionLocalOf<() -> Boolean> { { false } }
 
 internal fun resolveVideoDetailWholeCardReturnAlpha(
     depth: Float,
@@ -39,7 +35,6 @@ internal fun resolveVideoDetailWholeCardReturnAlpha(
 }
 
 internal class VideoDetailWholeCardReturn(
-    val active: () -> Boolean,
     val modifier: Modifier,
 )
 
@@ -88,7 +83,7 @@ internal fun rememberVideoDetailWholeCardReturn(
                 phaseProvider() == VideoCardTransitionBackgroundPhase.IDLE,
         )
     }
-    return VideoDetailWholeCardReturn(active, modifier)
+    return VideoDetailWholeCardReturn(modifier)
 }
 
 /** 整卡像素在同一透明度组中绘制，避免封面、角标和信息区各自裁切或各自叠化。 */
@@ -102,7 +97,8 @@ internal fun Modifier.videoDetailWholeCardReturnLayer(
         if (alpha <= 0f || bitmap == null || bitmap.width <= 1 || bitmap.height <= 1) {
             drawContent()
         } else {
-            // 两个完整内容组交接；透明卡片区域也能退出详情内容，不残留播放器或第二套标题。
+            // 原封面、播放器和来源文字继续正常交接，不能在快照尚透明时提前隐藏。
+            // 两个完整内容组统一叠化；快照完全不透明后才停止绘制原内容。
             drawIntoCanvas { canvas ->
                 if (alpha < 1f) {
                     paint.alpha = 1f - alpha

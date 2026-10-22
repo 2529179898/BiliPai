@@ -889,6 +889,11 @@ internal fun BiliPaiNavDisplayHost(
                 val containerSurface = AppSurfaceTokens.groupedListContainer()
                 val containerSourceScope = LocalNavTransitionScope.current
                 val containerEntrySource = settingsContainerNavigation.sourceFor(key)
+                // A covered settings page draws in place; only its own leading boundary exports it.
+                // Subscribe to the ownership boundary rather than every depth animation frame.
+                val containerOwnsPage by remember(key, containerSourceScope, settingsContainerNavigation) {
+                    derivedStateOf { settingsContainerNavigation.ownsPage(key, containerSourceScope) }
+                }
                 val captureAction: (com.android.purebilibili.core.ui.components.AppContainerNavigationSource, () -> Unit) -> Unit =
                     { source, action ->
                         if (backStack.lastOrNull() == key) {
@@ -949,6 +954,7 @@ internal fun BiliPaiNavDisplayHost(
                             if (sourceIsSettings) {
                                 SettingsContainerEntryContent(
                                     source = containerEntrySource,
+                                    containerOwnsPage = containerOwnsPage,
                                     modifier = Modifier.fillMaxSize(),
                                     content = entryContent,
                                 )

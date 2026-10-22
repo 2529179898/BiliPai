@@ -18,6 +18,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
@@ -756,6 +757,8 @@ fun AppNavigation(
         val bottomPagerState = rememberPagerState(
             pageCount = { visibleBottomBarItems.size.coerceAtLeast(1) }
         )
+        val bottomPagerDragged = bottomPagerState.interactionSource.collectIsDraggedAsState()
+        val bottomPagerDraggingProvider = remember(bottomPagerDragged) { { bottomPagerDragged.value } }
         val bottomPagerSaveableStateHolder = rememberSaveableStateHolder()
         val mainBottomPagerState = rememberMainBottomPagerState(bottomPagerState)
         // 只在同一进程的 Activity 重建中保留；跨进程恢复时由 Saver 清空预热记录。
@@ -767,22 +770,23 @@ fun AppNavigation(
             withFrameNanos { }
             bottomPagerContentReady = true
         }
-        LaunchedEffect(bottomPagerState.currentPage, mainBottomPagerState) {
-            mainBottomPagerState.syncPage()
+        // Observe intermediate pages inside effects: traversing a tab boundary must not
+        // recompose the navigation root and rebuild the surrounding transition content.
+        LaunchedEffect(bottomPagerState, mainBottomPagerState) {
+            snapshotFlow { bottomPagerState.currentPage to mainBottomPagerState.isNavigating }
+                .collect { mainBottomPagerState.syncPage() }
         }
         // Keep visited/transition participants mounted by tab identity, including after reorder.
-        LaunchedEffect(
-            visibleBottomBarItems,
-            bottomPagerState.currentPage,
-            mainBottomPagerState.selectedPage,
-            mainBottomPagerState.navigationStartPage,
-        ) {
-            val participants = setOf(
-                bottomPagerState.currentPage,
-                mainBottomPagerState.selectedPage,
-                mainBottomPagerState.navigationStartPage,
-            ).mapNotNull { visibleBottomBarItems.getOrNull(it) }
-            preloadedBottomPagerItems = preloadedBottomPagerItems + participants
+        LaunchedEffect(visibleBottomBarItems, bottomPagerState, mainBottomPagerState) {
+            snapshotFlow {
+                setOf(
+                    bottomPagerState.currentPage,
+                    mainBottomPagerState.selectedPage,
+                    mainBottomPagerState.navigationStartPage,
+                ).mapNotNull { visibleBottomBarItems.getOrNull(it) }.toSet()
+            }.collect { participants ->
+                preloadedBottomPagerItems = preloadedBottomPagerItems + participants
+            }
         }
         LaunchedEffect(visibleBottomBarItems, mainBottomPagerState.selectedPage) {
             val lastPage = visibleBottomBarItems.lastIndex
@@ -5153,6 +5157,7 @@ fun AppNavigation(
                                         mainBottomPagerState.indicatorPositionProvider,
                                     isPagerScrollInProgressProvider =
                                         mainBottomPagerState.scrollInProgressProvider,
+                                    isPagerDraggingProvider = bottomPagerDraggingProvider,
                                     uiSkinDecoration = bottomBarUiSkinDecoration,
                                     linkedDockPhase = linkedDockPhase,
                                     onLinkedDockPhaseChange = { linkedDockPhase = it },
@@ -5207,6 +5212,7 @@ fun AppNavigation(
                                     mainBottomPagerState.indicatorPositionProvider,
                                 isPagerScrollInProgressProvider =
                                     mainBottomPagerState.scrollInProgressProvider,
+                                isPagerDraggingProvider = bottomPagerDraggingProvider,
                                 uiSkinDecoration = bottomBarUiSkinDecoration,
                                 linkedDockPhase = linkedDockPhase,
                                 onLinkedDockPhaseChange = { linkedDockPhase = it },

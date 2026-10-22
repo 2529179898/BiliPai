@@ -96,16 +96,3 @@ app/src/main/java/com/android/purebilibili/navigation3/SettingsContainerTransiti
  * packages/flutter/lib/src/animation/curves.dart (Flutter authors, BSD-3-Clause).
  * Full upstream licenses: assets/licenses/flclash.LICENSE and assets/licenses/flutter.LICENSE.
  */
-
-
-design-system/src/main/java/com/android/purebilibili/core/ui/animation/LiquidIndicatorWobble.kt
-/*
- * Glass-indicator shape-spring parameters adapted
- * from chen08209/FlClash, lib/ui/navigation_dock.dart, revision
- * 8d4f9744948751f1273fe871e1d05276fac09b0e (_wobble, _lensRect, _jellySpring).
- * https://github.com/chen08209/FlClash/blob/8d4f9744948751f1273fe871e1d05276fac09b0e/lib/ui/navigation_dock.dart
- * FlClash contributors; GPL-3.0. Distributed as part of BiliPai under GPLv3.
- * Compose samples movement to arm a stop-only recoil. The existing drag, velocity
- * deformation and press transforms are retained; new interaction cancels recoil.
- * Full license: flclash.LICENSE.
- */

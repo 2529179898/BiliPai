@@ -473,10 +473,7 @@ internal fun BoxScope.BottomBarMatchedLiquidIndicator(
         BottomBarClickPulseTransform(scaleX = 1f),
     orientation: BottomBarLiquidOrientation = BottomBarLiquidOrientation.HORIZONTAL,
     indicatorAlignment: Alignment = Alignment.CenterStart,
-    interactionModifier: Modifier = Modifier,
-    wobblePosition: (() -> Float)? = null,
-    wobbleSelection: (() -> Any?)? = null,
-    wobbleLastIndex: Int = -1,
+    interactionModifier: Modifier = Modifier
 ) {
     // Miuix-only indicator path. Null backdrop degrades to solid surface inside the layer.
     BiliPaiMiuixBottomBarIndicatorLayer(
@@ -508,10 +505,7 @@ internal fun BoxScope.BottomBarMatchedLiquidIndicator(
         isDarkTheme = isDarkTheme,
         swapMotionAxes = orientation == BottomBarLiquidOrientation.VERTICAL,
         indicatorAlignment = indicatorAlignment,
-        interactionModifier = interactionModifier,
-        wobblePosition = wobblePosition,
-        wobbleSelection = wobbleSelection,
-        wobbleLastIndex = wobbleLastIndex,
+        interactionModifier = interactionModifier
     )
 }
 

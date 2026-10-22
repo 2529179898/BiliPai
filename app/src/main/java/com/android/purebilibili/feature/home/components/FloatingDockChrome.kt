@@ -3,10 +3,6 @@
 // no legacy backdrop / BottomBarGlassMaterialPreset / LiquidIndicator mix-ins.
 package com.android.purebilibili.feature.home.components
 
-import com.android.purebilibili.core.ui.animation.rememberLiquidIndicatorWobble
-import com.android.purebilibili.core.ui.animation.liquidWobbleScaleX
-import com.android.purebilibili.core.ui.animation.liquidWobbleScaleY
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -28,12 +24,11 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.shadow.Shadow
 import com.android.purebilibili.core.ui.AppSurfaceTokens
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceIn
+import kotlin.math.abs
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import com.android.purebilibili.feature.home.components.liquid.InnerShadow
@@ -450,41 +445,15 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
     shape: Shape = CircleShape,
     alignment: Alignment = Alignment.CenterStart,
     liquidGlassTuning: LiquidGlassTuning = resolveLiquidGlassTuning(progress = 0.5f),
-    wobbleEnabled: Boolean = false,
-    wobblePosition: Float = 0f,
-    wobbleSelection: Int? = null,
-    wobbleLastIndex: Int = -1,
-    wobbleEdgeInset: Dp = 4.dp,
-    wobbleCanSettle: Boolean = true,
-    wobbleInteracting: Boolean = false,
-    wobbleSelectionMotionActive: Boolean? = null,
+    highlightEnabled: Boolean = true,
 ) {
     if (!visible) return
-    val canRecoil = wobbleCanSettle
-    val wobble = rememberLiquidIndicatorWobble(
-        enabled = wobbleEnabled,
-        geometryKey = wobbleLastIndex,
-        canSettle = { canRecoil },
-        selectionKey = { wobbleSelection },
-        interactionActive = { wobbleInteracting },
-        selectionMotionActive = { wobbleSelectionMotionActive },
-    ) { wobblePosition }
-    val recoilStretch: () -> Float = {
-        com.android.purebilibili.core.ui.animation.resolveLiquidIndicatorRecoilStretch(
-            wobble.value, !wobbleInteracting && (wobble.isSelectionMotion || canRecoil),
-        )
-    }
-    val recoilDirection = if (LocalLayoutDirection.current == LayoutDirection.Ltr) 1f else -1f
     val pillHighlight = rememberBiliPaiGravityHighlight(extraDegrees = 90f)
     Box(
         modifier = Modifier
             .align(alignment)
             .graphicsLayer {
-                translationX = translationXPx + panelOffsetPx +
-                    com.android.purebilibili.core.ui.animation.liquidWobbleEdgeTranslationPx(
-                        recoilStretch(), wobblePosition, wobbleLastIndex, size.width,
-                        wobbleEdgeInset.toPx(), baseScale = scaleX,
-                    ) * recoilDirection
+                translationX = translationXPx + panelOffsetPx
             }
             .width(width)
             .height(height)
@@ -504,19 +473,16 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
                                     shellHeightDp = dockHeight.value,
                                     // Match the exact layer transform used below, including
                                     // velocity compression, so the rim follows the visible pill.
-                                    indicatorScaleY = liquidWobbleScaleY(
-                                        resolveFloatingDockIndicatorLayerScaleY(scaleY, velocity), recoilStretch(),
+                                    indicatorScaleY = resolveFloatingDockIndicatorLayerScaleY(
+                                        baseScaleY = scaleY,
+                                        velocity = velocity,
                                     ),
                                 )
                             },
-                            highlight = { pillHighlight.value.copy(alpha = pressProgress) },
+                            highlight = { if (highlightEnabled) pillHighlight.value.copy(alpha = pressProgress) else null },
                             layerBlock = {
-                                this.scaleX = liquidWobbleScaleX(
-                                    com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.scaleX(scaleX, velocity), recoilStretch(),
-                                )
-                                this.scaleY = liquidWobbleScaleY(
-                                    com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.scaleY(scaleY, velocity), recoilStretch(),
-                                )
+                                this.scaleX = com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.scaleX(scaleX, velocity)
+                                this.scaleY = com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.scaleY(scaleY, velocity)
                             },
                             onDrawSurface = {
                                 drawHomeIndicatorSurface(pressProgress, isDark)
@@ -537,12 +503,6 @@ internal fun BoxScope.BiliPaiFloatingDockIndicator(
                         AppSurfaceTokens.surfaceContainerHighest()
                     }
                     Modifier
-                        .graphicsLayer {
-                            if (wobbleEnabled) {
-                                this.scaleX = liquidWobbleScaleX(1f, recoilStretch())
-                                this.scaleY = liquidWobbleScaleY(1f, recoilStretch())
-                            }
-                        }
                         .then(
                             if (!isDark) {
                                 Modifier.dropShadow(

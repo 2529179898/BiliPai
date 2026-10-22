@@ -13,6 +13,25 @@ import top.yukonga.miuix.kmp.nav.transition.NavSettlePhase
 
 class SettingsContainerTransitionPolicyTest {
     @Test
+    fun `page drawing grows with container width and lands without a size jump`() {
+        // Phone, wide pane and narrow split use their actual entry-to-host proportions.
+        for ((closedWidth, pageWidth) in listOf(328f to 360f, 400f to 840f, 248f to 280f)) {
+            var previous = 0f
+            for (step in 0..100) {
+                val progress = settingsContainerProgress(step / 100f, closing = false)
+                val width = closedWidth + (pageWidth - closedWidth) * progress
+                val scale = settingsContainerPageScale(width, pageWidth)
+                assertTrue(scale >= previous && scale <= 1f)
+                assertEquals(width, pageWidth * scale, 0.001f)
+                previous = scale
+            }
+            assertEquals(1f, previous)
+        }
+        assertEquals(1f, settingsContainerPageScale(360f, 360f))
+        assertEquals(1f, settingsContainerPageScale(0f, 0f))
+    }
+
+    @Test
     fun `miuix card surface returns to its own tone in light and dark themes`() {
         val pairs = listOf(
             androidx.compose.ui.graphics.Color(0xFF242424) to androidx.compose.ui.graphics.Color(0xFF101010),

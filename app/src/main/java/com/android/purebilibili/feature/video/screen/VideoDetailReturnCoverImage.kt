@@ -80,7 +80,6 @@ internal fun VideoDetailReturnCoverImage(
     backingColor: Color = Color.Unspecified,
     onDecoded: () -> Unit = {},
 ) {
-    val wholeCardReturnActive = LocalVideoDetailWholeCardReturnActive.current
     val sizeResolver = rememberConstraintsSizeResolver()
     val resolvedRequest = remember(request, sizeResolver) {
         // Keep explicit source decode dimensions/cache identity. Otherwise resolve from
@@ -110,7 +109,7 @@ internal fun VideoDetailReturnCoverImage(
                 slotOriginProvider = slotOriginProvider,
             ),
         ) {
-            val alpha = if (wholeCardReturnActive()) 0f else alphaProvider().coerceIn(0f, 1f)
+            val alpha = alphaProvider().coerceIn(0f, 1f)
             if (alpha <= 0f || size.width <= 0f || size.height <= 0f) return@Canvas
             val progress = handoffProgressProvider()
             val bounds = Rect(Offset.Zero, size)

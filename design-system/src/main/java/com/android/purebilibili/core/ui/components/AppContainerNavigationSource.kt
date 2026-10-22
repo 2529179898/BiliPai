@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.GraphicsContext
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.platform.LocalGraphicsContext
@@ -44,8 +45,6 @@ class AppContainerNavigationSource internal constructor() {
     var closedLayer: GraphicsLayer? = null
         private set
     var pageLayer: GraphicsLayer? = null
-    // Per-draw recording gate; no layout or composition state is written while painting.
-    var recordPageOnly = false
     var click: () -> Unit = {}
     private var graphicsContext: GraphicsContext? = null
 
@@ -141,12 +140,16 @@ fun AppContainerNavigationSource(
                 kotlin.math.abs(visible.height - coordinates.size.height) <= 1f
             ) visible else Rect.Zero
             source.measuredSize = coordinates.size
+        }.graphicsLayer {
+            // Visibility belongs to a layer property, so cached row drawing cannot
+            // retain an empty display list after the return boundary disappears.
+            alpha = if (source.destinationOwnsContent) 0f else 1f
         }.drawWithContent {
             val layer = source.closedLayer
             if (layer == null) drawContent()
             else {
                 layer.record { this@drawWithContent.drawContent() }
-                if (!source.destinationOwnsContent) drawLayer(layer)
+                drawLayer(layer)
             }
         },
     ) {

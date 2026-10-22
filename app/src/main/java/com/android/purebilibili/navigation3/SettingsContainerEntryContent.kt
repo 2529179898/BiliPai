@@ -7,6 +7,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import com.android.purebilibili.core.ui.components.AppContainerNavigationSource
@@ -15,6 +16,7 @@ import com.android.purebilibili.core.ui.components.AppContainerNavigationSource
 @Composable
 internal fun SettingsContainerEntryContent(
     source: AppContainerNavigationSource?,
+    containerOwnsPage: Boolean,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -26,11 +28,16 @@ internal fun SettingsContainerEntryContent(
         }
     }
     Box(
-        modifier = modifier.fillMaxSize().drawWithContent {
+        modifier = modifier.fillMaxSize().graphicsLayer().drawWithContent {
             if (source == null) drawContent()
             else {
                 pageLayer.record { this@drawWithContent.drawContent() }
-                if (!source.recordPageOnly) drawLayer(pageLayer)
+                // Stable for the whole boundary lifetime, including its resting page.
+                // The outer transition draws this layer after recording has completed.
+                if (!containerOwnsPage) {
+                    pageLayer.alpha = 1f
+                    drawLayer(pageLayer)
+                }
             }
         },
     ) { content() }

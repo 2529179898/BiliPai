@@ -13,6 +13,12 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import coil3.ImageLoader
+import coil3.asImage
+import coil3.memory.MemoryCache
+import coil3.request.ImageRequest
+import coil3.request.CachePolicy
 import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -76,6 +82,44 @@ class PageAwareAsyncImageTest {
         composeRule.waitUntil(5_000) { successes.get() == 2 }
         composeRule.waitForIdle()
         assertPixel(Color.Blue)
+    }
+
+    @Test
+    fun pausedRemountedCoverUsesExactMemoryCacheIdentityWithoutLoading() {
+        val cacheKey = mutableStateOf("red-cover")
+        val readCache = mutableStateOf(true)
+        val successes = AtomicInteger()
+        val memoryCache = MemoryCache.Builder().maxSizeBytes(1024 * 1024L).build().apply {
+            set(MemoryCache.Key("red-cover"), MemoryCache.Value(solidBitmap(android.graphics.Color.RED).asImage()))
+            set(MemoryCache.Key("blue-cover"), MemoryCache.Value(solidBitmap(android.graphics.Color.BLUE).asImage()))
+        }
+        composeRule.setContent {
+            val context = LocalContext.current
+            val loader = androidx.compose.runtime.remember { ImageLoader.Builder(context).memoryCache(memoryCache).build() }
+            PageAwareAsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data("https://example.invalid/cover")
+                    .memoryCacheKey(cacheKey.value)
+                    .memoryCachePolicy(if (readCache.value) CachePolicy.ENABLED else CachePolicy.DISABLED)
+                    .build(),
+                loadingAllowed = false,
+                imageLoader = loader,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp).background(Color.Gray).testTag("page-image"),
+                onSuccess = { successes.incrementAndGet() },
+            )
+        }
+        composeRule.waitForIdle()
+        assertPixel(Color.Red)
+        composeRule.runOnIdle { cacheKey.value = "blue-cover" }
+        assertPixel(Color.Blue)
+        composeRule.runOnIdle { cacheKey.value = "missing-cover" }
+        assertPixel(Color.Gray)
+        composeRule.runOnIdle { cacheKey.value = "red-cover" }
+        assertPixel(Color.Red)
+        composeRule.runOnIdle { readCache.value = false }
+        assertPixel(Color.Gray)
+        assertEquals(0, successes.get())
     }
 
     private fun solidBitmap(color: Int) = Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).apply {

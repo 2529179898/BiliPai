@@ -2167,7 +2167,6 @@ private fun LightweightHomeTopTabs(
                 // 指示器连续管线（速度→折射→宽高→平移→缩放弹簧）全部在子组件 scope
                 // 内逐帧求值；外层仅以 State/lambda 注入位置与离散开关。
                 LightweightTopTabIndicatorOverlay(
-                    selectedIndex = selectedIndex,
                     positionState = topTabIndicatorPositionState,
                     capsulePositionState = iosCapsulePositionState,
                     measuredSelectedItemLeftPxState = measuredSelectedItemLeftPxState,
@@ -2347,7 +2346,6 @@ private fun HomeTopTabMotionLayer(
  */
 @Composable
 private fun BoxScope.LightweightTopTabIndicatorOverlay(
-    selectedIndex: Int,
     positionState: androidx.compose.runtime.State<Float>,
     capsulePositionState: androidx.compose.runtime.State<Float>,
     measuredSelectedItemLeftPxState: androidx.compose.runtime.State<Float?>,
@@ -2443,8 +2441,7 @@ private fun BoxScope.LightweightTopTabIndicatorOverlay(
     }
     val topTabIndicatorLayerTransform = resolveTopTabIndicatorLayerTransform(
         motionProgress = topTabIndicatorScaleProgress,
-        velocityItemsPerSecond = if (shouldUseLiquidGlassIndicator && pagerIsScrolling &&
-            !pagerIsDragging && !ownsPosition) 0f else velocityItemsPerSecondState.value,
+        velocityItemsPerSecond = velocityItemsPerSecondState.value,
         dragScaleTarget = topTabIndicatorGeometry.pressedScale,
         dragScaleTransform = rememberBottomBarIndicatorLayerScaleTransform(
             active = shouldStretchIndicator || indicatorPressed,
@@ -2551,19 +2548,7 @@ private fun BoxScope.LightweightTopTabIndicatorOverlay(
                 scaleX = indicatorScaleX,
                 scaleY = indicatorScaleY,
                 velocity = indicatorVelocity,
-                wobbleEnabled = shouldUseLiquidGlassIndicator,
-                wobblePosition = topTabIndicatorPosition,
-                wobbleSelection = selectedIndex,
-                wobbleInteracting = pagerIsDragging || directDragging,
-                wobbleSelectionMotionActive = when {
-                    pagerIsDragging || ownsPosition -> false
-                    pagerIsScrolling -> true
-                    else -> null // Non-pager tab clicks follow their changed selection as well.
-                },
-                wobbleLastIndex = categoriesLastIndex,
-                wobbleEdgeInset = dockIndicatorHorizontalGap + topTabHorizontalPadding,
-                wobbleCanSettle = !indicatorIsInteracting && !indicatorPressed &&
-                    abs(velocityItemsPerSecondState.value) <= 0.01f,
+                highlightEnabled = pagerIsDragging || directDragging,
                 isDark = isDarkTheme,
                 shape = resolveTopTabIndicatorShape(
                     showIcon = showIcon,
@@ -2586,19 +2571,7 @@ private fun BoxScope.LightweightTopTabIndicatorOverlay(
                 scaleX = indicatorScaleX,
                 scaleY = indicatorScaleY,
                 velocity = indicatorVelocity,
-                wobbleEnabled = shouldUseLiquidGlassIndicator,
-                wobblePosition = topTabIndicatorPosition,
-                wobbleSelection = selectedIndex,
-                wobbleInteracting = pagerIsDragging || directDragging,
-                wobbleSelectionMotionActive = when {
-                    pagerIsDragging || ownsPosition -> false
-                    pagerIsScrolling -> true
-                    else -> null // Non-pager tab clicks follow their changed selection as well.
-                },
-                wobbleLastIndex = categoriesLastIndex,
-                wobbleEdgeInset = dockIndicatorHorizontalGap + topTabHorizontalPadding,
-                wobbleCanSettle = !indicatorIsInteracting && !indicatorPressed &&
-                    abs(velocityItemsPerSecondState.value) <= 0.01f,
+                highlightEnabled = pagerIsDragging || directDragging,
                 isDark = isDarkTheme,
                 shape = resolveTopTabIndicatorShape(
                     showIcon = showIcon,
@@ -2621,19 +2594,7 @@ private fun BoxScope.LightweightTopTabIndicatorOverlay(
                 scaleX = indicatorScaleX,
                 scaleY = indicatorScaleY,
                 velocity = indicatorVelocity,
-                wobbleEnabled = shouldUseLiquidGlassIndicator,
-                wobblePosition = topTabIndicatorPosition,
-                wobbleSelection = selectedIndex,
-                wobbleInteracting = pagerIsDragging || directDragging,
-                wobbleSelectionMotionActive = when {
-                    pagerIsDragging || ownsPosition -> false
-                    pagerIsScrolling -> true
-                    else -> null // Non-pager tab clicks follow their changed selection as well.
-                },
-                wobbleLastIndex = categoriesLastIndex,
-                wobbleEdgeInset = dockIndicatorHorizontalGap + topTabHorizontalPadding,
-                wobbleCanSettle = !indicatorIsInteracting && !indicatorPressed &&
-                    abs(velocityItemsPerSecondState.value) <= 0.01f,
+                highlightEnabled = pagerIsDragging || directDragging,
                 isDark = isDarkTheme,
                 shape = resolveTopTabIndicatorShape(
                     showIcon = showIcon,

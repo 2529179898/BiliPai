@@ -1,9 +1,6 @@
 // 文件路径: feature/home/components/BottomBar.kt
 package com.android.purebilibili.feature.home.components
 
-import com.android.purebilibili.core.ui.animation.rememberLiquidIndicatorWobble
-import com.android.purebilibili.core.ui.animation.liquidWobbleScaleX
-import com.android.purebilibili.core.ui.animation.liquidWobbleScaleY
 
 import com.android.purebilibili.core.ui.AppContentColors
 
@@ -2206,6 +2203,7 @@ fun FrostedBottomBar(
     collapseLinkedDock: Boolean = false,
     indicatorPositionProvider: (() -> Float)? = null,
     isPagerScrollInProgressProvider: () -> Boolean = { false },
+    isPagerDraggingProvider: (() -> Boolean)? = null,
     uiSkinDecoration: BottomBarUiSkinDecoration? = null,
     linkedDockPhase: LinkedDockPhase? = null,
     onLinkedDockPhaseChange: ((LinkedDockPhase) -> Unit)? = null,
@@ -2257,72 +2255,74 @@ fun FrostedBottomBar(
             androidNativeLiquidGlassEnabled = homeSettings.androidNativeLiquidGlassEnabled,
             materialContent = { policy ->
                 MaterialBottomBar(
-                currentItem = currentItem,
-                nowPlayingContent = nowPlayingContent,
-                onItemClick = resolvedItemClick,
-                modifier = modifier,
-                visibleItems = visibleItems,
-                itemLabels = itemLabels,
-                onToggleSidebar = effectiveToggleSidebar,
-                dynamicUnreadCount = dynamicUnreadCount,
-                isFloating = isFloating,
-                isTablet = isTablet,
-                labelMode = labelMode,
-                blurEnabled = hazeState != null,
-                hazeState = hazeState,
-                miuixBackdrop = miuixBackdrop,
-                homeSettings = homeSettings,
-                onSearchClick = onSearchClick,
-                onSearchKeywordSubmit = onSearchKeywordSubmit,
-                motionTier = motionTier,
-                isTransitionRunning = isTransitionRunning,
-                forceLowBlurBudget = forceLowBlurBudget,
-                isFeedScrollInProgress = isFeedScrollInProgress,
-                collapseLinkedDock = collapseLinkedDock,
-                indicatorPositionProvider = indicatorPositionProvider,
-                isPagerScrollInProgressProvider = isPagerScrollInProgressProvider,
-                uiSkinDecoration = uiSkinDecoration,
-                sharedLiquidGlassEnabled = policy.liquidGlassEnabled,
-                linkedDockPhase = linkedDockPhase,
-                onLinkedDockPhaseChange = onLinkedDockPhaseChange,
-                isTopLevelDestination = isTopLevelDestination,
-                animateNowPlayingPresence = animateNowPlayingPresence,
+                    currentItem = currentItem,
+                    nowPlayingContent = nowPlayingContent,
+                    onItemClick = resolvedItemClick,
+                    modifier = modifier,
+                    visibleItems = visibleItems,
+                    itemLabels = itemLabels,
+                    onToggleSidebar = effectiveToggleSidebar,
+                    dynamicUnreadCount = dynamicUnreadCount,
+                    isFloating = isFloating,
+                    isTablet = isTablet,
+                    labelMode = labelMode,
+                    blurEnabled = hazeState != null,
+                    hazeState = hazeState,
+                    miuixBackdrop = miuixBackdrop,
+                    homeSettings = homeSettings,
+                    onSearchClick = onSearchClick,
+                    onSearchKeywordSubmit = onSearchKeywordSubmit,
+                    motionTier = motionTier,
+                    isTransitionRunning = isTransitionRunning,
+                    forceLowBlurBudget = forceLowBlurBudget,
+                    isFeedScrollInProgress = isFeedScrollInProgress,
+                    collapseLinkedDock = collapseLinkedDock,
+                    indicatorPositionProvider = indicatorPositionProvider,
+                    isPagerScrollInProgressProvider = isPagerScrollInProgressProvider,
+                    isPagerDraggingProvider = isPagerDraggingProvider,
+                    uiSkinDecoration = uiSkinDecoration,
+                    sharedLiquidGlassEnabled = policy.liquidGlassEnabled,
+                    linkedDockPhase = linkedDockPhase,
+                    onLinkedDockPhaseChange = onLinkedDockPhaseChange,
+                    isTopLevelDestination = isTopLevelDestination,
+                    animateNowPlayingPresence = animateNowPlayingPresence,
                 )
             },
             platformContent = { policy ->
                 MiuixBottomBar(
-                currentItem = currentItem,
-                nowPlayingContent = nowPlayingContent,
-                onItemClick = resolvedItemClick,
-                modifier = modifier,
-                visibleItems = visibleItems,
-                itemLabels = itemLabels,
-                onToggleSidebar = effectiveToggleSidebar,
-                dynamicUnreadCount = dynamicUnreadCount,
-                isFloating = isFloating,
-                isTablet = isTablet,
-                labelMode = labelMode,
-                blurEnabled = hazeState != null,
-                hazeState = hazeState,
-                miuixBackdrop = miuixBackdrop,
-                homeSettings = homeSettings,
-                onSearchClick = onSearchClick,
-                onSearchKeywordSubmit = onSearchKeywordSubmit,
-                searchLaunchKey = searchLaunchKey,
-                onSearchLaunchTransitionFinished = onSearchLaunchTransitionFinished,
-                motionTier = motionTier,
-                isTransitionRunning = isTransitionRunning,
-                forceLowBlurBudget = forceLowBlurBudget,
-                isFeedScrollInProgress = isFeedScrollInProgress,
-                collapseLinkedDock = collapseLinkedDock,
-                indicatorPositionProvider = indicatorPositionProvider,
-                isPagerScrollInProgressProvider = isPagerScrollInProgressProvider,
-                uiSkinDecoration = uiSkinDecoration,
-                sharedLiquidGlassEnabled = policy.liquidGlassEnabled,
-                linkedDockPhase = linkedDockPhase,
-                onLinkedDockPhaseChange = onLinkedDockPhaseChange,
-                isTopLevelDestination = isTopLevelDestination,
-                animateNowPlayingPresence = animateNowPlayingPresence,
+                    currentItem = currentItem,
+                    nowPlayingContent = nowPlayingContent,
+                    onItemClick = resolvedItemClick,
+                    modifier = modifier,
+                    visibleItems = visibleItems,
+                    itemLabels = itemLabels,
+                    onToggleSidebar = effectiveToggleSidebar,
+                    dynamicUnreadCount = dynamicUnreadCount,
+                    isFloating = isFloating,
+                    isTablet = isTablet,
+                    labelMode = labelMode,
+                    blurEnabled = hazeState != null,
+                    hazeState = hazeState,
+                    miuixBackdrop = miuixBackdrop,
+                    homeSettings = homeSettings,
+                    onSearchClick = onSearchClick,
+                    onSearchKeywordSubmit = onSearchKeywordSubmit,
+                    searchLaunchKey = searchLaunchKey,
+                    onSearchLaunchTransitionFinished = onSearchLaunchTransitionFinished,
+                    motionTier = motionTier,
+                    isTransitionRunning = isTransitionRunning,
+                    forceLowBlurBudget = forceLowBlurBudget,
+                    isFeedScrollInProgress = isFeedScrollInProgress,
+                    collapseLinkedDock = collapseLinkedDock,
+                    indicatorPositionProvider = indicatorPositionProvider,
+                    isPagerScrollInProgressProvider = isPagerScrollInProgressProvider,
+                    isPagerDraggingProvider = isPagerDraggingProvider,
+                    uiSkinDecoration = uiSkinDecoration,
+                    sharedLiquidGlassEnabled = policy.liquidGlassEnabled,
+                    linkedDockPhase = linkedDockPhase,
+                    onLinkedDockPhaseChange = onLinkedDockPhaseChange,
+                    isTopLevelDestination = isTopLevelDestination,
+                    animateNowPlayingPresence = animateNowPlayingPresence,
                 )
             },
         )
@@ -2357,6 +2357,7 @@ private fun MaterialBottomBar(
     collapseLinkedDock: Boolean = false,
     indicatorPositionProvider: (() -> Float)? = null,
     isPagerScrollInProgressProvider: () -> Boolean = { false },
+    isPagerDraggingProvider: (() -> Boolean)? = null,
     uiSkinDecoration: BottomBarUiSkinDecoration? = null,
     sharedLiquidGlassEnabled: Boolean,
     linkedDockPhase: LinkedDockPhase? = null,
@@ -2582,6 +2583,7 @@ private fun MaterialBottomBar(
             collapseLinkedDock = collapseLinkedDock,
             indicatorPositionProvider = indicatorPositionProvider,
             isPagerScrollInProgressProvider = isPagerScrollInProgressProvider,
+            isPagerDraggingProvider = isPagerDraggingProvider,
             uiSkinDecoration = uiSkinDecoration,
             linkedDockPhase = linkedDockPhase,
             onLinkedDockPhaseChange = onLinkedDockPhaseChange,
@@ -2950,6 +2952,7 @@ private fun MiuixBottomBar(
     collapseLinkedDock: Boolean = false,
     indicatorPositionProvider: (() -> Float)? = null,
     isPagerScrollInProgressProvider: () -> Boolean = { false },
+    isPagerDraggingProvider: (() -> Boolean)? = null,
     uiSkinDecoration: BottomBarUiSkinDecoration? = null,
     sharedLiquidGlassEnabled: Boolean,
     linkedDockPhase: LinkedDockPhase? = null,
@@ -3063,6 +3066,7 @@ private fun MiuixBottomBar(
             collapseLinkedDock = collapseLinkedDock,
             indicatorPositionProvider = indicatorPositionProvider,
             isPagerScrollInProgressProvider = isPagerScrollInProgressProvider,
+            isPagerDraggingProvider = isPagerDraggingProvider,
             uiSkinDecoration = uiSkinDecoration,
             linkedDockPhase = linkedDockPhase,
             onLinkedDockPhaseChange = onLinkedDockPhaseChange,
@@ -3502,6 +3506,7 @@ private fun BiliPaiFloatingBottomBar(
     collapseLinkedDock: Boolean = false,
     indicatorPositionProvider: (() -> Float)? = null,
     isPagerScrollInProgressProvider: () -> Boolean = { false },
+    isPagerDraggingProvider: (() -> Boolean)? = null,
     uiSkinDecoration: BottomBarUiSkinDecoration? = null,
     linkedDockPhase: LinkedDockPhase? = null,
     onLinkedDockPhaseChange: ((LinkedDockPhase) -> Unit)? = null,
@@ -3582,6 +3587,7 @@ private fun BiliPaiFloatingBottomBar(
                     isFeedScrollInProgress = isFeedScrollInProgress,
                     indicatorPositionProvider = indicatorPositionProvider,
                     isPagerScrollInProgressProvider = isPagerScrollInProgressProvider,
+                    isPagerDraggingProvider = isPagerDraggingProvider,
                     uiSkinDecoration = uiSkinDecoration,
                     embeddedDock = true,
                 )
@@ -3625,6 +3631,7 @@ private fun BiliPaiFloatingBottomBar(
             isFeedScrollInProgress = isFeedScrollInProgress,
             indicatorPositionProvider = indicatorPositionProvider,
             isPagerScrollInProgressProvider = isPagerScrollInProgressProvider,
+            isPagerDraggingProvider = isPagerDraggingProvider,
             uiSkinDecoration = uiSkinDecoration,
         )
     }
@@ -3671,6 +3678,7 @@ private fun BiliPaiFloatingBottomBarChrome(
     isFeedScrollInProgress: Boolean = false,
     indicatorPositionProvider: (() -> Float)? = null,
     isPagerScrollInProgressProvider: () -> Boolean = { false },
+    isPagerDraggingProvider: (() -> Boolean)? = null,
     uiSkinDecoration: BottomBarUiSkinDecoration? = null
 ) {
     // BiliPai 对齐：材质/动效由 FloatingBottomBar 三层结构承担；
@@ -4089,6 +4097,7 @@ private fun BiliPaiFloatingBottomBarChrome(
                                     indicatorPositionProvider = indicatorPositionProvider,
                                     externalPagerMotionEffectsEnabled = indicatorPositionProvider != null,
                                     isScrollInProgressProvider = isPagerScrollInProgressProvider,
+                                    isPagerDraggingProvider = isPagerDraggingProvider,
                                     liquidGlassTuning = liquidGlassTuning,
                                 ) {
                                     dockContent()
@@ -4397,10 +4406,7 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
     isDarkTheme: Boolean,
     swapMotionAxes: Boolean = false,
     indicatorAlignment: Alignment = Alignment.CenterStart,
-    interactionModifier: Modifier = Modifier,
-    wobblePosition: (() -> Float)? = null,
-    wobbleSelection: (() -> Any?)? = null,
-    wobbleLastIndex: Int = -1,
+    interactionModifier: Modifier = Modifier
 ) {
     if (!visible) return
     val opticalProgress = resolveSharedLiquidIndicatorLensProgress(
@@ -4409,27 +4415,10 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
         isDragging = isDragging,
     )
     val effectiveIndicatorEffectsEnabled = indicatorEffectsEnabled
-    val motionExtentPx = with(LocalDensity.current) {
-        (if (swapMotionAxes) indicatorHeight else indicatorWidth).toPx().coerceAtLeast(1f)
-    }
-    val canRecoil: () -> Boolean = {
-        !isDragging
-    }
-    val wobble = rememberLiquidIndicatorWobble(
-        enabled = glassEnabled && effectiveIndicatorEffectsEnabled,
-        geometryKey = swapMotionAxes to wobbleLastIndex,
-        canSettle = canRecoil,
-        selectionKey = { wobbleSelection?.invoke() },
-        interactionActive = { isDragging },
-    ) {
-        wobblePosition?.invoke() ?:
-            ((if (swapMotionAxes) indicatorTranslationYPx else indicatorTranslationXPx) / motionExtentPx)
-    }
     val rawIndicatorLayerTransform = if (effectiveIndicatorEffectsEnabled) {
         resolveBottomBarIndicatorLayerTransform(
             motionProgress = motionProgress,
-            velocityItemsPerSecond = velocityItemsPerSecond *
-                if (glassEnabled && !isDragging) wobble.velocityWeight else 1f,
+            velocityItemsPerSecond = velocityItemsPerSecond,
             isDragging = isDragging,
             dragScaleProgress = indicatorLayerScaleProgress,
             dragScaleTransform = indicatorLayerScaleTransform,
@@ -4446,29 +4435,6 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
         )
     } else {
         rawIndicatorLayerTransform
-    }
-    val recoilStretch: () -> Float = {
-        com.android.purebilibili.core.ui.animation.resolveLiquidIndicatorRecoilStretch(
-            wobble.value, !isDragging && (wobble.isSelectionMotion || canRecoil()),
-        )
-    }
-    val layerScaleX: () -> Float = {
-        if (!glassEnabled) indicatorLayerTransform.scaleX
-        else if (swapMotionAxes) liquidWobbleScaleY(indicatorLayerTransform.scaleX, recoilStretch())
-        else liquidWobbleScaleX(indicatorLayerTransform.scaleX, recoilStretch())
-    }
-    val layerScaleY: () -> Float = {
-        if (!glassEnabled) indicatorLayerTransform.scaleY
-        else if (swapMotionAxes) liquidWobbleScaleX(indicatorLayerTransform.scaleY, recoilStretch())
-        else liquidWobbleScaleY(indicatorLayerTransform.scaleY, recoilStretch())
-    }
-    val opticalProgressProvider: () -> Float = {
-        if (glassEnabled && effectiveIndicatorEffectsEnabled) maxOf(
-            opticalProgress,
-            com.android.purebilibili.core.ui.animation.liquidIndicatorShapeProgress(
-                layerScaleX(), layerScaleY(), dragScaleTarget,
-            ),
-        ) else opticalProgress
     }
     val pillHighlight = if (glassEnabled) {
         rememberBiliPaiGravityHighlight(
@@ -4491,17 +4457,9 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
             .graphicsLayer {
                 translationX = indicatorTranslationXPx + indicatorPanelOffsetPx
                 translationY = indicatorTranslationYPx + indicatorPanelOffsetYPx
-                if (glassEnabled && wobbleLastIndex >= 0) {
-                    val shift = com.android.purebilibili.core.ui.animation.liquidWobbleEdgeTranslationPx(
-                        recoilStretch(), wobblePosition?.invoke() ?: 0f, wobbleLastIndex,
-                        if (swapMotionAxes) size.height else size.width, 4.dp.toPx(),
-                        baseScale = if (swapMotionAxes) indicatorLayerTransform.scaleY else indicatorLayerTransform.scaleX,
-                    )
-                    if (swapMotionAxes) translationY += shift else translationX += shift
-                }
                 if (indicatorBackdrop == null && effectiveIndicatorEffectsEnabled) {
-                    scaleX = layerScaleX()
-                    scaleY = layerScaleY()
+                    scaleX = indicatorLayerTransform.scaleX
+                    scaleY = indicatorLayerTransform.scaleY
                 }
             }
             .width(indicatorWidth)
@@ -4518,33 +4476,33 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                             if (shouldUseBottomBarIndicatorLens(liquidGlassPreset)) {
                                 homeIndicatorLens(
                                     restHeightDp = indicatorHeight.value,
-                                    progress = opticalProgressProvider(),
+                                    progress = opticalProgress,
                                     tuning = liquidGlassTuning,
-                                    indicatorScaleY = layerScaleY(),
+                                    indicatorScaleY = indicatorLayerTransform.scaleY,
                                 )
                             }
                         },
                         highlight = {
-                            pillHighlight?.value?.copy(alpha = opticalProgressProvider())
+                            if (isDragging) pillHighlight?.value?.copy(alpha = opticalProgress) else null
                         },
                         onDrawSurface = {
-                            drawHomeIndicatorSurface(opticalProgressProvider(), isDarkTheme, indicatorIdleSurfaceColor)
+                            drawHomeIndicatorSurface(opticalProgress, isDarkTheme, indicatorIdleSurfaceColor)
                         },
                         layerBlock = {
                             if (effectiveIndicatorEffectsEnabled) {
-                                scaleX = layerScaleX()
-                                scaleY = layerScaleY()
+                                scaleX = indicatorLayerTransform.scaleX
+                                scaleY = indicatorLayerTransform.scaleY
                             }
                         }
                     ).miuixInnerShadow(shape = shellShape) {
                         MiuixInnerShadow(
                             offset = if (glassEnabled) androidx.compose.ui.unit.DpOffset.Zero else
                                 androidx.compose.ui.unit.DpOffset(
-                                    0.dp, 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgressProvider(),
+                                    0.dp, 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgress,
                                 ),
-                            radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgressProvider(),
+                            radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgress,
                             color = OpticalContrastPalette.Shadow.copy(alpha = 0.15f),
-                            alpha = opticalProgressProvider()
+                            alpha = opticalProgress
                         )
                     }
                 } else {

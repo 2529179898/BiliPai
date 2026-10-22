@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -84,6 +83,12 @@ internal fun settingsContainerProgress(raw: Float, closing: Boolean): Float {
 
 internal fun settingsContainerContentAlpha(raw: Float, closing: Boolean): Float =
     ((raw - if (closing) 0.6f else 0.2f) / 0.2f).coerceIn(0f, 1f)
+
+/** Uniform content growth follows the measured container width and reaches identity at landing. */
+internal fun settingsContainerPageScale(containerWidth: Float, pageWidth: Float): Float {
+    if (!containerWidth.isFinite() || !pageWidth.isFinite() || pageWidth <= 0f || containerWidth <= 0f) return 1f
+    return (containerWidth / pageWidth).coerceAtMost(1f)
+}
 
 /** A direction reversal mid-animation retains the forward curve, including its content interval. */
 internal class SettingsContainerFrame {
@@ -192,6 +197,9 @@ internal class SettingsContainerNavigationState {
 
     fun ownsBoundary(key: BiliPaiNavKey): Boolean = sessions[key]?.let { it.supports(it.sourceScope) } == true
 
+    fun ownsPage(key: BiliPaiNavKey, scope: NavTransitionScope): Boolean =
+        sessions[key]?.let { it.source.retained && it.supports(scope) && scope.relativeDepth <= 0f } == true
+
     fun isCoveredByContainer(key: BiliPaiNavKey): Boolean =
         sessions.values.any { it.parentKey == key && it.supports(it.sourceScope) }
 
@@ -291,7 +299,6 @@ private fun settingsContainerTransition(
 
     override fun Modifier.transformEntry(scope: NavTransitionScope): Modifier {
         if (!session.supports(scope)) return with(fallback) { this@transformEntry.transformEntry(scope) }
-        val paint = Paint()
         val blurCache = MiuixCoveredBlurRenderEffectCache()
         return graphicsLayer {
             val blurProgress = containerBackgroundBlurProgress(scope.relativeDepth, scope.isRunning, blurEnabled())
@@ -299,7 +306,7 @@ private fun settingsContainerTransition(
             renderEffect = if (session.geometryValid) blurCache.resolve(radius) else null
         }.drawWithContent {
             val depth = scope.relativeDepth
-            if (!session.geometryValid || depth > 0f) {
+            if (!session.geometryValid || !source.retained || depth > 0f) {
                 drawContent()
                 return@drawWithContent
             }
@@ -307,6 +314,10 @@ private fun settingsContainerTransition(
                 frame.reset()
                 drawRect(surface)
                 drawContent()
+                source.pageLayer?.let { layer ->
+                    layer.alpha = 1f
+                    drawLayer(layer)
+                }
                 return@drawWithContent
             }
             // Keep the same container path through the gesture and its commit/cancel settle.
@@ -315,9 +326,9 @@ private fun settingsContainerTransition(
             val alpha = frame.alpha
             val closed = session.closedBounds
             val rect = lerp(closed, Rect(0f, 0f, size.width, size.height), frame.progress)
-            // Record the page before painting; the entry layer is recorded in its original source slot.
-            source.recordPageOnly = true
-            try { drawContent() } finally { source.recordPageOnly = false }
+            // The page records in an isolated layer and suppresses its original slot
+            // for the entire boundary lifetime, rather than toggling a per-draw gate.
+            drawContent()
             val path = settingsContainerShapePath(source, rect, frame.progress, scope)
             val closedColor = source.closedColor.takeIf { it != Color.Unspecified } ?: surface
             // Only inherited card surfaces follow geometry; existing explicit/flat
@@ -334,11 +345,16 @@ private fun settingsContainerTransition(
                         scale(rect.width / closed.width, pivot = Offset.Zero) { drawLayer(layer) }
                     }
                 }
-                source.pageLayer?.let { layer ->
+                source.pageLayer?.takeIf { alpha > 0f }?.let { layer ->
+                    // Keep the page's final layout, but grow its drawing with the container.
+                    // At full width this is exactly identity, so the resting page and its
+                    // existing landing feedback take over without another size adjustment.
+                    val pageScale = settingsContainerPageScale(rect.width, size.width)
                     translate(rect.left, rect.top) {
-                        paint.alpha = alpha
-                        drawContext.canvas.saveLayer(Rect(Offset.Zero, size), paint)
-                        try { drawLayer(layer) } finally { drawContext.canvas.restore() }
+                        scale(pageScale, pivot = Offset.Zero) {
+                            layer.alpha = alpha
+                            drawLayer(layer)
+                        }
                     }
                 }
             }
