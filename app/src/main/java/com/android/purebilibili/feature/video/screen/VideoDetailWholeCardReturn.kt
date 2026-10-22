@@ -64,15 +64,15 @@ internal fun rememberVideoDetailWholeCardReturn(
 ): VideoDetailWholeCardReturn {
     var retained by remember(bvid, sourceRoute) { mutableStateOf<ImageBitmap?>(null) }
     val expectedKey = normalizeSharedElementSourceRoute(sourceRoute)?.let { "$it:${bvid.trim()}" }
-    val bitmap = CardPositionManager.lastClickedWholeCardReturnBitmap
-    val candidate = if (ownsTransition && !isNowPlayingBar &&
+    val bitmap: ImageBitmap? = CardPositionManager.lastClickedWholeCardReturnBitmap
+    val candidate: ImageBitmap? = if (ownsTransition && !isNowPlayingBar &&
         sourceLayout != VideoCardSourceLayout.COVER_ONLY && expectedKey != null &&
         expectedKey == CardPositionManager.lastClickedVideoSourceKey &&
         bitmap != null && bitmap.width > 1 && bitmap.height > 1 &&
         sourceBounds != null && sourceBounds.width > 1f && sourceBounds.height > 1f
     ) bitmap else null
     SideEffect { if (candidate != null && retained != candidate) retained = candidate }
-    val snapshot = candidate ?: retained
+    val snapshot: ImageBitmap? = candidate ?: retained
     val active: () -> Boolean = {
         snapshot != null && !keepLoadedContentForBackPreview &&
             (ownsTransition || committedReturn) &&

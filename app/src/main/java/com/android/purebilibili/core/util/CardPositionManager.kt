@@ -94,6 +94,10 @@ object CardPositionManager {
     /** Stable click-time pixels used when the source composable leaves composition. */
     internal var lastClickedNativeCardBitmap: ImageBitmap? by mutableStateOf(null)
         private set
+
+    /** 普通视频返回使用的完整卡片像素快照，避免子图层后续变化影响交接。 */
+    internal var lastClickedWholeCardReturnBitmap: ImageBitmap? by mutableStateOf(null)
+        private set
     
     /**
      *  是否是单列卡片（故事卡片）
@@ -232,11 +236,19 @@ object CardPositionManager {
         }
     }
 
+    /** 只接收当前来源的异步快照，避免快速切换视频时写入上一张卡片。 */
+    internal fun recordWholeCardReturnBitmap(bitmap: ImageBitmap, expectedSourceKey: String?) {
+        if (expectedSourceKey != null && lastClickedVideoSourceKey == expectedSourceKey) {
+            lastClickedWholeCardReturnBitmap = bitmap
+        }
+    }
+
     /** Release native display lists once their navigation transition has settled. */
     internal fun clearNativeVideoCardLayers() {
         lastClickedNativeCardLayer = null
         lastClickedNativeCoverOverlayLayer = null
         lastClickedNativeCardBitmap = null
+        lastClickedWholeCardReturnBitmap = null
     }
 
     /** Drop click-time geometry when the window changed after the source was captured. */
