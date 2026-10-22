@@ -193,6 +193,7 @@ internal fun HomeCategoryPageContent(
     category: HomeCategory,
     categoryState: CategoryContent,
     isActive: Boolean,
+    visibleDuringNavigation: Boolean = false,
     gridState: LazyStaggeredGridState,
     gridColumns: Int,
     contentPadding: PaddingValues,
@@ -455,6 +456,7 @@ internal fun HomeCategoryPageContent(
             resolveHomeCoverLoadRange(first, last, videoGridKeys.size, gridColumns, isDataSaverActive)
         }
     }
+    val coverLoadingActive = isActive || visibleDuringNavigation
     val pageImageWorkAllowed = LocalPageImageLoadingAllowed.current && isActive
     val auxiliaryWorkAllowed = rememberHomeCardAuxiliaryWorkAllowed(
         pageActive = pageImageWorkAllowed,
@@ -467,8 +469,8 @@ internal fun HomeCategoryPageContent(
         val coverInLoadWindow by remember(coverLoadRange, index) {
             derivedStateOf { coverLoadRange.value?.contains(index) == true }
         }
-        val cardImageWorkAllowed = LocalPageImageLoadingAllowed.current && isActive && cardVisible
-        val cardCoverWorkAllowed = LocalPageImageLoadingAllowed.current && isActive && coverInLoadWindow
+        val cardImageWorkAllowed = LocalPageImageLoadingAllowed.current && coverLoadingActive && cardVisible
+        val cardCoverWorkAllowed = LocalPageImageLoadingAllowed.current && coverLoadingActive && coverInLoadWindow
         val isNativeNonVideoCard = video.contentType in setOf("bangumi", "picture") ||
             (video.dynamicId.isNotBlank() && !video.bvid.startsWith("BV", ignoreCase = true))
         val isDissolving = video.bvid in dissolvingVideos

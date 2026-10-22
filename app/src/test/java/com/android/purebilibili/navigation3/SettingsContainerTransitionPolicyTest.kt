@@ -13,6 +13,21 @@ import top.yukonga.miuix.kmp.nav.transition.NavSettlePhase
 
 class SettingsContainerTransitionPolicyTest {
     @Test
+    fun `nested container keeps root source mounted through deeper pushes and pops`() {
+        val root = BiliPaiNavKey.Settings
+        val category = BiliPaiNavKey.SettingsCategory(
+            com.android.purebilibili.feature.settings.SettingsRootCategory.PLAYBACK_QUALITY
+        )
+        val detail = BiliPaiNavKey.PlaybackSettings
+        val parents = mapOf<BiliPaiNavKey, BiliPaiNavKey>(category to root, detail to category)
+        assertEquals(1f, settingsContainerRetainedDepth(listOf(root)) { parents[it] })
+        assertEquals(2f, settingsContainerRetainedDepth(listOf(root, category)) { parents[it] })
+        assertEquals(3f, settingsContainerRetainedDepth(listOf(root, category, detail)) { parents[it] })
+        // An unrelated page below settings does not enlarge the retained settings chain.
+        assertEquals(2f, settingsContainerRetainedDepth(listOf(BiliPaiNavKey.Home, root, category)) { parents[it] })
+    }
+
+    @Test
     fun `page drawing grows with container width and lands without a size jump`() {
         // Phone, wide pane and narrow split use their actual entry-to-host proportions.
         for ((closedWidth, pageWidth) in listOf(328f to 360f, 400f to 840f, 248f to 280f)) {
@@ -40,10 +55,9 @@ class SettingsContainerTransitionPolicyTest {
         for ((card, page) in pairs) {
             assertEquals(card, settingsContainerSurfaceColor(card, page, 0f, inheritedSurface = true))
             assertEquals(page, settingsContainerSurfaceColor(card, page, 1f, inheritedSurface = true))
-            // Return text has already disappeared here; the large container must
-            // still retain its intermediate background rather than becoming a solid card.
+            // A sizable returning container must still contain readable page content.
             val progress = settingsContainerProgress(0.6f, closing = true)
-            assertEquals(0f, settingsContainerContentAlpha(0.6f, closing = true))
+            assertTrue(settingsContainerContentAlpha(0.6f, closing = true) > 0f)
             assertEquals(
                 androidx.compose.ui.graphics.lerp(card, page, progress),
                 settingsContainerSurfaceColor(card, page, progress, inheritedSurface = true),
@@ -127,11 +141,11 @@ class SettingsContainerTransitionPolicyTest {
     }
 
     @Test
-    fun `new and existing installations enable expansion until explicitly disabled`() {
-        assertTrue(AppNavigationSettings().settingsContainerTransitionEnabled)
-        assertTrue(mapAppNavigationSettingsFromPreferences(mutablePreferencesOf()).settingsContainerTransitionEnabled)
-        assertFalse(mapAppNavigationSettingsFromPreferences(mutablePreferencesOf(
-            settingsContainerTransitionPreferencesKey to false,
+    fun `container expansion is opt in and saved preference is preserved`() {
+        assertFalse(AppNavigationSettings().settingsContainerTransitionEnabled)
+        assertFalse(mapAppNavigationSettingsFromPreferences(mutablePreferencesOf()).settingsContainerTransitionEnabled)
+        assertTrue(mapAppNavigationSettingsFromPreferences(mutablePreferencesOf(
+            settingsContainerTransitionPreferencesKey to true,
         )).settingsContainerTransitionEnabled)
     }
 
@@ -207,10 +221,16 @@ class SettingsContainerTransitionPolicyTest {
             val t = step / 100f
             assertEquals(1f - settingsContainerProgress(1f - t, false), settingsContainerProgress(t, true), 0.0001f)
         }
-        assertEquals(0f, settingsContainerContentAlpha(0.2f, false), 0.0001f)
-        assertEquals(1f, settingsContainerContentAlpha(0.4f, false), 0.0001f)
-        assertEquals(0f, settingsContainerContentAlpha(0.6f, true), 0.0001f)
-        assertEquals(1f, settingsContainerContentAlpha(0.8f, true), 0.0001f)
+        for (closing in listOf(false, true)) {
+            assertEquals(0f, settingsContainerContentAlpha(0f, closing))
+            assertEquals(1f, settingsContainerContentAlpha(1f, closing))
+            for (step in 1..99) {
+                val raw = step / 100f
+                if (settingsContainerProgress(raw, closing) > 0.2f) {
+                    assertTrue(settingsContainerContentAlpha(raw, closing) > 0f)
+                }
+            }
+        }
     }
 
     @Test

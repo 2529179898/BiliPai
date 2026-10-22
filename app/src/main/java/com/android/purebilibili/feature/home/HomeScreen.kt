@@ -231,8 +231,6 @@ val LocalHomeFeedScrollInProgress = compositionLocalOf { mutableStateOf(false) }
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
-    homeSettings: com.android.purebilibili.core.store.HomeSettings,
-    homeTopTabSettings: com.android.purebilibili.core.store.HomeTopTabSettings,
     viewModel: HomeViewModel = viewModel(),
     onVideoClick: (HomeVideoClickRequest) -> Unit,
     onAvatarClick: () -> Unit,
@@ -285,6 +283,7 @@ fun HomeScreen(
     onSpaceClick: (Long) -> Unit = {},
     globalHazeState: dev.chrisbanes.haze.HazeState? = null,  //  [新增] 全局底栏模糊状态
     isTopLevelActive: Boolean = true,
+    visibleDuringNavigation: Boolean = false,
     isReturningFromVideoDetail: Boolean = false,
     isQuickReturningFromVideoDetail: Boolean = false,
     onVideoDetailReturnAnimationConsumed: () -> Unit = {}
@@ -462,6 +461,10 @@ fun HomeScreen(
     val latestHomeScrollCategory by rememberUpdatedState(currentCategory)
     val latestHomeScrollPopularSubCategory by rememberUpdatedState(popularSubCategory)
 
+    val homeTopTabSettings by SettingsManager.getHomeTopTabSettings(context).collectAsStateWithLifecycle(
+        initialValue = com.android.purebilibili.core.store.HomeTopTabSettings(),
+        context = kotlin.coroutines.EmptyCoroutineContext,
+    )
     // 顶部标签顺序和可见项交给设置页控制；默认仍是六项。
     // [Refactor] Hoist PagerState to be available for both Content and Header
     // 确保 pagerState 在所有作用域均可见，以便传给 HomeHeader
@@ -847,7 +850,10 @@ fun HomeScreen(
     // [New] Broadcast Scroll Offset for Liquid Glass Effect & Parallax
     // Create the state here and provide it
 
-    // 材质与顶部标签使用导航外层已加载的设置，避免页面重新进入组合时闪回默认布局。
+    val homeSettings by SettingsManager.getHomeSettings(context).collectAsStateWithLifecycle(
+        initialValue = com.android.purebilibili.core.store.HomeSettings(),
+        context = kotlin.coroutines.EmptyCoroutineContext,
+    )
     val videoCardTransitionBackgroundState = LocalVideoCardTransitionBackgroundState.current
     val deferHomeHeavyWork by remember(videoCardTransitionBackgroundState) {
         derivedStateOf {
@@ -2427,6 +2433,8 @@ fun HomeScreen(
                                      category = category,
                                      categoryState = pageCategoryState,
                                      isActive = isTopLevelActive && pagerState.currentPage == page &&
+                                         !deferHomeHeavyWork,
+                                     visibleDuringNavigation = visibleDuringNavigation && pagerState.currentPage == page &&
                                          !deferHomeHeavyWork,
                                      gridState = contentGridState,
                                      pageScrollInProgress = remember(pagerState) {

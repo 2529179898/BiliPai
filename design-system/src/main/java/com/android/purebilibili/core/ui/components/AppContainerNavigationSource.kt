@@ -16,7 +16,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.GraphicsContext
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.platform.LocalGraphicsContext
@@ -44,6 +43,8 @@ class AppContainerNavigationSource internal constructor() {
     var closedShape: RoundedCornerShape? = null
     var closedLayer: GraphicsLayer? = null
         private set
+    var closedDrawingReady = false
+        private set
     var pageLayer: GraphicsLayer? = null
     var click: () -> Unit = {}
     private var graphicsContext: GraphicsContext? = null
@@ -67,7 +68,10 @@ class AppContainerNavigationSource internal constructor() {
         if (!attached) releaseDrawingLayer()
     }
 
+    internal fun markDrawingRecorded() { closedDrawingReady = true }
+
     private fun releaseDrawingLayer() {
+        closedDrawingReady = false
         closedLayer?.let { graphicsContext?.releaseGraphicsLayer(it) }
         closedLayer = null
         graphicsContext = null
@@ -140,16 +144,20 @@ fun AppContainerNavigationSource(
                 kotlin.math.abs(visible.height - coordinates.size.height) <= 1f
             ) visible else Rect.Zero
             source.measuredSize = coordinates.size
-        }.graphicsLayer {
-            // Visibility belongs to a layer property, so cached row drawing cannot
-            // retain an empty display list after the return boundary disappears.
-            alpha = if (source.destinationOwnsContent) 0f else 1f
         }.drawWithContent {
+            // Always record before deciding whether this slot paints to the screen.
+            // An alpha-zero parent layer can skip this recording when a covered
+            // settings entry remounts, leaving the return container without its row.
+            // Read ownership in draw so both endpoint and release invalidate the
+            // slot without ever recording the visibility gate into closedLayer.
+            val destinationOwnsContent = source.destinationOwnsContent
             val layer = source.closedLayer
-            if (layer == null) drawContent()
-            else {
+            if (layer == null) {
+                if (!destinationOwnsContent) drawContent()
+            } else {
                 layer.record { this@drawWithContent.drawContent() }
-                drawLayer(layer)
+                source.markDrawingRecorded()
+                if (!destinationOwnsContent) drawLayer(layer)
             }
         },
     ) {

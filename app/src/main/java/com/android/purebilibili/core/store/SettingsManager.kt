@@ -1046,7 +1046,7 @@ data class AppNavigationSettings(
     val predictiveBackAnimationStyle: String = "miuix",
     val predictiveBackExitDirection: String = "always_right",
     val miuixTransitionBlurEnabled: Boolean = true,
-    val settingsContainerTransitionEnabled: Boolean = true,
+    val settingsContainerTransitionEnabled: Boolean = false,
     val containerTransitionBackgroundBlurEnabled: Boolean = false,
     val miuixPredictiveBackMaxProgressPercent: Int = 100,
     val videoSharedReturnGestureFollowEnabled: Boolean = true,
@@ -8129,7 +8129,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             predictiveBackExitDirection =
                 preferences[KEY_PREDICTIVE_BACK_EXIT_DIRECTION] ?: "always_right",
             miuixTransitionBlurEnabled = preferences[KEY_MIUIX_TRANSITION_BLUR_ENABLED] ?: true,
-            settingsContainerTransitionEnabled = preferences[settingsContainerTransitionPreferencesKey] ?: true,
+            settingsContainerTransitionEnabled = preferences[settingsContainerTransitionPreferencesKey] ?: false,
             containerTransitionBackgroundBlurEnabled = preferences[containerTransitionBackgroundBlurPreferencesKey] ?: false,
             miuixPredictiveBackMaxProgressPercent =
                 (preferences[miuixPredictiveBackMaxProgressPercentPreferencesKey] ?: 100)

@@ -243,6 +243,7 @@ import com.android.purebilibili.navigation3.popBiliPaiNavKey
 import com.android.purebilibili.navigation3.popBiliPaiNavKeyToRoot
 import com.android.purebilibili.navigation3.pushBiliPaiNavKey
 import com.android.purebilibili.navigation3.pushOrReplaceSettingsCategoryNavKey
+import com.android.purebilibili.navigation3.SettingsContainerNavigationState
 import com.android.purebilibili.navigation3.resolveBiliPaiBackGestureDecision
 import com.android.purebilibili.navigation3.resolveBiliPaiNavCardSourceDirection
 import com.android.purebilibili.navigation3.resolveBiliPaiNavEntryContentRole
@@ -459,12 +460,6 @@ fun AppNavigation(
             context = kotlin.coroutines.EmptyCoroutineContext,
         )
     val homeSettings = resolvedHomeSettings ?: return
-    val resolvedHomeTopTabSettings by remember(context) { SettingsManager.getHomeTopTabSettings(context) }
-        .collectAsStateWithLifecycle<com.android.purebilibili.core.store.HomeTopTabSettings?>(
-            initialValue = null,
-            context = kotlin.coroutines.EmptyCoroutineContext,
-        )
-    val homeTopTabSettings = resolvedHomeTopTabSettings ?: return
     val effectiveHomeSettings = remember(homeSettings) {
         resolveEffectiveHomeSettings(
             homeSettings = homeSettings,
@@ -630,6 +625,7 @@ fun AppNavigation(
         val navigation3BackStack = rememberNavBackStack<BiliPaiNavKey>(
             *initialNavigationBackStack.toTypedArray()
         ) as androidx.compose.runtime.snapshots.SnapshotStateList<BiliPaiNavKey>
+        val settingsContainerNavigation = remember { SettingsContainerNavigationState() }
         val navigation3SaveableStateHolder = rememberSaveableStateHolder()
         fun replaceNavigation3BackStack(keys: List<BiliPaiNavKey>) {
             val replacementStack = keys.ifEmpty { listOf(BiliPaiNavKey.MainHost) }
@@ -638,6 +634,7 @@ fun AppNavigation(
                 currentStack = navigation3BackStack,
                 replacementStack = replacementStack,
             )
+            settingsContainerNavigation.prepareStackChange(navigation3BackStack.toList(), replacementStack)
             // NavDisplay rejects an empty stack. clear()+addAll() as two observable writes can
             // expose an empty intermediate frame when a bottom-tab switch races recomposition.
             Snapshot.withMutableSnapshot {
@@ -2866,6 +2863,7 @@ fun AppNavigation(
                 fun RenderNavigationContent(
                     key: BiliPaiNavKey,
                     isBottomPagerPageActive: Boolean = true,
+                    isBottomPagerPageVisibleDuringNavigation: Boolean = false,
                     isBottomPagerHosted: Boolean = false,
                 ) {
                     @Composable
@@ -2880,6 +2878,14 @@ fun AppNavigation(
 
                     when (resolveBiliPaiNavEntryContentRole(key)) {
                         BiliPaiNavEntryContentRole.MAIN_HOST -> {
+                            val mainHostTransitionScope =
+                                top.yukonga.miuix.kmp.nav.core.LocalNavTransitionScope.current
+                            // Include the preparation frame before the settle coroutine starts.
+                            // Derived state only invalidates content when the page crosses the
+                            // fully covered boundary, not for every animation frame.
+                            val mainHostStillExposed by remember(mainHostTransitionScope) {
+                                derivedStateOf { mainHostTransitionScope.relativeDepth < 1f }
+                            }
                             CompositionLocalProvider(
                                 LocalBottomBarVisible provides resolveMainHostBottomBarVisible()
                             ) {
@@ -2900,6 +2906,20 @@ fun AppNavigation(
                                         userScrollEnabled = shouldEnableBottomPagerUserScroll()
                                     ) { page ->
                                         val slotItem = visibleBottomBarItems.getOrNull(page)
+                                        // Visible transition participants retain their covers;
+                                        // inactive pages still use the normal background work budget.
+                                        val pageVisibleDuringNavigation =
+                                            (mainBottomPagerState.isNavigating &&
+                                                (page == mainBottomPagerState.navigationStartPage ||
+                                                    page == mainBottomPagerState.selectedPage ||
+                                                    page == bottomPagerState.currentPage)) ||
+                                                (mainHostStillExposed &&
+                                                    currentNavigation3Key == BiliPaiNavKey.Settings &&
+                                                    page == bottomPagerState.currentPage)
+                                        val pageImageLoadingAllowed =
+                                            (page == bottomPagerState.settledPage &&
+                                                bottomPagerBackgroundWorkAllowed) ||
+                                                pageVisibleDuringNavigation
                                         val slotContentReady by remember(slotItem) {
                                             derivedStateOf(androidx.compose.runtime.structuralEqualityPolicy()) {
                                                 slotItem != null && slotItem in preloadedBottomPagerItems
@@ -2933,14 +2953,14 @@ fun AppNavigation(
                                                     ),
                                                     LocalVideoCardSharedElementSourceRoute provides pageKey.toLegacyRoute(),
                                                     com.android.purebilibili.core.ui.components.LocalPageImageLoadingAllowed provides (
-                                                        page == bottomPagerState.settledPage &&
-                                                            bottomPagerBackgroundWorkAllowed
+                                                        pageImageLoadingAllowed
                                                     ),
                                                 ) {
                                                     RenderNavigationContent(
                                                         key = pageKey,
                                                         isBottomPagerPageActive = page == bottomPagerState.settledPage &&
                                                             bottomPagerBackgroundWorkAllowed,
+                                                        isBottomPagerPageVisibleDuringNavigation = pageVisibleDuringNavigation,
                                                         isBottomPagerHosted = true,
                                                     )
                                                 }
@@ -2953,8 +2973,6 @@ fun AppNavigation(
                             }
                         }
                         BiliPaiNavEntryContentRole.HOME -> HomeScreen(
-                                homeSettings = homeSettings,
-                                homeTopTabSettings = homeTopTabSettings,
                                 viewModel = homeViewModel,
                                 onWeeklySeriesClick = { pushNavigation3Key(BiliPaiNavKey.WeeklySeries()) },
                                 onVideoClick = { request -> navigateToHomeVideoInNavigation3(request) },
@@ -3039,6 +3057,7 @@ fun AppNavigation(
                                 globalHazeState = mainHazeState,
                                 isTopLevelActive = currentNavigation3Key == BiliPaiNavKey.MainHost &&
                                     currentBottomNavItem == BottomNavItem.HOME,
+                                visibleDuringNavigation = isBottomPagerPageVisibleDuringNavigation,
                                 isReturningFromVideoDetail = navigation3ReturnSession.isReturningFromDetail,
                                 isQuickReturningFromVideoDetail = navigation3ReturnSession.isQuickReturnFromDetail,
                                 onVideoDetailReturnAnimationConsumed = {
@@ -4880,6 +4899,7 @@ fun AppNavigation(
                         appNavigationSettings.miuixTransitionBlurEnabled,
                     settingsContainerTransitionEnabled = appNavigationSettings.settingsContainerTransitionEnabled,
                     containerTransitionBackgroundBlurEnabled = appNavigationSettings.containerTransitionBackgroundBlurEnabled,
+                    settingsContainerNavigation = settingsContainerNavigation,
                     miuixPredictiveBackMaxProgressPercent =
                         appNavigationSettings.miuixPredictiveBackMaxProgressPercent,
                     videoSharedReturnGestureFollowEnabled =

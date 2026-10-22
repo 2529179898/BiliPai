@@ -272,8 +272,17 @@ fun SettingsScreen(
         )
     }
 
-    // Haze State for this screen
-    val activeHazeState = mainHazeState ?: rememberRecoverableHazeState()
+    // Only the home participates in the shared navigation chrome capture. Category
+    // pages use a local source solely for their cache-clear overlay: a full-page
+    // capture here would add a releasable child layer inside the container recording.
+    val localOverlayHazeState = rememberRecoverableHazeState()
+    val isSettingsHome = destination == SettingsNavDestination.Home
+    val activeHazeState = if (isSettingsHome) {
+        mainHazeState ?: localOverlayHazeState
+    } else {
+        localOverlayHazeState
+    }
+    val capturePageForHaze = isSettingsHome || (showCacheAnimation && cacheProgress != null)
 
     // Directory Picker - 使用文件系统 API
     val defaultPath = remember { SettingsManager.getDefaultDownloadPath(context) }
@@ -757,7 +766,10 @@ fun SettingsScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .hazeSourceCompat(state = activeHazeState)
+                .then(
+                    if (capturePageForHaze) Modifier.hazeSourceCompat(state = activeHazeState)
+                    else Modifier,
+                )
         ) {
             if (shouldRenderSettingsSinglePaneContent(
                     widthDp = configuration.screenWidthDp,

@@ -82,7 +82,7 @@ internal fun settingsContainerProgress(raw: Float, closing: Boolean): Float {
 }
 
 internal fun settingsContainerContentAlpha(raw: Float, closing: Boolean): Float =
-    ((raw - if (closing) 0.6f else 0.2f) / 0.2f).coerceIn(0f, 1f)
+    ((settingsContainerProgress(raw, closing) - 0.1f) / 0.7f).coerceIn(0f, 1f)
 
 /** Uniform content growth follows the measured container width and reaches identity at landing. */
 internal fun settingsContainerPageScale(containerWidth: Float, pageWidth: Float): Float {
@@ -148,6 +148,23 @@ internal class SettingsContainerSession(
         scope.layoutSize.height == hostBounds.height.roundToInt() && scope.change !is NavChange.MultiPop
 }
 
+/** Keep the source of every enclosing container mounted until its boundary is released.
+ * Retaining a GraphicsLayer alone does not retain child layers owned by disposed UI nodes.
+ */
+internal fun settingsContainerRetainedDepth(
+    before: List<BiliPaiNavKey>,
+    parentOf: (BiliPaiNavKey) -> BiliPaiNavKey?,
+): Float {
+    var index = before.lastIndex
+    while (index > 0) {
+        val parent = parentOf(before[index]) ?: break
+        val parentIndex = before.indexOf(parent)
+        if (parentIndex < 0 || parentIndex >= index) break
+        index = parentIndex
+    }
+    return (before.size - index).coerceAtLeast(1).toFloat()
+}
+
 internal class SettingsContainerNavigationState {
     var hostBoundsInWindow: Rect = Rect.Zero
     var backgroundBlurEnabled by mutableStateOf(false)
@@ -165,15 +182,27 @@ internal class SettingsContainerNavigationState {
         val createdAt: Long = android.os.SystemClock.uptimeMillis(),
     )
     private var pending: PendingCapture? = null
+    var pendingCaptureToken by mutableStateOf<Int?>(null)
+        private set
+    private var nextPendingCaptureToken = 0
+
+    private fun clearPending() {
+        pending = null
+        pendingCaptureToken = null
+    }
+
+    fun expirePending(token: Int) {
+        if (pendingCaptureToken == token) clearPending()
+    }
 
     fun hasActiveBoundary(stack: List<BiliPaiNavKey>): Boolean =
         stack.lastOrNull()?.let(::ownsBoundary) == true ||
             sessions.keys.any { it !in stack && it in mounted && ownsBoundary(it) }
 
-    /** Resolve immediately before publishing a new stack, including asynchronous video navigation. */
+    /** Resolve immediately before publishing a new stack, including deferred settings navigation. */
     fun prepareStackChange(before: List<BiliPaiNavKey>, after: List<BiliPaiNavKey>) {
         val request = pending ?: return
-        pending = null
+        clearPending()
         if (before != request.before || android.os.SystemClock.uptimeMillis() - request.createdAt > 10_000L) return
         val target = settingsContainerTarget(before, after) ?: return
         if (!request.acceptTarget(target)) return
@@ -191,7 +220,8 @@ internal class SettingsContainerNavigationState {
             settingsContainerDestinationOwnsContent(request.scope.relativeDepth, session.supports(request.scope))
         }
         sessions[target] = session
-        transitions[target] = settingsContainerTransition(session, request.fallback, request.surface) { backgroundBlurEnabled }
+        val retainedDepth = settingsContainerRetainedDepth(request.before) { sessions[it]?.parentKey }
+        transitions[target] = settingsContainerTransition(session, request.fallback, request.surface, retainedDepth) { backgroundBlurEnabled }
         source.retained = true
     }
 
@@ -215,20 +245,21 @@ internal class SettingsContainerNavigationState {
     }
 
     /** Called after source layout has had a frame to restore its insets and scroll position. */
-    fun remeasureReturns(stack: List<BiliPaiNavKey>) {
+    fun remeasureReturns(stack: List<BiliPaiNavKey>): Boolean {
         sessions.filterKeys { it !in stack }.values.forEach { session ->
             if (!session.returning) {
-                session.returning = true
                 val measured = session.source.takeIf { it.attached }
                     ?.let { settingsContainerLocalBounds(it.boundsInWindow, hostBoundsInWindow) }
                 // A temporarily detached source retains its last valid geometry throughout exit.
                 // Switching renderers after pop would change the path in the middle of the settle.
                 if (measured != null) {
+                    session.returning = true
                     session.source.heldSize = session.source.measuredSize
                     session.closedBounds = measured
                 }
             }
         }
+        return sessions.any { (key, session) -> key !in stack && !session.returning }
     }
 
     fun releaseDisabledModes(enabled: Boolean) {
@@ -236,7 +267,7 @@ internal class SettingsContainerNavigationState {
     }
 
     fun releaseAll() {
-        pending = null
+        clearPending()
         sessions.keys.toList().forEach(::release)
     }
 
@@ -249,24 +280,27 @@ internal class SettingsContainerNavigationState {
         acceptTarget: (BiliPaiNavKey) -> Boolean = { true },
         navigate: () -> Unit,
     ) {
+        // A newer click supersedes any deferred navigation from the previous source.
+        clearPending()
         val before = stack.toList()
         val bounds = hostBoundsInWindow
         val local = settingsContainerLocalBounds(source.boundsInWindow, bounds)
-        if (local == null || source.measuredSize.width <= 0 || source.measuredSize.height <= 0) {
+        if (local == null || !source.closedDrawingReady || source.measuredSize.width <= 0 || source.measuredSize.height <= 0) {
             navigate()
             return
         }
         val request = PendingCapture(source, sourceScope, before, fallback, surface, acceptTarget)
         pending = request
+        pendingCaptureToken = ++nextPendingCaptureToken
         try {
             navigate()
-            // Standalone hosts can also complete synchronous navigation without the stack bridge.
+            // Standalone hosts can complete synchronous navigation without the stack bridge.
+            // Otherwise keep the request until the actual stack write or its timeout.
             if (pending === request) {
                 if (before != stack.toList()) prepareStackChange(before, stack.toList())
-                else pending = null
             }
         } catch (failure: Throwable) {
-            if (pending === request) pending = null
+            if (pending === request) clearPending()
             throw failure
         }
     }
@@ -286,8 +320,10 @@ private fun settingsContainerTransition(
     session: SettingsContainerSession,
     fallback: NavTransition,
     surface: Color,
+    retainedDepth: Float,
     blurEnabled: () -> Boolean,
 ): NavTransition = object : NavTransition {
+    override val opaqueDepth: Float = retainedDepth
     private val source = session.source
     private val frame = SettingsContainerFrame()
     override val motion = NavMotion(
@@ -331,11 +367,10 @@ private fun settingsContainerTransition(
             drawContent()
             val path = settingsContainerShapePath(source, rect, frame.progress, scope)
             val closedColor = source.closedColor.takeIf { it != Color.Unspecified } ?: surface
-            // Only inherited card surfaces follow geometry; existing explicit/flat
-            // sources retain their content-alpha timing, including native MD3.
+            // Surface and content have separate tracks on every material path.
             val color = settingsContainerSurfaceColor(
                 closedColor, surface,
-                if (source.closedColorInherited) frame.progress else alpha,
+                frame.progress,
                 inheritedSurface = source.closedColorInherited,
             )
             val paintSlots: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit = {

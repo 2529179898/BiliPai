@@ -12,7 +12,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.captureToImage
@@ -30,6 +33,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,6 +42,68 @@ import org.junit.runner.RunWith
 class ContainerContentLifetimeUiRegressionTest {
     @get:Rule
     val rule = createComposeRule()
+
+    @Test
+    fun hiddenSourceRecordsPixelsAgainAfterCoveredPageRemounts() {
+        val sourceVisible = mutableStateOf(true)
+        val owned = mutableStateOf(false)
+        val rowColor = mutableStateOf(Color.Red)
+        val captured = mutableStateOf<AppContainerNavigationSource?>(null)
+        val registry = mutableMapOf<Any, AppContainerNavigationSource>()
+        rule.setContent {
+            Column {
+                Box(Modifier.size(80.dp).background(Color.Black).testTag("source-slot")) {
+                    CompositionLocalProvider(
+                        LocalAppContainerNavigationSources provides registry,
+                        LocalAppContainerNavigationCapture provides { source, action ->
+                            captured.value = source
+                            source.retained = true
+                            source.transitionOwnsContent = { owned.value }
+                            owned.value = true
+                            action()
+                        },
+                    ) {
+                        if (sourceVisible.value) {
+                            AppContainerNavigationSource(sourceId = "播放设置", onClick = {}) { click ->
+                                // Child layers must also survive capture; checking semantics or
+                                // a non-null GraphicsLayer alone cannot detect an empty export.
+                                Box(Modifier.size(80.dp).graphicsLayer().background(rowColor.value)
+                                    .testTag("remount-action").clickable { click?.invoke() })
+                            }
+                        }
+                    }
+                }
+                Box(Modifier.size(80.dp).background(Color.Black).testTag("return-export")
+                    .drawWithContent {
+                        drawContent()
+                        captured.value?.closedLayer?.let { drawLayer(it) }
+                    })
+            }
+        }
+        fun assertCenter(tag: String, expected: Color) {
+            val pixels = rule.onNodeWithTag(tag).captureToImage().toPixelMap()
+            assertEquals(expected, pixels[pixels.width / 2, pixels.height / 2])
+        }
+        rule.onNodeWithTag("remount-action").performClick()
+        assertCenter("source-slot", Color.Black)
+        assertCenter("return-export", Color.Red)
+        rule.runOnIdle { sourceVisible.value = false }
+        rule.runOnIdle {
+            assertFalse(requireNotNull(captured.value).attached)
+            rowColor.value = Color.Green
+            sourceVisible.value = true
+        }
+        rule.runOnIdle {
+            assertTrue(requireNotNull(captured.value).attached)
+        }
+        // Reattached while still hidden: the transition must receive fresh row pixels.
+        assertCenter("source-slot", Color.Black)
+        assertCenter("return-export", Color.Green)
+        rule.runOnIdle { owned.value = false }
+        assertCenter("source-slot", Color.Green)
+        rule.runOnIdle { requireNotNull(captured.value).releaseRetainedContent() }
+        assertCenter("source-slot", Color.Green)
+    }
 
     @Test
     fun sourcePixelsRestoreAtReturnEndpointAndAfterBoundaryRelease() {
@@ -128,6 +194,7 @@ class ContainerContentLifetimeUiRegressionTest {
             rule.runOnIdle {
                 captured = destinationSource.value
                 assertNotNull(captured?.closedLayer)
+                assertTrue(requireNotNull(captured).closedDrawingReady)
                 assertEquals(cycle + 1, sourceMounts)
                 assertEquals(cycle, sourceDisposals)
                 assertEquals(1, pageMounts)
@@ -142,6 +209,7 @@ class ContainerContentLifetimeUiRegressionTest {
                 assertEquals(cycle + 1, sourceDisposals)
                 source.releaseRetainedContent()
                 assertNull(source.closedLayer)
+                assertFalse(source.closedDrawingReady)
                 destinationSource.value = null
                 owned.value = false
             }

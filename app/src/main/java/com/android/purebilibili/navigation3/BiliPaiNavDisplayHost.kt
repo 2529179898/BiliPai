@@ -93,6 +93,7 @@ import com.android.purebilibili.navigation3.predictiveback.MiuixVideoCardCovered
 import com.android.purebilibili.navigation3.predictiveback.resolveMiuixVideoCardCoveredScale
 import com.android.purebilibili.navigation3.predictiveback.resolveMiuixVideoCardBackingColor
 import com.android.purebilibili.navigation3.predictiveback.shouldUseMiuixPredictiveBackProgress
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import top.yukonga.miuix.kmp.nav.core.NavBackStack
@@ -135,7 +136,7 @@ internal fun BiliPaiNavDisplayHost(
     predictiveBackExitDirection: BiliPaiPredictiveBackExitDirection =
         BiliPaiPredictiveBackExitDirection.ALWAYS_RIGHT,
     miuixTransitionBlurEnabled: Boolean = true,
-    settingsContainerTransitionEnabled: Boolean = true,
+    settingsContainerTransitionEnabled: Boolean = false,
     containerTransitionBackgroundBlurEnabled: Boolean = false,
     settingsContainerNavigation: SettingsContainerNavigationState = remember { SettingsContainerNavigationState() },
     miuixPredictiveBackMaxProgressPercent: Int =
@@ -189,10 +190,23 @@ internal fun BiliPaiNavDisplayHost(
         // Old row pixels and coordinates do not survive a window, density, pane or theme change.
         settingsContainerNavigation.releaseAll()
     }
+    val pendingCaptureToken = settingsContainerNavigation.pendingCaptureToken
+    LaunchedEffect(settingsContainerNavigation, pendingCaptureToken) {
+        if (pendingCaptureToken != null) {
+            delay(10_000L)
+            settingsContainerNavigation.expirePending(pendingCaptureToken)
+        }
+    }
     LaunchedEffect(stackSnapshot) {
         settingsContainerNavigation.releaseUnretained(stackSnapshot)
-        withFrameNanos { }
-        settingsContainerNavigation.remeasureReturns(stackSnapshot)
+        var firstFrameNanos = 0L
+        while (true) {
+            val frameNanos = withFrameNanos { it }
+            if (firstFrameNanos == 0L) firstFrameNanos = frameNanos
+            if (!settingsContainerNavigation.remeasureReturns(stackSnapshot) ||
+                frameNanos - firstFrameNanos >= 500_000_000L
+            ) break
+        }
     }
     val currentKey = stackSnapshot.lastOrNull()
     val latestOnBack by rememberUpdatedState(onBack)
