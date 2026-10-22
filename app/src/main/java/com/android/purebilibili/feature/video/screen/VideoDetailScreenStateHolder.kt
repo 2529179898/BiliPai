@@ -28,12 +28,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
-import android.database.ContentObserver
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.os.SystemClock
-import android.provider.Settings
 import android.view.OrientationEventListener
 import android.view.Window
 import android.view.WindowManager
@@ -466,7 +462,6 @@ internal fun VideoDetailScreenStateHolder(
     onBack: () -> Unit,
     onHomeClick: () -> Unit = onBack,
     onNavigateToAudioMode: () -> Unit = {},
-    onNavigateToSearch: () -> Unit = {},
     onSearchKeywordClick: (String) -> Unit = {},
     onOpenBilibiliLink: ((String) -> Unit)? = null,
     onVideoClick: (String, android.os.Bundle?) -> Unit,
@@ -885,10 +880,6 @@ internal fun VideoDetailScreenStateHolder(
     val navigateToUserSpaceFromVideo: (Long) -> Unit = { mid ->
         val locateBvid = currentBvid.takeIf { hasStartedCurrentVideoPlayback }.orEmpty()
         onUpClickWithVideo?.invoke(mid, locateBvid) ?: onUpClick(mid)
-    }
-
-    val navigateToSearchFromVideo: () -> Unit = {
-        onNavigateToSearch()
     }
 
     val navigateToSearchKeywordFromVideo: (String) -> Unit = { keyword ->
@@ -1940,26 +1931,6 @@ internal fun VideoDetailScreenStateHolder(
             initialValue = false,
             lifecycle = lifecycleOwner.lifecycle
         )
-    val rotationResolver = context.applicationContext.contentResolver
-    var systemAutoRotateEnabled by remember(rotationResolver) {
-        mutableStateOf(
-            Settings.System.getInt(rotationResolver, Settings.System.ACCELEROMETER_ROTATION, 0) != 0
-        )
-    }
-    DisposableEffect(rotationResolver) {
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                systemAutoRotateEnabled = Settings.System.getInt(
-                    rotationResolver, Settings.System.ACCELEROMETER_ROTATION, 0
-                ) != 0
-            }
-        }
-        rotationResolver.registerContentObserver(
-            Settings.System.getUriFor(Settings.System.ACCELEROMETER_ROTATION), false, observer
-        )
-        observer.onChange(false)
-        onDispose { rotationResolver.unregisterContentObserver(observer) }
-    }
     // The app switch explicitly opts into sensor rotation, independently of the system lock.
     val sensorAutoRotateEnabled = autoRotateEnabled
 
@@ -2710,7 +2681,6 @@ internal fun VideoDetailScreenStateHolder(
 
     LaunchedEffect(
         autoRotateEnabled,
-        systemAutoRotateEnabled,
         fullscreenMode,
         useTabletLayout,
         isOrientationDrivenFullscreen,
@@ -2730,7 +2700,6 @@ internal fun VideoDetailScreenStateHolder(
         if (usesInWindowFullscreen) return@LaunchedEffect
         val requestedOrientation = resolvePhoneVideoRequestedOrientation(
             autoRotateEnabled = sensorAutoRotateEnabled,
-            systemAutoRotateEnabled = systemAutoRotateEnabled,
             fullscreenMode = fullscreenMode,
             isCompactDevice = orientationPolicyDevice,
             isOrientationDrivenFullscreen = isOrientationDrivenFullscreen,
@@ -2775,7 +2744,6 @@ internal fun VideoDetailScreenStateHolder(
 
     LaunchedEffect(
         autoRotateEnabled,
-        systemAutoRotateEnabled,
         isFullscreenMode,
         orientationPolicyDevice,
         isOrientationDrivenFullscreen,
@@ -2788,7 +2756,7 @@ internal fun VideoDetailScreenStateHolder(
         isFullscreenPlayerLocked,
         userRequestedFullscreen,
     ) {
-        if (isFullscreenPlayerLocked) {
+        if (isFullscreenPlayerLocked || usesInWindowFullscreen) {
             lastPhoneAutoRotateLandscapeAppliedAtMs = null
             lastPhoneAutoRotatePortraitAppliedAtMs = null
             return@LaunchedEffect
@@ -2805,7 +2773,6 @@ internal fun VideoDetailScreenStateHolder(
                 observeWhenAutoRotateDisabled = displayContext.isFoldableCoverWindow,
                 isFullscreenMode = isFullscreenMode,
                 manualFullscreenRequested = userRequestedFullscreen,
-                systemAutoRotateEnabled = systemAutoRotateEnabled,
             )
         ) {
             lastPhoneAutoRotateLandscapeAppliedAtMs = null
@@ -2816,7 +2783,6 @@ internal fun VideoDetailScreenStateHolder(
     DisposableEffect(
         activity,
         autoRotateEnabled,
-        systemAutoRotateEnabled,
         isFullscreenMode,
         fullscreenMode,
         useTabletLayout,
@@ -2834,6 +2800,7 @@ internal fun VideoDetailScreenStateHolder(
         if (
             hostActivity == null ||
             isFullscreenPlayerLocked ||
+            usesInWindowFullscreen ||
             !shouldObservePhoneAutoRotate(
                 autoRotateEnabled = sensorAutoRotateEnabled,
                 isCompactDevice = orientationPolicyDevice,
@@ -2846,9 +2813,7 @@ internal fun VideoDetailScreenStateHolder(
                 observeWhenAutoRotateDisabled = displayContext.isFoldableCoverWindow,
                 isFullscreenMode = isFullscreenMode,
                 manualFullscreenRequested = userRequestedFullscreen,
-                systemAutoRotateEnabled = systemAutoRotateEnabled,
-            ) ||
-            !isOrientationDrivenFullscreen
+            )
         ) {
             return@DisposableEffect onDispose {}
         }
@@ -2861,9 +2826,9 @@ internal fun VideoDetailScreenStateHolder(
                     }
                     return
                 }
-                // 关闭自动切换时仅允许手动全屏跟随左右横屏；旧配置中的横屏状态
-                // 不能重新触发横屏请求，与上面的竖屏锁定策略保持一致。
-                if (!sensorAutoRotateEnabled && !userRequestedFullscreen) return
+                // Fullscreen may follow either landscape side with auto-rotate off, but a
+                // stale inline landscape configuration must not request fullscreen again.
+                if (!sensorAutoRotateEnabled && !userRequestedFullscreen && !isFullscreenMode) return
                 val isCurrentlyLandscape =
                     hostActivity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
                 val targetOrientation = resolvePhoneAutoRotateRequestedOrientation(
@@ -2874,7 +2839,7 @@ internal fun VideoDetailScreenStateHolder(
                     // Wait for one physical landscape observation before allowing the sensor
                     // to treat portrait as an explicit rotate-back gesture.
                     allowPortraitTransitions = shouldAllowPhoneSensorPortraitTransition(
-                        autoRotateEnabled = sensorAutoRotateEnabled,
+                        autoRotateEnabled = sensorAutoRotateEnabled && isOrientationDrivenFullscreen,
                         manualFullscreenRequested = userRequestedFullscreen,
                     ),
                 )
@@ -2897,7 +2862,7 @@ internal fun VideoDetailScreenStateHolder(
                     if (shouldReleaseManualFullscreenRequestAfterSensorTarget(
                             manualFullscreenRequested = userRequestedFullscreen,
                             sensorTargetOrientation = targetToApply,
-                            autoRotateEnabled = sensorAutoRotateEnabled,
+                            autoRotateEnabled = sensorAutoRotateEnabled && isOrientationDrivenFullscreen,
                         )
                     ) {
                         userRequestedFullscreen = false
@@ -5889,20 +5854,6 @@ internal fun VideoDetailScreenStateHolder(
                         hasPendingPortraitSync = false
                     }
                 }
-            },
-            onSearchClick = {
-                hasDeferredPortraitRestoreAfterExternalNavigation =
-                    com.android.purebilibili.feature.video.ui.pager
-                        .shouldDeferPortraitRestoreUntilForegroundResume(
-                            isPortraitFullscreen = isPortraitFullscreen,
-                            isExternalNavigation = true,
-                        )
-                if (com.android.purebilibili.feature.video.ui.pager
-                        .shouldExitPortraitForExternalNavigation(isPortraitFullscreen)
-                ) {
-                    presentationState.setPortraitFullscreen(false)
-                }
-                navigateToSearchFromVideo()
             },
             onUserClick = { mid ->
                 val anchorBvid = portraitPendingSelectionBvid

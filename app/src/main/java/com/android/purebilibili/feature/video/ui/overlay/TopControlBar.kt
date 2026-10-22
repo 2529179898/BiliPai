@@ -9,10 +9,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
@@ -57,9 +56,9 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Shared Android PiliPlus HeaderControl for inline/fullscreen and portrait/landscape.
- * Each button owns its material; title, status and action rows never become glass capsules.
- * Nullable actions permit isolated previews. Production callers supply every applicable handler.
+ * 播放器顶栏，内嵌/全屏、竖屏/横屏共用。
+ * 一个控件簇共用一块材质；玻璃开关只换材质，不换几何。
+ * 标题与互动快捷键行不参与材质壳；可空回调便于独立预览，正式调用方提供全部适用处理器。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -147,71 +146,90 @@ fun TopControlBar(
     val likeGesture = if (likeStatusKnown && onLikeClick != null && onLikeLongClick != null) {
         piliHeaderLikeGesture(triplePress, isLiked && isCoined && isFavorited, onLikeClick, onLikeLongClick)
     } else null
+    val hasVisibleStatusBar = shouldApplyStatusBarPaddingToTopControlBar(isFullscreen, statusBarVisible)
+    val symmetricSideInset = resolveSymmetricPlayerSideInset(
+        insets = WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
+        minimum = 0.dp,
+    )
 
     PlayerControlTouchBounds(height = policy.buttonHeightDp.dp) {
         Column(
             modifier = modifier.fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
-                .then(if (shouldApplyStatusBarPaddingToTopControlBar(isFullscreen, statusBarVisible)) {
-                    Modifier.statusBarsPadding()
-                } else Modifier)
+                // PiliPlus reserves only the display cutout horizontally (its Flutter
+                // viewPadding ignores hidden navigation bars and gesture strips).
+                .padding(horizontal = symmetricSideInset)
+                // Immersive fullscreen hides the status bar, but a camera cutout still owns the
+                // top edge; reserve it so no header button sits under the punch hole.
+                .then(
+                    when {
+                        hasVisibleStatusBar -> Modifier.statusBarsPadding()
+                        isFullscreen -> Modifier.windowInsetsPadding(
+                            WindowInsets.displayCutout.only(WindowInsetsSides.Top)
+                        )
+                        else -> Modifier
+                    }
+                )
                 .padding(vertical = policy.verticalPaddingDp.dp),
         ) {
             PiliHeaderSlots(
                 hasTitle = hasTitle,
                 left = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        HeaderIcon(Icons.AutoMirrored.Outlined.ArrowBack, "返回", onBack, iconSize = 15)
-                        if (policy.showHome && onHomeClick != null) {
-                            HeaderIcon(Icons.Outlined.Home, "返回主页", onHomeClick, iconSize = 15)
+                    PlayerControlGlassGroup(shape = RoundedCornerShape(50)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            HeaderIcon(Icons.AutoMirrored.Outlined.ArrowBack, "返回", onBack, iconSize = 15)
+                            if (policy.showHome && onHomeClick != null) {
+                                HeaderIcon(Icons.Outlined.Home, "返回主页", onHomeClick, iconSize = 15)
+                            }
                         }
                     }
                 },
                 right = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (batteryVisible) {
-                            batteryPercent?.let { HeaderStatusText("$it%") }
-                            Spacer(Modifier.width(10.dp))
-                        }
-                        if (clockVisible) HeaderStatusText(currentTime)
-                        if (policy.showAudio && onAudioClick != null) {
-                            HeaderIcon(Icons.Outlined.Headphones, "听音频", onAudioClick)
-                        }
-                        if (policy.showCast && showCastButton && onCastClick != null) {
-                            HeaderIcon(Icons.Outlined.Cast, "投屏", onCastClick)
-                        }
-                        if (!isFileSource && showSponsorSubmitButton && onSponsorSubmitClick != null) {
-                            HeaderButton("提交片段", onSponsorSubmitClick) {
-                                PiliPlusDanmakuGlyph("\uE814", "提交片段", Color.White, 20.dp)
+                    PlayerControlGlassGroup(shape = RoundedCornerShape(50)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (batteryVisible) {
+                                batteryPercent?.let { HeaderStatusText("$it%") }
+                                Spacer(Modifier.width(10.dp))
                             }
-                        }
-                        if (showSponsorSegmentsButton && onSponsorSegmentsClick != null) {
-                            HeaderButton("片段信息", onSponsorSegmentsClick) { HeaderAdvertisementIcon() }
-                        }
-                        if (policy.showDanmakuActions) {
-                            if (onSendDanmakuClick != null) {
-                                HeaderIcon(Icons.Outlined.Comment, "发弹幕", onSendDanmakuClick)
+                            if (clockVisible) HeaderStatusText(currentTime)
+                            if (policy.showAudio && onAudioClick != null) {
+                                HeaderIcon(Icons.Outlined.Headphones, "听音频", onAudioClick)
                             }
-                            if (onDanmakuToggle != null) {
-                                val description = if (danmakuEnabled) "关闭弹幕" else "开启弹幕"
-                                HeaderButton(description, onDanmakuToggle) {
-                                    PiliPlusDanmakuGlyph(
-                                        if (danmakuEnabled) "\uE803" else "\uE802",
-                                        description, Color.White, 20.dp,
-                                    )
+                            if (policy.showCast && showCastButton && onCastClick != null) {
+                                HeaderIcon(Icons.Outlined.Cast, "投屏", onCastClick)
+                            }
+                            if (!isFileSource && showSponsorSubmitButton && onSponsorSubmitClick != null) {
+                                HeaderButton("提交片段", onSponsorSubmitClick) {
+                                    PiliPlusDanmakuGlyph("\uE814", "提交片段", Color.White, 20.dp)
                                 }
                             }
-                        }
-                        if (onDanmakuSettingsClick != null) {
-                            HeaderButton("弹幕设置", onDanmakuSettingsClick) {
-                                PiliPlusDanmakuSettingsIcon(tint = Color.White, size = 20.dp)
+                            if (showSponsorSegmentsButton && onSponsorSegmentsClick != null) {
+                                HeaderButton("片段信息", onSponsorSegmentsClick) { HeaderAdvertisementIcon() }
                             }
-                        }
-                        if (showPipButton && onPipClick != null) {
-                            HeaderIcon(Icons.Outlined.PictureInPicture, "画中画", onPipClick)
-                        }
-                        if (onMoreClick != null) {
-                            HeaderIcon(Icons.Outlined.MoreVert, "更多设置", onMoreClick)
+                            if (policy.showDanmakuActions) {
+                                if (onSendDanmakuClick != null) {
+                                    HeaderIcon(Icons.Outlined.Comment, "发弹幕", onSendDanmakuClick)
+                                }
+                                if (onDanmakuToggle != null) {
+                                    val description = if (danmakuEnabled) "关闭弹幕" else "开启弹幕"
+                                    HeaderButton(description, onDanmakuToggle) {
+                                        PiliPlusDanmakuGlyph(
+                                            if (danmakuEnabled) "\uE803" else "\uE802",
+                                            description, Color.White, 20.dp,
+                                        )
+                                    }
+                                }
+                            }
+                            if (onDanmakuSettingsClick != null) {
+                                HeaderButton("弹幕设置", onDanmakuSettingsClick) {
+                                    PiliPlusDanmakuSettingsIcon(tint = Color.White, size = 20.dp)
+                                }
+                            }
+                            if (showPipButton && onPipClick != null) {
+                                HeaderIcon(Icons.Outlined.PictureInPicture, "画中画", onPipClick)
+                            }
+                            if (onMoreClick != null) {
+                                HeaderIcon(Icons.Outlined.MoreVert, "更多设置", onMoreClick)
+                            }
                         }
                     }
                 },
@@ -242,49 +260,53 @@ fun TopControlBar(
             )
             // 侧栏入口属于浏览功能，不随点赞、投币等互动快捷键一起隐藏。
             if (policy.showEngagement || onCommentClick != null || onRelatedVideosClick != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.End,
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.CenterEnd,
                 ) {
-                    if (onCommentClick != null) {
-                        HeaderIcon(Icons.Outlined.Forum, "评论", onCommentClick,
-                            active = commentsVisible, iconSize = 18)
-                    }
-                    if (onRelatedVideosClick != null) {
-                        HeaderIcon(Icons.Outlined.VideoLibrary, "相关推荐", onRelatedVideosClick,
-                            active = relatedVideosVisible, iconSize = 18)
-                    }
-                    if (policy.showEngagement) {
-                        if (onLikeClick != null) {
-                            Box(Modifier.likeBurstAnchor()) {
-                                HeaderIcon(
-                                    if (likeStatusKnown && isLiked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
-                                    if (likeStatusKnown) "点赞" else "点赞状态尚未确认",
-                                    onLikeClick, active = likeStatusKnown && isLiked, iconSize = 18,
-                                    gestureModifier = likeGesture, progress = triplePress.progress,
+                    PlayerControlGlassGroup(shape = RoundedCornerShape(50)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (onCommentClick != null) {
+                                HeaderIcon(Icons.Outlined.Forum, "评论", onCommentClick,
+                                    active = commentsVisible, iconSize = 18)
+                            }
+                            if (onRelatedVideosClick != null) {
+                                HeaderIcon(Icons.Outlined.VideoLibrary, "相关推荐", onRelatedVideosClick,
+                                    active = relatedVideosVisible, iconSize = 18)
+                            }
+                            if (policy.showEngagement) {
+                                if (onLikeClick != null) {
+                                    Box(Modifier.likeBurstAnchor()) {
+                                        HeaderIcon(
+                                            if (likeStatusKnown && isLiked) Icons.Filled.ThumbUp else Icons.Outlined.ThumbUp,
+                                            if (likeStatusKnown) "点赞" else "点赞状态尚未确认",
+                                            onLikeClick, active = likeStatusKnown && isLiked, iconSize = 18,
+                                            gestureModifier = likeGesture, progress = triplePress.progress,
+                                        )
+                                    }
+                                }
+                                if (policy.showDislike && allowDislikeAction && onDislikeClick != null) {
+                                    HeaderIcon(
+                                        if (isDisliked) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
+                                        "点踩", onDislikeClick, active = isDisliked, iconSize = 18,
+                                    )
+                                }
+                                if (onCoinClick != null) HeaderIcon(
+                                    AppIcons.BiliCoin, "投币", onCoinClick, active = isCoined,
+                                    progress = triplePress.progress, iconSize = 18,
+                                )
+                                if (onFavoriteClick != null) {
+                                    HeaderIcon(
+                                        if (isFavorited) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                        "收藏", onFavoriteClick, active = isFavorited, iconSize = 18,
+                                        onLongClick = onFavoriteLongClick, progress = triplePress.progress,
+                                    )
+                                }
+                                if (onShareClick != null) HeaderIcon(
+                                    Icons.Outlined.Share, "分享", onShareClick, iconSize = 18,
                                 )
                             }
                         }
-                        if (policy.showDislike && allowDislikeAction && onDislikeClick != null) {
-                            HeaderIcon(
-                                if (isDisliked) Icons.Filled.ThumbDown else Icons.Outlined.ThumbDown,
-                                "点踩", onDislikeClick, active = isDisliked, iconSize = 18,
-                            )
-                        }
-                        if (onCoinClick != null) HeaderIcon(
-                            AppIcons.BiliCoin, "投币", onCoinClick, active = isCoined,
-                            progress = triplePress.progress, iconSize = 18,
-                        )
-                        if (onFavoriteClick != null) {
-                            HeaderIcon(
-                                if (isFavorited) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                                "收藏", onFavoriteClick, active = isFavorited, iconSize = 18,
-                                onLongClick = onFavoriteLongClick, progress = triplePress.progress,
-                            )
-                        }
-                        if (onShareClick != null) HeaderIcon(Icons.Outlined.Share, "分享", onShareClick, iconSize = 18)
                     }
                 }
             }

@@ -3756,7 +3756,6 @@ fun AppNavigation(
                                         )
                                     )
                                 },
-                                onNavigateToSearch = { pushNavigation3Key(BiliPaiNavKey.Search) },
                                 onSearchKeywordClick = submitSearchKeywordInNavigation3,
                                 onOpenBilibiliLink = ::openBilibiliLinkInNavigation3,
                                 onReplaceVideoDetail = { targetBvid, targetCid, targetCover, resumePositionMs ->
@@ -4447,7 +4446,6 @@ fun AppNavigation(
                                     onBack = { performSystemBackAction() },
                                     onVideoClick = { bvid, cid, _ -> navigateToVideoInNavigation3(bvid, cid, "") },
                                     onUserClick = { mid -> pushNavigation3Route(ScreenRoutes.Space.createRoute(mid)) },
-                                    onSearchClick = { pushNavigation3Key(BiliPaiNavKey.Search) }
                                 )
                             }
                         BiliPaiNavEntryContentRole.AUDIO_MODE -> {

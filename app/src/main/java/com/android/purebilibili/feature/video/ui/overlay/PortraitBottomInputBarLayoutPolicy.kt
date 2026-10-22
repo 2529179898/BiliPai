@@ -1,6 +1,4 @@
-package com.android.purebilibili.feature.video.ui.overlay.glass
-
-import com.android.purebilibili.feature.video.ui.overlay.*
+package com.android.purebilibili.feature.video.ui.overlay
 
 data class PortraitBottomInputBarLayoutPolicy(
     val horizontalPaddingDp: Int,
@@ -9,7 +7,6 @@ data class PortraitBottomInputBarLayoutPolicy(
     val inputHorizontalPaddingDp: Int,
     val inputFontSp: Int,
     val afterInputSpacingDp: Int,
-    val actionSpacingDp: Int,
     val actionButtonSizeDp: Int,
     val actionIconSizeDp: Int
 )
@@ -25,7 +22,6 @@ fun resolvePortraitBottomInputBarLayoutPolicy(
             inputHorizontalPaddingDp = 20,
             inputFontSp = 18,
             afterInputSpacingDp = 16,
-            actionSpacingDp = 10,
             actionButtonSizeDp = 54,
             actionIconSizeDp = 32
         )
@@ -39,7 +35,6 @@ fun resolvePortraitBottomInputBarLayoutPolicy(
             inputHorizontalPaddingDp = 16,
             inputFontSp = 16,
             afterInputSpacingDp = 14,
-            actionSpacingDp = 8,
             actionButtonSizeDp = 48,
             actionIconSizeDp = 28
         )
@@ -53,7 +48,6 @@ fun resolvePortraitBottomInputBarLayoutPolicy(
             inputHorizontalPaddingDp = 14,
             inputFontSp = 15,
             afterInputSpacingDp = 13,
-            actionSpacingDp = 7,
             actionButtonSizeDp = 48,
             actionIconSizeDp = 26
         )
@@ -66,7 +60,6 @@ fun resolvePortraitBottomInputBarLayoutPolicy(
         inputHorizontalPaddingDp = 12,
         inputFontSp = 14,
         afterInputSpacingDp = 12,
-        actionSpacingDp = 6,
         actionButtonSizeDp = 48,
         actionIconSizeDp = 24
     )
