@@ -23,6 +23,8 @@ import com.android.purebilibili.feature.home.components.cards.VideoCardCoverDura
 
 import android.app.Application
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animate
+import com.android.purebilibili.core.ui.motion.AppMotionTokens
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -864,7 +866,6 @@ fun WatchLaterScreen(
             val isAtTop = firstVisibleItem == 0 && scrollOffset == 0
             if (watchLaterHeaderCollapseMode == com.android.purebilibili.core.store.CommonListHeaderCollapseMode.ALWAYS_VISIBLE || isAtTop) {
                 watchLaterTabsVisible = true
-                scrollBehavior.state.heightOffset = 0f
             } else if (watchLaterHeaderCollapseMode == com.android.purebilibili.core.store.CommonListHeaderCollapseMode.SHOW_AT_TOP_ONLY) {
                 watchLaterTabsVisible = false
             } else {
@@ -931,6 +932,30 @@ fun WatchLaterScreen(
         )
     val isListScrollInProgress by remember(gridState) {
         derivedStateOf { gridState.isScrollInProgress }
+    }
+    val isWatchLaterAtTop by remember(gridState) {
+        derivedStateOf {
+            gridState.firstVisibleItemIndex == 0 && gridState.firstVisibleItemScrollOffset == 0
+        }
+    }
+    val watchLaterHeaderRevealSpec = AppMotionTokens.standardSpec<Float>()
+    LaunchedEffect(
+        scrollBehavior,
+        watchLaterHeaderCollapseMode,
+        isWatchLaterAtTop,
+        isListScrollInProgress,
+    ) {
+        // 滚动结束后从当前位移展开；新的滚动会取消此动画，交还原生滚动行为。
+        if (!isListScrollInProgress && (isWatchLaterAtTop ||
+                watchLaterHeaderCollapseMode == com.android.purebilibili.core.store.CommonListHeaderCollapseMode.ALWAYS_VISIBLE)) {
+            animate(
+                initialValue = scrollBehavior.state.heightOffset,
+                targetValue = 0f,
+                animationSpec = watchLaterHeaderRevealSpec,
+            ) { value, _ ->
+                scrollBehavior.state.heightOffset = value
+            }
+        }
     }
     if (isCurrentPage) {
         SideEffect {

@@ -451,14 +451,23 @@ fun DynamicScreen(
     // 自动折叠期间钉住已预留的底部空间，底栏只做显隐、不拉动列表布局。
     val liveListBottomPadding = LocalBottomBarContentPadding.current
     val isBottomBarVisibleForPadding = LocalBottomBarVisible.current
+    val videoCardTransitionClock = com.android.purebilibili.core.ui.transition.LocalVideoCardTransitionClock.current
+    val retainSourceBottomPadding = videoCardTransitionClock != null && (
+        videoCardTransitionClock.phase !=
+            com.android.purebilibili.core.ui.transition.VideoCardTransitionBackgroundPhase.IDLE ||
+            videoCardTransitionClock.settleState !=
+            com.android.purebilibili.core.ui.transition.VideoCardTransitionSettleState.Idle
+        )
     var stickyListBottomPadding by remember { mutableStateOf(liveListBottomPadding) }
-    LaunchedEffect(liveListBottomPadding, isBottomBarVisibleForPadding, shouldAutoCollapseBottomBar) {
-        if (!shouldAutoCollapseBottomBar || isBottomBarVisibleForPadding) {
+    // 视频转场临时撤销导航底栏留白，不代表来源页的布局变化。
+    // 两种材质都保留列表与悬浮按钮的原位置，涵盖详情停留、返回及手势取消。
+    LaunchedEffect(liveListBottomPadding, isBottomBarVisibleForPadding, shouldAutoCollapseBottomBar, retainSourceBottomPadding) {
+        if (!retainSourceBottomPadding && (!shouldAutoCollapseBottomBar || isBottomBarVisibleForPadding)) {
             stickyListBottomPadding = liveListBottomPadding
         }
     }
     val dynamicListBottomPadding =
-        if (shouldAutoCollapseBottomBar) stickyListBottomPadding else liveListBottomPadding +
+        if (shouldAutoCollapseBottomBar) stickyListBottomPadding else stickyListBottomPadding +
             // 听视频小横条悬浮时统一上浮避让（与首页/稍后再看一致）
             if (com.android.purebilibili.core.ui.rememberNowPlayingBarOverlayVisible()) {
                 com.android.purebilibili.core.ui.NowPlayingBarOverlayAvoidancePadding

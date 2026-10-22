@@ -904,6 +904,7 @@ fun CommonListScreen(
     }
     var commonListHeaderOffsetPx by remember { mutableFloatStateOf(0f) }
     var commonListHeaderSettleJob by remember { androidx.compose.runtime.mutableStateOf<Job?>(null) }
+    var commonListHeaderSettleTargetPx by remember { mutableFloatStateOf(0f) }
     val commonListHeaderCollapseMode = homeSettings.commonListHeaderCollapseMode
     val commonListHeaderCollapseEnabled = supportsCollapsibleCommonListHeader &&
         commonListHeaderCollapseMode != CommonListHeaderCollapseMode.ALWAYS_VISIBLE
@@ -916,11 +917,15 @@ fun CommonListScreen(
         0f
     }
     fun animateCommonListHeaderOffsetTo(targetOffsetPx: Float) {
+        // 相同目标继续当前动画，避免回顶滚动和位置校正反复重启缓动。
+        if (commonListHeaderSettleJob?.isActive == true && commonListHeaderSettleTargetPx == targetOffsetPx) return
+        commonListHeaderSettleJob?.cancel()
+        commonListHeaderSettleJob = null
+        commonListHeaderSettleTargetPx = targetOffsetPx
         if (kotlin.math.abs(commonListHeaderOffsetPx - targetOffsetPx) <= 0.5f) {
             commonListHeaderOffsetPx = targetOffsetPx
             return
         }
-        commonListHeaderSettleJob?.cancel()
         commonListHeaderSettleJob = scope.launch {
             animate(
                 initialValue = commonListHeaderOffsetPx,
@@ -1089,6 +1094,11 @@ fun CommonListScreen(
                     kotlin.math.abs(available.y) < 0.5f ||
                     kotlin.math.abs(available.y) < kotlin.math.abs(available.x)
                 ) {
+                    return Offset.Zero
+                }
+                // 到顶后的剩余滚动交给展开动画，避免直接归零或被连续回调打断。
+                if (isCommonListAtTop && available.y > 0f) {
+                    animateCommonListHeaderOffsetTo(0f)
                     return Offset.Zero
                 }
                 commonListHeaderSettleJob?.cancel()

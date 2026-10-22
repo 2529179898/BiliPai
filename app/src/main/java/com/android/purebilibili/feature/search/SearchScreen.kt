@@ -908,6 +908,7 @@ fun SearchScreen(
     var searchTopBarHeightPx by remember { mutableIntStateOf(0) }
     var searchHeaderOffsetPx by remember { mutableFloatStateOf(0f) }
     var searchHeaderSettleJob by remember { mutableStateOf<Job?>(null) }
+    var searchHeaderSettleTargetPx by remember { mutableFloatStateOf(0f) }
     val searchStatusBarHeightPx = with(density) {
         WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
     }
@@ -932,11 +933,15 @@ fun SearchScreen(
     }
 
     fun animateSearchHeaderOffsetTo(targetOffsetPx: Float) {
+        // 相同目标继续当前动画，避免回顶滚动和位置校正反复重启缓动。
+        if (searchHeaderSettleJob?.isActive == true && searchHeaderSettleTargetPx == targetOffsetPx) return
+        searchHeaderSettleJob?.cancel()
+        searchHeaderSettleJob = null
+        searchHeaderSettleTargetPx = targetOffsetPx
         if (kotlin.math.abs(searchHeaderOffsetPx - targetOffsetPx) <= 0.5f) {
             searchHeaderOffsetPx = targetOffsetPx
             return
         }
-        searchHeaderSettleJob?.cancel()
         searchHeaderSettleJob = scope.launch {
             animate(
                 initialValue = searchHeaderOffsetPx,
@@ -993,6 +998,11 @@ fun SearchScreen(
                 if (!isSearchCollapseEnabled || searchCollapseDistancePx <= 0f) return Offset.Zero
                 if (kotlin.math.abs(available.y) < 0.5f) return Offset.Zero
                 if (kotlin.math.abs(available.y) < kotlin.math.abs(available.x)) return Offset.Zero
+                // 到顶后的剩余滚动交给展开动画，避免直接归零或被连续回调打断。
+                if (isSearchResultsAtTop && available.y > 0f) {
+                    animateSearchHeaderOffsetTo(0f)
+                    return Offset.Zero
+                }
                 searchHeaderSettleJob?.cancel()
                 searchHeaderSettleJob = null
                 searchHeaderOffsetPx = resolveCommonListHeaderOffsetAfterContentScroll(
