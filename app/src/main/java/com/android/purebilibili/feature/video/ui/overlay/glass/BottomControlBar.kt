@@ -48,7 +48,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -478,6 +480,8 @@ fun BottomControlBar(
     compactPlayerChrome: Boolean = false,
     /** 玻璃全屏工具胶囊与顶部互动胶囊共用窗口横向边界，仅在测量阶段读取。 */
     actionDockBoundsProvider: () -> Rect? = { null },
+    /** 仅玻璃全屏使用，与顶部更多及锁定按钮共用距播放器末端的留白。 */
+    fullscreenToggleEndPaddingDp: Int? = null,
 
     modifier: Modifier = Modifier,
     seekPositionProvider: (() -> Long)? = null,
@@ -712,8 +716,9 @@ fun BottomControlBar(
         )
     }
     val inlineTimeGlassDock = !isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
-    // Fullscreen labels use a fixed font size, so the two-character gap is a fixed dp value.
-    val actionSpacing = (layoutPolicy.actionTextFontSp * 2).dp
+    // Only glass fullscreen uses compact gaps; native MD3/Miuix retain two-character spacing.
+    val actionSpacing = if (isFullscreen && liquidGlassEnabled) 16.dp
+        else (layoutPolicy.actionTextFontSp * 2).dp
     val chromeDensity = LocalDensity.current
     val controlRowDensity = remember(chromeDensity, isFullscreen) {
         if (isFullscreen) Density(chromeDensity.density, fontScale = 1f) else chromeDensity
@@ -827,11 +832,31 @@ fun BottomControlBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("player_control_row")
-                .padding(horizontal = layoutPolicy.horizontalPaddingDp.dp),
+                .padding(horizontal = layoutPolicy.horizontalPaddingDp.dp)
+                .then(
+                    if (isFullscreen && liquidGlassEnabled && fullscreenToggleEndPaddingDp != null) {
+                        // The outer column already avoids the cutout; add only the remaining
+                        // glass end inset. Native rows and the progress track keep their geometry.
+                        val cutoutInsets = WindowInsets.displayCutout
+                        Modifier.layout { measurable, constraints ->
+                            val cutoutEnd = if (layoutDirection == LayoutDirection.Ltr) {
+                                cutoutInsets.getRight(this, layoutDirection)
+                            } else {
+                                cutoutInsets.getLeft(this, layoutDirection)
+                            }
+                            val endInset = (fullscreenToggleEndPaddingDp.dp.roundToPx() -
+                                cutoutEnd - layoutPolicy.horizontalPaddingDp.dp.roundToPx())
+                                .coerceIn(0, constraints.maxWidth)
+                            val placeable = measurable.measure(constraints.offset(horizontal = -endInset))
+                            layout(placeable.width + endInset, placeable.height) {
+                                placeable.placeRelative(0, 0)
+                            }
+                        }
+                    } else Modifier
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Fullscreen actions share one layout: content-width tools stay right-aligned with
-            // fixed two-character gaps; glass-only width reserves are marked inline.
+            // Only glass groups the content-sized tools beside the left dock; native stays right-aligned.
             if (isFullscreen) {
                 // Glass fullscreen restores the center control; native keeps bottom-left playback.
                 if (!liquidGlassEnabled) {
@@ -856,6 +881,7 @@ fun BottomControlBar(
                     (if (liquidGlassEnabled) layoutPolicy.playButtonSizeDp else 0)
                 PlayerControlMiddleRow(
                     minimumLeftWidth = minimumLeftWidthDp.dp,
+                    alignToolsBesideLeftDock = liquidGlassEnabled,
                     rightDockBoundsProvider = {
                         if (liquidGlassEnabled) actionDockBoundsProvider() else null
                     },
@@ -1420,6 +1446,41 @@ fun BottomControlBar(
                                 else -> layoutPolicy.rightActionSpacingDp.dp
                             },
                         ) {
+                            // Glass inline prioritizes subtitles; native keeps its original audio entry.
+                            if (liquidGlassEnabled) {
+                                AppText(
+                                    text = "字幕",
+                                    color = when {
+                                        !subtitleTrackAvailable -> Color.White.copy(alpha = 0.45f)
+                                        subtitleEnabled -> AppContentColors.accent()
+                                        else -> Color.White
+                                    },
+                                    fontSize = layoutPolicy.actionTextFontSp.sp,
+                                    lineHeight = (layoutPolicy.actionTextFontSp + 2).sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier
+                                        .sizeIn(
+                                            minWidth = InlineDockActionMinWidth,
+                                            minHeight = 48.dp,
+                                        )
+                                        .clickable(enabled = subtitleTrackAvailable) {
+                                            val nextShowSubtitlePanel = !showSubtitlePanel
+                                            com.android.purebilibili.core.util.Logger.d(
+                                                "BottomControlBar",
+                                                "字幕按钮点击: nextShow=$nextShowSubtitlePanel, fullscreen=$isFullscreen, showMore=$showMoreActionsPanel, subtitleEnabled=$subtitleEnabled"
+                                            )
+                                            showSubtitlePanel = nextShowSubtitlePanel
+                                            if (nextShowSubtitlePanel) {
+                                                showMoreActionsPanel = false
+                                                showVideoEnhancementPanel = false
+                                            }
+                                        }
+                                        .wrapContentSize(Alignment.Center)
+                                )
+                            }
+
                             if (showAspectRatioButton) {
                                 Box(
                                     modifier = Modifier
@@ -1440,7 +1501,7 @@ fun BottomControlBar(
                                         softWrap = false
                                     )
                                 }
-                            } else if (showAudioQualityButtonInline) {
+                            } else if (showAudioQualityButtonInline && !liquidGlassEnabled) {
                                 Row(
                                     modifier = Modifier
                                         .heightIn(min = layoutPolicy.playButtonSizeDp.dp)
@@ -1508,7 +1569,7 @@ fun BottomControlBar(
                                     .clickable(onClick = onSpeedClick)
                             )
 
-                            if (showSubtitleButton) {
+                            if (showSubtitleButton && !liquidGlassEnabled) {
                                 AppText(
                                     text = "字幕",
                                     color = if (subtitleEnabled) AppContentColors.accent() else Color.White,
@@ -1687,7 +1748,7 @@ fun BottomControlBar(
         }
     }
 
-    if (showSubtitlePanel && showSubtitleButton && shouldConsumeFloatingPanelBackground) {
+    if (showSubtitlePanel && (showSubtitleButton || (liquidGlassEnabled && subtitleTrackAvailable)) && shouldConsumeFloatingPanelBackground) {
         FloatingControlPanelDialog(
             onDismissRequest = { showSubtitlePanel = false },
             panelModifier = Modifier
@@ -1831,13 +1892,14 @@ fun BottomControlBar(
 }
 
 /**
- * Keep the two middle docks at their measured content widths. Unused width belongs between
- * them, not inside the action dock. Time and right actions scroll without moving the icon cluster.
+ * Keep the two middle docks at their measured content widths, with an 8dp minimum gap.
+ * Glass groups them at the start; native keeps the tools at the end. Both retain scrolling.
  */
 @Composable
 private fun PlayerControlMiddleRow(
     modifier: Modifier = Modifier,
     minimumLeftWidth: Dp,
+    alignToolsBesideLeftDock: Boolean = false,
     rightDockBoundsProvider: () -> Rect? = { null },
     content: @Composable () -> Unit,
 ) {
@@ -1862,18 +1924,20 @@ private fun PlayerControlMiddleRow(
                 .coerceIn(left.width + gap, constraints.maxWidth)
         } else constraints.maxWidth
         val availableRightWidth = (rightEnd - left.width - gap).coerceAtLeast(0)
-        val alignedWidth = dockBounds?.width?.roundToInt()?.coerceIn(0, availableRightWidth)
+        // The glass header supplies only the trailing edge, never a minimum dock width.
+        // Native callers supply no bounds and retain their original measurement constraints.
         val right = measurables[1].measure(
             constraints.copy(
-                minWidth = alignedWidth ?: 0,
+                minWidth = 0,
                 minHeight = 0,
-                maxWidth = alignedWidth ?: availableRightWidth,
+                maxWidth = availableRightWidth,
             ),
         )
         val height = constraints.constrainHeight(maxOf(left.height, right.height))
         layout(constraints.maxWidth, height) {
             left.placeRelative(0, (height - left.height) / 2)
-            right.placeRelative(rightEnd - right.width, (height - right.height) / 2)
+            val rightStart = if (alignToolsBesideLeftDock) left.width + gap else rightEnd - right.width
+            right.placeRelative(rightStart, (height - right.height) / 2)
         }
     }
 }
@@ -1903,7 +1967,7 @@ private fun PlayerPlayPauseButton(
 }
 
 /**
- * 横屏功能组：两种材质共用两个中文字号的固定间隔，按内容宽度靠右显示，
+ * 横屏功能组：由入口按材质提供间隔和对齐位置，按内容宽度显示，
  * 放不下时横向滚动，不再拉伸填满底栏。
  */
 @Composable

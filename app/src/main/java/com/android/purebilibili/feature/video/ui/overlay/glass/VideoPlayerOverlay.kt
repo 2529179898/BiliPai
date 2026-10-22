@@ -579,7 +579,6 @@ private fun VideoPlayerOverlayContent(
     val onLandscapeCommentClick = actions.onLandscapeCommentClick
     val landscapeCommentPanelVisible = state.landscapeCommentPanelVisible
     val landscapeCommentPanelOnLeft = state.landscapeCommentPanelOnLeft
-    val onHomeClick = actions.onHomeClick
     val onToggleFullscreen = actions.onToggleFullscreen
     val bvid = state.bvid
     val cid = state.cid
@@ -1574,7 +1573,6 @@ private fun VideoPlayerOverlayContent(
                         onlineCount = displayedOnlineCount,
                         viewportWidthDpOverride = viewportWidthDpOverride,
                         onBack = onBack,
-                        onHome = onHomeClick,
                         onSettings = { showVideoSettings = true },
                         onShare = onShare ?: {
                             openVideoShareSheet()
@@ -1601,6 +1599,7 @@ private fun VideoPlayerOverlayContent(
                     key(player, bvid, cid) {
                     BottomControlBar(
                     actionDockBoundsProvider = { topActionDockBounds.value },
+                    fullscreenToggleEndPaddingDp = overlayVisualPolicy.lockButtonEndPaddingDp,
                     viewportWidthDpOverride = viewportWidthDpOverride,
                     isPlaying = effectiveIsPlaying,
                     progressProvider = progressProvider,
@@ -2576,13 +2575,12 @@ private fun VideoPlayerOverlayContent(
 /**
  *  竖屏模式顶部控制栏
  *
- * 包含返回首页按钮、听视频/投屏与更多菜单；经典布局另有分享按钮
+ * 包含返回按钮、听视频/投屏与更多菜单；经典布局另有分享按钮
  */
 @Composable
 private fun PortraitTopBar(
     onlineCount: String = "",
     onBack: () -> Unit,
-    onHome: () -> Unit,
     onSettings: () -> Unit,
     onShare: () -> Unit,
     onAudioMode: () -> Unit,
@@ -2650,21 +2648,6 @@ private fun PortraitTopBar(
                         modifier = Modifier.size(layoutPolicy.iconSizeDp.dp)
                     )
                 }
-            }
-
-            PlayerControlGlassDock(enabled = true, shape = CircleShape) {
-                AppIconButton(
-                    onClick = onHome,
-                    modifier = Modifier.size(layoutPolicy.buttonSizeDp.dp)
-                ) {
-                    AppIcon(
-                        imageVector = Icons.Outlined.Home,
-                        contentDescription = "主界面",
-                        tint = Color.White,
-                        modifier = Modifier.size(layoutPolicy.iconSizeDp.dp)
-                    )
-                }
-
             }
 
             // 👀 在线人数
