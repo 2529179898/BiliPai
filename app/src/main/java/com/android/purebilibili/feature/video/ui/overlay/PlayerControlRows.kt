@@ -4,7 +4,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
@@ -32,7 +31,7 @@ import com.android.purebilibili.core.ui.components.AppIcon
 import com.android.purebilibili.core.ui.components.AppText
 import kotlin.math.roundToInt
 
-enum class PlayerControlAnchor { QUALITY, AUDIO, SPEED, EPISODES, RATIO, TRANSLATION, SUBTITLE, ENHANCEMENT, CHAPTERS }
+enum class PlayerControlAnchor { QUALITY, SPEED, EPISODES, RATIO, TRANSLATION, SUBTITLE, ENHANCEMENT, CHAPTERS }
 
 internal const val PILI_PLAYER_BOTTOM_ROW_HEIGHT_DP = 34
 internal const val PILI_PLAYER_BOTTOM_VERTICAL_PADDING_DP = 12
@@ -160,7 +159,6 @@ internal fun PlayerControlTextAction(
     selected: Boolean = false,
     fontSp: Int = 13,
     height: Dp = 30.dp,
-    trailingContent: @Composable (() -> Unit)? = null,
 ) {
     PlayerControlGlassDock(enabled = true, modifier = modifier, shape = RoundedCornerShape(8.dp)) {
         AppExactTouchTargets {
@@ -172,24 +170,15 @@ internal fun PlayerControlTextAction(
                     .padding(horizontal = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AppText(
-                        text = text,
-                        color = if (selected) MaterialTheme.colorScheme.primaryFixed else Color.White,
-                        fontSize = fontSp.sp,
-                        maxLines = 1,
-                        softWrap = false,
-                        tapToCopyEnabled = false,
-                    )
-                    if (trailingContent != null) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        trailingContent()
-                    }
-                }
+                AppText(
+                    text = text,
+                    color = Color.White,
+                    fontSize = fontSp.sp,
+                    maxLines = 1,
+                    softWrap = false,
+                    tapToCopyEnabled = false,
+                )
             }
         }
     }
 }
-
-/** 横竖屏共用的倍速读数，与倍速菜单同一格式来源。 */
-internal fun piliPlaybackSpeedLabel(speed: Float): String = "${speed}X"

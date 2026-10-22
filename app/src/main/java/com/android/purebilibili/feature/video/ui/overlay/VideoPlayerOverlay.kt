@@ -76,8 +76,6 @@ import com.android.purebilibili.feature.video.ui.components.AudioQualitySelectio
 import com.android.purebilibili.feature.video.ui.components.SpeedSelectionMenuDialog
 import com.android.purebilibili.feature.video.ui.components.SpeedSelectionMenuPlacement
 import com.android.purebilibili.feature.video.ui.components.PlayerListPopupPlacement
-import com.android.purebilibili.feature.video.ui.components.PlayerSelectionItem
-import com.android.purebilibili.feature.video.ui.components.PlayerSelectionPopup
 import com.android.purebilibili.feature.video.ui.components.DanmakuSettingsPanel
 import com.android.purebilibili.feature.video.ui.components.LandscapeDanmakuComposer
 import com.android.purebilibili.feature.video.ui.components.VideoAspectRatio
@@ -483,7 +481,11 @@ fun VideoPlayerOverlay(
     state: VideoPlayerOverlayState,
     actions: VideoPlayerOverlayActions,
 ) {
-    // 液态玻璃只更换按钮材质，布局、尺寸与菜单锚点由本文件统一提供。
+    // 液态玻璃保留独立控制栏与布局；关闭后沿用统一的原生控制栏及默认参数。
+    if (com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+        com.android.purebilibili.feature.video.ui.overlay.glass.VideoPlayerOverlay(state, actions)
+        return
+    }
     // Keep the non-inline backdrop slot small. Capturing this screen's locals
     // here exceeds DEX's 255 argument-register limit in synthetic constructors.
     PlayerControlsBackdropHost(
@@ -506,20 +508,6 @@ private fun VideoPlayerOverlayContent(
     val isVisible = state.isVisible
     val onToggleVisible = actions.onToggleVisible
     val isFullscreen = state.isFullscreen
-    val isPortraitFullscreen = state.isPortraitFullscreen
-    val videoOwnerMid = state.videoOwnerMid
-    val declarations = state.declarations
-    val staff = state.staff
-    val statView = state.statView
-    val statReply = state.statReply
-    val statShare = state.statShare
-    val statDanmaku = state.statDanmaku
-    val videoAspectRatio = state.videoAspectRatio
-    val onCommentClick = actions.onCommentClick
-    val onDetailClick = actions.onDetailClick
-    val onTitleClick = actions.onTitleClick
-    val onAuthorClick = actions.onAuthorClick
-    val onStaffMemberClick = actions.onStaffMemberClick
     val currentQualityLabel = state.currentQualityLabel
     val qualityLabels = state.qualityLabels
     val qualityIds = state.qualityIds
@@ -758,8 +746,6 @@ private fun VideoPlayerOverlayContent(
     var showQualityMenu by remember { mutableStateOf(false) }
     var showSpeedMenu by remember { mutableStateOf(false) }
     var showRatioMenu by remember { mutableStateOf(false) }
-    var showAudioQualityMenu by remember { mutableStateOf(false) }
-    var showSubtitleMenu by remember { mutableStateOf(false) }
     var showDanmakuSettings by remember { mutableStateOf(false) }
     var showVideoSettings by remember { mutableStateOf(false) }  //  新增
     var pendingVideoShare by remember { mutableStateOf<VideoSharePayload?>(null) }
@@ -804,8 +790,6 @@ private fun VideoPlayerOverlayContent(
         showQualityMenu = false
         showSpeedMenu = false
         showRatioMenu = false
-        showAudioQualityMenu = false
-        showSubtitleMenu = false
         showDanmakuSettings = false
         showChapterList = false
         showCastDialog = false
@@ -1286,7 +1270,7 @@ private fun VideoPlayerOverlayContent(
     }
 
     val playerMenuVisible = bottomControlFloatingPanelVisible || showQualityMenu ||
-        showSpeedMenu || showRatioMenu || showAudioQualityMenu || showSubtitleMenu || showEpisodeMenu ||
+        showSpeedMenu || showRatioMenu || showEpisodeMenu ||
         showChapterList || showDanmakuSettings || showVideoSettings || showCastDialog ||
         showSponsorSegments || showPlayerInformation || danmakuComposerVisible ||
         endDrawerVisible || landscapeCommentPanelVisible
@@ -1444,7 +1428,7 @@ private fun VideoPlayerOverlayContent(
             subtitleTools, isFullscreen,
             controlsVisible = isVisible && !isScreenLocked && !danmakuComposerVisible,
             bottomControlsHeightPx = subtitleChromeHeightPx,
-            isPortrait = isFullscreen && (isPortraitFullscreen || state.isVerticalVideo),
+            isPortrait = isFullscreen && state.isVerticalVideo,
         )
         if (showPlayerInformation) {
             PiliPlaybackInformationDialog(
@@ -1467,7 +1451,7 @@ private fun VideoPlayerOverlayContent(
 
         // --- 1. 顶部渐变遮罩 ---
         AnimatedVisibility(
-            visible = isVisible && !isPortraitFullscreen,
+            visible = isVisible,
             enter = fadeIn(OverlayChromeFadeSpec),
             exit = fadeOut(OverlayChromeFadeSpec),
             //  [修复] align 必须在 AnimatedVisibility 的 modifier 上，而不是内部 Box 上
@@ -1503,7 +1487,7 @@ private fun VideoPlayerOverlayContent(
 
         // --- 2. 底部渐变遮罩 ---
         AnimatedVisibility(
-            visible = isVisible && !isPortraitFullscreen,
+            visible = isVisible,
             enter = fadeIn(OverlayChromeFadeSpec),
             exit = fadeOut(OverlayChromeFadeSpec),
             modifier = Modifier
@@ -1527,8 +1511,7 @@ private fun VideoPlayerOverlayContent(
         }
 
         // 控件隐藏时保留底部细进度条，便于持续感知当前播放进度
-        if (!isPortraitFullscreen &&
-            !danmakuComposerVisible &&
+        if (!danmakuComposerVisible &&
             shouldShowPersistentBottomProgressBar(
                 controlsVisible = isVisible,
                 isFullscreen = isFullscreen,
@@ -1545,89 +1528,6 @@ private fun VideoPlayerOverlayContent(
 
         // --- 3. 控制栏内容 (锁定时隐藏) ---
         val showPlayerChrome = isVisible && !isScreenLocked && !danmakuComposerVisible
-        if (isPortraitFullscreen) {
-            PortraitFullscreenOverlay(
-                title = if (pages.size > 1) {
-                    pages.getOrNull(currentPageIndex)?.part?.ifBlank { title } ?: title
-                } else title,
-                declarations = declarations,
-                ugcSeason = ugcSeason,
-                currentBvid = bvid,
-                currentCid = cid,
-                authorName = videoOwnerName,
-                authorFace = videoOwnerFace,
-                staff = staff,
-                ownerMid = videoOwnerMid,
-                onStaffMemberClick = onStaffMemberClick,
-                isPlaying = effectiveIsPlaying,
-                progress = displayedProgressState.value,
-                statView = statView,
-                statLike = likeCount.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
-                statCoin = coinCount,
-                statDanmaku = statDanmaku,
-                statReply = statReply,
-                statFavorite = favoriteCount.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
-                statShare = statShare,
-                isLiked = isLiked,
-                likeStatusKnown = likeStatusKnown,
-                isCoined = isCoined,
-                isFavorited = isFavorited,
-                onLikeClick = onToggleLike,
-                onLikeLongClick = actions.onTripleAction,
-                onCoinClick = onCoin,
-                onFavoriteClick = onToggleFavorite,
-                onFavoriteLongClick = actions.onQuickFavorite,
-                onCommentClick = onCommentClick,
-                onShareClick = { onShare?.invoke() ?: openVideoShareSheet() },
-                isFollowing = isFollowed,
-                followStatusKnown = followStatusKnown,
-                onFollowClick = onToggleFollow,
-                onDetailClick = onDetailClick,
-                onTitleClick = onTitleClick,
-                onAuthorClick = onAuthorClick,
-                currentSpeed = currentSpeed,
-                currentQualityLabel = currentQualityLabel,
-                currentAudioQualityLabel = audioQualityPresentation.label,
-                isHiResAudioSelected = audioQualityPresentation.showHiResBadge,
-                isDolbyAudioSelected = audioQualityPresentation.showDolbyBadge,
-                currentRatio = currentAspectRatio,
-                danmakuEnabled = danmakuEnabled,
-                isStatusBarHidden = false,
-                showControls = showPlayerChrome,
-                videoshotData = videoshotData,
-                videoAspectRatio = videoAspectRatio,
-                isPlaybackRecovering = hasPendingSeekResume,
-                onBack = onBack,
-                onHomeClick = onHomeClick,
-                onPlayPause = { togglePlayPause() },
-                onSeek = commitSeek,
-                onSeekStart = onSeekStart,
-                seekPositionMs = seekPositionProvider(),
-                isSeekScrubbing = isSeekScrubbing,
-                onSeekDragStart = onSeekDragStart,
-                onSeekDragUpdate = onSeekDragUpdate,
-                onSeekDragCancel = onSeekDragCancel,
-                onSpeedClick = { showSpeedMenu = true },
-                onQualityClick = { showQualityMenu = true },
-                onAudioQualityClick = { showAudioQualityMenu = true },
-                onRatioClick = { showRatioMenu = true },
-                showSubtitleChip = subtitleControlState.trackAvailable,
-                subtitleEnabled = subtitleControlState.displayMode !=
-                    com.android.purebilibili.feature.video.subtitle.SubtitleDisplayMode.OFF,
-                onSubtitleClick = { showSubtitleMenu = true },
-                onDanmakuToggle = onDanmakuToggle,
-                onDanmakuInputClick = onDanmakuInputClick,
-                onToggleStatusBar = {},
-                onActionBoundsChanged = { action, bounds -> actionAnchorBounds[action] = bounds },
-                onMoreClick = { showVideoSettings = true },
-                onBottomControlsSizeChanged = { height ->
-                    subtitleChromeHeightPx = height
-                    onBottomControlsSizeChanged(height)
-                },
-                playbackReady = hasRenderedFirstFrame,
-            )
-        }
-        if (!isPortraitFullscreen) {
         AnimatedVisibility(
             visible = showPlayerChrome,
             enter = fadeIn(OverlayChromeFadeSpec),
@@ -1750,9 +1650,6 @@ private fun VideoPlayerOverlayContent(
                             onAnime4kPresetChange = onAnime4kPresetChange,
                             currentQualityLabel = currentQualityLabel,
                             onQualityClick = { showQualityMenu = true },
-                            currentAudioQualityLabel = audioQualityPresentation.label
-                                .takeIf { availableAudioQualities.size > 1 }.orEmpty(),
-                            onAudioQualityClick = { showAudioQualityMenu = true },
                             videoshotData = videoshotData,
                             viewPoints = viewPoints,
                             sponsorMarkers = sponsorMarkers,
@@ -1767,7 +1664,6 @@ private fun VideoPlayerOverlayContent(
                     }
                 }
             }
-        }
         }
 
         if (danmakuComposerVisible) {
@@ -1794,10 +1690,8 @@ private fun VideoPlayerOverlayContent(
                 exit = fadeOut(OverlayControlFadeSpec),
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .padding(start = resolveSymmetricPlayerSideInset(
-                        insets = WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
-                        minimum = 4.dp,
-                    ))
+                    .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Start))
+                    .padding(start = 4.dp)
             ) {
                 FullscreenLockButton(
                     visualState = fullscreenLockButtonState,
@@ -1808,17 +1702,15 @@ private fun VideoPlayerOverlayContent(
             }
         }
 
-        if (isFullscreen && showFullscreenScreenshotButton && !isPortraitFullscreen) {
+        if (isFullscreen && showFullscreenScreenshotButton) {
             AnimatedVisibility(
                 visible = isVisible && !isScreenLocked && !danmakuComposerVisible,
                 enter = fadeIn(OverlayControlFadeSpec),
                 exit = fadeOut(OverlayControlFadeSpec),
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = resolveSymmetricPlayerSideInset(
-                        insets = WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
-                        minimum = 4.dp,
-                    ))
+                    .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.End))
+                    .padding(end = 4.dp)
             ) {
                 NativePlayerSideButton(
                     icon = Icons.Outlined.Camera,
@@ -2154,62 +2046,6 @@ private fun VideoPlayerOverlayContent(
                 placement = PlayerListPopupPlacement.ANCHOR_END,
                 anchorBounds = actionAnchorBounds[PlayerControlAnchor.RATIO],
             )
-        }
-
-        // --- 7.6 音质菜单：竖屏底栏音质入口 ---
-        if (showAudioQualityMenu) {
-            AudioQualitySelectionMenuDialog(
-                options = availableAudioQualities,
-                requestedAudioQuality = currentAudioQuality,
-                selectedAudioQuality = selectedAudioQuality,
-                onAudioQualitySelected = { preference ->
-                    onAudioQualityChange(preference)
-                    showAudioQualityMenu = false
-                },
-                onDismiss = { showAudioQualityMenu = false },
-                placement = PlayerListPopupPlacement.ANCHOR_END,
-                anchorBounds = actionAnchorBounds[PlayerControlAnchor.AUDIO],
-            )
-        }
-
-        // --- 7.7 字幕选择：竖屏底栏字幕入口 ---
-        if (showSubtitleMenu) {
-            PlayerSelectionPopup(
-                title = "字幕选择",
-                showTitle = true,
-                onDismissRequest = { showSubtitleMenu = false },
-                placement = PlayerListPopupPlacement.ANCHOR_END,
-                anchorBounds = actionAnchorBounds[PlayerControlAnchor.SUBTITLE],
-            ) {
-                val subtitleOff = subtitleControlState.displayMode ==
-                    com.android.purebilibili.feature.video.subtitle.SubtitleDisplayMode.OFF
-                PlayerSelectionItem(
-                    text = "关闭字幕",
-                    onClick = {
-                        subtitleControlCallbacks.onDisplayModeChange(
-                            com.android.purebilibili.feature.video.subtitle.SubtitleDisplayMode.OFF
-                        )
-                        showSubtitleMenu = false
-                    },
-                    selected = subtitleOff,
-                    enabled = !subtitleOff,
-                )
-                subtitleControlState.trackOptions.forEach { option ->
-                    PlayerSelectionItem(
-                        text = option.label,
-                        summary = if (option.likelyAi) "AI" else null,
-                        onClick = {
-                            subtitleControlCallbacks.onTrackSelected(option.trackKey)
-                            subtitleControlCallbacks.onDisplayModeChange(
-                                com.android.purebilibili.feature.video.subtitle.SubtitleDisplayMode.PRIMARY_ONLY
-                            )
-                            showSubtitleMenu = false
-                        },
-                        selected = !subtitleOff && option.selected,
-                        enabled = subtitleOff || !option.selected,
-                    )
-                }
-            }
         }
 
         // --- 8.  [新增] 弹幕设置面板 ---

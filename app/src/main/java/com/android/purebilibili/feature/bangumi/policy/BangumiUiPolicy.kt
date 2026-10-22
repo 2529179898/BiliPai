@@ -100,34 +100,6 @@ internal fun resolveBangumiToggleOrientationTarget(
     }
 }
 
-/**
- * Fullscreen follows either landscape side independently of auto-entry/exit.
- * Upright portrait may exit only with auto-rotation enabled; upside-down portrait
- * is the midpoint of a landscape flip and must not exit fullscreen.
- */
-internal fun resolveBangumiSensorOrientationTarget(
-    orientationDegrees: Int,
-    sensorAutoRotateEnabled: Boolean,
-    isFullscreen: Boolean,
-    isLandscape: Boolean,
-    isTablet: Boolean,
-    usesInWindowFullscreen: Boolean,
-    isPlayerScreenLocked: Boolean,
-    isInPipMode: Boolean,
-    currentRequestedOrientation: Int,
-): Int? {
-    if (isTablet || usesInWindowFullscreen || isPlayerScreenLocked || isInPipMode) return null
-    if (!sensorAutoRotateEnabled && !isFullscreen) return null
-    val target = when (orientationDegrees) {
-        in 46..134 -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
-        in 225..314 -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        in 0..45, in 315..359 -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            .takeIf { sensorAutoRotateEnabled && isLandscape }
-        else -> null
-    }
-    return target?.takeIf { it != currentRequestedOrientation }
-}
-
 internal data class BangumiEpisodePreviewWindow(
     val startIndex: Int,
     val endExclusive: Int

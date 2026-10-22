@@ -61,6 +61,7 @@ internal fun VideoDetailPortraitOverlayAdapter(
     onPlaybackIdentityChange: (String, Long, String) -> Unit,
     onProgressUpdate: (String, Long, Long, String) -> Unit,
     onExitSnapshot: (String, Long, Long, String) -> Unit,
+    onSearchClick: () -> Unit,
     onUserClick: (Long) -> Unit,
     onRotateToLandscape: () -> Unit,
 ) {
@@ -177,6 +178,7 @@ internal fun VideoDetailPortraitOverlayAdapter(
                 initialStartPositionMs = initialStartPositionMs,
                 onProgressUpdate = onProgressUpdate,
                 onExitSnapshot = onExitSnapshot,
+                onSearchClick = onSearchClick,
                 onUserClick = onUserClick,
                 onRotateToLandscape = onRotateToLandscape,
             )

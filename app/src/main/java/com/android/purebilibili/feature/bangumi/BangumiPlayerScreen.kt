@@ -176,9 +176,6 @@ fun BangumiPlayerScreen(
     }
     val usesInWindowFullscreen = playerWindowOrientationPolicy.usesInWindowFullscreen
     var userRequestedFullscreen by rememberSaveable(seasonId) { mutableStateOf(false) }
-    var currentLandscapeOrientation by rememberSaveable(seasonId) {
-        mutableStateOf(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
-    }
     val playerPresentation = remember(
         displayContext,
         isLandscape,
@@ -207,7 +204,6 @@ fun BangumiPlayerScreen(
     val isFullscreen = playerPresentation.isFullscreen || isInPipMode
     var isPlayerScreenLocked by rememberSaveable(seasonId) { mutableStateOf(false) }
     val latestIsLandscape by rememberUpdatedState(isLandscape)
-    val latestIsFullscreen by rememberUpdatedState(isFullscreen || userRequestedFullscreen)
     val statusBarsInsetTop = WindowInsets.statusBars
         .asPaddingValues()
         .calculateTopPadding()
@@ -648,8 +644,8 @@ fun BangumiPlayerScreen(
         val activity = context.findActivity() ?: return
         userRequestedFullscreen = !isFullscreen
         activity.applyPlayerRequestedOrientation(
-            requestedOrientation = if (target == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE) {
-                currentLandscapeOrientation
+            requestedOrientation = if (!sensorAutoRotateEnabled && target == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE) {
+                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             } else target,
             displayContext = displayContext,
         )
@@ -715,17 +711,14 @@ fun BangumiPlayerScreen(
         }
     }
 
-    // 自动旋转关闭时只固定横竖屏模式；横屏内仍按重力选择左右方向。
-    LaunchedEffect(hostActivity, sensorAutoRotateEnabled, isTablet, usesInWindowFullscreen, userRequestedFullscreen, currentLandscapeOrientation, isPlayerScreenLocked, isInPipMode) {
+    // 关闭自动旋转时固定在用户选择的模式，避免系统方向设置绕过应用开关。
+    LaunchedEffect(hostActivity, sensorAutoRotateEnabled, isTablet, usesInWindowFullscreen, userRequestedFullscreen, isPlayerScreenLocked, isInPipMode) {
         if (!isInPipMode && !sensorAutoRotateEnabled && !isTablet && !usesInWindowFullscreen && !isPlayerScreenLocked) {
-            val target = if (userRequestedFullscreen) currentLandscapeOrientation
-                else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            if (hostActivity?.requestedOrientation != target) {
-                hostActivity?.applyPlayerRequestedOrientation(
-                    requestedOrientation = target,
-                    displayContext = displayContext,
-                )
-            }
+            hostActivity?.applyPlayerRequestedOrientation(
+                requestedOrientation = if (userRequestedFullscreen) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+                displayContext = displayContext,
+            )
         }
     }
 
@@ -737,42 +730,50 @@ fun BangumiPlayerScreen(
         usesInWindowFullscreen,
         isPlayerScreenLocked,
         sensorAutoRotateEnabled,
-        isFullscreen,
         isInPipMode,
     ) {
-        if (isInPipMode || isPlayerScreenLocked || isTablet || usesInWindowFullscreen ||
-            (!sensorAutoRotateEnabled && !isFullscreen)
-        ) {
-            return@DisposableEffect onDispose {}
-        }
+        if (isInPipMode || !sensorAutoRotateEnabled || isPlayerScreenLocked) return@DisposableEffect onDispose {}
         val activity = context.findActivity()
         var lastPortraitAppliedAtMs = 0L
         val orientationEventListener = object : android.view.OrientationEventListener(context) {
+            private var lastOrientation = -1
+
             override fun onOrientationChanged(orientation: Int) {
-                val act = activity ?: return
-                val target = resolveBangumiSensorOrientationTarget(
-                    orientationDegrees = orientation,
-                    sensorAutoRotateEnabled = sensorAutoRotateEnabled,
-                    isFullscreen = latestIsFullscreen,
-                    isLandscape = latestIsLandscape,
-                    isTablet = isTablet,
-                    usesInWindowFullscreen = usesInWindowFullscreen,
-                    isPlayerScreenLocked = isPlayerScreenLocked,
-                    isInPipMode = isInPipMode,
-                    currentRequestedOrientation = act.requestedOrientation,
-                ) ?: return
-                if (target == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) {
-                    val now = android.os.SystemClock.elapsedRealtime()
-                    if (now - lastPortraitAppliedAtMs < 700L) return
-                    lastPortraitAppliedAtMs = now
-                    userRequestedFullscreen = false
-                } else {
-                    currentLandscapeOrientation = target
+                if (orientation == ORIENTATION_UNKNOWN) return
+
+                val newOrientation = when (orientation) {
+                    in 315..360, in 0..45 -> 0   // Portrait
+                    in 46..134 -> 270           // Landscape (reverse)
+                    in 135..224 -> 180          // Portrait (upside down)
+                    in 225..314 -> 90           // Landscape
+                    else -> lastOrientation
                 }
-                act.applyPlayerRequestedOrientation(
-                    requestedOrientation = target,
-                    displayContext = displayContext,
-                )
+
+                if (newOrientation != lastOrientation && lastOrientation != -1) {
+                    val isDeviceLandscape = newOrientation == 90 || newOrientation == 270
+                    // 横屏时 180° 是翻转到另一侧的中点，不能当成竖屏，否则会先识别再转回去。
+                    val isUprightPortrait = newOrientation == 0
+
+                    activity?.let { act ->
+                        val now = android.os.SystemClock.elapsedRealtime()
+                        if (latestIsLandscape && isUprightPortrait) {
+                            if (now - lastPortraitAppliedAtMs >= 700L) {
+                                lastPortraitAppliedAtMs = now
+                                userRequestedFullscreen = false
+                                act.applyPlayerRequestedOrientation(
+                                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+                                    displayContext = displayContext,
+                                )
+                            }
+                        } else if (!latestIsLandscape && isDeviceLandscape) {
+                            act.applyPlayerRequestedOrientation(
+                                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
+                                displayContext = displayContext,
+                            )
+                        }
+                    }
+                }
+                lastOrientation = newOrientation
             }
         }
 

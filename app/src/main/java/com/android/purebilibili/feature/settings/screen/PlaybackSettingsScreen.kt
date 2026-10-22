@@ -2595,7 +2595,7 @@ SettingsItemAnchor("playback.fullscreen_swipe_seek_seconds") {
             "跟随设备方向旋转播放页，并保留平板/展开态折叠屏分栏布局"
         } else {
             "跟随设备方向自动进入/退出全屏，不受系统旋转锁影响"
-        } + "；关闭后横屏全屏仍随重力切换左右方向，播放器锁屏时保持方向"
+        }
         val horizontalAdaptationSubtitle = if (isLargeScreenDevice) {
             "横屏时使用大屏布局，适合平板和折叠屏"
         } else {

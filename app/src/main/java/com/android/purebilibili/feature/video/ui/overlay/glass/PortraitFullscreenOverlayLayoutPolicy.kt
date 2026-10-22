@@ -1,4 +1,6 @@
-package com.android.purebilibili.feature.video.ui.overlay
+package com.android.purebilibili.feature.video.ui.overlay.glass
+
+import com.android.purebilibili.feature.video.ui.overlay.*
 
 data class PortraitFullscreenOverlayLayoutPolicy(
     val compactMode: Boolean,

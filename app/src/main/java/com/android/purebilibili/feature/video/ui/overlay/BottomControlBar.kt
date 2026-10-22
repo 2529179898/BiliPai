@@ -2,7 +2,6 @@ package com.android.purebilibili.feature.video.ui.overlay
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.automirrored.filled.ViewList
@@ -162,9 +161,8 @@ internal fun resolveSubtitlePanelTrackOptions(trackOptions: List<SubtitleTrackOp
     trackOptions.filter { it.trackKey.isNotBlank() && it.label.isNotBlank() }.distinctBy { it.trackKey }
 
 /**
- * 播放器底栏，四种模式共用同一套布局。可选条目由内容能力决定，不由材质决定；
- * 只有画面比例与画质保留“全屏或宽度达到 500dp”的可见性门槛。
- * 一个控件簇共用一块材质；玻璃开关只换材质，不换几何。
+ * PiliPlus' single bottom layout in all four modes. Optional entries follow content capabilities,
+ * not material. Only ratio/quality have the reference fullscreen-or-500dp visibility gate.
  */
 @Composable
 fun BottomControlBar(
@@ -183,8 +181,6 @@ fun BottomControlBar(
     onSpeedClick: () -> Unit = {},
     onRatioClick: () -> Unit = {},
     onQualityClick: () -> Unit = {},
-    currentAudioQualityLabel: String = "",
-    onAudioQualityClick: () -> Unit = {},
     hasEpisodeEntry: Boolean = false,
     onEpisodeClick: () -> Unit = {},
     onPreviousEpisodeClick: () -> Unit = {},
@@ -250,163 +246,143 @@ fun BottomControlBar(
     val density = LocalDensity.current
     // Reference player chrome uses fixed 13sp labels; menus still respect system font scaling.
     CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 1f)) {
-        // 进度行与操作行共用同一块底板；关闭液态玻璃时不额外绘制任何壳。
-        PlayerControlGlassGroup(modifier = modifier, shape = RoundedCornerShape(16.dp)) {
-            Column(
-                modifier = Modifier.fillMaxWidth()
-                    .semantics { testTagsAsResourceId = true }
-                    .padding(vertical = PILI_PLAYER_BOTTOM_VERTICAL_PADDING_DP.dp),
-            ) {
-                val symmetricSeekInset = resolveSymmetricPlayerSideInset(
-                    insets = WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)
-                        .union(WindowInsets.systemGestures.only(WindowInsetsSides.Horizontal)),
-                    minimum = 20.dp,
+        Column(
+            modifier = modifier.fillMaxWidth()
+                .semantics { testTagsAsResourceId = true }
+                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+                .padding(vertical = PILI_PLAYER_BOTTOM_VERTICAL_PADDING_DP.dp),
+        ) {
+            val seekInsets = WindowInsets.systemGestures.only(WindowInsetsSides.Horizontal).union(
+                WindowInsets(left = 20.dp, right = 20.dp),
+            )
+            val hasSegments = showViewPoints && viewPoints.isNotEmpty()
+            Box(Modifier.windowInsetsPadding(seekInsets).padding(bottom = PILI_PLAYER_PROGRESS_GAP_DP.dp)
+                .height((if (hasSegments) PILI_PLAYER_CHAPTER_PROGRESS_HEIGHT_DP else PILI_PLAYER_PROGRESS_HEIGHT_DP).dp)) {
+                PlayerControlProgressBar(
+                    progressProvider = progressProvider,
+                    displayPositionProvider = displayPosition,
+                    isSeekScrubbing = isSeekScrubbing,
+                    layoutPolicy = progressLayout,
+                    seekAreaHeight = PILI_PLAYER_PROGRESS_HEIGHT_DP.dp,
+                    onSeek = onSeek,
+                    onSeekStart = onSeekStart,
+                    onSeekDragStart = onSeekDragStart,
+                    onSeekDragUpdate = onSeekDragUpdate,
+                    onSeekDragCancel = onSeekDragCancel,
+                    videoshotData = videoshotData,
+                    viewPoints = if (showViewPoints) viewPoints else emptyList(),
+                    sponsorMarkers = sponsorMarkers,
+                    pbpRidgeSamples = if (heatmapEnabled) pbpRidgeSamples else emptyList(),
+                    currentChapterProvider = { null },
+                    onChapterClick = onChapterClick,
+                    modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter).testTag("player_progress"),
                 )
-                val hasSegments = showViewPoints && viewPoints.isNotEmpty()
-                Box(Modifier.padding(horizontal = symmetricSeekInset).padding(bottom = PILI_PLAYER_PROGRESS_GAP_DP.dp)
-                    .height((if (hasSegments) PILI_PLAYER_CHAPTER_PROGRESS_HEIGHT_DP else PILI_PLAYER_PROGRESS_HEIGHT_DP).dp)) {
-                    PlayerControlProgressBar(
-                        progressProvider = progressProvider,
-                        displayPositionProvider = displayPosition,
-                        isSeekScrubbing = isSeekScrubbing,
-                        layoutPolicy = progressLayout,
-                        seekAreaHeight = PILI_PLAYER_PROGRESS_HEIGHT_DP.dp,
-                        onSeek = onSeek,
-                        onSeekStart = onSeekStart,
-                        onSeekDragStart = onSeekDragStart,
-                        onSeekDragUpdate = onSeekDragUpdate,
-                        onSeekDragCancel = onSeekDragCancel,
-                        videoshotData = videoshotData,
-                        viewPoints = if (showViewPoints) viewPoints else emptyList(),
-                        sponsorMarkers = sponsorMarkers,
-                        pbpRidgeSamples = if (heatmapEnabled) pbpRidgeSamples else emptyList(),
-                        currentChapterProvider = { null },
-                        onChapterClick = onChapterClick,
-                        modifier = Modifier.align(androidx.compose.ui.Alignment.BottomCenter).testTag("player_progress"),
-                    )
-                    PlayerControlViewPointSegments(
-                        progressProvider = progressProvider,
-                        viewPoints = if (showViewPoints) viewPoints else emptyList(),
-                        onSeek = onSeek,
-                        spacing = 0.dp,
-                        interactive = false,
-                        modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter).height(PILI_PLAYER_PROGRESS_HEIGHT_DP.dp).testTag("player_viewpoint_segments"),
-                    )
-                }
-                // Mirror the larger edge inset so the control row stays centered instead of
-                // drifting away from a one-sided landscape cutout.
-                val symmetricControlInset = resolveSymmetricPlayerSideInset(
-                    insets = WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
-                    minimum = 10.dp,
-                )
-                PiliPlayerBar(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(horizontal = symmetricControlInset)
-                        .height(PILI_PLAYER_BOTTOM_ROW_HEIGHT_DP.dp)
-                        .testTag("player_control_row"),
-                    left = {
-                        PlayerPlayPauseButton(isPlaying, onPlayPauseClick)
-                        ProgressTimeText(
-                            positionProvider = displayPosition,
-                            durationProvider = { progressProvider().duration },
-                            modifier = Modifier.padding(horizontal = 8.dp).testTag("player_time_viewport"),
-                        )
-                        if (hasEpisodeEntry) {
-                            PlayerControlIconAction(
-                                icon = Icons.Filled.SkipPrevious, description = "上一集",
-                                width = slotWidth, height = 30.dp, onClick = onPreviousEpisodeClick,
-                                modifier = Modifier.testTag("player_previous_episode"),
-                            )
-                            PlayerControlIconAction(
-                                icon = Icons.Filled.SkipNext, description = "下一集",
-                                width = slotWidth, height = 30.dp, onClick = onNextEpisodeClick,
-                                modifier = Modifier.testTag("player_next_episode"),
-                            )
-                        }
-                    },
-                    right = {
-                        if (pbpRidgeSamples.isNotEmpty()) {
-                            PlayerControlIconAction(
-                                icon = Icons.Filled.ShowChart, description = "高能进度条",
-                                width = slotWidth, height = 30.dp, onClick = onHeatmapToggle,
-                                selected = heatmapEnabled, dimmed = !heatmapEnabled,
-                                modifier = Modifier.testTag("player_heatmap_action"),
-                            )
-                        }
-                        if (anime4kAvailable) {
-                            PlayerControlTextAction(
-                                text = if (!anime4kEnabled) "禁用" else if (anime4kPreset == Anime4KPreset.FAST) "效率" else "画质",
-                                description = "超分辨率",
-                                modifier = anchor(PlayerControlAnchor.ENHANCEMENT, "player_enhancement_action"),
-                                onClick = { localMenu = PlayerControlAnchor.ENHANCEMENT },
-                            )
-                        }
-                        if (viewPoints.isNotEmpty()) {
-                            PlayerControlIconAction(
-                                icon = Icons.AutoMirrored.Filled.ViewList, description = "分段信息",
-                                width = slotWidth, height = 30.dp, onClick = onChapterClick,
-                                onLongClick = onViewPointsToggle,
-                                dimmed = !showViewPoints, selected = showViewPoints,
-                                modifier = anchor(PlayerControlAnchor.CHAPTERS, "player_chapter_action"),
-                            )
-                        }
-                        if (hasEpisodeEntry) {
-                            PlayerControlIconAction(
-                                icon = Icons.AutoMirrored.Filled.PlaylistPlay, description = "选集",
-                                width = slotWidth, height = 30.dp, onClick = onEpisodeClick,
-                                modifier = anchor(PlayerControlAnchor.EPISODES, "player_episode_action"),
-                            )
-                        }
-                        if (showExtendedOptions) {
-                            PlayerControlTextAction(
-                                text = currentRatio.displayName, description = "画面比例", onClick = onRatioClick,
-                                modifier = anchor(PlayerControlAnchor.RATIO, "player_ratio_action"),
-                            )
-                        }
-                        if (!aiAudioInfo?.items.isNullOrEmpty()) {
-                            PlayerControlIconAction(
-                                icon = Icons.Filled.Translate, description = "翻译",
-                                width = slotWidth, height = 30.dp, iconSize = 18.dp,
-                                onClick = { localMenu = PlayerControlAnchor.TRANSLATION },
-                                modifier = anchor(PlayerControlAnchor.TRANSLATION, "player_translation_action"),
-                            )
-                        }
-                        if (subtitleControlState.trackAvailable) {
-                            PlayerControlIconAction(
-                                icon = if (subtitleControlState.enabled) Icons.Filled.ClosedCaption else Icons.Outlined.ClosedCaptionOff,
-                                description = "字幕", width = slotWidth, height = 30.dp,
-                                selected = subtitleControlState.enabled,
-                                onClick = { localMenu = PlayerControlAnchor.SUBTITLE },
-                                modifier = anchor(PlayerControlAnchor.SUBTITLE, "player_subtitle_action"),
-                            )
-                        }
-                        PlayerControlTextAction(
-                            text = piliPlaybackSpeedLabel(currentSpeed), description = "倍速",
-                            selected = currentSpeed != 1f, onClick = onSpeedClick,
-                            modifier = anchor(PlayerControlAnchor.SPEED, "player_speed_action"),
-                        )
-                        if (showExtendedOptions && currentQualityLabel.isNotEmpty()) {
-                            PlayerControlTextAction(
-                                text = currentQualityLabel, description = "画质", onClick = onQualityClick,
-                                modifier = anchor(PlayerControlAnchor.QUALITY, "player_quality_action"),
-                            )
-                        }
-                        if (showExtendedOptions && currentAudioQualityLabel.isNotEmpty()) {
-                            PlayerControlTextAction(
-                                text = currentAudioQualityLabel, description = "音质",
-                                onClick = onAudioQualityClick,
-                                modifier = anchor(PlayerControlAnchor.AUDIO, "player_audio_action"),
-                            )
-                        }
-                        PlayerControlIconAction(
-                            icon = if (isFullscreen) Icons.Outlined.FullscreenExit else Icons.Outlined.Fullscreen,
-                            description = if (isFullscreen) "退出全屏" else "全屏",
-                            width = slotWidth, height = 30.dp, iconSize = 24.dp,
-                            onClick = onToggleFullscreen, modifier = Modifier.testTag("player_fullscreen_toggle"),
-                        )
-                    },
+                PlayerControlViewPointSegments(
+                    progressProvider = progressProvider,
+                    viewPoints = if (showViewPoints) viewPoints else emptyList(),
+                    onSeek = onSeek,
+                    spacing = 0.dp,
+                    interactive = false,
+                    modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter).height(PILI_PLAYER_PROGRESS_HEIGHT_DP.dp).testTag("player_viewpoint_segments"),
                 )
             }
+            PiliPlayerBar(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(PILI_PLAYER_BOTTOM_ROW_HEIGHT_DP.dp)
+                    .testTag("player_control_row"),
+                left = {
+                    PlayerPlayPauseButton(isPlaying, onPlayPauseClick)
+                    ProgressTimeText(
+                        positionProvider = displayPosition,
+                        durationProvider = { progressProvider().duration },
+                        modifier = Modifier.padding(horizontal = 8.dp).testTag("player_time_viewport"),
+                    )
+                    if (hasEpisodeEntry) {
+                        PlayerControlIconAction(
+                            icon = Icons.Filled.SkipPrevious, description = "上一集",
+                            width = slotWidth, height = 30.dp, onClick = onPreviousEpisodeClick,
+                            modifier = Modifier.testTag("player_previous_episode"),
+                        )
+                        PlayerControlIconAction(
+                            icon = Icons.Filled.SkipNext, description = "下一集",
+                            width = slotWidth, height = 30.dp, onClick = onNextEpisodeClick,
+                            modifier = Modifier.testTag("player_next_episode"),
+                        )
+                    }
+                },
+                right = {
+                    if (pbpRidgeSamples.isNotEmpty()) {
+                        PlayerControlIconAction(
+                            icon = Icons.Filled.ShowChart, description = "高能进度条",
+                            width = slotWidth, height = 30.dp, onClick = onHeatmapToggle,
+                            selected = heatmapEnabled, dimmed = !heatmapEnabled,
+                            modifier = Modifier.testTag("player_heatmap_action"),
+                        )
+                    }
+                    if (anime4kAvailable) {
+                        PlayerControlTextAction(
+                            text = if (!anime4kEnabled) "禁用" else if (anime4kPreset == Anime4KPreset.FAST) "效率" else "画质",
+                            description = "超分辨率",
+                            modifier = anchor(PlayerControlAnchor.ENHANCEMENT, "player_enhancement_action"),
+                            onClick = { localMenu = PlayerControlAnchor.ENHANCEMENT },
+                        )
+                    }
+                    if (viewPoints.isNotEmpty()) {
+                        PlayerControlIconAction(
+                            icon = Icons.AutoMirrored.Filled.ViewList, description = "分段信息",
+                            width = slotWidth, height = 30.dp, onClick = onChapterClick,
+                            onLongClick = onViewPointsToggle,
+                            dimmed = !showViewPoints, selected = showViewPoints,
+                            modifier = anchor(PlayerControlAnchor.CHAPTERS, "player_chapter_action"),
+                        )
+                    }
+                    if (hasEpisodeEntry) {
+                        PlayerControlIconAction(
+                            icon = Icons.AutoMirrored.Filled.PlaylistPlay, description = "选集",
+                            width = slotWidth, height = 30.dp, onClick = onEpisodeClick,
+                            modifier = anchor(PlayerControlAnchor.EPISODES, "player_episode_action"),
+                        )
+                    }
+                    if (showExtendedOptions) {
+                        PlayerControlTextAction(
+                            text = currentRatio.displayName, description = "画面比例", onClick = onRatioClick,
+                            modifier = anchor(PlayerControlAnchor.RATIO, "player_ratio_action"),
+                        )
+                    }
+                    if (!aiAudioInfo?.items.isNullOrEmpty()) {
+                        PlayerControlIconAction(
+                            icon = Icons.Filled.Translate, description = "翻译",
+                            width = slotWidth, height = 30.dp, iconSize = 18.dp,
+                            onClick = { localMenu = PlayerControlAnchor.TRANSLATION },
+                            modifier = anchor(PlayerControlAnchor.TRANSLATION, "player_translation_action"),
+                        )
+                    }
+                    if (subtitleControlState.trackAvailable) {
+                        PlayerControlIconAction(
+                            icon = if (subtitleControlState.enabled) Icons.Filled.ClosedCaption else Icons.Outlined.ClosedCaptionOff,
+                            description = "字幕", width = slotWidth, height = 30.dp,
+                            selected = subtitleControlState.enabled,
+                            onClick = { localMenu = PlayerControlAnchor.SUBTITLE },
+                            modifier = anchor(PlayerControlAnchor.SUBTITLE, "player_subtitle_action"),
+                        )
+                    }
+                    PlayerControlTextAction(
+                        text = "${currentSpeed}X", description = "倍速", onClick = onSpeedClick,
+                        modifier = anchor(PlayerControlAnchor.SPEED, "player_speed_action"),
+                    )
+                    if (showExtendedOptions && currentQualityLabel.isNotEmpty()) {
+                        PlayerControlTextAction(
+                            text = currentQualityLabel, description = "画质", onClick = onQualityClick,
+                            modifier = anchor(PlayerControlAnchor.QUALITY, "player_quality_action"),
+                        )
+                    }
+                    PlayerControlIconAction(
+                        icon = if (isFullscreen) Icons.Outlined.FullscreenExit else Icons.Outlined.Fullscreen,
+                        description = if (isFullscreen) "退出全屏" else "全屏",
+                        width = slotWidth, height = 30.dp, iconSize = 24.dp,
+                        onClick = onToggleFullscreen, modifier = Modifier.testTag("player_fullscreen_toggle"),
+                    )
+                },
+            )
         }
     }
     localMenu?.let { menu ->

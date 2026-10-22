@@ -43,6 +43,7 @@ fun StoryScreen(
     onBack: () -> Unit,
     onVideoClick: (String, Long, String) -> Unit = { _, _, _ -> },
     onUserClick: (Long) -> Unit = {},
+    onSearchClick: () -> Unit = {},
     onRotateToLandscape: () -> Unit = {}
 ) {
     @Suppress("UNUSED_PARAMETER")
@@ -152,6 +153,7 @@ fun StoryScreen(
                             coverUrl = coverUrl,
                         )
                     },
+                    onSearchClick = onSearchClick,
                     onUserClick = onUserClick,
                     onRotateToLandscape = {
                         val snapshot = latestExitSnapshot

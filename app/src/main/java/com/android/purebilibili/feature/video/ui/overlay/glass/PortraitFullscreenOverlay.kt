@@ -1,4 +1,6 @@
-package com.android.purebilibili.feature.video.ui.overlay
+package com.android.purebilibili.feature.video.ui.overlay.glass
+
+import com.android.purebilibili.feature.video.ui.overlay.*
 
 import com.android.purebilibili.core.ui.components.rememberFollowActionWithConfirmation
 import com.android.purebilibili.core.ui.MediaContrastPalette
@@ -30,13 +32,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -46,10 +46,11 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.MoreVert
 import com.android.purebilibili.feature.video.ui.components.PlaybackSpeed
-import com.android.purebilibili.feature.video.ui.components.DolbyBadge
-import com.android.purebilibili.feature.video.ui.components.HiResBadge
+import com.android.purebilibili.feature.video.ui.components.glass.DolbyBadge
+import com.android.purebilibili.feature.video.ui.components.glass.HiResBadge
 import com.android.purebilibili.feature.video.ui.feedback.followActionAnchor
 import com.android.purebilibili.feature.video.ui.components.VideoAspectRatio
 
@@ -70,7 +71,7 @@ internal fun shouldShowPortraitViewCount(viewCount: Int, compactMode: Boolean): 
     return viewCount > 0 && !compactMode
 }
 
-internal fun shouldShowPortraitTopMoreAction(): Boolean = true
+internal fun shouldShowPortraitTopMoreAction(): Boolean = false
 
 internal fun resolvePortraitProgressTimeLabel(
     positionMs: Long,
@@ -174,9 +175,9 @@ fun PortraitFullscreenOverlay(
     onDanmakuToggle: () -> Unit,
     onDanmakuInputClick: () -> Unit,
     onToggleStatusBar: () -> Unit,
+    onRotateToLandscape: () -> Unit,
+    onSearchClick: () -> Unit = {},
     onMoreClick: () -> Unit = {},
-    onBottomControlsSizeChanged: (Int) -> Unit = {},
-    onActionBoundsChanged: (PlayerControlAnchor, IntRect) -> Unit = { _, _ -> },
 
     playbackReady: Boolean = true,
     modifier: Modifier = Modifier
@@ -233,6 +234,7 @@ fun PortraitFullscreenOverlay(
                     onBack = onBack,
                     onHomeClick = onHomeClick,
                     viewCount = statView,
+                    onSearchClick = onSearchClick,
                     onMoreClick = onMoreClick,
                     modifier = Modifier.graphicsLayer {
                         alpha = commentOverlayAlpha
@@ -273,7 +275,6 @@ fun PortraitFullscreenOverlay(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .fillMaxWidth()
-                        .onSizeChanged { onBottomControlsSizeChanged(it.height) }
                         .graphicsLayer {
                             alpha = commentOverlayAlpha
                             translationY = commentOverlayOffsetPx
@@ -334,7 +335,6 @@ fun PortraitFullscreenOverlay(
                         onAudioQualityClick = onAudioQualityClick,
                         onRatioClick = onRatioClick,
                         onSubtitleClick = onSubtitleClick,
-                        onActionBoundsChanged = onActionBoundsChanged,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = progressLayoutPolicy.horizontalPaddingDp.dp)
@@ -384,6 +384,7 @@ fun PortraitFullscreenOverlay(
                     onInputClick = onDanmakuInputClick,
                     danmakuEnabled = danmakuEnabled,
                     onDanmakuToggle = onDanmakuToggle,
+                    onRotateClick = onRotateToLandscape,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = layoutPolicy.bottomInputLiftDp.dp)
@@ -500,7 +501,6 @@ private fun PortraitProgressControlStrip(
     onAudioQualityClick: () -> Unit,
     onRatioClick: () -> Unit,
     onSubtitleClick: () -> Unit = {},
-    onActionBoundsChanged: (PlayerControlAnchor, IntRect) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -517,62 +517,82 @@ private fun PortraitProgressControlStrip(
             )
         }
         Spacer(modifier = Modifier.weight(1f))
-        // 选项 chips 属于同一个控件簇：玻璃态下共用一块底板，关闭玻璃时仍逐个只画图标文字。
-        PlayerControlGlassGroup(shape = RoundedCornerShape(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (showSubtitleChip) {
-                    PlayerControlTextAction(
-                        text = "字幕",
-                        description = "字幕",
-                        selected = subtitleEnabled,
-                        onClick = onSubtitleClick,
-                        modifier = Modifier.playerActionBounds {
-                            onActionBoundsChanged(PlayerControlAnchor.SUBTITLE, it)
-                        },
-                    )
+        if (showSubtitleChip) {
+            PortraitChromeChip(
+                label = "字幕",
+                highlighted = subtitleEnabled,
+                onClick = onSubtitleClick
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        PortraitChromeChip(
+            label = currentAudioQualityLabel,
+            highlighted = false,
+            showHiResBadge = isHiResAudioSelected,
+            showDolbyBadge = isDolbyAudioSelected,
+            onClick = onAudioQualityClick
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        PortraitChromeChip(
+            label = currentQualityLabel,
+            highlighted = false,
+            onClick = onQualityClick
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        PortraitChromeChip(
+            label = currentRatioLabel,
+            highlighted = false,
+            onClick = onRatioClick
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        PortraitChromeChip(
+            label = PlaybackSpeed.formatSpeed(currentSpeed),
+            highlighted = currentSpeed != 1.0f,
+            onClick = onSpeedClick
+        )
+    }
+}
+
+@Composable
+private fun PortraitChromeChip(
+    label: String,
+    highlighted: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    showHiResBadge: Boolean = false,
+    showDolbyBadge: Boolean = false
+) {
+    val glass = LocalPlayerControlGlassEnabled.current
+    PlayerControlGlassDock(enabled = true, modifier = modifier) {
+        AppSurface(
+            onClick = onClick,
+            modifier = Modifier,
+            shape = AppShapes.container(ContainerLevel.Pill),
+            color = if (glass) Color.Transparent else Color.White.copy(alpha = 0.14f),
+            contentColor = if (highlighted) {
+                MaterialTheme.colorScheme.primaryFixed
+            } else {
+                Color.White
+            }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AppText(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (showHiResBadge) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    HiResBadge()
                 }
-                PlayerControlTextAction(
-                    text = currentAudioQualityLabel,
-                    description = "音质",
-                    onClick = onAudioQualityClick,
-                    trailingContent = if (isHiResAudioSelected || isDolbyAudioSelected) {
-                        {
-                            if (isHiResAudioSelected) HiResBadge()
-                            if (isDolbyAudioSelected) {
-                                if (isHiResAudioSelected) Spacer(modifier = Modifier.width(4.dp))
-                                DolbyBadge()
-                            }
-                        }
-                    } else null,
-                    modifier = Modifier.playerActionBounds {
-                        onActionBoundsChanged(PlayerControlAnchor.AUDIO, it)
-                    },
-                )
-                PlayerControlTextAction(
-                    text = currentQualityLabel,
-                    description = "画质",
-                    onClick = onQualityClick,
-                    modifier = Modifier.playerActionBounds {
-                        onActionBoundsChanged(PlayerControlAnchor.QUALITY, it)
-                    },
-                )
-                PlayerControlTextAction(
-                    text = currentRatioLabel,
-                    description = "画面比例",
-                    onClick = onRatioClick,
-                    modifier = Modifier.playerActionBounds {
-                        onActionBoundsChanged(PlayerControlAnchor.RATIO, it)
-                    },
-                )
-                PlayerControlTextAction(
-                    text = piliPlaybackSpeedLabel(currentSpeed),
-                    description = "倍速",
-                    selected = currentSpeed != 1.0f,
-                    onClick = onSpeedClick,
-                    modifier = Modifier.playerActionBounds {
-                        onActionBoundsChanged(PlayerControlAnchor.SPEED, it)
-                    },
-                )
+                if (showDolbyBadge) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    DolbyBadge()
+                }
             }
         }
     }
@@ -587,61 +607,55 @@ private fun PortraitTopControlBar(
     onBack: () -> Unit,
     onHomeClick: () -> Unit,
     viewCount: Int,
+    onSearchClick: () -> Unit,
     onMoreClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .windowInsetsPadding(
-                WindowInsets.statusBars.union(WindowInsets.displayCutout)
-                    .only(WindowInsetsSides.Top)
-            )
+            .statusBarsPadding()
             .padding(
                 horizontal = layoutPolicy.topHorizontalPaddingDp.dp,
                 vertical = layoutPolicy.topVerticalPaddingDp.dp
             ),
     ) {
-        // 左侧：返回 + 主页 + 观看人数属于同一个控件簇，玻璃态下共用一块胶囊底板。
-        PlayerControlGlassGroup(
-            shape = RoundedCornerShape(50),
+        // 左侧：返回 + 观看人数
+        Row(
             modifier = Modifier.align(Alignment.CenterStart),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+            PortraitGlassIconButton(
+                onClick = onBack,
+                modifier = Modifier.size(48.dp)
             ) {
-                PortraitGlassIconButton(
-                    onClick = onBack,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    AppIcon(
-                        imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                        contentDescription = "返回",
-                        tint = Color.White,
-                        modifier = Modifier.size(layoutPolicy.topBackIconSizeDp.dp)
+                AppIcon(
+                    imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                    contentDescription = "返回",
+                    tint = Color.White,
+                    modifier = Modifier.size(layoutPolicy.topBackIconSizeDp.dp)
+                )
+            }
+            PortraitGlassIconButton(
+                onClick = onHomeClick,
+                modifier = Modifier.size(48.dp)
+            ) {
+                AppIcon(
+                    imageVector = Icons.Outlined.Home,
+                    contentDescription = "主界面",
+                    tint = Color.White,
+                    modifier = Modifier.size(layoutPolicy.topBackIconSizeDp.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(layoutPolicy.topViewCountStartSpacingDp.dp))
+            if (shouldShowPortraitViewCount(viewCount = viewCount, compactMode = layoutPolicy.compactMode)) {
+                PlayerControlGlassDock(enabled = true) {
+                    AppText(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        text = "${FormatUtils.formatStat(viewCount.toLong())}播放",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = layoutPolicy.topViewCountFontSp.sp
                     )
-                }
-                PortraitGlassIconButton(
-                    onClick = onHomeClick,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    AppIcon(
-                        imageVector = Icons.Outlined.Home,
-                        contentDescription = "主界面",
-                        tint = Color.White,
-                        modifier = Modifier.size(layoutPolicy.topBackIconSizeDp.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(layoutPolicy.topViewCountStartSpacingDp.dp))
-                if (shouldShowPortraitViewCount(viewCount = viewCount, compactMode = layoutPolicy.compactMode)) {
-                    PlayerControlGlassDock(enabled = true) {
-                        AppText(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                            text = "${FormatUtils.formatStat(viewCount.toLong())}播放",
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontSize = layoutPolicy.topViewCountFontSp.sp
-                        )
-                    }
                 }
             }
         }
@@ -652,6 +666,14 @@ private fun PortraitTopControlBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(layoutPolicy.topActionSpacingDp.dp)
         ) {
+            PortraitGlassIconButton(onClick = onSearchClick) {
+                AppIcon(
+                    imageVector = Icons.Rounded.Search,
+                    contentDescription = "搜索",
+                    tint = Color.White,
+                    modifier = Modifier.size(layoutPolicy.topActionIconSizeDp.dp)
+                )
+            }
             if (shouldShowPortraitTopMoreAction()) {
                 PortraitGlassIconButton(onClick = onMoreClick) {
                     AppIcon(
