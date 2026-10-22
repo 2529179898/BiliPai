@@ -105,20 +105,6 @@ internal const val NAV_SWIPE_DISMISS_METADATA_KEY: String = "top.yukonga.miuix.k
  * [NavEntry] for keys of that type. [build] materializes the registrations into a lookup function.
  */
 class NavEntryBuilder {
-    @PublishedApi
-    internal var transitionOverride: (NavKey) -> NavTransition? = { null }
-    @PublishedApi
-    internal var overrideSwipeDismiss: NavSwipeDirection? = null
-
-    /** Overrides motion by route identity, so nested instances retain separate boundaries. */
-    fun transitionOverrides(
-        swipeDismiss: NavSwipeDirection? = null,
-        lookup: (NavKey) -> NavTransition?,
-    ) {
-        transitionOverride = lookup
-        overrideSwipeDismiss = swipeDismiss
-    }
-
     private val factories: MutableMap<KClass<*>, (NavKey) -> NavEntry<*>> = mutableMapOf()
 
     /**
@@ -155,12 +141,9 @@ class NavEntryBuilder {
         register(T::class) { key ->
             @Suppress("UNCHECKED_CAST")
             val typed = key as T
-            val overriddenTransition = transitionOverride(typed)
-            val resolvedTransition = overriddenTransition ?: transition
-            val resolvedSwipe = if (overriddenTransition != null) overrideSwipeDismiss ?: swipeDismiss else swipeDismiss
             var mergedMetadata = metadata
-            if (resolvedTransition != null) mergedMetadata = mergedMetadata + (NAV_TRANSITION_METADATA_KEY to resolvedTransition)
-            if (resolvedSwipe != null) mergedMetadata = mergedMetadata + (NAV_SWIPE_DISMISS_METADATA_KEY to resolvedSwipe)
+            if (transition != null) mergedMetadata = mergedMetadata + (NAV_TRANSITION_METADATA_KEY to transition)
+            if (swipeDismiss != null) mergedMetadata = mergedMetadata + (NAV_SWIPE_DISMISS_METADATA_KEY to swipeDismiss)
             NavEntry(
                 key = typed,
                 contentKey = contentKey?.invoke(typed) ?: typed,

@@ -919,9 +919,6 @@
     <string name="appearance_home_card_ratio_current_label">16:9 (current ratio)</string>
     <string name="appearance_home_card_ratio_official_label">4:3 (official ratio)</string>
     <string name="appearance_home_card_ratio_bilipai_label">16:10 (BiliPai default)</string>
-    <string name="animation_settings_container_title">Settings container transitions</string>
-    <string name="animation_settings_container_summary">Expand and collapse pages within settings. Other pages and video-card transitions are unaffected.</string>
-    <string name="animation_container_blur_title">Container transition background blur</string>
-    <string name="animation_container_blur_summary">Blur the background with settings transition progress while keeping the foreground container sharp.</string>
-    <string name="animation_container_blur_unavailable">Requires Android 12 or later</string>
+    <string name="animation_indicator_wobble_title">Liquid glass indicator recoil</string>
+    <string name="animation_indicator_wobble_summary">Add squash and rebound when selecting a tab or releasing a drag. Applies only to liquid glass indicators; turning it off keeps normal movement and press feedback.</string>
 </resources>

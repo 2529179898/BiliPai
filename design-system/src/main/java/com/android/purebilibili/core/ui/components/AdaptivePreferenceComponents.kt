@@ -23,7 +23,6 @@ import androidx.compose.material3.*
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -557,12 +556,7 @@ fun AdaptivePreferenceGroupRenderer(
             insideMargin = PaddingValues(0.dp),
             colors = MiuixCardDefaults.defaultColors(color = resolvedContainerColor)
         ) {
-            // Miuix rows are transparent children of this card in both glass modes.
-            // Their navigation container must inherit the same resolved surface,
-            // including wallpaper alpha, rather than the darker page canvas.
-            CompositionLocalProvider(LocalAppContainerNavigationSurfaceColor provides resolvedContainerColor) {
-                content()
-            }
+            content()
         }
         return
     }

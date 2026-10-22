@@ -12,6 +12,17 @@ import kotlin.test.assertTrue
 class AppNavigationSettingsMappingPolicyTest {
 
     @Test
+    fun indicatorWobbleDefaultsEnabledAndKeepsExplicitChoice() {
+        val key = booleanPreferencesKey("liquid_indicator_wobble_enabled")
+        assertTrue(AppNavigationSettings().liquidIndicatorWobbleEnabled)
+        assertTrue(mapAppNavigationSettingsFromPreferences(mutablePreferencesOf()).liquidIndicatorWobbleEnabled)
+        for (enabled in listOf(false, true)) {
+            val prefs = mutablePreferencesOf(key to enabled)
+            assertEquals(enabled, mapAppNavigationSettingsFromPreferences(prefs).liquidIndicatorWobbleEnabled)
+        }
+    }
+
+    @Test
     fun scrollCompactDefaultsEnabledAndPreservesExplicitOptOut() {
         val compact = booleanPreferencesKey("bottom_bar_scroll_compact_enabled")
         val visibility = intPreferencesKey("bottom_bar_visibility_mode")

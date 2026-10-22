@@ -272,9 +272,7 @@ fun SettingsScreen(
         )
     }
 
-    // Only the home participates in the shared navigation chrome capture. Category
-    // pages use a local source solely for their cache-clear overlay: a full-page
-    // capture here would add a releasable child layer inside the container recording.
+    // 设置首页为共享导航材质提供采样；分类页仅在缓存清理弹层显示时采样。
     val localOverlayHazeState = rememberRecoverableHazeState()
     val isSettingsHome = destination == SettingsNavDestination.Home
     val activeHazeState = if (isSettingsHome) {

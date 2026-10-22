@@ -75,24 +75,14 @@ app/src/main/java/com/android/purebilibili/feature/profile/ProfileBackgroundMoti
  * Upstream: ProfileActivity.java, 87863c8a, TopView.onDraw / updateExtraViews (GPL-3.0).
  */
 
-app/src/main/java/com/android/purebilibili/navigation3/SettingsContainerTransition.kt
+design-system/src/main/java/com/android/purebilibili/core/ui/animation/LiquidIndicatorWobble.kt
 /*
- * Container geometry and fade timing adapted from chen08209/FlClash,
- * lib/ui/open_container.dart, revision 8d4f9744948751f1273fe871e1d05276fac09b0e.
- * https://github.com/chen08209/FlClash/blob/8d4f9744948751f1273fe871e1d05276fac09b0e/lib/ui/open_container.dart
+ * Glass-indicator shape-spring parameters adapted
+ * from chen08209/FlClash, lib/ui/navigation_dock.dart, revision
+ * 8d4f9744948751f1273fe871e1d05276fac09b0e (_wobble, _lensRect, _jellySpring).
+ * https://github.com/chen08209/FlClash/blob/8d4f9744948751f1273fe871e1d05276fac09b0e/lib/ui/navigation_dock.dart
  * FlClash contributors; GPL-3.0. Distributed as part of BiliPai under GPLv3.
- * Flutter Curves.fastOutSlowIn is represented by Compose FastOutSlowInEasing.
- * The 300ms duration, flipped return curve, 0.2/0.6 fade starts and 0.2 spans
- * are retained. Compose movableContentOf moves the live closed entry into the route,
- * while GraphicsLayer records both live slots for the container paint pass. The open
- * page remains at final layout size and is translated under the shared clip.
- * Return remeasurement and interrupted forward-curve behavior follow the reference.
- * The 350ms drag settle follows lib/ui/drag_back.dart at the same revision.
- * BiliPai applies the geometry to page and video-card entries and deliberately
- * keeps container geometry during gestures and their release
- * instead of the reference's horizontal page slide. Miuix retains back-stack,
- * gesture recognition and Android event ownership.
- * The two-cubic drag easing uses Flutter Curves.fastEaseInToSlowEaseOut; see Flutter
- * packages/flutter/lib/src/animation/curves.dart (Flutter authors, BSD-3-Clause).
- * Full upstream licenses: assets/licenses/flclash.LICENSE and assets/licenses/flutter.LICENSE.
+ * Compose samples movement to arm a stop-only recoil. The existing drag, velocity
+ * deformation and press transforms are retained; new interaction cancels recoil.
+ * Full license: flclash.LICENSE.
  */

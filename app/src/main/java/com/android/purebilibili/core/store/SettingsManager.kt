@@ -27,8 +27,6 @@ import com.android.purebilibili.core.ui.transition.normalizeVideoSharedTransitio
 import com.android.purebilibili.core.store.home.HomeSettingsStore
 import com.android.purebilibili.core.store.home.dynamicCommentPreviewVisiblePreferencesKey
 import com.android.purebilibili.core.store.home.liquidGlassReadabilityModePreferencesKey
-import com.android.purebilibili.core.store.navigation.containerTransitionBackgroundBlurPreferencesKey
-import com.android.purebilibili.core.store.navigation.settingsContainerTransitionPreferencesKey
 import com.android.purebilibili.core.store.navigation.NavigationSettingsStore
 import com.android.purebilibili.core.store.navigation.bottomBarItemLabelsPreferencesKey
 import com.android.purebilibili.core.store.navigation.miuixPredictiveBackMaxProgressPercentPreferencesKey
@@ -1046,12 +1044,11 @@ data class AppNavigationSettings(
     val predictiveBackAnimationStyle: String = "miuix",
     val predictiveBackExitDirection: String = "always_right",
     val miuixTransitionBlurEnabled: Boolean = true,
-    val settingsContainerTransitionEnabled: Boolean = false,
-    val containerTransitionBackgroundBlurEnabled: Boolean = false,
     val miuixPredictiveBackMaxProgressPercent: Int = 100,
     val videoSharedReturnGestureFollowEnabled: Boolean = true,
     val videoSharedReturnGestureTranslationEnabled: Boolean = true,
     val videoReturnContentFollowProgressEnabled: Boolean = true,
+    val liquidIndicatorWobbleEnabled: Boolean = true,
 )
 
 internal data class BottomTabMigrationResult(
@@ -8114,6 +8111,8 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             savedVisibility == BottomBarVisibilityMode.SCROLL_HIDE
         ) BottomBarVisibilityMode.ALWAYS_VISIBLE else savedVisibility
         return AppNavigationSettings(
+            liquidIndicatorWobbleEnabled =
+                preferences[com.android.purebilibili.core.store.navigation.liquidIndicatorWobblePreferencesKey] ?: true,
             bottomBarVisibilityMode = effectiveVisibility,
             orderedVisibleTabIds = resolveOrderedVisibleBottomTabs(order, visible),
             bottomBarItemColors = parseBottomBarItemColors(preferences[KEY_BOTTOM_BAR_ITEM_COLORS] ?: ""),
@@ -8129,8 +8128,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             predictiveBackExitDirection =
                 preferences[KEY_PREDICTIVE_BACK_EXIT_DIRECTION] ?: "always_right",
             miuixTransitionBlurEnabled = preferences[KEY_MIUIX_TRANSITION_BLUR_ENABLED] ?: true,
-            settingsContainerTransitionEnabled = preferences[settingsContainerTransitionPreferencesKey] ?: false,
-            containerTransitionBackgroundBlurEnabled = preferences[containerTransitionBackgroundBlurPreferencesKey] ?: false,
             miuixPredictiveBackMaxProgressPercent =
                 (preferences[miuixPredictiveBackMaxProgressPercentPreferencesKey] ?: 100)
                     .coerceIn(0, 100),
@@ -8169,16 +8166,12 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         NavigationSettingsStore.setSidebarAccountSwitcherEnabled(context, enabled)
     }
 
-    suspend fun setSettingsContainerTransitionEnabled(context: Context, enabled: Boolean) {
-        NavigationSettingsStore.setSettingsContainerTransitionEnabled(context, enabled)
-    }
-
-    suspend fun setContainerTransitionBackgroundBlurEnabled(context: Context, enabled: Boolean) {
-        NavigationSettingsStore.setContainerTransitionBackgroundBlurEnabled(context, enabled)
-    }
-
     suspend fun setPredictiveBackEnabled(context: Context, enabled: Boolean) {
         NavigationSettingsStore.setPredictiveBackEnabled(context, enabled)
+    }
+
+    suspend fun setLiquidIndicatorWobbleEnabled(context: Context, enabled: Boolean) {
+        NavigationSettingsStore.setLiquidIndicatorWobbleEnabled(context, enabled)
     }
 
     suspend fun setPredictiveBackAnimationStyle(context: Context, style: String) {
@@ -8540,6 +8533,10 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             BooleanShareablePreferenceDefinition(KEY_MAID_LOTTIE_ANIMATION_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_UI_ENTRANCE_ANIMATION_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_GLOBAL_DRAG_FEEDBACK_ENABLED, SettingsShareSection.APPEARANCE),
+            BooleanShareablePreferenceDefinition(
+                com.android.purebilibili.core.store.navigation.liquidIndicatorWobblePreferencesKey,
+                SettingsShareSection.APPEARANCE,
+            ),
             BooleanShareablePreferenceDefinition(KEY_CARD_TRANSITION_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(KEY_RELATED_VIDEO_TRANSITION_ENABLED, SettingsShareSection.APPEARANCE),
             BooleanShareablePreferenceDefinition(
@@ -8558,8 +8555,6 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 KEY_MIUIX_TRANSITION_BLUR_ENABLED,
                 SettingsShareSection.APPEARANCE,
             ),
-            BooleanShareablePreferenceDefinition(settingsContainerTransitionPreferencesKey, SettingsShareSection.APPEARANCE),
-            BooleanShareablePreferenceDefinition(containerTransitionBackgroundBlurPreferencesKey, SettingsShareSection.APPEARANCE),
             IntShareablePreferenceDefinition(
                 miuixPredictiveBackMaxProgressPercentPreferencesKey,
                 SettingsShareSection.APPEARANCE,

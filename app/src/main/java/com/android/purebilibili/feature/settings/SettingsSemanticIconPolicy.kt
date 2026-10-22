@@ -88,6 +88,7 @@ internal enum class SettingsIconRole {
     COMPACT_PLAYER_CONTROLS,
     VIDEO_AMBIENT_LIGHT,
     DRAG_FEEDBACK,
+    LIQUID_INDICATOR_WOBBLE,
     RETURN_CONTENT_FOLLOW,
     RETURN_GESTURE_TRANSLATION,
     SKELETON_BREATHING,
@@ -105,8 +106,6 @@ internal enum class SettingsIconRole {
     HOME_CARD_WIDTH,
     CARD_ENTRANCE_ANIMATION,
     CARD_TRANSITION_ANIMATION,
-    SETTINGS_CONTAINER_TRANSITION,
-    CONTAINER_TRANSITION_BLUR,
     LIVE_SURFACE_TRANSITION,
     PREDICTIVE_BACK,
     MIUIX_TRANSITION_BLUR,
@@ -317,6 +316,7 @@ internal fun resolveSettingsMaterialSymbolResource(role: SettingsIconRole): Int 
     SettingsIconRole.COMPACT_PLAYER_CONTROLS -> R.drawable.ms_collapse_content_24
     SettingsIconRole.VIDEO_AMBIENT_LIGHT -> R.drawable.ms_lightbulb_circle_24
     SettingsIconRole.DRAG_FEEDBACK -> R.drawable.ms_drag_pan_24
+    SettingsIconRole.LIQUID_INDICATOR_WOBBLE -> R.drawable.ic_settings_indicator_wobble_24
     SettingsIconRole.RETURN_CONTENT_FOLLOW -> R.drawable.ms_move_down_24
     SettingsIconRole.RETURN_GESTURE_TRANSLATION -> R.drawable.ms_drag_indicator_24
     SettingsIconRole.SKELETON_BREATHING -> R.drawable.ic_settings_skeleton_breathing_24
@@ -333,8 +333,6 @@ internal fun resolveSettingsMaterialSymbolResource(role: SettingsIconRole): Int 
     SettingsIconRole.GRID_COLUMNS -> R.drawable.ms_grid_view_24
     SettingsIconRole.HOME_CARD_WIDTH -> R.drawable.ms_width_normal_24
     SettingsIconRole.CARD_ENTRANCE_ANIMATION -> R.drawable.ms_auto_awesome_motion_24
-    SettingsIconRole.CONTAINER_TRANSITION_BLUR -> R.drawable.ic_settings_container_blur_24
-    SettingsIconRole.SETTINGS_CONTAINER_TRANSITION -> R.drawable.ic_settings_container_transition_24
     SettingsIconRole.CARD_TRANSITION_ANIMATION -> R.drawable.ms_sync_alt_24
     SettingsIconRole.LIVE_SURFACE_TRANSITION -> R.drawable.ms_movie_24
     SettingsIconRole.PREDICTIVE_BACK -> R.drawable.ms_arrow_back_24

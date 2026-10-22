@@ -277,62 +277,60 @@ private fun SettingsRootCategoryRow(
     val visualSpec = resolveSettingsVisualSpec()
     val effectiveIconTint = rememberAdaptivePreferenceIconContainerColor(iconTint)
     val iconContentColor = rememberAdaptivePreferenceIconContentColor(effectiveIconTint)
-    com.android.purebilibili.core.ui.components.AppContainerNavigationSource(sourceId = iconColorKey, onClick = onClick, modifier = modifier) { capturedClick ->
-        Row(
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(
+                horizontal = 16.dp,
+                vertical = visualSpec.categoryRowVerticalPadding,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
+            SettingsFunctionIcon(title = iconColorKey, imageVector = icon, painter = iconPainter)
+        } else Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .clickable { capturedClick?.invoke() }
-                .padding(
-                    horizontal = 16.dp,
-                    vertical = visualSpec.categoryRowVerticalPadding,
-                ),
-            verticalAlignment = Alignment.CenterVertically,
+                .size(visualSpec.categoryIconBubbleSize)
+                .clip(AppShapes.container(ContainerLevel.Field))
+                .background(effectiveIconTint),
+            contentAlignment = Alignment.Center,
         ) {
-            if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
-                SettingsFunctionIcon(title = iconColorKey, imageVector = icon, painter = iconPainter)
-            } else Box(
-                modifier = Modifier
-                    .size(visualSpec.categoryIconBubbleSize)
-                    .clip(AppShapes.container(ContainerLevel.Field))
-                    .background(effectiveIconTint),
-                contentAlignment = Alignment.Center,
-            ) {
-                when {
-                    iconPainter != null -> AppIcon(
-                        painter = iconPainter,
-                        contentDescription = null,
-                        tint = iconContentColor,
-                        modifier = Modifier.size(iconSizeDp.dp),
-                    )
-                    icon != null -> AppIcon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconContentColor,
-                        modifier = Modifier.size(iconSizeDp.dp),
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                AppText(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = AppContentColors.primaryText(),
+            when {
+                iconPainter != null -> AppIcon(
+                    painter = iconPainter,
+                    contentDescription = null,
+                    tint = iconContentColor,
+                    modifier = Modifier.size(iconSizeDp.dp),
                 )
-                AppText(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppContentColors.secondaryText(),
+                icon != null -> AppIcon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconContentColor,
+                    modifier = Modifier.size(iconSizeDp.dp),
                 )
             }
-            AppIcon(
-                imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_keyboard_arrow_right_24),
-                contentDescription = null,
-                tint = AppContentColors.secondaryText().copy(alpha = 0.55f),
-                modifier = Modifier.size(14.dp),
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            AppText(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = AppContentColors.primaryText(),
+            )
+            AppText(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = AppContentColors.secondaryText(),
             )
         }
+        AppIcon(
+            imageVector = com.android.purebilibili.feature.settings.rememberMaterialSymbol(com.android.purebilibili.R.drawable.ms_keyboard_arrow_right_24),
+            contentDescription = null,
+            tint = AppContentColors.secondaryText().copy(alpha = 0.55f),
+            modifier = Modifier.size(14.dp),
+        )
     }
 }
 

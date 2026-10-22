@@ -65,59 +65,6 @@ fun AppSurface(
     interactionSource: MutableInteractionSource? = null,
     content: @Composable () -> Unit,
 ) {
-    if (LocalAppContainerNavigationCapture.current == null || !enabled) {
-        AppClickableSurfaceContent(
-            onClick = onClick,
-            modifier = modifier,
-            enabled = enabled,
-            shape = shape,
-            color = color,
-            contentColor = contentColor,
-            tonalElevation = tonalElevation,
-            shadowElevation = shadowElevation,
-            border = border,
-            interactionSource = interactionSource,
-            content = content,
-        )
-    } else {
-        AppContainerNavigationSource(
-            sourceId = "surface",
-            onClick = onClick,
-            modifier = modifier,
-            closedColor = color,
-            closedShape = shape as? androidx.compose.foundation.shape.RoundedCornerShape,
-        ) { capturedClick ->
-            AppClickableSurfaceContent(
-                onClick = { capturedClick?.invoke() },
-                modifier = Modifier,
-                enabled = enabled,
-                shape = shape,
-                color = color,
-                contentColor = contentColor,
-                tonalElevation = tonalElevation,
-                shadowElevation = shadowElevation,
-                border = border,
-                interactionSource = interactionSource,
-                content = content,
-            )
-        }
-    }
-}
-
-@Composable
-private fun AppClickableSurfaceContent(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    shape: Shape = RectangleShape,
-    color: Color = Color.Unspecified,
-    contentColor: Color = Color.Unspecified,
-    tonalElevation: Dp = 0.dp,
-    shadowElevation: Dp = 0.dp,
-    border: BorderStroke? = null,
-    interactionSource: MutableInteractionSource? = null,
-    content: @Composable () -> Unit,
-) {
     when (LocalAppUiStyle.current) {
         AppUiStyle.MATERIAL3 -> AppMaterial3Surface(
             onClick = onClick,

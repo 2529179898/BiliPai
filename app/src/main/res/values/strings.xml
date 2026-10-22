@@ -919,9 +919,6 @@
     <string name="appearance_home_card_ratio_current_label">16:9（当前比例）</string>
     <string name="appearance_home_card_ratio_official_label">4:3（官方比例）</string>
     <string name="appearance_home_card_ratio_bilipai_label">16:10（BiliPai 默认）</string>
-    <string name="animation_settings_container_title">设置容器转场</string>
-    <string name="animation_settings_container_summary">仅设置内部页面从入口展开，返回时收回；不影响其他页面和视频卡片转场</string>
-    <string name="animation_container_blur_title">容器转场背景模糊</string>
-    <string name="animation_container_blur_summary">设置页面开合时，背景随进度模糊；前景容器保持清晰</string>
-    <string name="animation_container_blur_unavailable">需要 Android 12 或更高版本</string>
+    <string name="animation_indicator_wobble_title">液态玻璃指示器甩尾</string>
+    <string name="animation_indicator_wobble_summary">点按切换与拖动松手时追加形变回弹，仅作用于液态玻璃指示器；关闭后保留原有位移和按压反馈</string>
 </resources>

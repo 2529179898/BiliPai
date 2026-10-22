@@ -243,7 +243,6 @@ import com.android.purebilibili.navigation3.popBiliPaiNavKey
 import com.android.purebilibili.navigation3.popBiliPaiNavKeyToRoot
 import com.android.purebilibili.navigation3.pushBiliPaiNavKey
 import com.android.purebilibili.navigation3.pushOrReplaceSettingsCategoryNavKey
-import com.android.purebilibili.navigation3.SettingsContainerNavigationState
 import com.android.purebilibili.navigation3.resolveBiliPaiBackGestureDecision
 import com.android.purebilibili.navigation3.resolveBiliPaiNavCardSourceDirection
 import com.android.purebilibili.navigation3.resolveBiliPaiNavEntryContentRole
@@ -625,7 +624,6 @@ fun AppNavigation(
         val navigation3BackStack = rememberNavBackStack<BiliPaiNavKey>(
             *initialNavigationBackStack.toTypedArray()
         ) as androidx.compose.runtime.snapshots.SnapshotStateList<BiliPaiNavKey>
-        val settingsContainerNavigation = remember { SettingsContainerNavigationState() }
         val navigation3SaveableStateHolder = rememberSaveableStateHolder()
         fun replaceNavigation3BackStack(keys: List<BiliPaiNavKey>) {
             val replacementStack = keys.ifEmpty { listOf(BiliPaiNavKey.MainHost) }
@@ -634,7 +632,6 @@ fun AppNavigation(
                 currentStack = navigation3BackStack,
                 replacementStack = replacementStack,
             )
-            settingsContainerNavigation.prepareStackChange(navigation3BackStack.toList(), replacementStack)
             // NavDisplay rejects an empty stack. clear()+addAll() as two observable writes can
             // expose an empty intermediate frame when a bottom-tab switch races recomposition.
             Snapshot.withMutableSnapshot {
@@ -2142,12 +2139,13 @@ fun AppNavigation(
             entranceEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.uiEntranceAnimationEnabled,
             cardEntranceEnabled = homeSettings.cardAnimationEnabled,
             cardTransitionEnabled = cardTransitionEnabled,
-            navigationEnabled = appNavigationSettings.settingsContainerTransitionEnabled ||
-                predictiveBackAnimationStyle != BiliPaiPredictiveBackAnimationStyle.NONE,
+            navigationEnabled = predictiveBackAnimationStyle != BiliPaiPredictiveBackAnimationStyle.NONE,
             systemReduceMotion = systemReduceMotion,
         )
         CompositionLocalProvider(
             com.android.purebilibili.core.ui.LocalComponentMotionEnabled provides componentMotionEnabled,
+            com.android.purebilibili.core.ui.animation.LocalLiquidIndicatorWobbleEnabled provides
+                appNavigationSettings.liquidIndicatorWobbleEnabled,
             com.android.purebilibili.core.ui.components.LocalAppTopBarIconDecorator provides
                 com.android.purebilibili.core.ui.components.BiliPaiTopBarIconDecorator,
             com.android.purebilibili.core.ui.LocalSystemReduceMotion provides systemReduceMotion,
@@ -4897,9 +4895,6 @@ fun AppNavigation(
                     predictiveBackExitDirection = predictiveBackExitDirection,
                     miuixTransitionBlurEnabled =
                         appNavigationSettings.miuixTransitionBlurEnabled,
-                    settingsContainerTransitionEnabled = appNavigationSettings.settingsContainerTransitionEnabled,
-                    containerTransitionBackgroundBlurEnabled = appNavigationSettings.containerTransitionBackgroundBlurEnabled,
-                    settingsContainerNavigation = settingsContainerNavigation,
                     miuixPredictiveBackMaxProgressPercent =
                         appNavigationSettings.miuixPredictiveBackMaxProgressPercent,
                     videoSharedReturnGestureFollowEnabled =

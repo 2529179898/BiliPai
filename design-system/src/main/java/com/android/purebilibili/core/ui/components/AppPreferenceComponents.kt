@@ -127,29 +127,25 @@ fun AppPreference(
     onCopyRequest: ((text: String, label: String?) -> Unit)? = null,
     showChevron: Boolean = true,
     trailingContent: @Composable (() -> Unit)? = null,
-) {
-    AppContainerNavigationSource(sourceId = title, onClick = if (showChevron) onClick else null) { capturedClick ->
-        AdaptivePreferenceContent(
-            icon = icon,
-            iconPainter = iconPainter,
-            title = title,
-            subtitle = subtitle,
-            value = value,
-            copyValue = copyValue,
-            onClick = if (showChevron) capturedClick else onClick,
-            iconTint = iconTint,
-            textColor = textColor,
-            subtitleColor = subtitleColor,
-            valueColor = valueColor,
-            chevronTint = chevronTint,
-            centered = centered,
-            enableCopy = enableCopy,
-            onCopyRequest = onCopyRequest,
-            showChevron = showChevron,
-            trailingContent = trailingContent,
-        )
-    }
-}
+) = AdaptivePreferenceContent(
+    icon = icon,
+    iconPainter = iconPainter,
+    title = title,
+    subtitle = subtitle,
+    value = value,
+    copyValue = copyValue,
+    onClick = onClick,
+    iconTint = iconTint,
+    textColor = textColor,
+    subtitleColor = subtitleColor,
+    valueColor = valueColor,
+    chevronTint = chevronTint,
+    centered = centered,
+    enableCopy = enableCopy,
+    onCopyRequest = onCopyRequest,
+    showChevron = showChevron,
+    trailingContent = trailingContent,
+)
 
 @Composable
 fun AppPreferenceDivider(

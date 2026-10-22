@@ -458,39 +458,6 @@ fun AnimationSettingsContent(
                             )
                             }
                         AppPreferenceDivider()
-                        SettingsItemAnchor("animation.app_navigation_settings.settings_container_transition_enabled") {
-                            AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.SETTINGS_CONTAINER_TRANSITION),
-                                title = stringResource(R.string.animation_settings_container_title),
-                                subtitle = stringResource(R.string.animation_settings_container_summary),
-                                checked = appNavigationSettings.settingsContainerTransitionEnabled,
-                                onCheckedChange = { enabled ->
-                                    scope.launch {
-                                        SettingsManager.setSettingsContainerTransitionEnabled(context, enabled)
-                                    }
-                                },
-                                iconTint = AppContentColors.secondaryText(),
-                            )
-                        }
-                        AppPreferenceDivider()
-                        SettingsItemAnchor("animation.app_navigation_settings.container_transition_background_blur_enabled") {
-                            AppSwitchPreference(
-                                icon = rememberSettingsSemanticIcon(SettingsIconRole.CONTAINER_TRANSITION_BLUR),
-                                title = stringResource(R.string.animation_container_blur_title),
-                                subtitle = stringResource(
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) R.string.animation_container_blur_summary
-                                    else R.string.animation_container_blur_unavailable,
-                                ),
-                                checked = appNavigationSettings.containerTransitionBackgroundBlurEnabled,
-                                onCheckedChange = { enabled ->
-                                    scope.launch { SettingsManager.setContainerTransitionBackgroundBlurEnabled(context, enabled) }
-                                },
-                                enabled = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                                    appNavigationSettings.settingsContainerTransitionEnabled,
-                                iconTint = AppContentColors.secondaryText(),
-                            )
-                        }
-                        AppPreferenceDivider()
                         SettingsItemAnchor("animation.card_transition_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.CARD_TRANSITION_ANIMATION),
@@ -790,6 +757,19 @@ fun AnimationSettingsContent(
                                 color = AppContentColors.secondaryText(),
                             )
                         }
+                        SettingsItemAnchor("animation.app_navigation_settings.liquid_indicator_wobble_enabled") {
+                            AppSwitchPreference(
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.LIQUID_INDICATOR_WOBBLE),
+                                title = stringResource(R.string.animation_indicator_wobble_title),
+                                subtitle = stringResource(R.string.animation_indicator_wobble_summary),
+                                checked = appNavigationSettings.liquidIndicatorWobbleEnabled,
+                                onCheckedChange = { enabled ->
+                                    scope.launch { SettingsManager.setLiquidIndicatorWobbleEnabled(context, enabled) }
+                                },
+                                iconTint = AppContentColors.secondaryText(),
+                            )
+                        }
+                        AppPreferenceDivider()
                         LiquidGlassAdjustmentPanel(
                                 alwaysShowAdvanced = false,
                                 persistedProgress = state.liquidGlassProgress,

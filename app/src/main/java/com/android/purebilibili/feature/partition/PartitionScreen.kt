@@ -1081,6 +1081,9 @@ private fun PartitionSideRailMovingIndicator(
                 bottomBarMotionSpec = motionSpec,
                 isDarkTheme = isDarkTheme,
                 orientation = BottomBarLiquidOrientation.VERTICAL,
+                wobblePosition = { dragAnimation.value },
+                wobbleSelection = { dragAnimation.targetValue.roundToInt() },
+                wobbleLastIndex = dragAnimation.valueRange.endInclusive.roundToInt(),
                 indicatorAlignment = Alignment.TopStart,
                 interactionModifier = interactionModifier,
             )

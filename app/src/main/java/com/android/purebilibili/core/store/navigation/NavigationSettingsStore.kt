@@ -15,10 +15,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
-internal val settingsContainerTransitionPreferencesKey = booleanPreferencesKey("settings_container_transition_enabled")
-internal val containerTransitionBackgroundBlurPreferencesKey = booleanPreferencesKey("container_transition_background_blur_enabled")
 
 internal val bottomBarItemLabelsPreferencesKey = stringPreferencesKey("bottom_bar_item_labels")
+internal val liquidIndicatorWobblePreferencesKey = booleanPreferencesKey("liquid_indicator_wobble_enabled")
 internal val miuixPredictiveBackMaxProgressPercentPreferencesKey =
     intPreferencesKey("miuix_predictive_back_max_progress_percent")
 
@@ -191,18 +190,14 @@ object NavigationSettingsStore {
         }
     }
 
-    suspend fun setSettingsContainerTransitionEnabled(context: Context, enabled: Boolean) {
-        context.settingsDataStore.edit { it[settingsContainerTransitionPreferencesKey] = enabled }
-    }
-
-    suspend fun setContainerTransitionBackgroundBlurEnabled(context: Context, enabled: Boolean) {
-        context.settingsDataStore.edit { it[containerTransitionBackgroundBlurPreferencesKey] = enabled }
-    }
-
     suspend fun setPredictiveBackEnabled(context: Context, enabled: Boolean) {
         context.settingsDataStore.edit { preferences ->
             preferences[keyPredictiveBackEnabled] = enabled
         }
+    }
+
+    suspend fun setLiquidIndicatorWobbleEnabled(context: Context, enabled: Boolean) {
+        context.settingsDataStore.edit { it[liquidIndicatorWobblePreferencesKey] = enabled }
     }
 
     suspend fun setPredictiveBackAnimationStyle(context: Context, style: String) {

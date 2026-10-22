@@ -9,16 +9,12 @@ internal fun NavEntryBuilder.biliPaiNavEntries(
     swipeBackDirection: NavSwipeDirection,
     settingsBackStack: List<BiliPaiNavKey> = emptyList(),
     settingsPersistentPanes: Boolean = false,
-    settingsContainerTransitions: Map<BiliPaiNavKey, NavTransition> = emptyMap(),
     activeMainHostRoute: String? = null,
     predictiveBackExcludedTransition: NavTransition,
     videoCardTransition: NavTransition,
     fullscreenVideoCardTransition: NavTransition,
     content: @Composable (BiliPaiNavKey) -> Unit,
 ) {
-    transitionOverrides(swipeDismiss = swipeBackDirection) { key ->
-        (key as? BiliPaiNavKey)?.let(settingsContainerTransitions::get)
-    }
     entry<BiliPaiNavKey.MainHost>(swipeDismiss = NavSwipeDirection.None, content = content)
     entry<BiliPaiNavKey.Home>(swipeDismiss = NavSwipeDirection.None, content = content)
     entry<BiliPaiNavKey.ListenVideo>(swipeDismiss = NavSwipeDirection.None, content = content)
@@ -165,8 +161,7 @@ private inline fun <reified T : BiliPaiNavKey> NavEntryBuilder.settingsEntry(
         activeMainHostRoute = activeMainHostRoute,
     )
     entry<T>(
-        transition = if (paneNavigation) SettingsPaneTransition
-            else transition,
+        transition = if (paneNavigation) SettingsPaneTransition else transition,
         swipeDismiss = swipeDismiss,
         content = content,
     )

@@ -48,12 +48,6 @@ val openSourceLibraries = listOf(
         description = "液态玻璃指示器的独立形变弹簧参考；保留现有拖动效果，仅在停止后追加甩尾回弹",
     ),
     OpenSourceLibrary(
-        name = "FlClash OpenContainer",
-        license = "GPL-3.0",
-        url = "https://github.com/chen08209/FlClash/blob/8d4f9744948751f1273fe871e1d05276fac09b0e/lib/ui/open_container.dart",
-        description = "页面与视频卡片容器展开、返回的真实组件迁移、几何绘制、时序和手势动画参考；以 Compose 接入现有导航",
-    ),
-    OpenSourceLibrary(
         name = "Telegram / Nagram Chat Avatar Placement",
         license = "GPL-2.0-or-later（按 GPLv3 分发）",
         url = "https://github.com/NextAlone/Nagram/blob/fb56ea9801e5de68c60f0152b444bbe2a0fda520/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java",

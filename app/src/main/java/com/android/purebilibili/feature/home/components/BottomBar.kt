@@ -1,6 +1,10 @@
 // 文件路径: feature/home/components/BottomBar.kt
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.animation.rememberLiquidIndicatorWobble
+import com.android.purebilibili.core.ui.animation.liquidWobbleScaleX
+import com.android.purebilibili.core.ui.animation.liquidWobbleScaleY
+
 
 import com.android.purebilibili.core.ui.AppContentColors
 
@@ -4406,7 +4410,10 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
     isDarkTheme: Boolean,
     swapMotionAxes: Boolean = false,
     indicatorAlignment: Alignment = Alignment.CenterStart,
-    interactionModifier: Modifier = Modifier
+    interactionModifier: Modifier = Modifier,
+    wobblePosition: (() -> Float)? = null,
+    wobbleSelection: (() -> Any?)? = null,
+    wobbleLastIndex: Int = -1,
 ) {
     if (!visible) return
     val opticalProgress = resolveSharedLiquidIndicatorLensProgress(
@@ -4415,26 +4422,74 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
         isDragging = isDragging,
     )
     val effectiveIndicatorEffectsEnabled = indicatorEffectsEnabled
-    val rawIndicatorLayerTransform = if (effectiveIndicatorEffectsEnabled) {
-        resolveBottomBarIndicatorLayerTransform(
-            motionProgress = motionProgress,
-            velocityItemsPerSecond = velocityItemsPerSecond,
-            isDragging = isDragging,
-            dragScaleProgress = indicatorLayerScaleProgress,
-            dragScaleTransform = indicatorLayerScaleTransform,
-            dragScaleTarget = dragScaleTarget,
-            motionSpec = bottomBarMotionSpec
-        )
-    } else {
-        BottomBarIndicatorLayerTransform(scaleX = 1f, scaleY = 1f)
+    // 额外形变仅属于玻璃材质，关闭独立开关时沿用原有光学与缩放进度。
+    val wobbleEnabled = glassEnabled && effectiveIndicatorEffectsEnabled &&
+        com.android.purebilibili.core.ui.animation.LocalLiquidIndicatorWobbleEnabled.current
+    val motionExtentPx = with(LocalDensity.current) {
+        (if (swapMotionAxes) indicatorHeight else indicatorWidth).toPx().coerceAtLeast(1f)
     }
-    val indicatorLayerTransform = if (swapMotionAxes) {
-        BottomBarIndicatorLayerTransform(
-            scaleX = rawIndicatorLayerTransform.scaleY,
-            scaleY = rawIndicatorLayerTransform.scaleX
+    val canRecoil: () -> Boolean = {
+        !isDragging
+    }
+    val wobble = rememberLiquidIndicatorWobble(
+        enabled = wobbleEnabled,
+        geometryKey = swapMotionAxes to wobbleLastIndex,
+        canSettle = canRecoil,
+        selectionKey = { wobbleSelection?.invoke() },
+        interactionActive = { isDragging },
+    ) {
+        wobblePosition?.invoke() ?:
+            ((if (swapMotionAxes) indicatorTranslationYPx else indicatorTranslationXPx) / motionExtentPx)
+    }
+    val rawIndicatorLayerTransform: () -> BottomBarIndicatorLayerTransform = {
+        if (effectiveIndicatorEffectsEnabled) {
+            resolveBottomBarIndicatorLayerTransform(
+                motionProgress = motionProgress,
+                velocityItemsPerSecond = velocityItemsPerSecond *
+                    if (glassEnabled && !isDragging) wobble.velocityWeight else 1f,
+                isDragging = isDragging,
+                dragScaleProgress = indicatorLayerScaleProgress,
+                dragScaleTransform = indicatorLayerScaleTransform,
+                dragScaleTarget = dragScaleTarget,
+                motionSpec = bottomBarMotionSpec,
+            )
+        } else {
+            BottomBarIndicatorLayerTransform(scaleX = 1f, scaleY = 1f)
+        }
+    }
+    val indicatorLayerTransform: () -> BottomBarIndicatorLayerTransform = {
+        val rawTransform = rawIndicatorLayerTransform()
+        if (swapMotionAxes) {
+            BottomBarIndicatorLayerTransform(
+                scaleX = rawTransform.scaleY,
+                scaleY = rawTransform.scaleX,
+            )
+        } else {
+            rawTransform
+        }
+    }
+    val recoilStretch: () -> Float = {
+        com.android.purebilibili.core.ui.animation.resolveLiquidIndicatorRecoilStretch(
+            wobble.value, !isDragging && (wobble.isSelectionMotion || canRecoil()),
         )
-    } else {
-        rawIndicatorLayerTransform
+    }
+    val layerScaleX: () -> Float = {
+        if (!glassEnabled) indicatorLayerTransform().scaleX
+        else if (swapMotionAxes) liquidWobbleScaleY(indicatorLayerTransform().scaleX, recoilStretch())
+        else liquidWobbleScaleX(indicatorLayerTransform().scaleX, recoilStretch())
+    }
+    val layerScaleY: () -> Float = {
+        if (!glassEnabled) indicatorLayerTransform().scaleY
+        else if (swapMotionAxes) liquidWobbleScaleX(indicatorLayerTransform().scaleY, recoilStretch())
+        else liquidWobbleScaleY(indicatorLayerTransform().scaleY, recoilStretch())
+    }
+    val opticalProgressProvider: () -> Float = {
+        if (wobble.enabled) maxOf(
+            opticalProgress,
+            com.android.purebilibili.core.ui.animation.liquidIndicatorShapeProgress(
+                layerScaleX(), layerScaleY(), dragScaleTarget,
+            ),
+        ) else opticalProgress
     }
     val pillHighlight = if (glassEnabled) {
         rememberBiliPaiGravityHighlight(
@@ -4457,9 +4512,17 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
             .graphicsLayer {
                 translationX = indicatorTranslationXPx + indicatorPanelOffsetPx
                 translationY = indicatorTranslationYPx + indicatorPanelOffsetYPx
+                if (glassEnabled && wobbleLastIndex >= 0) {
+                    val shift = com.android.purebilibili.core.ui.animation.liquidWobbleEdgeTranslationPx(
+                        recoilStretch(), wobblePosition?.invoke() ?: 0f, wobbleLastIndex,
+                        if (swapMotionAxes) size.height else size.width, 4.dp.toPx(),
+                        baseScale = if (swapMotionAxes) indicatorLayerTransform().scaleY else indicatorLayerTransform().scaleX,
+                    )
+                    if (swapMotionAxes) translationY += shift else translationX += shift
+                }
                 if (indicatorBackdrop == null && effectiveIndicatorEffectsEnabled) {
-                    scaleX = indicatorLayerTransform.scaleX
-                    scaleY = indicatorLayerTransform.scaleY
+                    scaleX = layerScaleX()
+                    scaleY = layerScaleY()
                 }
             }
             .width(indicatorWidth)
@@ -4476,35 +4539,34 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                             if (shouldUseBottomBarIndicatorLens(liquidGlassPreset)) {
                                 homeIndicatorLens(
                                     restHeightDp = indicatorHeight.value,
-                                    progress = opticalProgress,
+                                    progress = opticalProgressProvider(),
                                     tuning = liquidGlassTuning,
-                                    indicatorScaleY = indicatorLayerTransform.scaleY,
+                                    indicatorScaleY = layerScaleY(),
                                 )
                             }
                         },
                         highlight = {
-                            // Glass selection and drag share one press-driven rim highlight.
                             if (glassEnabled) pillHighlight?.value?.copy(alpha = effectivePressProgress)
                             else if (isDragging) pillHighlight?.value?.copy(alpha = opticalProgress) else null
                         },
                         onDrawSurface = {
-                            drawHomeIndicatorSurface(opticalProgress, isDarkTheme, indicatorIdleSurfaceColor)
+                            drawHomeIndicatorSurface(opticalProgressProvider(), isDarkTheme, indicatorIdleSurfaceColor)
                         },
                         layerBlock = {
                             if (effectiveIndicatorEffectsEnabled) {
-                                scaleX = indicatorLayerTransform.scaleX
-                                scaleY = indicatorLayerTransform.scaleY
+                                scaleX = layerScaleX()
+                                scaleY = layerScaleY()
                             }
                         }
                     ).miuixInnerShadow(shape = shellShape) {
                         MiuixInnerShadow(
                             offset = if (glassEnabled) androidx.compose.ui.unit.DpOffset.Zero else
                                 androidx.compose.ui.unit.DpOffset(
-                                    0.dp, 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgress,
+                                    0.dp, 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgressProvider(),
                                 ),
-                            radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgress,
+                            radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgressProvider(),
                             color = OpticalContrastPalette.Shadow.copy(alpha = 0.15f),
-                            alpha = opticalProgress
+                            alpha = opticalProgressProvider()
                         )
                     }
                 } else {
