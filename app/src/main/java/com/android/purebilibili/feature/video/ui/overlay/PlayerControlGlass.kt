@@ -34,6 +34,9 @@ private val LocalPlayerControlBackdrop = compositionLocalOf<Backdrop?> { null }
 internal val LocalPlayerControlGlassEnabled = compositionLocalOf { false }
 internal val LocalPlayerLevelGestureActive = compositionLocalOf { false }
 
+/** 该控件簇是否已由共用底板承担材质；簇内子控件据此不再各自画壳。 */
+private val LocalPlayerControlGroupShell = compositionLocalOf { false }
+
 /** The page owns capture; the controls only consume sibling content layers. */
 internal val LocalPlayerPageBackdrop = compositionLocalOf<Backdrop?> { null }
 
@@ -82,7 +85,52 @@ internal fun PlayerControlGlassThumb(size: Dp, dragging: Boolean, modifier: Modi
     )
 }
 
-/** A single transformed subtree keeps the shell, labels and icons together. */
+/**
+ * 一个控件簇共用的单块材质壳。只画底板，不拦截手势、不改测量尺寸。
+ * 内部子控件不再各自画壳。
+ */
+@Composable
+internal fun PlayerControlGlassGroup(
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(50),
+    enabled: Boolean = true,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val glass = enabled && LocalAppThemeConfig.current.liquidGlassEnabled
+    val backdrop = LocalPlayerPageBackdrop.current
+    val tuning = LocalLiquidGlassRenderConfig.current.tuning
+    Box(
+        modifier = modifier.then(
+            if (!glass) {
+                Modifier
+            } else if (backdrop == null) {
+                // 没有可用背板时退化为与 dock 一致的中性底色。
+                Modifier.background(Color.Black.copy(alpha = 0.32f), shape)
+            } else {
+                Modifier.biliPaiFloatingDockShell(
+                    backdrop = backdrop,
+                    shape = shape,
+                    // 与底部 dock 共用同一套材质；播放器图标保持白色。
+                    containerColor = resolveBiliPaiBottomBarContainerColor(
+                        darkTheme = true,
+                        liquidGlassTuning = tuning,
+                    ),
+                    pressProgress = 0f,
+                    lensIntensity = 1f,
+                    liquidGlassTuning = tuning,
+                    darkTheme = true,
+                )
+            },
+        ),
+    ) {
+        CompositionLocalProvider(LocalPlayerControlGroupShell provides true) { content() }
+    }
+}
+
+/**
+ * 控件簇内的变换子树：标签、图标与拖拽消费保持原样。
+ * 簇壳生效时这里只负责内容与手势，不再单独画底板；几何尺寸与触摸区域不因此改变。
+ */
 @Composable
 internal fun PlayerControlGlassDock(
     enabled: Boolean,
@@ -98,6 +146,7 @@ internal fun PlayerControlGlassDock(
     val elastic = rememberAppElasticPressState(feedbackStrength = if (shape == CircleShape) 1f else 0.6f)
     val ownsDrag = remember { mutableStateOf(false) }
     val providedBackdrop = LocalPlayerControlBackdrop.current
+    val groupShell = LocalPlayerControlGroupShell.current
     val shellTuning = if (
         glass && providedBackdrop != null &&
         minimumReadabilityScrimAlpha > tuning.contentReadabilityScrimAlpha
@@ -126,20 +175,24 @@ internal fun PlayerControlGlassDock(
                     onDrag = { change, _ -> change.consume() },
                 )
             } else Modifier)
-            .then(if (glass && providedBackdrop == null) {
-                Modifier.background(Color.Black.copy(alpha = maxOf(0.32f, minimumReadabilityScrimAlpha)), shape)
-            } else if (glass) Modifier.biliPaiFloatingDockShell(
-                backdrop = providedBackdrop,
-                shape = shape,
-                // Match the bottom dock's neutral material; player glyphs remain white.
-                containerColor = resolveBiliPaiBottomBarContainerColor(darkTheme = true, liquidGlassTuning = shellTuning),
-                pressProgress = 0f,
-                lensIntensity = 1f,
-                liquidGlassTuning = shellTuning,
-                darkTheme = true,
-                interactionLayerBlock = elastic.layerBlock,
-                interactionState = elastic,
-            ) else Modifier),
+            .then(
+                // 簇壳已负责底板时不再重复画壳，避免每个控件各自一块圆角底板。
+                if (groupShell) Modifier
+                else if (glass && providedBackdrop == null) {
+                    Modifier.background(Color.Black.copy(alpha = maxOf(0.32f, minimumReadabilityScrimAlpha)), shape)
+                } else if (glass) Modifier.biliPaiFloatingDockShell(
+                    backdrop = providedBackdrop,
+                    shape = shape,
+                    // Match the bottom dock's neutral material; player glyphs remain white.
+                    containerColor = resolveBiliPaiBottomBarContainerColor(darkTheme = true, liquidGlassTuning = shellTuning),
+                    pressProgress = 0f,
+                    lensIntensity = 1f,
+                    liquidGlassTuning = shellTuning,
+                    darkTheme = true,
+                    interactionLayerBlock = elastic.layerBlock,
+                    interactionState = elastic,
+                ) else Modifier,
+            ),
     ) {
         CompositionLocalProvider(
             LocalElasticPressEnabled provides (!feedbackEnabled && LocalElasticPressEnabled.current),
@@ -154,9 +207,10 @@ internal fun PlayerControlGlassDock(
     }
 }
 
-/** Shared transport capsule; the seek host retains pointer ownership inside its own slot. */
+/** 共享的播放进度材质；进度条宿主仍保留指针所有权，簇壳生效时直接复用簇底板。 */
 @Composable
 internal fun Modifier.playerControlGlassProgressDock(): Modifier {
+    if (LocalPlayerControlGroupShell.current) return this
     val backdrop = LocalPlayerControlBackdrop.current
     if (!LocalPlayerControlGlassEnabled.current || backdrop == null) return this
     return playerControlGlassSurface(backdrop, shape = RoundedCornerShape(24.dp))

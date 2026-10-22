@@ -1362,6 +1362,15 @@ private fun VideoPlayerSectionContent(
             showControls = false
         }
     }
+    // 横竖屏切换后重新露出控制层：旋转或进出全屏都是用户主动操作，沿用隐藏状态会得到一块空屏。
+    // 只比较前后方向，首次组合不触发，避免视频起播时把控制栏顶到封面上。
+    var lastScreenOrientation by remember { mutableStateOf(configuration.orientation) }
+    LaunchedEffect(configuration.orientation) {
+        if (configuration.orientation != lastScreenOrientation) {
+            lastScreenOrientation = configuration.orientation
+            showControls = true
+        }
+    }
     DisposableEffect(isFullscreen, isScreenLocked) {
         val shouldBlockAppScreenshot = isFullscreen && isScreenLocked
         val lockedActivity = if (shouldBlockAppScreenshot) {

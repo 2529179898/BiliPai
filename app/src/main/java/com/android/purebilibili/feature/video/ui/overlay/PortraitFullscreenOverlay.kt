@@ -517,59 +517,64 @@ private fun PortraitProgressControlStrip(
             )
         }
         Spacer(modifier = Modifier.weight(1f))
-        if (showSubtitleChip) {
-            PlayerControlTextAction(
-                text = "字幕",
-                description = "字幕",
-                selected = subtitleEnabled,
-                onClick = onSubtitleClick,
-                modifier = Modifier.playerActionBounds {
-                    onActionBoundsChanged(PlayerControlAnchor.SUBTITLE, it)
-                },
-            )
-        }
-        PlayerControlTextAction(
-            text = currentAudioQualityLabel,
-            description = "音质",
-            onClick = onAudioQualityClick,
-            trailingContent = if (isHiResAudioSelected || isDolbyAudioSelected) {
-                {
-                    if (isHiResAudioSelected) HiResBadge()
-                    if (isDolbyAudioSelected) {
-                        if (isHiResAudioSelected) Spacer(modifier = Modifier.width(4.dp))
-                        DolbyBadge()
-                    }
+        // 选项 chips 属于同一个控件簇：玻璃态下共用一块底板，关闭玻璃时仍逐个只画图标文字。
+        PlayerControlGlassGroup(shape = RoundedCornerShape(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (showSubtitleChip) {
+                    PlayerControlTextAction(
+                        text = "字幕",
+                        description = "字幕",
+                        selected = subtitleEnabled,
+                        onClick = onSubtitleClick,
+                        modifier = Modifier.playerActionBounds {
+                            onActionBoundsChanged(PlayerControlAnchor.SUBTITLE, it)
+                        },
+                    )
                 }
-            } else null,
-            modifier = Modifier.playerActionBounds {
-                onActionBoundsChanged(PlayerControlAnchor.AUDIO, it)
-            },
-        )
-        PlayerControlTextAction(
-            text = currentQualityLabel,
-            description = "画质",
-            onClick = onQualityClick,
-            modifier = Modifier.playerActionBounds {
-                onActionBoundsChanged(PlayerControlAnchor.QUALITY, it)
-            },
-        )
-        PlayerControlTextAction(
-            text = currentRatioLabel,
-            description = "画面比例",
-            onClick = onRatioClick,
-            modifier = Modifier.playerActionBounds {
-                onActionBoundsChanged(PlayerControlAnchor.RATIO, it)
-            },
-        )
-        PlayerControlTextAction(
-            text = piliPlaybackSpeedLabel(currentSpeed),
-            description = "倍速",
-            selected = currentSpeed != 1.0f,
-            onClick = onSpeedClick,
-            modifier = Modifier.playerActionBounds {
-                onActionBoundsChanged(PlayerControlAnchor.SPEED, it)
-            },
-        )
+                PlayerControlTextAction(
+                    text = currentAudioQualityLabel,
+                    description = "音质",
+                    onClick = onAudioQualityClick,
+                    trailingContent = if (isHiResAudioSelected || isDolbyAudioSelected) {
+                        {
+                            if (isHiResAudioSelected) HiResBadge()
+                            if (isDolbyAudioSelected) {
+                                if (isHiResAudioSelected) Spacer(modifier = Modifier.width(4.dp))
+                                DolbyBadge()
+                            }
+                        }
+                    } else null,
+                    modifier = Modifier.playerActionBounds {
+                        onActionBoundsChanged(PlayerControlAnchor.AUDIO, it)
+                    },
+                )
+                PlayerControlTextAction(
+                    text = currentQualityLabel,
+                    description = "画质",
+                    onClick = onQualityClick,
+                    modifier = Modifier.playerActionBounds {
+                        onActionBoundsChanged(PlayerControlAnchor.QUALITY, it)
+                    },
+                )
+                PlayerControlTextAction(
+                    text = currentRatioLabel,
+                    description = "画面比例",
+                    onClick = onRatioClick,
+                    modifier = Modifier.playerActionBounds {
+                        onActionBoundsChanged(PlayerControlAnchor.RATIO, it)
+                    },
+                )
+                PlayerControlTextAction(
+                    text = piliPlaybackSpeedLabel(currentSpeed),
+                    description = "倍速",
+                    selected = currentSpeed != 1.0f,
+                    onClick = onSpeedClick,
+                    modifier = Modifier.playerActionBounds {
+                        onActionBoundsChanged(PlayerControlAnchor.SPEED, it)
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -597,42 +602,46 @@ private fun PortraitTopControlBar(
                 vertical = layoutPolicy.topVerticalPaddingDp.dp
             ),
     ) {
-        // 左侧：返回 + 观看人数
-        Row(
+        // 左侧：返回 + 主页 + 观看人数属于同一个控件簇，玻璃态下共用一块胶囊底板。
+        PlayerControlGlassGroup(
+            shape = RoundedCornerShape(50),
             modifier = Modifier.align(Alignment.CenterStart),
-            verticalAlignment = Alignment.CenterVertically
         ) {
-            PortraitGlassIconButton(
-                onClick = onBack,
-                modifier = Modifier.size(48.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                AppIcon(
-                    imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                    contentDescription = "返回",
-                    tint = Color.White,
-                    modifier = Modifier.size(layoutPolicy.topBackIconSizeDp.dp)
-                )
-            }
-            PortraitGlassIconButton(
-                onClick = onHomeClick,
-                modifier = Modifier.size(48.dp)
-            ) {
-                AppIcon(
-                    imageVector = Icons.Outlined.Home,
-                    contentDescription = "主界面",
-                    tint = Color.White,
-                    modifier = Modifier.size(layoutPolicy.topBackIconSizeDp.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(layoutPolicy.topViewCountStartSpacingDp.dp))
-            if (shouldShowPortraitViewCount(viewCount = viewCount, compactMode = layoutPolicy.compactMode)) {
-                PlayerControlGlassDock(enabled = true) {
-                    AppText(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                        text = "${FormatUtils.formatStat(viewCount.toLong())}播放",
-                        color = Color.White.copy(alpha = 0.8f),
-                        fontSize = layoutPolicy.topViewCountFontSp.sp
+                PortraitGlassIconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    AppIcon(
+                        imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                        contentDescription = "返回",
+                        tint = Color.White,
+                        modifier = Modifier.size(layoutPolicy.topBackIconSizeDp.dp)
                     )
+                }
+                PortraitGlassIconButton(
+                    onClick = onHomeClick,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    AppIcon(
+                        imageVector = Icons.Outlined.Home,
+                        contentDescription = "主界面",
+                        tint = Color.White,
+                        modifier = Modifier.size(layoutPolicy.topBackIconSizeDp.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(layoutPolicy.topViewCountStartSpacingDp.dp))
+                if (shouldShowPortraitViewCount(viewCount = viewCount, compactMode = layoutPolicy.compactMode)) {
+                    PlayerControlGlassDock(enabled = true) {
+                        AppText(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            text = "${FormatUtils.formatStat(viewCount.toLong())}播放",
+                            color = Color.White.copy(alpha = 0.8f),
+                            fontSize = layoutPolicy.topViewCountFontSp.sp
+                        )
+                    }
                 }
             }
         }
