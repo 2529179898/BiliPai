@@ -7,6 +7,41 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class FloatingBottomBarPagerFollowPolicyTest {
+    @Test
+    fun `tap animation stays non manual after its press bloom finishes`() {
+        for (dragSignal in listOf<Boolean?>(null, false)) {
+            assertFalse(resolveFloatingDockWobbleManualInteraction(
+                indicatorDragging = false, pagerDragging = dragSignal, pagerScrolling = true,
+                tapMotionActive = true, indicatorOwnsTarget = false,
+            ))
+        }
+    }
+
+    @Test
+    fun `real pager drag interrupts tap while inertial settle does not`() {
+        assertTrue(resolveFloatingDockWobbleManualInteraction(
+            indicatorDragging = false, pagerDragging = true, pagerScrolling = true,
+            tapMotionActive = true, indicatorOwnsTarget = false,
+        ))
+        assertFalse(resolveFloatingDockWobbleManualInteraction(
+            indicatorDragging = false, pagerDragging = false, pagerScrolling = true,
+            tapMotionActive = false, indicatorOwnsTarget = false,
+        ))
+        assertTrue(resolveFloatingDockWobbleManualInteraction(
+            indicatorDragging = true, pagerDragging = false, pagerScrolling = false,
+            tapMotionActive = false, indicatorOwnsTarget = true,
+        ))
+    }
+
+    @Test
+    fun `release onto first tab retains ownership while pager catches up`() {
+        val target = resolveIndicatorOwnedTargetOnDragStop(0, 1, true)
+        assertEquals(0, target)
+        assertFalse(resolveFloatingDockWobbleManualInteraction(
+            indicatorDragging = false, pagerDragging = null, pagerScrolling = true,
+            tapMotionActive = false, indicatorOwnsTarget = target != null,
+        ))
+    }
 
     @Test
     fun `drag onto a new tab owns that target when pager position is provided`() {

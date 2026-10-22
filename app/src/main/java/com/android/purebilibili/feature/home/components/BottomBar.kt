@@ -1,6 +1,10 @@
 // 文件路径: feature/home/components/BottomBar.kt
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.animation.rememberLiquidIndicatorWobble
+import com.android.purebilibili.core.ui.animation.liquidWobbleScaleX
+import com.android.purebilibili.core.ui.animation.liquidWobbleScaleY
+
 import com.android.purebilibili.core.ui.AppContentColors
 
 import com.android.purebilibili.core.ui.resolveMatchedLiquidIndicatorHeightDp
@@ -2453,7 +2457,7 @@ private fun MaterialBottomBar(
         SideEffect {
             if (nowPlayingContent != null) hasHostedNowPlaying = true
         }
-        if (searchEnabled || nowPlayingContent != null || hasHostedNowPlaying) {
+        if (searchEnabled || nowPlayingContent != null || hasHostedNowPlaying || homeSettings.bottomBarScrollCompactEnabled) {
             LinkedBottomDock(
                 currentItem = currentItem,
                 firstItem = bottomBarVisibleItems.firstOrNull() ?: BottomNavItem.HOME,
@@ -2481,6 +2485,8 @@ private fun MaterialBottomBar(
                 onDockPhaseChange = onLinkedDockPhaseChange,
                 isTopLevelDestination = isTopLevelDestination,
                 mergeOnScrollDownEnabled = mergeOnScrollDownEnabled,
+                compactOnScrollEnabled = homeSettings.bottomBarScrollCompactEnabled,
+                currentLabel = resolveBottomNavItemLabel(currentItem, itemLabels),
                 animateNowPlayingPresence = animateNowPlayingPresence,
                 modifier = modifier,
                 navigationContent = {
@@ -2565,6 +2571,7 @@ private fun MaterialBottomBar(
             haptic = haptic,
             bottomBarSearchEnabled = homeSettings.isBottomBarSearchEnabled,
             mergeOnScrollDownEnabled = homeSettings.linkedDockMergeOnScrollEnabled,
+            compactOnScrollEnabled = homeSettings.bottomBarScrollCompactEnabled,
             bottomBarSearchAutoExpandMode = homeSettings.bottomBarSearchAutoExpandMode,
             bottomBarSearchLayoutMode = homeSettings.bottomBarSearchLayoutMode,
             onSearchClick = onSearchClick,
@@ -3044,6 +3051,7 @@ private fun MiuixBottomBar(
             motionTier = motionTier,
             isTransitionRunning = isTransitionRunning,
             forceLowBlurBudget = forceLowBlurBudget,
+            compactOnScrollEnabled = homeSettings.bottomBarScrollCompactEnabled,
             bottomBarSearchEnabled = homeSettings.isBottomBarSearchEnabled,
             bottomBarSearchAutoExpandMode = homeSettings.bottomBarSearchAutoExpandMode,
             bottomBarSearchLayoutMode = homeSettings.bottomBarSearchLayoutMode,
@@ -3499,13 +3507,14 @@ private fun BiliPaiFloatingBottomBar(
     onLinkedDockPhaseChange: ((LinkedDockPhase) -> Unit)? = null,
     isTopLevelDestination: Boolean = true,
     mergeOnScrollDownEnabled: Boolean = true,
+    compactOnScrollEnabled: Boolean = false,
     animateNowPlayingPresence: Boolean = true,
 ) {
     var hasHostedNowPlaying by remember { mutableStateOf(nowPlayingContent != null) }
     SideEffect {
         if (nowPlayingContent != null) hasHostedNowPlaying = true
     }
-    if (bottomBarSearchEnabled || nowPlayingContent != null || hasHostedNowPlaying) {
+    if (bottomBarSearchEnabled || nowPlayingContent != null || hasHostedNowPlaying || compactOnScrollEnabled) {
         LinkedBottomDock(
             currentItem = currentItem,
             firstItem = visibleItems.firstOrNull() ?: BottomNavItem.HOME,
@@ -3514,6 +3523,8 @@ private fun BiliPaiFloatingBottomBar(
             onDockPhaseChange = onLinkedDockPhaseChange,
             isTopLevelDestination = isTopLevelDestination,
             mergeOnScrollDownEnabled = mergeOnScrollDownEnabled,
+            compactOnScrollEnabled = compactOnScrollEnabled,
+            currentLabel = resolveBottomNavItemLabel(currentItem, itemLabels),
             animateNowPlayingPresence = animateNowPlayingPresence,
             searchEnabled = bottomBarSearchEnabled,
             isFeedScrollInProgress = isFeedScrollInProgress,
@@ -4062,6 +4073,11 @@ private fun BiliPaiFloatingBottomBarChrome(
                                     tabsCount = totalItems,
                                     modifier = dockModifier,
                                     mode = floatingMode,
+                                    // Glass-only breathing room; preserve the native 4dp default.
+                                    contentHorizontalPadding = com.android.purebilibili.core.ui.resolveLiquidGlassIndicatorHorizontalInsetDp(
+                                        requestedInsetDp = 4f,
+                                        liquidGlassEnabled = floatingMode == FloatingBottomBarMode.LiquidGlass,
+                                    ).dp,
                                     colors = floatingColors,
                                     indicatorIdleSurfaceColorOverride = themedIndicatorContainerColor,
                                     shellHeight = dockHeight,
@@ -4381,7 +4397,10 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
     isDarkTheme: Boolean,
     swapMotionAxes: Boolean = false,
     indicatorAlignment: Alignment = Alignment.CenterStart,
-    interactionModifier: Modifier = Modifier
+    interactionModifier: Modifier = Modifier,
+    wobblePosition: (() -> Float)? = null,
+    wobbleSelection: (() -> Any?)? = null,
+    wobbleLastIndex: Int = -1,
 ) {
     if (!visible) return
     val opticalProgress = resolveSharedLiquidIndicatorLensProgress(
@@ -4390,10 +4409,27 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
         isDragging = isDragging,
     )
     val effectiveIndicatorEffectsEnabled = indicatorEffectsEnabled
+    val motionExtentPx = with(LocalDensity.current) {
+        (if (swapMotionAxes) indicatorHeight else indicatorWidth).toPx().coerceAtLeast(1f)
+    }
+    val canRecoil: () -> Boolean = {
+        !isDragging
+    }
+    val wobble = rememberLiquidIndicatorWobble(
+        enabled = glassEnabled && effectiveIndicatorEffectsEnabled,
+        geometryKey = swapMotionAxes to wobbleLastIndex,
+        canSettle = canRecoil,
+        selectionKey = { wobbleSelection?.invoke() },
+        interactionActive = { isDragging },
+    ) {
+        wobblePosition?.invoke() ?:
+            ((if (swapMotionAxes) indicatorTranslationYPx else indicatorTranslationXPx) / motionExtentPx)
+    }
     val rawIndicatorLayerTransform = if (effectiveIndicatorEffectsEnabled) {
         resolveBottomBarIndicatorLayerTransform(
             motionProgress = motionProgress,
-            velocityItemsPerSecond = velocityItemsPerSecond,
+            velocityItemsPerSecond = velocityItemsPerSecond *
+                if (glassEnabled && !isDragging) wobble.velocityWeight else 1f,
             isDragging = isDragging,
             dragScaleProgress = indicatorLayerScaleProgress,
             dragScaleTransform = indicatorLayerScaleTransform,
@@ -4410,6 +4446,29 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
         )
     } else {
         rawIndicatorLayerTransform
+    }
+    val recoilStretch: () -> Float = {
+        com.android.purebilibili.core.ui.animation.resolveLiquidIndicatorRecoilStretch(
+            wobble.value, !isDragging && (wobble.isSelectionMotion || canRecoil()),
+        )
+    }
+    val layerScaleX: () -> Float = {
+        if (!glassEnabled) indicatorLayerTransform.scaleX
+        else if (swapMotionAxes) liquidWobbleScaleY(indicatorLayerTransform.scaleX, recoilStretch())
+        else liquidWobbleScaleX(indicatorLayerTransform.scaleX, recoilStretch())
+    }
+    val layerScaleY: () -> Float = {
+        if (!glassEnabled) indicatorLayerTransform.scaleY
+        else if (swapMotionAxes) liquidWobbleScaleX(indicatorLayerTransform.scaleY, recoilStretch())
+        else liquidWobbleScaleY(indicatorLayerTransform.scaleY, recoilStretch())
+    }
+    val opticalProgressProvider: () -> Float = {
+        if (glassEnabled && effectiveIndicatorEffectsEnabled) maxOf(
+            opticalProgress,
+            com.android.purebilibili.core.ui.animation.liquidIndicatorShapeProgress(
+                layerScaleX(), layerScaleY(), dragScaleTarget,
+            ),
+        ) else opticalProgress
     }
     val pillHighlight = if (glassEnabled) {
         rememberBiliPaiGravityHighlight(
@@ -4432,9 +4491,17 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
             .graphicsLayer {
                 translationX = indicatorTranslationXPx + indicatorPanelOffsetPx
                 translationY = indicatorTranslationYPx + indicatorPanelOffsetYPx
+                if (glassEnabled && wobbleLastIndex >= 0) {
+                    val shift = com.android.purebilibili.core.ui.animation.liquidWobbleEdgeTranslationPx(
+                        recoilStretch(), wobblePosition?.invoke() ?: 0f, wobbleLastIndex,
+                        if (swapMotionAxes) size.height else size.width, 4.dp.toPx(),
+                        baseScale = if (swapMotionAxes) indicatorLayerTransform.scaleY else indicatorLayerTransform.scaleX,
+                    )
+                    if (swapMotionAxes) translationY += shift else translationX += shift
+                }
                 if (indicatorBackdrop == null && effectiveIndicatorEffectsEnabled) {
-                    scaleX = indicatorLayerTransform.scaleX
-                    scaleY = indicatorLayerTransform.scaleY
+                    scaleX = layerScaleX()
+                    scaleY = layerScaleY()
                 }
             }
             .width(indicatorWidth)
@@ -4451,33 +4518,33 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                             if (shouldUseBottomBarIndicatorLens(liquidGlassPreset)) {
                                 homeIndicatorLens(
                                     restHeightDp = indicatorHeight.value,
-                                    progress = opticalProgress,
+                                    progress = opticalProgressProvider(),
                                     tuning = liquidGlassTuning,
-                                    indicatorScaleY = indicatorLayerTransform.scaleY,
+                                    indicatorScaleY = layerScaleY(),
                                 )
                             }
                         },
                         highlight = {
-                            pillHighlight?.value?.copy(alpha = opticalProgress)
+                            pillHighlight?.value?.copy(alpha = opticalProgressProvider())
                         },
                         onDrawSurface = {
-                            drawHomeIndicatorSurface(opticalProgress, isDarkTheme, indicatorIdleSurfaceColor)
+                            drawHomeIndicatorSurface(opticalProgressProvider(), isDarkTheme, indicatorIdleSurfaceColor)
                         },
                         layerBlock = {
                             if (effectiveIndicatorEffectsEnabled) {
-                                scaleX = indicatorLayerTransform.scaleX
-                                scaleY = indicatorLayerTransform.scaleY
+                                scaleX = layerScaleX()
+                                scaleY = layerScaleY()
                             }
                         }
                     ).miuixInnerShadow(shape = shellShape) {
                         MiuixInnerShadow(
                             offset = if (glassEnabled) androidx.compose.ui.unit.DpOffset.Zero else
                                 androidx.compose.ui.unit.DpOffset(
-                                    0.dp, 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgress,
+                                    0.dp, 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgressProvider(),
                                 ),
-                            radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgress,
+                            radius = 8.dp * homeIndicatorOpticalScale(indicatorHeight.value) * opticalProgressProvider(),
                             color = OpticalContrastPalette.Shadow.copy(alpha = 0.15f),
-                            alpha = opticalProgress
+                            alpha = opticalProgressProvider()
                         )
                     }
                 } else {

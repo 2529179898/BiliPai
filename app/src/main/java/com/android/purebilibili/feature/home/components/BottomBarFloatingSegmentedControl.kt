@@ -86,6 +86,7 @@ internal fun BottomBarFloatingSegmentedControl(
     liquidGlassLabelHorizontalPadding: Dp? = null,
     liquidGlassMeasurementLabels: List<String>? = null,
     liquidGlassAnimateLabelWidthChanges: Boolean = false,
+    isPagerDraggingProvider: (() -> Boolean)? = null,
     itemContent: (@Composable ColumnScope.(index: Int, label: String, selected: Boolean) -> Unit)? = null,
 ) {
     if (items.isEmpty()) return
@@ -203,7 +204,11 @@ internal fun BottomBarFloatingSegmentedControl(
             ).value
         }
     } else measuredIndicatorContentWidths
-    val horizontalPadding = containerHorizontalPadding.coerceAtLeast(0.dp)
+    // Only glass tightens shell ends; native sizing and authored narrow insets stay intact.
+    val horizontalPadding = com.android.purebilibili.core.ui.resolveLiquidGlassIndicatorHorizontalInsetDp(
+        requestedInsetDp = containerHorizontalPadding.value,
+        liquidGlassEnabled = liquidGlassEnabled,
+    ).dp.coerceAtLeast(0.dp)
     val verticalPadding = containerVerticalPadding.coerceIn(0.dp, effectiveHeight / 2)
     val contentWidth = effectiveItemWidth?.let { it * itemCount + horizontalPadding * 2 }
     // A scroll state enables overflow; it must not stretch a short glass shell to
@@ -354,6 +359,7 @@ internal fun BottomBarFloatingSegmentedControl(
             onIndicatorPositionChanged = onIndicatorPositionChanged,
             onIndicatorDragStateChanged = onIndicatorDragStateChanged,
             externalPagerMotionEffectsEnabled = externalPagerMotionEffectsEnabled,
+            isPagerDraggingProvider = isPagerDraggingProvider,
             liquidGlassTuning = liquidGlassTuning,
             drawShell = scrollState == null,
             onDockTranslationProviderChanged = if (scrollState != null) {

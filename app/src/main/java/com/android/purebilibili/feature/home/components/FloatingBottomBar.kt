@@ -13,6 +13,10 @@
 // BiliPai-only knobs: nullable backdrop, shellHeight / indicatorHeight parameters.
 package com.android.purebilibili.feature.home.components
 
+import com.android.purebilibili.core.ui.animation.rememberLiquidIndicatorWobble
+import com.android.purebilibili.core.ui.animation.liquidWobbleScaleX
+import com.android.purebilibili.core.ui.animation.liquidWobbleScaleY
+
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
@@ -353,6 +357,16 @@ internal fun shouldAnimateIndicatorToSelectedIndex(
     return true
 }
 
+/** Pager scrolling includes tap animations; only a pointer drag may cancel a tap's shape. */
+internal fun resolveFloatingDockWobbleManualInteraction(
+    indicatorDragging: Boolean,
+    pagerDragging: Boolean?,
+    pagerScrolling: Boolean,
+    tapMotionActive: Boolean,
+    indicatorOwnsTarget: Boolean,
+): Boolean = indicatorDragging || (pagerDragging ?:
+    (pagerScrolling && !tapMotionActive && !indicatorOwnsTarget))
+
 /** A scroll mutation without page displacement must not start a lens press pulse. */
 internal fun shouldStartExternalPagerIndicatorPress(
     effectsEnabled: Boolean,
@@ -507,6 +521,7 @@ fun FloatingBottomBar(
     onDockTranslationProviderChanged: (((() -> Float)) -> Unit)? = null,
     dragScrollState: ScrollState? = null,
     dragScrollViewportWidthPx: () -> Float = { 0f },
+    isPagerDraggingProvider: (() -> Boolean)? = null,
     content: @Composable RowScope.() -> Unit
 ) {
     // Do not use the system night flag here: BiliPai supports an app-only dark theme.
@@ -654,9 +669,12 @@ fun FloatingBottomBar(
     val dragScrollViewportWidthLatest = rememberUpdatedState(dragScrollViewportWidthPx)
     val indicatorPositionLatest by rememberUpdatedState(indicatorPositionProvider)
     val isScrollInProgressLatest by rememberUpdatedState(isScrollInProgressProvider)
+    val isPagerDraggingLatest by rememberUpdatedState(isPagerDraggingProvider)
     val externalPagerMotionEffectsLatest by rememberUpdatedState(externalPagerMotionEffectsEnabled)
     val pagerFollowGate = remember { ExternalPagerIndicatorFollowGate() }
     var selectionTapFeedbackActive by remember { mutableStateOf(false) }
+    // Input ownership outlives the bloom timeout: programmatic scrolling is still a tap.
+    var selectionTapMotionActive by remember { mutableStateOf(false) }
     val selectionTapFeedbackJob = remember {
         object {
             var job: Job? = null
@@ -724,6 +742,7 @@ fun FloatingBottomBar(
                 selectionTapFeedbackJob.generation++
                 selectionTapFeedbackJob.job?.cancel()
                 selectionTapFeedbackActive = false
+                selectionTapMotionActive = false
                 val padding = with(density) { horizontalPaddingLatest.value.toPx() }
                 val slotStart = if (isLtr) {
                     padding + targetValue * tabWidthPx
@@ -780,6 +799,7 @@ fun FloatingBottomBar(
             val generation = ++selectionTapFeedbackJob.generation
             selectionTapFeedbackJob.job?.cancel()
             selectionTapFeedbackActive = true
+            selectionTapMotionActive = true
             dampedDragAnimation.press()
             // This independent job cannot be cancelled by the pager's snapTo.
             // The business click below does not wait for it or the scale spring.
@@ -791,16 +811,42 @@ fun FloatingBottomBar(
                     }
                     // Pager snapTo continuously updates targetValue, so comparing the
                     // local animation with its own target cannot detect click completion.
-                    // Hold the bloom until the clicked destination really lands; a new
-                    // click or a pointer drag cancels this job instead of a fixed timeout.
-                    snapshotFlow {
-                        val position = indicatorPositionLatest?.invoke() ?: dampedDragAnimation.value
-                        !isScrollInProgressLatest() && abs(position - targetIndex.toFloat()) <= com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.SettleTolerance
-                    }.first { it }
+                    suspend fun awaitTapLanding() {
+                        snapshotFlow {
+                            val position = indicatorPositionLatest?.invoke() ?: dampedDragAnimation.value
+                            !isScrollInProgressLatest() && abs(position - targetIndex.toFloat()) <= com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.SettleTolerance
+                        }.first { it }
+                    }
+                    // Glass cancels stale bloom after redirected pager motion; native
+                    // controls retain their existing destination-owned release timing.
+                    if (isLiquidGlassMode) {
+                        withTimeoutOrNull(com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.SettleWaitMillis) {
+                            awaitTapLanding()
+                        }
+                    } else {
+                        awaitTapLanding()
+                    }
                     if (!dampedDragAnimation.isDragging) dampedDragAnimation.release()
                 } finally {
                     if (selectionTapFeedbackJob.generation == generation) selectionTapFeedbackActive = false
                 }
+            }
+        }
+    }
+    LaunchedEffect(dampedDragAnimation) {
+        if (!isLiquidGlassMode) return@LaunchedEffect
+        snapshotFlow {
+            Triple(isScrollInProgressLatest(), selectionTapFeedbackActive,
+                isPagerDraggingLatest?.invoke() == true)
+        }.collect { (scrolling, feedback, pagerDragging) ->
+            if (pagerDragging && selectionTapMotionActive) {
+                selectionTapFeedbackJob.generation++
+                selectionTapFeedbackJob.job?.cancel()
+                selectionTapFeedbackActive = false
+                selectionTapMotionActive = false
+                dampedDragAnimation.release(waitForBloom = false)
+            } else if (!scrolling && !feedback) {
+                selectionTapMotionActive = false
             }
         }
     }
@@ -899,6 +945,38 @@ fun FloatingBottomBar(
                 (dragSelectionEnabled || longPressDragSelectionEnabled),
         )
     }
+    // Glass recoil joins release immediately. Native press/velocity transforms retain their specs.
+    val canRecoil: () -> Boolean = {
+        !dampedDragAnimation.isDragging &&
+            (!isScrollInProgressLatest() || pagerFollowGate.ownedTargetIndex != null) &&
+            !selectionTapFeedbackActive
+    }
+    val indicatorWobble = rememberLiquidIndicatorWobble(
+        enabled = isLiquidGlassMode,
+        // Position is in slots: search/label width changes must not recreate the shape spring.
+        geometryKey = safeTabsCount,
+        canSettle = canRecoil,
+        selectionKey = { selectedIndexLatest.value() },
+        interactionActive = {
+            resolveFloatingDockWobbleManualInteraction(
+                indicatorDragging = dampedDragAnimation.isDragging,
+                pagerDragging = isPagerDraggingLatest?.invoke(),
+                pagerScrolling = isScrollInProgressLatest(),
+                tapMotionActive = selectionTapMotionActive,
+                indicatorOwnsTarget = pagerFollowGate.ownedTargetIndex != null,
+            )
+        },
+        selectionMotionActive = { selectionTapMotionActive },
+        position = rawIndicatorPositionProvider,
+    )
+    val recoilStretch: () -> Float = {
+        com.android.purebilibili.core.ui.animation.resolveLiquidIndicatorRecoilStretch(
+            indicatorWobble.value,
+            !dampedDragAnimation.isDragging &&
+                isPagerDraggingLatest?.invoke() != true &&
+                (indicatorWobble.isSelectionMotion || canRecoil()),
+        )
+    }
     LaunchedEffect(dampedDragAnimation) {
         snapshotFlow { dampedDragAnimation.value }
             .collect { position -> onIndicatorPositionChangedLatest.value?.invoke(position) }
@@ -932,6 +1010,25 @@ fun FloatingBottomBar(
             }
         }
     }
+    // A single final geometry feeds the backdrop transform and its optical band.
+    // Manual dragging keeps its original velocity; release fades that contribution
+    // continuously while the original bloom and recoil springs keep running.
+    val indicatorVelocityProvider: () -> Float = {
+        dampedDragAnimation.velocity *
+            if (dampedDragAnimation.isDragging) 1f else indicatorWobble.velocityWeight
+    }
+    val indicatorScaleXProvider: () -> Float = {
+        liquidWobbleScaleX(
+            resolveFloatingDockIndicatorLayerScaleX(dampedDragAnimation.scaleX, indicatorVelocityProvider()),
+            recoilStretch(),
+        )
+    }
+    val indicatorScaleYProvider: () -> Float = {
+        liquidWobbleScaleY(
+            resolveFloatingDockIndicatorLayerScaleY(dampedDragAnimation.scaleY, indicatorVelocityProvider()),
+            recoilStretch(),
+        )
+    }
     val indicatorOpticalProgressProvider: () -> Float = {
         // The press spring settles before the size springs. Keep the lens and surface
         // transition alive through the complete shrink, including spring undershoot.
@@ -941,7 +1038,7 @@ fun FloatingBottomBar(
                 abs(dampedDragAnimation.scaleY - 1f),
             ) / (pressedScale - 1f)
         } else 0f
-        resolveFloatingDockRefractionProgress(
+        val interactionProgress = resolveFloatingDockRefractionProgress(
             pressProgress = maxOf(dampedDragAnimation.pressProgress, sizeProgress),
             tapPressRefractionEnabled = tapPressRefractionEnabled,
             isDragging = dampedDragAnimation.isDragging,
@@ -955,6 +1052,16 @@ fun FloatingBottomBar(
                 targetPosition = dampedDragAnimation.targetValue,
             ),
         )
+        // Keep the opt-out for tap-only bloom. Recoil itself needs the same
+        // material lifetime as its final (bloom × velocity × shape) geometry.
+        if (indicatorWobble.isSelectionMotion) maxOf(
+            interactionProgress,
+            com.android.purebilibili.core.ui.animation.liquidIndicatorShapeProgress(
+                if (tapPressRefractionEnabled) indicatorScaleXProvider() else liquidWobbleScaleX(1f, recoilStretch()),
+                if (tapPressRefractionEnabled) indicatorScaleYProvider() else liquidWobbleScaleY(1f, recoilStretch()),
+                pressedScale,
+            ),
+        ) else interactionProgress
     }
     val itemAlignmentOffsetProvider: (Int) -> Float = { itemIndex ->
         if (tabWidthPx <= 0f) {
@@ -1368,6 +1475,13 @@ fun FloatingBottomBar(
                                 -indicatorOffsetPx + panelOffset
                             }
                             translationY = dockDragTranslationY()
+                            if (isLiquidGlassMode) {
+                                translationX += com.android.purebilibili.core.ui.animation.liquidWobbleEdgeTranslationPx(
+                                    recoilStretch(), rawIndicatorPositionProvider(), maxTabIndex,
+                                    indicatorWidthPxProvider(), horizontalPadding.toPx(),
+                                    baseScale = dampedDragAnimation.scaleX,
+                                ) * if (isLtr) 1f else -1f
+                            }
                             if (allowOverflow) {
                                 clip = false
                             }
@@ -1389,10 +1503,7 @@ fun FloatingBottomBar(
                                     progress = progress,
                                     tuning = liquidGlassTuning,
                                     shellHeightDp = shellHeight.value,
-                                    indicatorScaleY = resolveFloatingDockIndicatorLayerScaleY(
-                                        baseScaleY = dampedDragAnimation.scaleY,
-                                        velocity = dampedDragAnimation.velocity,
-                                    ),
+                                    indicatorScaleY = indicatorScaleYProvider(),
                                     shellScaleY = if (drawShell) {
                                         shellBloom + shellStretch.coerceAtMost(DOCK_SHELL_MAX_EXTRA_STRETCH)
                                     } else 1f,
@@ -1402,14 +1513,8 @@ fun FloatingBottomBar(
                                 pillHighlight?.value?.copy(alpha = indicatorOpticalProgressProvider())
                             },
                             layerBlock = {
-                                scaleY = resolveFloatingDockIndicatorLayerScaleY(
-                                    baseScaleY = dampedDragAnimation.scaleY,
-                                    velocity = dampedDragAnimation.velocity,
-                                )
-                                scaleX = resolveFloatingDockIndicatorLayerScaleX(
-                                    baseScaleX = dampedDragAnimation.scaleX,
-                                    velocity = dampedDragAnimation.velocity,
-                                )
+                                scaleY = indicatorScaleYProvider()
+                                scaleX = indicatorScaleXProvider()
                             },
                             onDrawSurface = {
                                 drawHomeIndicatorSurface(
@@ -1447,8 +1552,21 @@ fun FloatingBottomBar(
                                 -indicatorOffsetPx + panelOffset
                             }
                             translationY = dockDragTranslationY()
+                            if (isLiquidGlassMode) {
+                                translationX += com.android.purebilibili.core.ui.animation.liquidWobbleEdgeTranslationPx(
+                                    recoilStretch(), rawIndicatorPositionProvider(), maxTabIndex,
+                                    indicatorWidthPxProvider(), horizontalPadding.toPx(),
+                                    baseScale = dampedDragAnimation.scaleX,
+                                ) * if (isLtr) 1f else -1f
+                            }
                             if (allowOverflow) {
                                 clip = false
+                            }
+                        }
+                        .graphicsLayer {
+                            if (isLiquidGlassMode) {
+                                scaleX = liquidWobbleScaleX(1f, recoilStretch())
+                                scaleY = liquidWobbleScaleY(1f, recoilStretch())
                             }
                         }
                         .clip(indicatorShape)

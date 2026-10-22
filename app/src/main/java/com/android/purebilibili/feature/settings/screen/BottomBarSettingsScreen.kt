@@ -230,7 +230,7 @@ fun BottomBarSettingsContent(
     val keepHomeTopSearch by SettingsManager.getKeepHomeTopSearchWithBottomSearch(context)
         .collectAsStateWithLifecycle(initialValue = false)
     val bottomBarScrollCompactEnabled by SettingsManager.getBottomBarScrollCompactEnabled(context)
-        .collectAsStateWithLifecycle(initialValue = false)
+        .collectAsStateWithLifecycle(initialValue = true)
     val linkedDockMergeOnScrollEnabled by SettingsManager.getLinkedDockMergeOnScrollEnabled(context)
         .collectAsStateWithLifecycle(initialValue = true)
     val listScopedSearchEnabled by SettingsManager.getListScopedSearchEnabled(context)

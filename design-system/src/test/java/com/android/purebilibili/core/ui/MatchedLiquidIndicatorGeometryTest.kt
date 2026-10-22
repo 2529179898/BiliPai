@@ -7,6 +7,16 @@ import kotlin.test.assertTrue
 class MatchedLiquidIndicatorGeometryTest {
 
     @Test
+    fun `only glass tightens authored horizontal insets and keeps already narrow edges`() {
+        assertEquals(4f, resolveLiquidGlassIndicatorHorizontalInsetDp(4f, true))
+        assertEquals(3f, resolveLiquidGlassIndicatorHorizontalInsetDp(3f, true))
+        assertEquals(1f, resolveLiquidGlassIndicatorHorizontalInsetDp(1f, true))
+        assertEquals(0f, resolveLiquidGlassIndicatorHorizontalInsetDp(0f, true))
+        assertEquals(4f, resolveLiquidGlassIndicatorHorizontalInsetDp(4f, false))
+        assertEquals(8f, resolveLiquidGlassIndicatorHorizontalInsetDp(8f, false))
+    }
+
+    @Test
     fun `home bottom bar keeps flat rest state and visible pressed overflow`() {
         val geometry = resolveMatchedLiquidIndicatorGeometry(
             dockHeightDp = BottomBarReferenceShellHeightDp,

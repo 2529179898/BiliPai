@@ -20,6 +20,20 @@ internal fun shouldExpandPlaybackFromSearch(
 internal fun accumulateDockScroll(previous: Float, delta: Float): Float =
     if (previous * delta < 0f) delta else previous + delta
 
+/** Retained playback owns the dock until its exit animation has released the slot. */
+internal fun shouldUseScrollCompactNavigation(
+    enabled: Boolean,
+    hasAudio: Boolean,
+    retainingAudio: Boolean,
+): Boolean = enabled && !hasAudio && !retainingAudio
+
+/** Positive offset browses down; a full opposite-direction threshold expands again. */
+internal fun resolveScrollCompactIntent(accumulatedPx: Float, thresholdPx: Float): Boolean? = when {
+    accumulatedPx >= thresholdPx -> true
+    accumulatedPx <= -thresholdPx -> false
+    else -> null
+}
+
 internal fun resolveLinkedDockRestingPhase(
     collapseRequested: Boolean,
     hasAudio: Boolean,

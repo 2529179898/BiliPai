@@ -92,6 +92,8 @@ internal fun LinkedBottomDock(
     onDockPhaseChange: ((LinkedDockPhase) -> Unit)? = null,
     isTopLevelDestination: Boolean = true,
     mergeOnScrollDownEnabled: Boolean = true,
+    compactOnScrollEnabled: Boolean = false,
+    currentLabel: String = firstLabel,
     animateNowPlayingPresence: Boolean = true,
     hasUiSkinDecoration: Boolean = false,
     modifier: Modifier = Modifier,
@@ -101,6 +103,13 @@ internal fun LinkedBottomDock(
 ) {
     com.android.purebilibili.core.ui.components.ProvideAppElasticFeedback {
         val hasAudio = nowPlayingContent != null
+        var keepSlotComposed by remember { mutableStateOf(hasAudio) }
+        val useNavigationCompact = shouldUseScrollCompactNavigation(
+            enabled = compactOnScrollEnabled,
+            hasAudio = hasAudio,
+            retainingAudio = keepSlotComposed,
+        )
+        var compactNavigation by remember(currentItem, useNavigationCompact) { mutableStateOf(false) }
         var internalPhase by remember(currentItem, searchEnabled) {
             mutableStateOf(
                 resolveLinkedDockInitialPhase(
@@ -118,6 +127,14 @@ internal fun LinkedBottomDock(
             } else {
                 internalPhase = newPhase
             }
+        }
+        LaunchedEffect(useNavigationCompact, currentItem, isTopLevelDestination) {
+            if (useNavigationCompact && isTopLevelDestination && phase != LinkedDockPhase.Search) {
+                updatePhase(LinkedDockPhase.Expanded)
+            }
+        }
+        LaunchedEffect(phase) {
+            if (phase == LinkedDockPhase.Search) compactNavigation = false
         }
         LaunchedEffect(hasAudio, dockPhase) {
             if (dockPhase == null) {
@@ -137,7 +154,7 @@ internal fun LinkedBottomDock(
         val currentPhase by rememberUpdatedState(phase)
         val scrolling by rememberUpdatedState(isFeedScrollInProgress)
         val threshold = with(LocalDensity.current) { 24.dp.toPx() }
-        LaunchedEffect(currentItem, hasAudio, searchEnabled, scroll, threshold, isTopLevelDestination, mergeOnScrollDownEnabled, glassEnabled) {
+        LaunchedEffect(currentItem, hasAudio, searchEnabled, scroll, threshold, isTopLevelDestination, mergeOnScrollDownEnabled, glassEnabled, useNavigationCompact) {
             var previous = scroll.floatValue
             var accumulated = 0f
             snapshotFlow { scroll.floatValue to scrolling }.collect { (offset, active) ->
@@ -145,6 +162,13 @@ internal fun LinkedBottomDock(
                 previous = offset
                 if (!active || !isTopLevelDestination || currentPhase == LinkedDockPhase.Search) {
                     accumulated = 0f
+                } else if (useNavigationCompact) {
+                    // Without playback, only navigation compacts; playback retains its original phases.
+                    accumulated = accumulateDockScroll(accumulated, delta)
+                    resolveScrollCompactIntent(accumulated, threshold)?.let { compact ->
+                        compactNavigation = compact
+                        accumulated = 0f
+                    }
                 } else if (!mergeOnScrollDownEnabled) {
                     // 用户选择下滑不合体：只保留向上滚动回到展开（分体）的能力。
                     accumulated = accumulateDockScroll(accumulated, delta)
@@ -172,9 +196,9 @@ internal fun LinkedBottomDock(
         // by isTopLevelDestination made the returning page re-expand/re-collapse the playback strip,
         // which also shifted the predictive-back target after the gesture had started.
         // Skip while the list is scrolling so resting phase does not fight scroll-driven search size.
-        LaunchedEffect(currentItem, collapseRequested, hasAudio) {
+        LaunchedEffect(currentItem, collapseRequested, hasAudio, useNavigationCompact) {
             if (
-                isTopLevelDestination &&
+                isTopLevelDestination && !useNavigationCompact &&
                 currentItem != BottomNavItem.HOME &&
                 currentPhase != LinkedDockPhase.Search &&
                 !isFeedScrollInProgress
@@ -234,7 +258,6 @@ internal fun LinkedBottomDock(
         // Shared morph owns both directions. Keep the real slot at its endpoint while
         // handoff alpha hides it; replaying an entrance spring causes a second landing.
         val presence = remember { Animatable(if (hasAudio) 1f else 0f) }
-        var keepSlotComposed by remember { mutableStateOf(hasAudio) }
         val slotEntering = remember { mutableStateOf(false) }
         LaunchedEffect(hasAudio, animateNowPlayingPresence, reduceMotion) {
             val target = if (hasAudio) 1f else 0f
@@ -416,7 +439,25 @@ internal fun LinkedBottomDock(
                                 }
                             ),
                     ) {
-                        navigationContent()
+                        if (compactOnScrollEnabled) {
+                            ScrollCompactNavigation(
+                                compact = useNavigationCompact && compactNavigation && phase == LinkedDockPhase.Expanded,
+                                currentItem = currentItem,
+                                currentLabel = currentLabel,
+                                iconStyle = iconStyle,
+                                expandedWidthPx = navWidth,
+                                expandedHeightPx = barHeight,
+                                buttonSizePx = button.coerceAtMost(navWidth),
+                                backdrop = backdrop,
+                                containerColor = containerColor,
+                                glassEnabled = glassEnabled,
+                                blurEnabled = blurEnabled,
+                                hazeState = hazeState,
+                                liquidGlassTuning = liquidGlassTuning,
+                                onExpand = { compactNavigation = false },
+                                content = navigationContent,
+                            )
+                        } else navigationContent()
                     }
                 }
                 val homeElasticState = rememberAppElasticPressState(

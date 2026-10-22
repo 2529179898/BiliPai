@@ -657,7 +657,7 @@ data class HomeSettings(
     val keepHomeTopSearchWithBottomSearch: Boolean = false,
     val listScopedSearchEnabled: Boolean = false,
     val linkedDockMergeOnScrollEnabled: Boolean = true,
-    val bottomBarScrollCompactEnabled: Boolean = false,
+    val bottomBarScrollCompactEnabled: Boolean = true,
     val bottomBarSearchAutoExpandMode: BottomBarSearchAutoExpandMode =
         BottomBarSearchAutoExpandMode.EXPAND_AT_HOME_TOP,
     val bottomBarSearchLayoutMode: BottomBarSearchLayoutMode =
@@ -1822,7 +1822,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             isBottomBarSearchEnabled = preferences[KEY_BOTTOM_BAR_SEARCH_ENABLED] ?: false,
             keepHomeTopSearchWithBottomSearch = preferences[KEY_KEEP_HOME_TOP_SEARCH] ?: false,
             linkedDockMergeOnScrollEnabled = preferences[KEY_LINKED_DOCK_MERGE_ON_SCROLL_ENABLED] ?: true,
-            bottomBarScrollCompactEnabled = preferences[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] ?: false,
+            bottomBarScrollCompactEnabled = preferences[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] ?: true,
             listScopedSearchEnabled = preferences[KEY_LIST_SCOPED_SEARCH_ENABLED] ?: false,
             bottomBarSearchAutoExpandMode = BottomBarSearchAutoExpandMode.fromValue(
                 preferences[KEY_BOTTOM_BAR_SEARCH_AUTO_EXPAND_MODE]
@@ -4568,7 +4568,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     }
 
     fun getBottomBarScrollCompactEnabled(context: Context): Flow<Boolean> =
-        context.settingsDataStore.data.map { it[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] ?: false }
+        context.settingsDataStore.data.map { it[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] ?: true }
 
     suspend fun setBottomBarScrollCompactEnabled(context: Context, value: Boolean) {
         context.settingsDataStore.edit { it[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] = value }
@@ -8109,7 +8109,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         // Compact navigation replaces scroll hiding only for floating bottom bars.
         // The saved preference remains intact for switching this feature off.
         val effectiveVisibility = if (
-            preferences[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] == true &&
+            (preferences[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] ?: true) &&
             (preferences[KEY_BOTTOM_BAR_FLOATING] ?: true) &&
             savedVisibility == BottomBarVisibilityMode.SCROLL_HIDE
         ) BottomBarVisibilityMode.ALWAYS_VISIBLE else savedVisibility

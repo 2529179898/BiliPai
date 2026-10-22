@@ -12,6 +12,23 @@ import kotlin.test.assertTrue
 class AppNavigationSettingsMappingPolicyTest {
 
     @Test
+    fun scrollCompactDefaultsEnabledAndPreservesExplicitOptOut() {
+        val compact = booleanPreferencesKey("bottom_bar_scroll_compact_enabled")
+        val visibility = intPreferencesKey("bottom_bar_visibility_mode")
+        val prefs = mutablePreferencesOf(
+            visibility to SettingsManager.BottomBarVisibilityMode.SCROLL_HIDE.value,
+        )
+        assertTrue(HomeSettings().bottomBarScrollCompactEnabled)
+        assertTrue(mapHomeSettingsFromPreferences(prefs).bottomBarScrollCompactEnabled)
+        assertEquals(SettingsManager.BottomBarVisibilityMode.ALWAYS_VISIBLE,
+            mapAppNavigationSettingsFromPreferences(prefs).bottomBarVisibilityMode)
+        prefs[compact] = false
+        assertFalse(mapHomeSettingsFromPreferences(prefs).bottomBarScrollCompactEnabled)
+        assertEquals(SettingsManager.BottomBarVisibilityMode.SCROLL_HIDE,
+            mapAppNavigationSettingsFromPreferences(prefs).bottomBarVisibilityMode)
+    }
+
+    @Test
     fun compactNavigationReplacesScrollHideWithoutChangingStoredPreference() {
         val mode = intPreferencesKey("bottom_bar_visibility_mode")
         val compact = booleanPreferencesKey("bottom_bar_scroll_compact_enabled")

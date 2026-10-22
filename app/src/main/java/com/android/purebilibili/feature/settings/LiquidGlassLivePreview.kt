@@ -933,6 +933,10 @@ private fun LiquidGlassHomeSample(
                     .weight(1f)
                     .height(48.dp),
                 mode = FloatingBottomBarMode.LiquidGlass,
+                contentHorizontalPadding = com.android.purebilibili.core.ui.resolveLiquidGlassIndicatorHorizontalInsetDp(
+                    requestedInsetDp = 4f,
+                    liquidGlassEnabled = true,
+                ).dp,
                 colors = FloatingBottomBarColors(
                     containerColor = glassColor,
                     indicatorColor = AppContentColors.accent(),
