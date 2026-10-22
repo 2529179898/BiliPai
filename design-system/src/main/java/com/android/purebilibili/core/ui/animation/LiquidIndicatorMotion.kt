@@ -11,6 +11,7 @@ import kotlin.math.sin
 object LiquidIndicatorMotion {
     const val VelocityDivisor = 10f
     const val VelocityClamp = 0.2f
+    const val ReleaseDistanceFraction = 0.025f
     const val SettleTolerance = 0.015f
     const val BloomWaitMillis = 300L
     const val SettleWaitMillis = 450L

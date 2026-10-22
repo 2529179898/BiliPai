@@ -428,17 +428,21 @@ fun RowScope.FloatingBottomBarItem(
 
     // Do not clip(CircleShape): BiliPai reminder badges offset outside the icon and would be
     // cropped (BiliPai items are icon-only and can clip safely).
+    // Exported copies can sit above the visible row even when their source does not
+    // paint to the screen. Keep them out of hit testing so a tap reaches the visible
+    // item's destination lock and press feedback before it submits navigation.
+    val clickModifier = if (activeContent) Modifier else Modifier.clickable(
+        interactionSource = null,
+        indication = null,
+        role = Role.Tab,
+        onClick = {
+            if (!selected) itemIndex?.let(tapFeedback)
+            onClick()
+        },
+    )
     Column(
         modifier
-            .clickable(
-                interactionSource = null,
-                indication = null,
-                role = Role.Tab,
-                onClick = {
-                    if (!selected && !activeContent) itemIndex?.let(tapFeedback)
-                    onClick()
-                }
-            )
+            .then(clickModifier)
             .semantics {
                 this.selected = selected
             }
@@ -663,6 +667,7 @@ fun FloatingBottomBar(
     val externalPagerMotionEffectsLatest by rememberUpdatedState(externalPagerMotionEffectsEnabled)
     val pagerFollowGate = remember { ExternalPagerIndicatorFollowGate() }
     var selectionTapFeedbackActive by remember { mutableStateOf(false) }
+    var glassTapTarget by remember(isLiquidGlassMode, tabsCount) { mutableStateOf<Int?>(null) }
     var indicatorHighlightFromDrag by remember { mutableStateOf(false) }
     val selectionTapFeedbackJob = remember {
         object {
@@ -677,12 +682,13 @@ fun FloatingBottomBar(
     val holder = remember { DampedDragAnimationHolder() }
     val interactiveHighlight =
         if (com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current) {
-            remember(animationScope, holder) {
+            remember(animationScope, holder, isLiquidGlassMode) {
                 InteractiveHighlight(
                     animationScope = animationScope,
-                    // The captured material must receive exactly the same press progress
-                    // for pointer drags, tap springs and externally driven pager motion.
-                    pressProgressProvider = { holder.instance?.pressProgress ?: 0f },
+                    // Glass touch light follows pointer lifetime independently of selection bloom.
+                    pressProgressProvider = if (isLiquidGlassMode) null else {
+                        { holder.instance?.pressProgress ?: 0f }
+                    },
                 )
             }
         } else {
@@ -732,6 +738,7 @@ fun FloatingBottomBar(
                 selectionTapFeedbackJob.generation++
                 selectionTapFeedbackJob.job?.cancel()
                 selectionTapFeedbackActive = false
+                glassTapTarget = null
                 val padding = with(density) { horizontalPaddingLatest.value.toPx() }
                 val slotStart = if (isLtr) {
                     padding + targetValue * tabWidthPx
@@ -785,8 +792,15 @@ fun FloatingBottomBar(
         ).also { holder.instance = it }
     }
     val selectionTapFeedback: (Int) -> Unit = { targetIndex ->
-        if (isLiquidGlassMode) indicatorHighlightFromDrag = false
-        if (interactiveHighlight != null) {
+        if (isLiquidGlassMode) {
+            indicatorHighlightFromDrag = false
+            glassTapTarget = targetIndex.coerceIn(0, maxTabIndex)
+            pagerFollowGate.ownedTargetIndex = null
+            pagerFollowGate.previousExternalPosition = null
+            // One spring owns the whole tap; pager traversal cannot restart its bloom.
+            dampedDragAnimation.animateToValue(targetIndex.toFloat())
+        }
+        if (!isLiquidGlassMode && interactiveHighlight != null) {
             val generation = ++selectionTapFeedbackJob.generation
             selectionTapFeedbackJob.job?.cancel()
             selectionTapFeedbackActive = true
@@ -814,14 +828,34 @@ fun FloatingBottomBar(
             }
         }
     }
+    LaunchedEffect(glassTapTarget, isLiquidGlassMode) {
+        val target = glassTapTarget ?: return@LaunchedEffect
+        snapshotFlow {
+            val position = indicatorPositionLatest?.invoke() ?: selectedIndexLatest.value().toFloat()
+            !isScrollInProgressLatest() &&
+                abs(position - target) <= com.android.purebilibili.core.ui.animation.LiquidIndicatorMotion.SettleTolerance &&
+                abs(dampedDragAnimation.value - target) < 0.001f &&
+                abs(dampedDragAnimation.scaleX - 1f) < 0.001f &&
+                abs(dampedDragAnimation.scaleY - 1f) < 0.001f
+        }.first { it }
+        glassTapTarget = null
+    }
     LaunchedEffect(isLiquidGlassMode) {
         if (!isLiquidGlassMode) return@LaunchedEffect
         // Older tab callers have no pointer signal; their own tap feedback owns the
         // entire programmatic scroll, so only unowned scrolling receives drag highlight.
         snapshotFlow {
-            isPagerDraggingLatest?.invoke() ?: (isScrollInProgressLatest() && !selectionTapFeedbackActive)
+            isPagerDraggingLatest?.invoke() ?: (isScrollInProgressLatest() && !selectionTapFeedbackActive && glassTapTarget == null)
         }.collect { dragging ->
-            if (dragging) indicatorHighlightFromDrag = true
+            if (dragging) {
+                indicatorHighlightFromDrag = true
+                if (glassTapTarget != null) {
+                    selectionTapFeedbackJob.generation++
+                    selectionTapFeedbackJob.job?.cancel()
+                    selectionTapFeedbackActive = false
+                }
+                glassTapTarget = null
+            }
         }
     }
     SideEffect {
@@ -863,7 +897,7 @@ fun FloatingBottomBar(
     // in layout/draw instead of depending solely on the coroutine mirror above. This keeps the
     // indicator attached to the finger while an adjacent control is resizing the dock.
     val rawIndicatorPositionProvider: () -> Float = {
-        resolveFloatingDockVisualIndicatorPosition(
+        if (isLiquidGlassMode && glassTapTarget != null) dampedDragAnimation.value else resolveFloatingDockVisualIndicatorPosition(
             internalPosition = dampedDragAnimation.value,
             externalPosition = indicatorPositionLatest?.invoke(),
             maxTabIndex = maxTabIndex,
@@ -1011,6 +1045,7 @@ fun FloatingBottomBar(
             )
         }
             .collectLatest { (index, isDragging, isPagerScrolling) ->
+                if (isLiquidGlassMode && glassTapTarget != null) return@collectLatest
                 if (
                     shouldAnimateIndicatorToSelectedIndex(
                         isDragging = isDragging,
@@ -1022,8 +1057,7 @@ fun FloatingBottomBar(
                             indicatorPositionLatest != null,
                     )
                 ) {
-                    // Tap selection keeps the same enlarge/move/shrink process as the home dock.
-                    // The tightened scale springs keep it brief without removing the feedback.
+                    // Non-tap selection and native surfaces keep their existing settle motion.
                     dampedDragAnimation.animateToValue(index.toFloat(), animatePress = !selectionTapFeedbackActive)
                 }
             }
@@ -1031,7 +1065,7 @@ fun FloatingBottomBar(
     LaunchedEffect(dampedDragAnimation, maxTabIndex) {
         var pagerMotionActive = false
         snapshotFlow {
-            val external = indicatorPositionLatest?.invoke()
+            val external = glassTapTarget?.toFloat() ?: indicatorPositionLatest?.invoke()
             val scrolling = isScrollInProgressLatest()
             Triple(external, scrolling, dampedDragAnimation.isDragging) to
                 if (isLiquidGlassMode && pagerFollowGate.ownedTargetIndex != null) {
@@ -1039,6 +1073,7 @@ fun FloatingBottomBar(
                 } else null
         }.collect { (pagerInput, internalPosition) ->
             val (external, scrolling, dragging) = pagerInput
+            if (glassTapTarget != null && !dragging) return@collect
             if (dragging) {
                 pagerMotionActive = false
                 return@collect
@@ -1260,6 +1295,8 @@ fun FloatingBottomBar(
             }
             Row(
                 Modifier
+                    // Observe visible-row touches without giving the optical copy a hit target.
+                    .then(if (isLiquidGlassMode) interactiveHighlight?.gestureModifier ?: Modifier else Modifier)
                     .onGloballyPositioned { coords ->
                         totalWidthPx = coords.size.width.toFloat()
                         dragHitTest.dockWindowLeftPx = coords.positionInWindow().x
@@ -1424,8 +1461,8 @@ fun FloatingBottomBar(
                                 )
                             },
                             highlight = {
-                                if (indicatorHighlightFromDrag) {
-                                    pillHighlight?.value?.copy(alpha = indicatorOpticalProgressProvider())
+                                if (isLiquidGlassMode || indicatorHighlightFromDrag) {
+                                    pillHighlight?.value?.copy(alpha = if (isLiquidGlassMode) dampedDragAnimation.pressProgress else indicatorOpticalProgressProvider())
                                 } else null
                             },
                             layerBlock = {

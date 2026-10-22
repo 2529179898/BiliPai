@@ -4483,7 +4483,9 @@ internal fun BoxScope.BiliPaiMiuixBottomBarIndicatorLayer(
                             }
                         },
                         highlight = {
-                            if (isDragging) pillHighlight?.value?.copy(alpha = opticalProgress) else null
+                            // Glass selection and drag share one press-driven rim highlight.
+                            if (glassEnabled) pillHighlight?.value?.copy(alpha = effectivePressProgress)
+                            else if (isDragging) pillHighlight?.value?.copy(alpha = opticalProgress) else null
                         },
                         onDrawSurface = {
                             drawHomeIndicatorSurface(opticalProgress, isDarkTheme, indicatorIdleSurfaceColor)

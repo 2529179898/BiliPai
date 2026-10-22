@@ -139,6 +139,7 @@ import com.android.purebilibili.feature.home.components.BottomBarMatchedLiquidIn
 import com.android.purebilibili.feature.home.components.LiquidGlassTuning
 import com.android.purebilibili.feature.home.components.bottomBarMatchedCaptureOverflow
 import com.android.purebilibili.feature.home.components.miuix.DampedDragAnimation
+import com.android.purebilibili.feature.home.components.miuix.InteractiveHighlight
 import com.android.purebilibili.feature.home.components.liquid.rememberCombinedBackdrop
 import com.android.purebilibili.feature.home.components.resolveAndroidNativeExportTintColor
 import com.android.purebilibili.feature.home.components.resolveAndroidNativeIdleIndicatorSurfaceColor
@@ -721,9 +722,38 @@ private fun PartitionSideRail(
         ).also { holder.instance = it }
     }
 
-    LaunchedEffect(selectedIndex, dampedDragAnimation) {
-        dampedDragAnimation.animateToValue(selectedIndex.toFloat(), animatePress = false)
+    LaunchedEffect(selectedIndex, dampedDragAnimation, liquidGlassIndicatorEnabled) {
+        // Glass clicks start their spring before submitting selection. Do not restart it
+        // when the selected content changes; external selections use the same feedback.
+        if (!liquidGlassIndicatorEnabled || dampedDragAnimation.targetValue != selectedIndex.toFloat()) {
+            dampedDragAnimation.animateToValue(
+                selectedIndex.toFloat(),
+                animatePress = liquidGlassIndicatorEnabled,
+            )
+        }
     }
+    val activatePartition: (Int) -> Unit = { index ->
+        partitions.getOrNull(index)?.let { partition ->
+            if (liquidGlassIndicatorEnabled) dampedDragAnimation.animateToValue(index.toFloat())
+            onPartitionSelected(partition)
+        }
+    }
+    val railHighlight = if (liquidGlassIndicatorEnabled &&
+        com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current
+    ) {
+        remember(animationScope, dampedDragAnimation, listState) {
+            InteractiveHighlight(
+                animationScope = animationScope,
+                position = { size, _ ->
+                    resolvePartitionSideRailInteractiveHighlightPosition(
+                        railWidthPx = size.width,
+                        indicatorOffsetPx = railOffset(dampedDragAnimation.value),
+                        itemHeightPx = holder.itemHeightPx,
+                    )
+                },
+            )
+        }
+    } else null
 
     // Overscroll stretches drawing without changing LazyList layout offsets. Render it once
     // around the list, indicator and glyph source so they cannot separate during edge pulls.
@@ -771,7 +801,8 @@ private fun PartitionSideRail(
                 .then(
                     if (liquidGlassIndicatorEnabled) Modifier.padding(horizontal = captureSafeInset)
                     else Modifier
-                ),
+                )
+                .then(railHighlight?.gestureModifier ?: Modifier),
         ) {
             val railPageBackdrop = rememberLayerBackdrop()
             val railContentBackdrop = rememberLayerBackdrop()
@@ -803,6 +834,7 @@ private fun PartitionSideRail(
                         glassPageSource?.modifier ?: Modifier.alpha(0f).layerBackdrop(railPageBackdrop)
                     )
                     .background(AppSurfaceTokens.background())
+                    .then(railHighlight?.modifier ?: Modifier)
             )
 
             if (liquidGlassIndicatorEnabled) {
@@ -850,7 +882,8 @@ private fun PartitionSideRail(
                 overscrollEffect = listOverscrollEffect,
                 modifier = Modifier
                     .fillMaxSize()
-                    .zIndex(if (liquidGlassIndicatorEnabled) 0f else 2f),
+                    .zIndex(if (liquidGlassIndicatorEnabled) 0f else 2f)
+                    .then(railHighlight?.modifier ?: Modifier),
                 contentPadding = contentPadding,
                 verticalArrangement = Arrangement.spacedBy(PartitionSideRailItemSpacing)
             ) {
@@ -869,7 +902,7 @@ private fun PartitionSideRail(
                         showText = showText,
                         iconFamily = iconFamily,
                         selectedAccent = AppContentColors.selectionAccent(liquidGlassIndicatorEnabled),
-                        onClick = { onPartitionSelected(partition) }
+                        onClick = { activatePartition(index) }
                     )
                 }
             }
@@ -898,7 +931,7 @@ private fun PartitionSideRail(
                         indication = null,
                         role = Role.Tab,
                         onClick = {
-                            partitions.getOrNull(selectedIndex)?.let(onPartitionSelected)
+                            activatePartition(selectedIndex)
                         },
                     )
                     .clearAndSetSemantics {},
@@ -983,7 +1016,10 @@ private fun PartitionSideRailMovingIndicator(
         tapPressRefractionEnabled = true
     )
     val videoListPushPx = resolvePartitionVideoListPushPx(
-        pressProgress = pressProgress,
+        // Glass selection bloom belongs to the lens; only a real rail drag pushes the feed.
+        pressProgress = if (liquidGlassIndicatorEnabled && !dragAnimation.isDragging && dragOffsetPx == 0f) {
+            0f
+        } else pressProgress,
         dragOffsetPx = dragOffsetPx,
         itemSlotHeightPx = itemSlotHeightPx,
         maxPushPx = maxVideoPushPx
@@ -991,13 +1027,19 @@ private fun PartitionSideRailMovingIndicator(
     SideEffect {
         onVideoListPushChanged(videoListPushPx)
     }
-    // 照搬 HyperIsland LiquidGlassNavigationBar：scaleX 与 scaleY 是两条独立 Animatable
-    // （spring(0.6f, 250f, 0.001f) / spring(0.7f, 250f, 0.001f)）；pressProgress
-    // （spring(1f, 1000f)）只负责高光与 lens，不再用 maxOf 把两种弹簧混进缩放曲线。
-    val indicatorLayerScaleTransform = rememberBottomBarIndicatorLayerScaleTransform(
-        active = dragAnimation.isDragging || pressProgress > 0f,
-        target = dragScaleTarget
-    )
+    // Glass renders the controller's X/Y springs directly, so shrink starts near the
+    // position target. Native controls retain their existing independent scale timing.
+    val indicatorLayerScaleTransform = if (liquidGlassIndicatorEnabled) {
+        BottomBarIndicatorLayerTransform(
+            scaleX = dragAnimation.scaleX,
+            scaleY = dragAnimation.scaleY,
+        )
+    } else {
+        rememberBottomBarIndicatorLayerScaleTransform(
+            active = dragAnimation.isDragging || pressProgress > 0f,
+            target = dragScaleTarget,
+        )
+    }
     val indicatorLensSpec = resolveBottomBarBackdropPresetIndicatorLens(
         progress = pressProgress
     )
