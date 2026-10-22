@@ -52,6 +52,46 @@ fun AppCard(
     onLongClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val capture = com.android.purebilibili.core.ui.components.LocalAppContainerNavigationCapture.current
+    if (capture == null || onClick == null) {
+        AppCardContent(
+            modifier = modifier,
+            shape = shape,
+            colors = colors,
+            variant = variant,
+            onClick = onClick,
+            onLongClick = onLongClick,
+            content = content,
+        )
+    } else {
+        com.android.purebilibili.core.ui.components.AppContainerNavigationSource(
+            sourceId = "card",
+            onClick = onClick,
+            modifier = modifier,
+        ) { capturedClick ->
+            AppCardContent(
+                modifier = Modifier,
+                shape = shape,
+                colors = colors,
+                variant = variant,
+                onClick = capturedClick,
+                onLongClick = onLongClick,
+                content = content,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AppCardContent(
+    modifier: Modifier = Modifier,
+    shape: AppCardShape? = null,
+    colors: AppCardColors? = null,
+    variant: AppCardVariant = AppCardVariant.Filled,
+    onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val resolvedColors = colors ?: AppCardColors(
         containerColor = com.android.purebilibili.core.ui.AppSurfaceTokens.cardContainer(),
         contentColor = com.android.purebilibili.core.ui.AppContentColors.primaryText(),

@@ -95,6 +95,7 @@ internal enum class SettingsIconRole {
     PROGRESSIVE_TOP_FADE,
     KEEP_TOP_SEARCH,
     LINKED_DOCK_MERGE,
+    BOTTOM_BAR_SCROLL_COMPACT,
     LIST_SCOPED_SEARCH,
     NOTIFICATION_DELIVERY_MODE,
     HOME_UP_AVATAR,
@@ -104,6 +105,8 @@ internal enum class SettingsIconRole {
     HOME_CARD_WIDTH,
     CARD_ENTRANCE_ANIMATION,
     CARD_TRANSITION_ANIMATION,
+    SETTINGS_CONTAINER_TRANSITION,
+    CONTAINER_TRANSITION_BLUR,
     LIVE_SURFACE_TRANSITION,
     PREDICTIVE_BACK,
     MIUIX_TRANSITION_BLUR,
@@ -320,6 +323,7 @@ internal fun resolveSettingsMaterialSymbolResource(role: SettingsIconRole): Int 
     SettingsIconRole.PROGRESSIVE_TOP_BLUR -> R.drawable.ic_settings_progressive_top_blur_24
     SettingsIconRole.PROGRESSIVE_TOP_FADE -> R.drawable.ic_settings_progressive_top_fade_24
     SettingsIconRole.KEEP_TOP_SEARCH -> R.drawable.ic_settings_top_search_24
+    SettingsIconRole.BOTTOM_BAR_SCROLL_COMPACT -> R.drawable.ic_settings_bottom_bar_compact_24
     SettingsIconRole.LINKED_DOCK_MERGE -> R.drawable.ms_merge_24
     SettingsIconRole.LIST_SCOPED_SEARCH -> R.drawable.ms_find_in_page_24
     SettingsIconRole.NOTIFICATION_DELIVERY_MODE -> R.drawable.ms_notification_settings_24
@@ -329,6 +333,8 @@ internal fun resolveSettingsMaterialSymbolResource(role: SettingsIconRole): Int 
     SettingsIconRole.GRID_COLUMNS -> R.drawable.ms_grid_view_24
     SettingsIconRole.HOME_CARD_WIDTH -> R.drawable.ms_width_normal_24
     SettingsIconRole.CARD_ENTRANCE_ANIMATION -> R.drawable.ms_auto_awesome_motion_24
+    SettingsIconRole.CONTAINER_TRANSITION_BLUR -> R.drawable.ic_settings_container_blur_24
+    SettingsIconRole.SETTINGS_CONTAINER_TRANSITION -> R.drawable.ic_settings_container_transition_24
     SettingsIconRole.CARD_TRANSITION_ANIMATION -> R.drawable.ms_sync_alt_24
     SettingsIconRole.LIVE_SURFACE_TRANSITION -> R.drawable.ms_movie_24
     SettingsIconRole.PREDICTIVE_BACK -> R.drawable.ms_arrow_back_24

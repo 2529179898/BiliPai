@@ -229,6 +229,8 @@ fun BottomBarSettingsContent(
         .collectAsStateWithLifecycle(initialValue = false)
     val keepHomeTopSearch by SettingsManager.getKeepHomeTopSearchWithBottomSearch(context)
         .collectAsStateWithLifecycle(initialValue = false)
+    val bottomBarScrollCompactEnabled by SettingsManager.getBottomBarScrollCompactEnabled(context)
+        .collectAsStateWithLifecycle(initialValue = false)
     val linkedDockMergeOnScrollEnabled by SettingsManager.getLinkedDockMergeOnScrollEnabled(context)
         .collectAsStateWithLifecycle(initialValue = true)
     val listScopedSearchEnabled by SettingsManager.getListScopedSearchEnabled(context)
@@ -387,6 +389,19 @@ fun BottomBarSettingsContent(
                                 checked = isBottomBarFloating,
                                 onCheckedChange = { enabled ->
                                     scope.launch { SettingsManager.setBottomBarFloating(context, enabled) }
+                                },
+                                iconTint = AppContentColors.secondaryText(),
+                            )
+                        }
+                        AppPreferenceDivider()
+                        SettingsItemAnchor("navigation.bottom_bar_scroll_compact_enabled") {
+                            AppSwitchPreference(
+                                icon = rememberSettingsSemanticIcon(SettingsIconRole.BOTTOM_BAR_SCROLL_COMPACT),
+                                title = settingItemTitle("navigation.bottom_bar_scroll_compact_enabled"),
+                                subtitle = "无听视频播放条时，悬浮底栏下滑累计 24dp 收为当前入口圆钮，上滑或点击展开；有播放条时保留原联动",
+                                checked = bottomBarScrollCompactEnabled,
+                                onCheckedChange = { enabled ->
+                                    scope.launch { SettingsManager.setBottomBarScrollCompactEnabled(context, enabled) }
                                 },
                                 iconTint = AppContentColors.secondaryText(),
                             )

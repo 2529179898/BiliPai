@@ -27,6 +27,8 @@ import com.android.purebilibili.core.ui.transition.normalizeVideoSharedTransitio
 import com.android.purebilibili.core.store.home.HomeSettingsStore
 import com.android.purebilibili.core.store.home.dynamicCommentPreviewVisiblePreferencesKey
 import com.android.purebilibili.core.store.home.liquidGlassReadabilityModePreferencesKey
+import com.android.purebilibili.core.store.navigation.containerTransitionBackgroundBlurPreferencesKey
+import com.android.purebilibili.core.store.navigation.settingsContainerTransitionPreferencesKey
 import com.android.purebilibili.core.store.navigation.NavigationSettingsStore
 import com.android.purebilibili.core.store.navigation.bottomBarItemLabelsPreferencesKey
 import com.android.purebilibili.core.store.navigation.miuixPredictiveBackMaxProgressPercentPreferencesKey
@@ -655,6 +657,7 @@ data class HomeSettings(
     val keepHomeTopSearchWithBottomSearch: Boolean = false,
     val listScopedSearchEnabled: Boolean = false,
     val linkedDockMergeOnScrollEnabled: Boolean = true,
+    val bottomBarScrollCompactEnabled: Boolean = false,
     val bottomBarSearchAutoExpandMode: BottomBarSearchAutoExpandMode =
         BottomBarSearchAutoExpandMode.EXPAND_AT_HOME_TOP,
     val bottomBarSearchLayoutMode: BottomBarSearchLayoutMode =
@@ -1043,6 +1046,8 @@ data class AppNavigationSettings(
     val predictiveBackAnimationStyle: String = "miuix",
     val predictiveBackExitDirection: String = "always_right",
     val miuixTransitionBlurEnabled: Boolean = true,
+    val settingsContainerTransitionEnabled: Boolean = true,
+    val containerTransitionBackgroundBlurEnabled: Boolean = false,
     val miuixPredictiveBackMaxProgressPercent: Int = 100,
     val videoSharedReturnGestureFollowEnabled: Boolean = true,
     val videoSharedReturnGestureTranslationEnabled: Boolean = true,
@@ -1558,6 +1563,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
     private val KEY_BOTTOM_BAR_LIQUID_GLASS_ENABLED = booleanPreferencesKey("bottom_bar_liquid_glass_enabled")
     private val KEY_BOTTOM_BAR_SEARCH_ENABLED = booleanPreferencesKey("bottom_bar_search_enabled")
     private val KEY_KEEP_HOME_TOP_SEARCH = booleanPreferencesKey("keep_home_top_search_with_bottom_search")
+    private val KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED = booleanPreferencesKey("bottom_bar_scroll_compact_enabled")
     private val KEY_LINKED_DOCK_MERGE_ON_SCROLL_ENABLED =
         booleanPreferencesKey("linked_dock_merge_on_scroll_enabled")
     private val KEY_LIST_SCOPED_SEARCH_ENABLED = booleanPreferencesKey("list_scoped_search_enabled")
@@ -1816,6 +1822,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             isBottomBarSearchEnabled = preferences[KEY_BOTTOM_BAR_SEARCH_ENABLED] ?: false,
             keepHomeTopSearchWithBottomSearch = preferences[KEY_KEEP_HOME_TOP_SEARCH] ?: false,
             linkedDockMergeOnScrollEnabled = preferences[KEY_LINKED_DOCK_MERGE_ON_SCROLL_ENABLED] ?: true,
+            bottomBarScrollCompactEnabled = preferences[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] ?: false,
             listScopedSearchEnabled = preferences[KEY_LIST_SCOPED_SEARCH_ENABLED] ?: false,
             bottomBarSearchAutoExpandMode = BottomBarSearchAutoExpandMode.fromValue(
                 preferences[KEY_BOTTOM_BAR_SEARCH_AUTO_EXPAND_MODE]
@@ -4558,6 +4565,13 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         context.settingsDataStore.edit { preferences ->
             preferences[KEY_BOTTOM_BAR_SEARCH_AUTO_EXPAND_MODE] = value.value
         }
+    }
+
+    fun getBottomBarScrollCompactEnabled(context: Context): Flow<Boolean> =
+        context.settingsDataStore.data.map { it[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] ?: false }
+
+    suspend fun setBottomBarScrollCompactEnabled(context: Context, value: Boolean) {
+        context.settingsDataStore.edit { it[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] = value }
     }
 
     fun getLinkedDockMergeOnScrollEnabled(context: Context): Flow<Boolean> =
@@ -8089,10 +8103,18 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         val tabsString = preferences[KEY_BOTTOM_BAR_VISIBLE_TABS] ?: DEFAULT_BOTTOM_BAR_VISIBLE_TABS
         val order = orderString.split(",").filter { it.isNotBlank() }
         val visible = tabsString.split(",").filter { it.isNotBlank() }
+        val savedVisibility = BottomBarVisibilityMode.fromValue(
+            preferences[KEY_BOTTOM_BAR_VISIBILITY_MODE] ?: BottomBarVisibilityMode.ALWAYS_VISIBLE.value
+        )
+        // Compact navigation replaces scroll hiding only for floating bottom bars.
+        // The saved preference remains intact for switching this feature off.
+        val effectiveVisibility = if (
+            preferences[KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED] == true &&
+            (preferences[KEY_BOTTOM_BAR_FLOATING] ?: true) &&
+            savedVisibility == BottomBarVisibilityMode.SCROLL_HIDE
+        ) BottomBarVisibilityMode.ALWAYS_VISIBLE else savedVisibility
         return AppNavigationSettings(
-            bottomBarVisibilityMode = BottomBarVisibilityMode.fromValue(
-                preferences[KEY_BOTTOM_BAR_VISIBILITY_MODE] ?: BottomBarVisibilityMode.ALWAYS_VISIBLE.value
-            ),
+            bottomBarVisibilityMode = effectiveVisibility,
             orderedVisibleTabIds = resolveOrderedVisibleBottomTabs(order, visible),
             bottomBarItemColors = parseBottomBarItemColors(preferences[KEY_BOTTOM_BAR_ITEM_COLORS] ?: ""),
             bottomBarItemLabels = parseBottomBarItemLabels(
@@ -8107,6 +8129,8 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
             predictiveBackExitDirection =
                 preferences[KEY_PREDICTIVE_BACK_EXIT_DIRECTION] ?: "always_right",
             miuixTransitionBlurEnabled = preferences[KEY_MIUIX_TRANSITION_BLUR_ENABLED] ?: true,
+            settingsContainerTransitionEnabled = preferences[settingsContainerTransitionPreferencesKey] ?: true,
+            containerTransitionBackgroundBlurEnabled = preferences[containerTransitionBackgroundBlurPreferencesKey] ?: false,
             miuixPredictiveBackMaxProgressPercent =
                 (preferences[miuixPredictiveBackMaxProgressPercentPreferencesKey] ?: 100)
                     .coerceIn(0, 100),
@@ -8143,6 +8167,14 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
 
     suspend fun setSidebarAccountSwitcherEnabled(context: Context, enabled: Boolean) {
         NavigationSettingsStore.setSidebarAccountSwitcherEnabled(context, enabled)
+    }
+
+    suspend fun setSettingsContainerTransitionEnabled(context: Context, enabled: Boolean) {
+        NavigationSettingsStore.setSettingsContainerTransitionEnabled(context, enabled)
+    }
+
+    suspend fun setContainerTransitionBackgroundBlurEnabled(context: Context, enabled: Boolean) {
+        NavigationSettingsStore.setContainerTransitionBackgroundBlurEnabled(context, enabled)
     }
 
     suspend fun setPredictiveBackEnabled(context: Context, enabled: Boolean) {
@@ -8526,6 +8558,8 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 KEY_MIUIX_TRANSITION_BLUR_ENABLED,
                 SettingsShareSection.APPEARANCE,
             ),
+            BooleanShareablePreferenceDefinition(settingsContainerTransitionPreferencesKey, SettingsShareSection.APPEARANCE),
+            BooleanShareablePreferenceDefinition(containerTransitionBackgroundBlurPreferencesKey, SettingsShareSection.APPEARANCE),
             IntShareablePreferenceDefinition(
                 miuixPredictiveBackMaxProgressPercentPreferencesKey,
                 SettingsShareSection.APPEARANCE,
@@ -8732,6 +8766,7 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
                 SettingsShareSection.NAVIGATION
             ),
             BooleanShareablePreferenceDefinition(KEY_HEADER_COLLAPSE_ENABLED, SettingsShareSection.NAVIGATION),
+            BooleanShareablePreferenceDefinition(KEY_BOTTOM_BAR_SCROLL_COMPACT_ENABLED, SettingsShareSection.NAVIGATION),
             BooleanShareablePreferenceDefinition(KEY_SHOW_PGC_TIMELINE, SettingsShareSection.NAVIGATION),
             BooleanShareablePreferenceDefinition(KEY_TABLET_NAVIGATION_MODE, SettingsShareSection.NAVIGATION),
             BooleanShareablePreferenceDefinition(KEY_SIDEBAR_EXPANDED, SettingsShareSection.NAVIGATION),

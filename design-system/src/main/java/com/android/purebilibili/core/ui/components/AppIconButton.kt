@@ -83,6 +83,41 @@ private fun AppIconButtonImpl(
     interactionSource: MutableInteractionSource?,
     variant: AppIconButtonVariant,
     content: @Composable () -> Unit,
+) {
+    if (LocalAppContainerNavigationCapture.current == null || !enabled) {
+        AppIconButtonRender(
+            onClick = onClick,
+            modifier = modifier,
+            enabled = enabled,
+            colors = colors,
+            interactionSource = interactionSource,
+            variant = variant,
+            content = content,
+        )
+    } else {
+        AppContainerNavigationSource(sourceId = "icon", onClick = onClick, modifier = modifier) { capturedClick ->
+            AppIconButtonRender(
+                onClick = { capturedClick?.invoke() },
+                modifier = Modifier,
+                enabled = enabled,
+                colors = colors,
+                interactionSource = interactionSource,
+                variant = variant,
+                content = content,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AppIconButtonRender(
+    onClick: () -> Unit,
+    modifier: Modifier,
+    enabled: Boolean,
+    colors: AppIconButtonColors?,
+    interactionSource: MutableInteractionSource?,
+    variant: AppIconButtonVariant,
+    content: @Composable () -> Unit,
 ): Unit = AppExactTouchTargets {
     val decorator = LocalAppTopBarIconDecorator.current.takeIf {
         LocalAppTopBarIconDecorationEnabled.current

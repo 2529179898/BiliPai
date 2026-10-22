@@ -557,7 +557,12 @@ fun AdaptivePreferenceGroupRenderer(
             insideMargin = PaddingValues(0.dp),
             colors = MiuixCardDefaults.defaultColors(color = resolvedContainerColor)
         ) {
-            content()
+            // Miuix rows are transparent children of this card in both glass modes.
+            // Their navigation container must inherit the same resolved surface,
+            // including wallpaper alpha, rather than the darker page canvas.
+            CompositionLocalProvider(LocalAppContainerNavigationSurfaceColor provides resolvedContainerColor) {
+                content()
+            }
         }
         return
     }

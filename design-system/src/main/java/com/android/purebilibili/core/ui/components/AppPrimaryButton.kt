@@ -44,6 +44,20 @@ fun AppPrimaryButton(
     isLoading: Boolean = false,
     leadingIcon: ImageVector? = null,
 ): Unit = AppExactTouchTargets {
+    if (LocalAppContainerNavigationCapture.current != null && enabled && !isLoading) {
+        AppContainerNavigationSource(sourceId = "button", onClick = onClick, modifier = modifier) { capturedClick ->
+            AppPrimaryButton(
+                text = text,
+                onClick = { capturedClick?.invoke() },
+                modifier = Modifier,
+                enabled = enabled,
+                isLoading = isLoading,
+                leadingIcon = leadingIcon,
+            )
+        }
+        return@AppExactTouchTargets
+    }
+
     ProvideAppElasticFeedback(enabled = enabled && !isLoading) {
         val haptic = LocalHapticFeedback.current
         val hapticEnabled = LocalAppThemeConfig.current.hapticFeedbackEnabled

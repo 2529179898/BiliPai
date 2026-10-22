@@ -499,6 +499,28 @@ fun AppButton(
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ): Unit = AppExactTouchTargets {
+    if (LocalAppContainerNavigationCapture.current != null && enabled) {
+        AppContainerNavigationSource(sourceId = "button", onClick = onClick, modifier = modifier) { capturedClick ->
+            AppButton(
+                onClick = { capturedClick?.invoke() },
+                modifier = Modifier,
+                enabled = enabled,
+                shape = shape,
+                containerColor = containerColor,
+                contentColor = contentColor,
+                disabledContainerColor = disabledContainerColor,
+                disabledContentColor = disabledContentColor,
+                border = border,
+                defaultElevation = defaultElevation,
+                pressedElevation = pressedElevation,
+                contentPadding = contentPadding,
+                interactionSource = interactionSource,
+                content = content,
+            )
+        }
+        return@AppExactTouchTargets
+    }
+
     ProvideAppElasticFeedback(enabled = enabled) {
         val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
         val interactionModifier = modifier.appElasticPress(enabled = enabled, highlightShape = shape)
@@ -567,6 +589,24 @@ fun AppButton(
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ): Unit = AppExactTouchTargets {
+    if (LocalAppContainerNavigationCapture.current != null && enabled) {
+        AppContainerNavigationSource(sourceId = "button", onClick = onClick, modifier = modifier) { capturedClick ->
+            AppButton(
+                onClick = { capturedClick?.invoke() },
+                modifier = Modifier,
+                enabled = enabled,
+                shape = shape,
+                colors = colors,
+                elevation = elevation,
+                border = border,
+                contentPadding = contentPadding,
+                interactionSource = interactionSource,
+                content = content,
+            )
+        }
+        return@AppExactTouchTargets
+    }
+
     ProvideAppElasticFeedback(enabled = enabled) {
         val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
         val interactionModifier = modifier.appElasticPress(enabled = enabled, highlightShape = shape)
@@ -650,6 +690,22 @@ fun AppTextButton(
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ): Unit = AppExactTouchTargets {
+    if (LocalAppContainerNavigationCapture.current != null && enabled) {
+        AppContainerNavigationSource(sourceId = "button", onClick = onClick, modifier = modifier) { capturedClick ->
+            AppTextButton(
+                onClick = { capturedClick?.invoke() },
+                modifier = Modifier,
+                enabled = enabled,
+                shape = shape,
+                colors = colors,
+                contentPadding = contentPadding,
+                interactionSource = interactionSource,
+                content = content,
+            )
+        }
+        return@AppExactTouchTargets
+    }
+
     ProvideAppElasticFeedback(enabled = enabled) {
         val readableColors = colors.copy(
             contentColor = resolveButtonContentColor(colors.containerColor, colors.contentColor, MaterialTheme.colorScheme),
@@ -954,6 +1010,24 @@ fun AppOutlinedButton(
     interactionSource: MutableInteractionSource? = null,
     content: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
 ): Unit = AppExactTouchTargets {
+    if (LocalAppContainerNavigationCapture.current != null && enabled) {
+        AppContainerNavigationSource(sourceId = "button", onClick = onClick, modifier = modifier) { capturedClick ->
+            AppOutlinedButton(
+                onClick = { capturedClick?.invoke() },
+                modifier = Modifier,
+                enabled = enabled,
+                shape = shape,
+                colors = colors,
+                elevation = elevation,
+                border = border,
+                contentPadding = contentPadding,
+                interactionSource = interactionSource,
+                content = content,
+            )
+        }
+        return@AppExactTouchTargets
+    }
+
     ProvideAppElasticFeedback(enabled = enabled) {
         val readableColors = colors.copy(
             contentColor = resolveButtonContentColor(colors.containerColor, colors.contentColor, MaterialTheme.colorScheme),

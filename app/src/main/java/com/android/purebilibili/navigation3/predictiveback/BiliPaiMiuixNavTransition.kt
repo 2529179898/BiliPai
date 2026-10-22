@@ -120,7 +120,7 @@ internal fun resolveMiuixNavCoveredBlurProgress(relativeDepth: Float): Float {
     return coveredDepth * coveredDepth
 }
 
-private class MiuixCoveredBlurRenderEffectCache {
+internal class MiuixCoveredBlurRenderEffectCache {
     private var cachedRadiusPx = Float.NaN
     private var cachedEffect: ComposeRenderEffect? = null
 

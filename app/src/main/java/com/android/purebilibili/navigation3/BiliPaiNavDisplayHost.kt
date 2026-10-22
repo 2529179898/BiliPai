@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.structuralEqualityPolicy
@@ -22,6 +23,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -133,6 +135,9 @@ internal fun BiliPaiNavDisplayHost(
     predictiveBackExitDirection: BiliPaiPredictiveBackExitDirection =
         BiliPaiPredictiveBackExitDirection.ALWAYS_RIGHT,
     miuixTransitionBlurEnabled: Boolean = true,
+    settingsContainerTransitionEnabled: Boolean = true,
+    containerTransitionBackgroundBlurEnabled: Boolean = false,
+    settingsContainerNavigation: SettingsContainerNavigationState = remember { SettingsContainerNavigationState() },
     miuixPredictiveBackMaxProgressPercent: Int =
         MIUIX_PREDICTIVE_BACK_DEFAULT_MAX_PROGRESS_PERCENT,
     videoSharedReturnGestureFollowEnabled: Boolean = true,
@@ -168,6 +173,27 @@ internal fun BiliPaiNavDisplayHost(
     )
     val stackSnapshot = backStack.toList()
     val settingsPersistentPanes = settingsHasPersistentPanes()
+    val containerMotionEnabled = com.android.purebilibili.core.ui.LocalComponentMotionEnabled.current
+    val containerBackgroundBlurAvailable = containerTransitionBackgroundBlurEnabled &&
+        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
+    SideEffect { settingsContainerNavigation.backgroundBlurEnabled = containerBackgroundBlurAvailable }
+    DisposableEffect(settingsContainerNavigation) {
+        onDispose { settingsContainerNavigation.releaseAll() }
+    }
+
+    LaunchedEffect(settingsContainerTransitionEnabled, reduceMotion, containerMotionEnabled) {
+        if (reduceMotion || !containerMotionEnabled) settingsContainerNavigation.releaseAll()
+        else settingsContainerNavigation.releaseDisabledModes(settingsContainerTransitionEnabled)
+    }
+    LaunchedEffect(hostBounds?.size, density, settingsPersistentPanes, isLightBackground) {
+        // Old row pixels and coordinates do not survive a window, density, pane or theme change.
+        settingsContainerNavigation.releaseAll()
+    }
+    LaunchedEffect(stackSnapshot) {
+        settingsContainerNavigation.releaseUnretained(stackSnapshot)
+        withFrameNanos { }
+        settingsContainerNavigation.remeasureReturns(stackSnapshot)
+    }
     val currentKey = stackSnapshot.lastOrNull()
     val latestOnBack by rememberUpdatedState(onBack)
     val latestPrepareReturn by rememberUpdatedState(onPrepareVideoCardSharedReturn)
@@ -724,6 +750,7 @@ internal fun BiliPaiNavDisplayHost(
     val hostDimAmount = if (videoCardMorphOwnsCorners) 0f else 0.5f
     val backdropColor = AppSurfaceTokens.surface()
     val videoCardBackingColor = resolveMiuixVideoCardBackingColor(sourceMetadata.sourceRoute, backdropColor)
+    val containerBoundaryActive = settingsContainerNavigation.hasActiveBoundary(stackSnapshot)
     val effects = remember(
         navCornerRadius,
         roundAllCorners,
@@ -731,9 +758,10 @@ internal fun BiliPaiNavDisplayHost(
         hostDimAmount,
         backdropColor,
         videoCardMorphOwnsCorners,
+        containerBoundaryActive,
     ) {
         NavDisplayEffects(
-            enableCornerClip = enableHostCornerClip,
+            enableCornerClip = enableHostCornerClip && !containerBoundaryActive,
             cornerClipRadius = if (roundAllCorners && navCornerRadius <= 0.dp) 32.dp else navCornerRadius,
             cornerClipMode = if (roundAllCorners) {
                 NavCornerClipMode.All
@@ -744,7 +772,8 @@ internal fun BiliPaiNavDisplayHost(
             // The fixed host backing must sit BELOW the retained source snapshot. A second
             // opaque backing inside NavDisplay would cover that snapshot on its preparation frame.
             backdropColor = if (videoCardMorphOwnsCorners) Color.Unspecified else backdropColor,
-            blockInputDuringTransition = false,
+            // Half-revealed settings controls must not receive taps; video keeps its own policy.
+            blockInputDuringTransition = containerBoundaryActive,
         )
     }
     // 全屏滑动返回默认关闭（仅系统边缘预测返回），可在设置中开启。
@@ -781,6 +810,10 @@ internal fun BiliPaiNavDisplayHost(
         modifier = Modifier
             .fillMaxSize()
             .onGloballyPositioned { coordinates ->
+                settingsContainerNavigation.hostBoundsInWindow = Rect(
+                    coordinates.positionInWindow(),
+                    androidx.compose.ui.geometry.Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
+                )
                 videoCardTransitionProgress.gestureFollow.hostOriginInRoot = coordinates.positionInRoot()
                 // System events are in screen pixels; card bounds and layers are host-local.
                 val origin = coordinates.localToScreen(Offset.Zero)
@@ -836,11 +869,42 @@ internal fun BiliPaiNavDisplayHost(
                 swipeBackDirection = swipeBackDirection,
                 settingsBackStack = stackSnapshot,
                 settingsPersistentPanes = settingsPersistentPanes,
+                settingsContainerTransitions = settingsContainerNavigation.transitions,
                 activeMainHostRoute = activeMainHostRoute,
                 predictiveBackExcludedTransition = predictiveBackExcludedTransition,
                 videoCardTransition = videoCardTransition,
                 fullscreenVideoCardTransition = fullscreenVideoCardTransition,
             ) { key ->
+                DisposableEffect(key) {
+                    settingsContainerNavigation.mount(key)
+                    onDispose {
+                        settingsContainerNavigation.unmount(key)
+                        if (key !in backStack) settingsContainerNavigation.release(key)
+                    }
+                }
+                val sourceRegistry = remember(key) { settingsContainerNavigation.registryFor(key) }
+                val sourceIsSettings = com.android.purebilibili.feature.settings.isSettingsSubtreeRoute(
+                    if (key == BiliPaiNavKey.MainHost) activeMainHostRoute else key.routeBase,
+                )
+                val containerSurface = AppSurfaceTokens.groupedListContainer()
+                val containerSourceScope = LocalNavTransitionScope.current
+                val containerEntrySource = settingsContainerNavigation.sourceFor(key)
+                val captureAction: (com.android.purebilibili.core.ui.components.AppContainerNavigationSource, () -> Unit) -> Unit =
+                    { source, action ->
+                        if (backStack.lastOrNull() == key) {
+                            settingsContainerNavigation.capture(
+                                source, containerSourceScope, backStack, globalTransition, containerSurface,
+                                acceptTarget = { target ->
+                                    settingsContainerDestination(target)
+                                },
+                                navigate = action,
+                            )
+                        }
+                    }
+                val captureContainer = captureAction.takeIf {
+                    settingsContainerTransitionEnabled && containerMotionEnabled && !reduceMotion &&
+                        sourceIsSettings && !settingsPersistentPanes
+                }
                 // Freeze this per entry so popping the key cannot remove its backing during exit.
                 val opaqueVideoChild = remember(key) {
                     shouldUseOpaqueVideoChildBackground(key, stackSnapshot)
@@ -850,6 +914,8 @@ internal fun BiliPaiNavDisplayHost(
                     onBack = performBack,
                 ) {
                     CompositionLocalProvider(
+                        com.android.purebilibili.core.ui.components.LocalAppContainerNavigationSources provides sourceRegistry,
+                        com.android.purebilibili.core.ui.components.LocalAppContainerNavigationCapture provides captureContainer,
                         LocalVideoDetailNavigationTransitionScope provides LocalNavTransitionScope.current,
                         LocalGlobalWallpaperBackdropVisible provides
                             (globalWallpaperVisible && !opaqueVideoChild &&
@@ -868,17 +934,26 @@ internal fun BiliPaiNavDisplayHost(
                         LocalDynamicCommentPreviewVisible provides dynamicCommentPreviewVisible,
                         LocalSharedTransitionEnabled provides cardTransitionEnabled,
                     ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize().then(
-                                if (opaqueVideoChild) {
-                                    Modifier.background(AppSurfaceTokens.groupedListContainer().copy(alpha = 1f))
-                                } else if (LocalGlobalWallpaperBackdropVisible.current) {
-                                    Modifier.globalWallpaperAwareBackground()
-                                } else Modifier
-                            ),
-                        ) {
-                            ProvideMiuixNavViewModelApplicationExtras(application) {
-                                content(key)
+                        ProvideMiuixNavViewModelApplicationExtras(application) {
+                            val entryContent: @Composable () -> Unit = {
+                                Box(
+                                    modifier = Modifier.fillMaxSize().then(
+                                        if (opaqueVideoChild) {
+                                            Modifier.background(AppSurfaceTokens.groupedListContainer().copy(alpha = 1f))
+                                        } else if (LocalGlobalWallpaperBackdropVisible.current) {
+                                            Modifier.globalWallpaperAwareBackground()
+                                        } else Modifier
+                                    ),
+                                ) { content(key) }
+                            }
+                            if (sourceIsSettings) {
+                                SettingsContainerEntryContent(
+                                    source = containerEntrySource,
+                                    modifier = Modifier.fillMaxSize(),
+                                    content = entryContent,
+                                )
+                            } else {
+                                entryContent()
                             }
                         }
                     }

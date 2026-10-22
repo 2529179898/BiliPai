@@ -12,6 +12,30 @@ import kotlin.test.assertTrue
 class AppNavigationSettingsMappingPolicyTest {
 
     @Test
+    fun compactNavigationReplacesScrollHideWithoutChangingStoredPreference() {
+        val mode = intPreferencesKey("bottom_bar_visibility_mode")
+        val compact = booleanPreferencesKey("bottom_bar_scroll_compact_enabled")
+        val prefs = mutablePreferencesOf(
+            mode to SettingsManager.BottomBarVisibilityMode.SCROLL_HIDE.value,
+            compact to true,
+        )
+        assertEquals(SettingsManager.BottomBarVisibilityMode.ALWAYS_VISIBLE,
+            mapAppNavigationSettingsFromPreferences(prefs).bottomBarVisibilityMode)
+        assertEquals(SettingsManager.BottomBarVisibilityMode.SCROLL_HIDE.value, prefs[mode])
+        prefs[compact] = false
+        assertEquals(SettingsManager.BottomBarVisibilityMode.SCROLL_HIDE,
+            mapAppNavigationSettingsFromPreferences(prefs).bottomBarVisibilityMode)
+        prefs[compact] = true
+        prefs[booleanPreferencesKey("bottom_bar_floating")] = false
+        assertEquals(SettingsManager.BottomBarVisibilityMode.SCROLL_HIDE,
+            mapAppNavigationSettingsFromPreferences(prefs).bottomBarVisibilityMode)
+        prefs[mode] = SettingsManager.BottomBarVisibilityMode.ALWAYS_HIDDEN.value
+        prefs[booleanPreferencesKey("bottom_bar_floating")] = true
+        assertEquals(SettingsManager.BottomBarVisibilityMode.ALWAYS_HIDDEN,
+            mapAppNavigationSettingsFromPreferences(prefs).bottomBarVisibilityMode)
+    }
+
+    @Test
     fun emptyPreferences_useExpectedNavigationDefaults() {
         val prefs = mutablePreferencesOf()
 

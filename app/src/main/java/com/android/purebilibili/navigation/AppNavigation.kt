@@ -458,6 +458,12 @@ fun AppNavigation(
             context = kotlin.coroutines.EmptyCoroutineContext,
         )
     val homeSettings = resolvedHomeSettings ?: return
+    val resolvedHomeTopTabSettings by remember(context) { SettingsManager.getHomeTopTabSettings(context) }
+        .collectAsStateWithLifecycle<com.android.purebilibili.core.store.HomeTopTabSettings?>(
+            initialValue = null,
+            context = kotlin.coroutines.EmptyCoroutineContext,
+        )
+    val homeTopTabSettings = resolvedHomeTopTabSettings ?: return
     val effectiveHomeSettings = remember(homeSettings) {
         resolveEffectiveHomeSettings(
             homeSettings = homeSettings,
@@ -2135,7 +2141,8 @@ fun AppNavigation(
             entranceEnabled = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.uiEntranceAnimationEnabled,
             cardEntranceEnabled = homeSettings.cardAnimationEnabled,
             cardTransitionEnabled = cardTransitionEnabled,
-            navigationEnabled = predictiveBackAnimationStyle != BiliPaiPredictiveBackAnimationStyle.NONE,
+            navigationEnabled = appNavigationSettings.settingsContainerTransitionEnabled ||
+                predictiveBackAnimationStyle != BiliPaiPredictiveBackAnimationStyle.NONE,
             systemReduceMotion = systemReduceMotion,
         )
         CompositionLocalProvider(
@@ -2942,6 +2949,8 @@ fun AppNavigation(
                             }
                         }
                         BiliPaiNavEntryContentRole.HOME -> HomeScreen(
+                                homeSettings = homeSettings,
+                                homeTopTabSettings = homeTopTabSettings,
                                 viewModel = homeViewModel,
                                 onWeeklySeriesClick = { pushNavigation3Key(BiliPaiNavKey.WeeklySeries()) },
                                 onVideoClick = { request -> navigateToHomeVideoInNavigation3(request) },
@@ -4865,6 +4874,8 @@ fun AppNavigation(
                     predictiveBackExitDirection = predictiveBackExitDirection,
                     miuixTransitionBlurEnabled =
                         appNavigationSettings.miuixTransitionBlurEnabled,
+                    settingsContainerTransitionEnabled = appNavigationSettings.settingsContainerTransitionEnabled,
+                    containerTransitionBackgroundBlurEnabled = appNavigationSettings.containerTransitionBackgroundBlurEnabled,
                     miuixPredictiveBackMaxProgressPercent =
                         appNavigationSettings.miuixPredictiveBackMaxProgressPercent,
                     videoSharedReturnGestureFollowEnabled =
