@@ -162,7 +162,6 @@ import com.android.purebilibili.core.ui.rememberBackToTopButtonEnabled
 import com.android.purebilibili.core.ui.rememberAppBookmarkIcon
 import com.android.purebilibili.core.ui.rememberAppFolderIcon
 import com.android.purebilibili.core.ui.rememberAppHeadphonesIcon
-import com.android.purebilibili.core.ui.rememberAppPlayIcon
 import com.android.purebilibili.core.ui.transition.BiliPaiSharedElementKey
 import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.core.util.VideoGridItemSkeleton
@@ -1870,26 +1869,6 @@ fun CommonListScreen(
                                 if (favoriteViewModel != null && favoriteSection == FavoriteSection.VIDEO) {
                                     if (!isBatchActionMode) {
                                     AppIconButton(
-                                        enabled = activeFavoriteItems.any { it.bvid.isNotBlank() } && !isSubscribedBrowse,
-                                        onClick = {
-                                            activeFavoriteItems.firstOrNull { it.bvid.isNotBlank() }?.let { first ->
-                                                playFavoriteVideo(
-                                                    activeFavoriteItems,
-                                                    first.bvid,
-                                                    first.cid,
-                                                    first.pic,
-                                                    selectedFolderIndex,
-                                                    false,
-                                                )
-                                            }
-                                        }
-                                    ) {
-                                        AppIcon(
-                                            imageVector = rememberAppPlayIcon(),
-                                            contentDescription = "播放全部",
-                                        )
-                                    }
-                                    AppIconButton(
                                         enabled = activeFavoriteItems.isNotEmpty() && !isSubscribedBrowse,
                                         onClick = {
                                             playFavoriteVideo(
@@ -2315,40 +2294,6 @@ fun CommonListScreen(
                 modifier = Modifier.align(Alignment.Center),
             )
 
-            // 收藏夹详情页：PiliPlus 式播放全部 extended FAB
-            if (isFavoriteDetailPage && !isFavoriteDetailBatchMode &&
-                state.items.any { it.bvid.isNotBlank() }
-            ) {
-                com.android.purebilibili.core.ui.components.AppFloatingActionButton(
-                    onClick = {
-                        state.items.firstOrNull { it.bvid.isNotBlank() }?.let { first ->
-                            playFavoriteVideo(
-                                state.items,
-                                first.bvid,
-                                first.cid,
-                                first.pic,
-                                null,
-                                false,
-                            )
-                        }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(
-                            end = AppSpacingTokens.Large + AppSpacingTokens.ExtraSmall,
-                            bottom = commonListBottomPadding + AppSpacingTokens.Medium,
-                        ),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = AppSpacingTokens.Medium),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AppIcon(rememberAppPlayIcon(), contentDescription = null)
-                        Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
-                        AppText("播放全部")
-                    }
-                }
-            }
         }
         }
     }

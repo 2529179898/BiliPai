@@ -3,8 +3,6 @@ package com.android.purebilibili.feature.dynamic.components
 
 import com.android.purebilibili.core.ui.AppContentColors
 
-import coil3.request.crossfade
-
 import com.android.purebilibili.core.ui.AppChromeSizeTokens
 import com.android.purebilibili.core.ui.AppSpacingTokens
 
@@ -40,6 +38,8 @@ import com.android.purebilibili.core.ui.components.AppIconButton
 import com.android.purebilibili.core.ui.components.LocalAppTopBarIconDecorationEnabled
 import com.android.purebilibili.core.ui.components.LocalAppTopBarIconBackdrop
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import com.android.purebilibili.core.ui.components.LocalPageImageLoadingAllowed
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,7 +95,7 @@ import androidx.compose.foundation.gestures.FlingBehavior
 import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.gestures.ScrollableDefaults
 import androidx.compose.runtime.derivedStateOf
-import com.android.purebilibili.feature.dynamic.resolveDynamicSidebarAvatarPrefetchUrls
+import com.android.purebilibili.feature.dynamic.prefetchDynamicSidebarNeighborAvatars
 import com.android.purebilibili.feature.dynamic.resolveDynamicSidebarFlingDampingFactor
 import com.android.purebilibili.feature.dynamic.resolveDynamicSidebarUserAvatarUrl
 import com.android.purebilibili.feature.dynamic.shouldAnimateSidebarItemCascade
@@ -254,38 +254,24 @@ fun DynamicSidebar(
     val flingBehavior = rememberDynamicSidebarFlingBehavior()
 
     val context = LocalContext.current
-    // 初始加载时提前加载数倍视口高度的 UP 主头像
-    LaunchedEffect(visibleUsers) {
-        val initialUrls = resolveDynamicSidebarAvatarPrefetchUrls(visibleUsers)
-        if (initialUrls.isNotEmpty()) {
-            val imageLoader = coil3.SingletonImageLoader.get(context)
-            initialUrls.forEach { url ->
-                imageLoader.enqueue(
-                    coil3.request.ImageRequest.Builder(context)
-                        .data(url)
-                        .build()
-                )
-            }
-        }
-    }
-
-    // 随滑动位置动态预加载接下来数倍高度的 UP 主头像，避免快速滑动时空白
-    val firstVisibleIndex = userListState.firstVisibleItemIndex
-    LaunchedEffect(firstVisibleIndex, visibleUsers) {
-        val scrollUrls = resolveDynamicSidebarAvatarPrefetchUrls(
+    val avatarDecodeSizePx = rememberDynamicUserAvatarDecodeSizePx()
+    val pageImageLoadingAllowed = LocalPageImageLoadingAllowed.current
+    // Observe scrolling inside the effect: scrolling does not recompose the whole sidebar.
+    // Only one small decode runs at a time, and a new viewport or inactive page cancels it.
+    LaunchedEffect(userListState, visibleUsers, context, avatarDecodeSizePx, pageImageLoadingAllowed) {
+        if (!pageImageLoadingAllowed) return@LaunchedEffect
+        val imageLoader = coil3.SingletonImageLoader.get(context)
+        prefetchDynamicSidebarNeighborAvatars(
             users = visibleUsers,
-            startIndex = firstVisibleIndex,
-            limit = 20
-        )
-        if (scrollUrls.isNotEmpty()) {
-            val imageLoader = coil3.SingletonImageLoader.get(context)
-            scrollUrls.forEach { url ->
-                imageLoader.enqueue(
-                    coil3.request.ImageRequest.Builder(context)
-                        .data(url)
-                        .build()
-                )
-            }
+            visibleUserIds = snapshotFlow {
+                if (userListState.isScrollInProgress) emptyList() else {
+                    userListState.layoutInfo.visibleItemsInfo.mapNotNull { item ->
+                        (item.key as? String)?.removePrefix("sidebar_")?.toLongOrNull()
+                    }
+                }
+            },
+        ) { url ->
+            imageLoader.execute(buildDynamicUserAvatarRequest(context, url, avatarDecodeSizePx))
         }
     }
 
@@ -612,15 +598,9 @@ fun SidebarItem(
 
 @Composable
 internal fun DynamicSelfAvatar(face: String, isSelected: Boolean) {
-    val context = LocalContext.current
     val faceUrl = remember(face) { resolveDynamicSidebarUserAvatarUrl(face) }
     var avatarLoaded by remember(faceUrl) { mutableStateOf(false) }
-    val request = remember(context, faceUrl) {
-        coil3.request.ImageRequest.Builder(context)
-            .data(faceUrl.ifEmpty { null })
-            .crossfade(true)
-            .build()
-    }
+    val request = rememberDynamicUserAvatarRequest(face)
     Box(
         modifier = Modifier.fillMaxSize().semantics { contentDescription = "我" },
         contentAlignment = Alignment.Center
@@ -691,10 +671,6 @@ fun SidebarUserItem(
         ) {
             Box {
                 // 头像
-                val faceUrl = remember(user.face) {
-                    resolveDynamicSidebarUserAvatarUrl(user.face)
-                }
-
                 Box(
                     modifier = Modifier
                         .size(AppSpacingTokens.DoubleExtraLarge + AppSpacingTokens.Medium)
@@ -718,10 +694,7 @@ fun SidebarUserItem(
                         DynamicSelfAvatar(face = user.face, isSelected = isSelected)
                     } else {
                         PageAwareAsyncImage(
-                            model = coil3.request.ImageRequest.Builder(LocalContext.current)
-                                .data(faceUrl.ifEmpty { null })
-                                .crossfade(true)
-                                .build(),
+                            model = rememberDynamicUserAvatarRequest(user.face),
                             contentDescription = user.name,
                             modifier = Modifier
                                 .fillMaxSize()

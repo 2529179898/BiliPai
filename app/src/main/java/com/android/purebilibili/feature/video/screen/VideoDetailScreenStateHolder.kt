@@ -1774,12 +1774,18 @@ internal fun VideoDetailScreenStateHolder(
         com.android.purebilibili.core.util.HomeCoverReturnPrefetchRegistry.snapshot()
             .firstOrNull { it.bvid == bvid.trim() }
     }
+    // 只保存当前 entry 已确认的来源封面，避免返回结束前重新请求详情兜底封面。
+    // 父子详情各自持有，不能在嵌套返回时接收另一个 entry 的封面身份。
+    var retainedStationaryCoverSource by remember(bvid, sourceRouteForSharedElement) {
+        mutableStateOf<VideoDetailResidentCoverSource?>(null)
+    }
     val residentCoverSource = remember(
         miuixCoverSnapshot,
         clickCoverSnapshot,
         homePrefetchCover,
         coverUrl,
         bvid,
+        retainedStationaryCoverSource,
     ) {
         resolveVideoDetailResidentCoverSource(
             sourceChromeSnapshot = miuixCoverSnapshot,
@@ -1790,7 +1796,16 @@ internal fun VideoDetailScreenStateHolder(
             prefetchDecodeHeightPx = homePrefetchCover?.decodeHeightPx ?: 0,
             routeCoverUrl = coverUrl,
             bvid = bvid,
+            retainedStationarySource = retainedStationaryCoverSource,
         )
+    }
+    SideEffect {
+        if ((!miuixCoverSnapshot?.coverUrl.isNullOrBlank() ||
+                !clickCoverSnapshot?.coverUrl.isNullOrBlank()) &&
+            residentCoverSource != retainedStationaryCoverSource
+        ) {
+            retainedStationaryCoverSource = residentCoverSource
+        }
     }
     val hasResidentReturnCover = residentCoverSource != null
     var hasDecodedResidentReturnCover by remember(residentCoverSource) {
@@ -4092,8 +4107,27 @@ internal fun VideoDetailScreenStateHolder(
                     val largeScreenGeometry = remember { LargeScreenVideoTransitionGeometry() }
                     val largeScreenTransition = com.android.purebilibili.core.ui.transition
                         .LocalMiuixVideoCardTransitionState.current
+                    val wholeCardReturn = rememberVideoDetailWholeCardReturn(
+                        bvid = bvid,
+                        sourceRoute = sourceRouteForSharedElement,
+                        ownsTransition = entryOwnsMiuixCardTransition && largeScreenTransition.enabled,
+                        committedReturn = isCommittedCardReturn,
+                        keepLoadedContentForBackPreview = keepLoadedContentForBackPreview,
+                        sourceBounds = largeScreenTransition.sourceBoundsProvider(),
+                        sourceLayout = largeScreenTransition.sourceLayout,
+                        isNowPlayingBar = largeScreenTransition.sourceChromeSnapshot?.isNowPlayingBar == true,
+                        depthProvider = largeScreenTransition.progressProvider,
+                        phaseProvider = videoCardDepthBackgroundState.phaseProvider,
+                        gestureProvider = {
+                            videoCardDepthBackgroundState.isReturnGestureInProgressProvider() ||
+                                videoCardDepthBackgroundState.isGestureRestoreInProgressProvider()
+                        },
+                        followProgressProvider = videoCardDepthBackgroundState.returnContentFollowProgressEnabledProvider,
+                    )
+                    CompositionLocalProvider(LocalVideoDetailWholeCardReturnActive provides wholeCardReturn.active) {
                     Box(modifier = Modifier
                         .fillMaxSize()
+                        .then(wholeCardReturn.modifier)
                         .onGloballyPositioned(largeScreenGeometry::recordRoot)) {
                     // Shared movable player content for tablet and large screen.
                     // onPortraitFullscreen = { enterPortraitFullscreen() }
@@ -4912,6 +4946,7 @@ internal fun VideoDetailScreenStateHolder(
                                 sourceBounds = miuixLandingState.sourceBoundsProvider(),
                                 sourceCoverBounds = miuixLandingState.sourceCoverBoundsProvider(),
                                 sourceLayout = miuixLandingState.sourceLayout,
+                                sourceInfoBounds = miuixLandingState.sourceInfoBoundsProvider(),
                             ).takeIf { it.canRender }
                         }
                         // A frozen now-playing snapshot contains the whole capsule, not just
@@ -5050,7 +5085,10 @@ internal fun VideoDetailScreenStateHolder(
                                 videoCardDepthBackgroundState.isReturnGestureInProgressProvider() ||
                                     videoCardDepthBackgroundState
                                         .isGestureRestoreInProgressProvider()
-                            resolveVideoDetailReturnMediaFrame(
+                            if (wholeCardReturn.active()) {
+                                // 整卡组统一交接，播放器不再与独立封面做第二次透明度交接。
+                                VideoDetailReturnMediaFrame(coverAlpha = 0f, playerAlpha = 1f)
+                            } else resolveVideoDetailReturnMediaFrame(
                                 transitionProgress = resolveVideoDetailReturnVisualProgress(
                                     animatedVisibilityProgress = detailTransitionProgress.value,
                                     morphDepthProgress =
@@ -5327,7 +5365,8 @@ internal fun VideoDetailScreenStateHolder(
                                                 com.android.purebilibili.core.ui.transition
                                                     .resolveNowPlayingBarLiveHandoff(miuixLandingState.progressProvider())
                                             } else 0f
-                                            alpha = flyingSourceChromeAlphaProvider() * (1f - liveHandoff)
+                                            alpha = if (wholeCardReturn.active()) 0f else
+                                                flyingSourceChromeAlphaProvider() * (1f - liveHandoff)
                                         },
                                 )
                             }
@@ -5749,10 +5788,13 @@ internal fun VideoDetailScreenStateHolder(
                                         .isGestureRestoreInProgressProvider()
                             },
                             isCommittedCardReturn = isCommittedCardReturn,
-                            modifier = Modifier.align(Alignment.TopStart),
+                            modifier = Modifier.align(Alignment.TopStart).drawWithContent {
+                                if (!wholeCardReturn.active()) drawContent()
+                            },
                         )
                     }
                     }  // Full-viewport source-card chrome host (phone + tablet)
+                    }  // Complete source-card return ownership
                 }  // else shouldUseSplitLayout / immersive parent
             }  // else targetIsLandscape
     }

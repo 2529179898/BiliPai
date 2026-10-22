@@ -28,6 +28,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Brush
@@ -473,6 +476,8 @@ fun BottomControlBar(
     onFloatingPanelVisibilityChange: (Boolean) -> Unit = {},
     /** 紧凑布局：控制行更贴左右边缘，并更靠近进度条。 */
     compactPlayerChrome: Boolean = false,
+    /** 玻璃全屏工具胶囊与顶部互动胶囊共用窗口横向边界，仅在测量阶段读取。 */
+    actionDockBoundsProvider: () -> Rect? = { null },
 
     modifier: Modifier = Modifier,
     seekPositionProvider: (() -> Long)? = null,
@@ -715,7 +720,8 @@ fun BottomControlBar(
     }
     val glassProgressDock = isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     val expandInlineActionDock = !isFullscreen && uiLayoutWidthDp < 600 && !showCompactDanmakuSend
-    val showDirectTools = isFullscreen && uiLayoutWidthDp >= 840
+    // 玻璃全屏工具栏只常驻画质、倍速、字幕和更多；其他操作统一收入菜单。
+    val showDirectTools = isFullscreen && !liquidGlassEnabled && uiLayoutWidthDp >= 840
     val dockProgressLayoutPolicy = if (glassProgressDock) {
         // Glass-only seek row: keep its layout compact as well as its visible shell.
         // Native MD3/Miuix retain progressLayoutPolicy, including their original track sizes.
@@ -850,6 +856,9 @@ fun BottomControlBar(
                     (if (liquidGlassEnabled) layoutPolicy.playButtonSizeDp else 0)
                 PlayerControlMiddleRow(
                     minimumLeftWidth = minimumLeftWidthDp.dp,
+                    rightDockBoundsProvider = {
+                        if (liquidGlassEnabled) actionDockBoundsProvider() else null
+                    },
                     modifier = Modifier.weight(1f),
                 ) {
                     PlayerControlGlassDock(
@@ -963,7 +972,7 @@ fun BottomControlBar(
                                 .padding(horizontal = 10.dp)
                             else Modifier,
                         ) {
-                            if (showAspectRatioButton) {
+                            if (showAspectRatioButton && !liquidGlassEnabled) {
                                 Box(
                                     modifier = Modifier
                                         .heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp)
@@ -980,7 +989,7 @@ fun BottomControlBar(
                                         softWrap = false
                                     )
                                 }
-                            } else if (showAudioQualityButtonInline) {
+                            } else if (showAudioQualityButtonInline && !liquidGlassEnabled) {
                                 Row(
                                     modifier = Modifier
                                         .heightIn(min = layoutPolicy.playButtonSizeDp.dp)
@@ -1006,9 +1015,11 @@ fun BottomControlBar(
                             }
 
                             // Quality
-                            if (currentQualityLabel.isNotEmpty()) {
+                            if (currentQualityLabel.isNotEmpty() || liquidGlassEnabled) {
                                 AppText(
-                                    text = currentQualityLabel,
+                                    text = if (liquidGlassEnabled) {
+                                        "${currentQualityLabel.ifBlank { "画质" }} · ${currentRatio.displayName}"
+                                    } else currentQualityLabel,
                                     color = Color.White,
                                     fontSize = layoutPolicy.actionTextFontSp.sp,
                                     lineHeight = (layoutPolicy.actionTextFontSp + 2).sp,
@@ -1023,7 +1034,7 @@ fun BottomControlBar(
                                 )
                             }
 
-                            if (showEpisodeButton) {
+                            if (showEpisodeButton && !liquidGlassEnabled) {
                                 AppText(
                                     text = "分集",
                                     color = Color.White,
@@ -1054,7 +1065,7 @@ fun BottomControlBar(
                                     .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                             )
 
-                            if (isFullscreen && uiLayoutWidthDp >= 840 && showPlaybackOrderLabel) {
+                            if (isFullscreen && !liquidGlassEnabled && uiLayoutWidthDp >= 840 && showPlaybackOrderLabel) {
                                 AppText(
                                     text = playbackOrderLabel,
                                     color = Color.White,
@@ -1069,10 +1080,14 @@ fun BottomControlBar(
                                 )
                             }
 
-                            if (showSubtitleButton) {
+                            if (showSubtitleButton || liquidGlassEnabled) {
                                 AppText(
                                     text = "字幕",
-                                    color = if (subtitleEnabled) AppContentColors.accent() else Color.White,
+                                    color = when {
+                                        !subtitleTrackAvailable -> Color.White.copy(alpha = 0.45f)
+                                        subtitleEnabled -> AppContentColors.accent()
+                                        else -> Color.White
+                                    },
                                     fontSize = layoutPolicy.actionTextFontSp.sp,
                                     lineHeight = (layoutPolicy.actionTextFontSp + 2).sp,
                                     fontWeight = FontWeight.Medium,
@@ -1080,7 +1095,7 @@ fun BottomControlBar(
                                     softWrap = false,
                                     modifier = Modifier
                                         .heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp)
-                                        .clickable {
+                                        .clickable(enabled = subtitleTrackAvailable) {
                                             val nextShowSubtitlePanel = !showSubtitlePanel
                                             com.android.purebilibili.core.util.Logger.d(
                                                 "BottomControlBar",
@@ -1096,7 +1111,7 @@ fun BottomControlBar(
                                 )
                             }
 
-                            if (isFullscreen && uiLayoutWidthDp >= 840) {
+                            if (isFullscreen && !liquidGlassEnabled && uiLayoutWidthDp >= 840) {
                                 LandscapeDockTextAction(
                                     text = "画中画",
                                     fontSp = layoutPolicy.actionTextFontSp,
@@ -1144,6 +1159,20 @@ fun BottomControlBar(
                                     ),
                                     groups = listOf(
                                         listOfNotNull(
+                                            if (liquidGlassEnabled) AppWindowAction(
+                                                label = "画面比例 · ${currentRatio.displayName}",
+                                                onClick = {
+                                                    showMoreActionsPanel = false
+                                                    onRatioClick()
+                                                },
+                                            ) else null,
+                                            if (liquidGlassEnabled) AppWindowAction(
+                                                label = "画中画",
+                                                onClick = {
+                                                    showMoreActionsPanel = false
+                                                    onPipClick()
+                                                },
+                                            ) else null,
                                             if (sponsorContributionAvailable) {
                                                 AppWindowAction(
                                                     label = if (sponsorContributionMarking) "结束标记片段" else "标记片段起点",
@@ -1166,19 +1195,19 @@ fun BottomControlBar(
                                                     onSponsorContributionCancel()
                                                 })
                                             } else null,
-                                            if (showEpisodeInMoreActions) {
+                                            if (showEpisodeInMoreActions || (liquidGlassEnabled && hasEpisodeEntry)) {
                                                 AppWindowAction(label = "分集", onClick = {
                                                         showMoreActionsPanel = false
                                                         onEpisodeClick()
                                                     })
                                             } else null,
-                                            if (showNextEpisodeButton && !(isFullscreen && uiLayoutWidthDp >= 840)) {
+                                            if (showNextEpisodeButton && (liquidGlassEnabled || !(isFullscreen && uiLayoutWidthDp >= 840))) {
                                                 AppWindowAction(label = "下集", onClick = {
                                                         showMoreActionsPanel = false
                                                         onNextEpisodeClick()
                                                     })
                                             } else null,
-                                            if (showPlaybackOrderLabel && !(isFullscreen && uiLayoutWidthDp >= 840)) {
+                                            if (showPlaybackOrderLabel && (liquidGlassEnabled || !(isFullscreen && uiLayoutWidthDp >= 840))) {
                                                 AppWindowAction(label = playbackOrderLabel, selected = playbackOrderLabel != "自动连播", onClick = {
                                                         showMoreActionsPanel = false
                                                         onPlaybackOrderClick()
@@ -1249,7 +1278,7 @@ fun BottomControlBar(
                             }
 
                             // 📱 [修复] 竖屏全屏按钮 - 仅在非全屏且有需要时显示，避免挤压平板控制栏
-                            if (showPortraitSwitchButtonInline) {
+                            if (showPortraitSwitchButtonInline && !liquidGlassEnabled) {
                                 AppText(
                                     text = "竖屏",
                                     color = Color.White,
@@ -1809,9 +1838,14 @@ fun BottomControlBar(
 private fun PlayerControlMiddleRow(
     modifier: Modifier = Modifier,
     minimumLeftWidth: Dp,
+    rightDockBoundsProvider: () -> Rect? = { null },
     content: @Composable () -> Unit,
 ) {
-    Layout(content = content, modifier = modifier) { measurables, constraints ->
+    var rowOrigin by remember { mutableStateOf<Offset?>(null) }
+    Layout(
+        content = content,
+        modifier = modifier.onGloballyPositioned { rowOrigin = it.positionInWindow() },
+    ) { measurables, constraints ->
         val gap = 8.dp.roundToPx().coerceAtMost(constraints.maxWidth)
         val left = measurables[0].measure(
             constraints.copy(
@@ -1821,17 +1855,25 @@ private fun PlayerControlMiddleRow(
                     .coerceAtMost((constraints.maxWidth - gap).coerceAtLeast(0)),
             ),
         )
+        val origin = rowOrigin
+        val dockBounds = rightDockBoundsProvider()?.takeIf { it.width > 0 && origin != null }
+        val rightEnd = if (dockBounds != null && origin != null) {
+            (dockBounds.right - origin.x).roundToInt()
+                .coerceIn(left.width + gap, constraints.maxWidth)
+        } else constraints.maxWidth
+        val availableRightWidth = (rightEnd - left.width - gap).coerceAtLeast(0)
+        val alignedWidth = dockBounds?.width?.roundToInt()?.coerceIn(0, availableRightWidth)
         val right = measurables[1].measure(
             constraints.copy(
-                minWidth = 0,
+                minWidth = alignedWidth ?: 0,
                 minHeight = 0,
-                maxWidth = (constraints.maxWidth - left.width - gap).coerceAtLeast(0),
+                maxWidth = alignedWidth ?: availableRightWidth,
             ),
         )
         val height = constraints.constrainHeight(maxOf(left.height, right.height))
         layout(constraints.maxWidth, height) {
             left.placeRelative(0, (height - left.height) / 2)
-            right.placeRelative(constraints.maxWidth - right.width, (height - right.height) / 2)
+            right.placeRelative(rightEnd - right.width, (height - right.height) / 2)
         }
     }
 }

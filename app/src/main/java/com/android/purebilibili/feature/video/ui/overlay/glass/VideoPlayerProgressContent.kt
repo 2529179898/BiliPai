@@ -124,7 +124,21 @@ internal fun OverlayChapterListPanel(
     viewPoints: List<ViewPoint>,
     onSeek: (Long) -> Unit,
     onDismiss: () -> Unit,
+    isFullscreen: Boolean = false,
 ) {
+    // 横屏全屏共用可拖动侧栏，仅材质由玻璃入口显式选择。
+    val windowSize = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+    if (isFullscreen && windowSize.width > windowSize.height) {
+        com.android.purebilibili.feature.video.ui.components.ChapterListPanel(
+            viewPoints = viewPoints,
+            currentPositionMs = progressProvider().current,
+            onSeek = onSeek,
+            onDismiss = onDismiss,
+            isFullscreen = true,
+            useGlassSurface = true,
+        )
+        return
+    }
     ChapterListPanel(
         viewPoints = viewPoints,
         currentPositionMs = progressProvider().current,

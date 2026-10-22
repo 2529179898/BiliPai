@@ -38,6 +38,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Close
+import com.android.purebilibili.feature.video.ui.components.PanelAction
+import com.android.purebilibili.feature.video.ui.components.PlayerDetailPanel
 import androidx.compose.material.icons.filled.PhotoCamera
 import com.android.purebilibili.core.ui.AppModalBottomSheet
 import com.android.purebilibili.core.ui.rememberAppPlayerChromeProfile
@@ -214,15 +217,58 @@ private fun videoSettingsChipContentColor(isSelected: Boolean): Color {
     }
 }
 
-/**
- *  视频设置面板 - 竖屏模式下的高级设置底部弹窗
- */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun VideoSettingsPanelHost(
+    isFullscreen: Boolean,
+    onDismissRequest: () -> Unit,
+    sheetState: SheetState,
+    dragHandle: @Composable (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val windowSize = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+    if (isFullscreen && windowSize.width > windowSize.height && LocalPlayerPanelViewport.current != null) {
+        PlayerDetailPanel(
+            title = "更多操作",
+            isFullscreen = true,
+            playerBounds = null,
+            onDismiss = onDismissRequest,
+            modifier = modifier,
+            useGlassSurface = true,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(45.dp)
+                    .padding(horizontal = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppText("更多操作", fontSize = 16.sp)
+                Spacer(Modifier.weight(1f))
+                PanelAction(Icons.Default.Close, "关闭", onDismissRequest)
+            }
+            content()
+        }
+    } else {
+        AppModalBottomSheet(
+            modifier = modifier,
+            onDismissRequest = onDismissRequest,
+            sheetState = sheetState,
+            dragHandle = dragHandle,
+            content = content,
+        )
+    }
+}
+
+/** 横屏全屏使用侧面板，其他模式保留底部弹窗。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoSettingsPanel(
     // 定时关闭
     sleepTimerMinutes: Int?,
     onSleepTimerChange: (Int?) -> Unit,
+    isFullscreen: Boolean = false,
 
     // 视频控制
     onReload: () -> Unit,
@@ -380,7 +426,8 @@ fun VideoSettingsPanel(
     val gestureTapIcon = rememberAppGestureTapIcon()
     val settingsIcon = rememberAppSettingsIcon()
 
-    AppModalBottomSheet(
+    VideoSettingsPanelHost(
+        isFullscreen = isFullscreen,
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         // Glass alone supplies a gesture header; native hosts keep their original handle.

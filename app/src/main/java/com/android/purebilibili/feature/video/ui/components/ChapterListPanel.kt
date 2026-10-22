@@ -26,14 +26,18 @@ fun ChapterListPanel(
     anchorBounds: IntRect? = null,
     isFullscreen: Boolean = false, playerBounds: IntRect? = null,
     showViewPoints: Boolean = true, onShowViewPointsChange: ((Boolean) -> Unit)? = null,
+    useGlassSurface: Boolean = false,
 ) {
     val currentIndex = viewPoints.indexOfLast { currentPositionMs >= it.fromMs && currentPositionMs < it.to.toLong() * 1000L }
     val state = rememberLazyListState(initialFirstVisibleItemIndex = currentIndex.coerceAtLeast(0))
-    PlayerDetailPanel("分段信息", isFullscreen, playerBounds, onDismiss) {
+    PlayerDetailPanel(
+        "分段信息", isFullscreen, playerBounds, onDismiss,
+        draggable = true, useGlassSurface = useGlassSurface,
+    ) { requestDismiss ->
         Row(modifier.fillMaxWidth().height(45.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("分段信息", fontSize = 16.sp, modifier = Modifier.weight(1f))
             if (onShowViewPointsChange != null) Switch(checked = showViewPoints, onCheckedChange = onShowViewPointsChange)
-            PanelAction(Icons.Default.Close, "关闭", onDismiss)
+            PanelAction(Icons.Default.Close, "关闭", requestDismiss)
         }
         LazyColumn(state = state, modifier = Modifier.weight(1f).fillMaxWidth(), overscrollEffect = null,
             contentPadding = PaddingValues(top = 7.dp, bottom = 100.dp)) {
@@ -41,7 +45,7 @@ fun ChapterListPanel(
                 val range = "${FormatUtils.formatDuration(point.from)} - ${FormatUtils.formatDuration(point.to)}"
                 PlayerPanelMediaRow(point.content, point.imgUrl, 0, index == currentIndex, range) {
                     onSeek(point.fromMs)
-                    onDismiss()
+                    requestDismiss()
                 }
             }
         }

@@ -48,7 +48,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -75,6 +75,8 @@ import com.android.purebilibili.core.ui.transition.resolveVideoSharedTransitionV
 import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.core.ui.transition.shouldUseVideoCardShellSharedBounds
 import com.android.purebilibili.core.ui.transition.videoCardShellSharedBoundsOrEmpty
+import com.android.purebilibili.core.ui.transition.videoCardSourceBoundsInRoot
+import com.android.purebilibili.core.ui.transition.withMeasuredCoverDecodeSize
 import com.android.purebilibili.core.util.CardPositionManager
 import com.android.purebilibili.feature.home.components.cards.resolveVideoCardCoverOverlayTextShadow
 import com.android.purebilibili.feature.home.components.cards.videoCardShellReturnChromeAlpha
@@ -110,8 +112,9 @@ fun VideoCardLarge(
         with(density) { configuration.screenHeightDp.dp.toPx() }
     }
     val sourceRoute = LocalVideoCardSharedElementSourceRoute.current
-    val cardBoundsRef = remember { object { var value: androidx.compose.ui.geometry.Rect? = null } }
-    val coverBoundsRef = remember { object { var value: androidx.compose.ui.geometry.Rect? = null } }
+    val cardBoundsRef = remember { object { var value: LayoutCoordinates? = null } }
+    val coverBoundsRef = remember { object { var value: LayoutCoordinates? = null } }
+    val infoBoundsRef = remember { object { var value: LayoutCoordinates? = null } }
     val nativeCardSnapshot = rememberNativeVideoCardSnapshotController(archive.bvid)
     val stationaryCoverRequest = remember(coverUrl) {
         ImageRequest.Builder(context)
@@ -123,7 +126,9 @@ fun VideoCardLarge(
             .build()
     }
     val triggerClick = {
-        cardBoundsRef.value?.let { bounds ->
+        cardBoundsRef.value?.takeIf { it.isAttached }?.videoCardSourceBoundsInRoot()?.let { bounds ->
+            val sourceCoverBounds = coverBoundsRef.value
+                ?.takeIf { it.isAttached }?.videoCardSourceBoundsInRoot()
             CardPositionManager.recordVideoCardPosition(
                 bvid = archive.bvid,
                 sourceRoute = sourceRoute,
@@ -132,7 +137,9 @@ fun VideoCardLarge(
                 screenHeight = screenHeightPx,
                 density = density.density,
                 sourceCornerDp = 10,
-                coverBounds = coverBoundsRef.value,
+                coverBounds = sourceCoverBounds,
+                infoBounds = infoBoundsRef.value
+                    ?.takeIf { it.isAttached }?.videoCardSourceBoundsInRoot(),
                 sourceLayout = VideoCardSourceLayout.STACKED,
                 sourceChromeSnapshot = VideoCardSourceChromeSnapshot(
                     title = archive.title,
@@ -155,7 +162,7 @@ fun VideoCardLarge(
                     ),
                     coverUrl = coverUrl,
                     coverCacheKey = coverUrl,
-                ),
+                ).withMeasuredCoverDecodeSize(sourceCoverBounds),
             )
             nativeCardSnapshot.capture()
         }
@@ -228,7 +235,7 @@ fun VideoCardLarge(
             )
             .then(nativeCardSnapshot.modifier)
             .onGloballyPositioned { coordinates ->
-                cardBoundsRef.value = coordinates.boundsInRoot()
+                cardBoundsRef.value = coordinates
             }
     ) {
         VideoCardLargeCover(
@@ -246,15 +253,16 @@ fun VideoCardLarge(
                     sourceRoute = sourceRoute,
                 )
                 .onGloballyPositioned { coordinates ->
-                    coverBoundsRef.value = coordinates.boundsInRoot()
+                    coverBoundsRef.value = coordinates
                 },
         )
         Column(
-            modifier = Modifier.videoCardShellReturnChromeAlpha(
-                enabled = useCardShellSharedBounds,
-                bvid = archive.bvid,
-                sourceRoute = sourceRoute,
-            )
+            modifier = Modifier.onGloballyPositioned { infoBoundsRef.value = it }
+                .videoCardShellReturnChromeAlpha(
+                    enabled = useCardShellSharedBounds,
+                    bvid = archive.bvid,
+                    sourceRoute = sourceRoute,
+                )
         ) {
             Spacer(modifier = Modifier.height(AppSpacingTokens.ExtraSmall + AppSpacingTokens.Micro))
             VideoCardLargeInfo(

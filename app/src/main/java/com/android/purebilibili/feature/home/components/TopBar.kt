@@ -1328,13 +1328,18 @@ private fun LightweightHomeTopTabs(
                 floatingLabelFontSize
             }
             val minimumSlotWidth = com.android.purebilibili.core.ui.components.rememberMeasuredTabMinWidth(
-                requestedMinWidth = maxOf(
-                    (floatingDockHeight - AppSpacingTokens.ExtraSmall * 2).coerceAtLeast(0.dp),
-                    if (showIcon) resolveHomeTopDockIconSizeDp(
-                        if (showText) 0 else 1,
-                        liquidGlassEnabled = isLiquidGlassEnabled,
-                    ).dp +
-                        AppSpacingTokens.Small * 2 else AppChromeSizeTokens.MinimumTouchTarget,
+                // Only glass reserves a horizontal capsule; native MD3/Miuix retain their widths.
+                requestedMinWidth = resolveHomeTopDockMinimumSlotWidth(
+                    shellHeight = floatingDockHeight,
+                    liquidGlassEnabled = isLiquidGlassEnabled,
+                    contentMinWidth = maxOf(
+                        (floatingDockHeight - AppSpacingTokens.ExtraSmall * 2).coerceAtLeast(0.dp),
+                        if (showIcon) resolveHomeTopDockIconSizeDp(
+                            if (showText) 0 else 1,
+                            liquidGlassEnabled = isLiquidGlassEnabled,
+                        ).dp +
+                            AppSpacingTokens.Small * 2 else AppChromeSizeTokens.MinimumTouchTarget,
+                    ),
                 ),
                 labels = if (showText) categories else emptyList(),
                 textStyle = MaterialTheme.typography.bodyLarge.copy(

@@ -139,6 +139,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import com.android.purebilibili.feature.video.ui.components.LocalPlayerPanelViewport
+import com.android.purebilibili.feature.video.ui.components.PlayerPanelViewportState
 import androidx.compose.ui.layout.layout
 import com.android.purebilibili.feature.video.ui.components.landscapeEndDrawerPadding
 import androidx.compose.ui.Modifier
@@ -1772,9 +1775,22 @@ private fun VideoPlayerSectionContent(
         isFullscreen = isFullscreen,
         screenWidthDp = configuration.screenWidthDp
     )
+    val panelViewport = remember(currentPlaybackIdentity, isFullscreen, liquidGlassLayoutEnabled) {
+        PlayerPanelViewportState()
+    }
+    var playerRightInWindow by remember { mutableIntStateOf(0) }
+    val panelAvoidanceEnabled = isFullscreen && !isPortraitFullscreen && !isInPipMode
     // Share the panel's exact drag/settle progress instead of animating visibility separately.
     val endDrawerReservedWidthProvider: () -> Dp = {
-        endDrawerReservedWidthDp.dp * (1f - endDrawerCloseProgress.floatValue.coerceIn(0f, 1f))
+        val drawerInset = endDrawerReservedWidthDp.dp *
+            (1f - endDrawerCloseProgress.floatValue.coerceIn(0f, 1f))
+        // 独立面板按实际窗口边界避让，两种材质原有抽屉的宽度与动画保持独立。
+        val panelInset = if (panelAvoidanceEnabled) {
+            with(localDensity) { panelViewport.endInsetPx(playerRightInWindow).toDp() }
+        } else {
+            0.dp
+        }
+        maxOf(drawerInset, panelInset)
     }
     val landscapeCommentReservedWidthDp = remember(
         isFullscreen,
@@ -2230,7 +2246,10 @@ private fun VideoPlayerSectionContent(
 
     Box(
         modifier = rootModifier
-            .onGloballyPositioned { danmakuTapCoordinates.value = it }
+            .onGloballyPositioned {
+                danmakuTapCoordinates.value = it
+                playerRightInWindow = it.boundsInWindow().right.roundToInt()
+            }
             .videoInputDiagnostics("player") {
                 "fullscreen=$isFullscreen portraitFs=$isPortraitFullscreen pip=$isInPipMode " +
                     "locked=$isScreenLocked controls=$showControls playing=${playerState.player.isPlaying} " +
@@ -6201,6 +6220,7 @@ private fun VideoPlayerSectionContent(
                     }
             ) {
                 CompositionLocalProvider(
+                    LocalPlayerPanelViewport provides panelViewport.takeIf { panelAvoidanceEnabled },
                     com.android.purebilibili.feature.video.ui.overlay.LocalPlayerLevelGestureActive provides shouldShowLevelIndicator,
                     com.android.purebilibili.feature.video.ui.overlay.LocalPlayerPageBackdrop provides
                         playerPageBackdrop.backdrop.takeIf {

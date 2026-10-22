@@ -1,6 +1,7 @@
 package com.android.purebilibili.feature.video.screen
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -57,8 +58,9 @@ internal fun resolveVideoDetailCoverDrawGeometry(
 }
 
 /**
- * Keep image loading and measurement at the viewport size. Only drawing reads morph progress.
- * This applies to both material modes and keeps their existing geometry and opacity providers.
+ * 图片请求仍按固定视口解析，封面绘制节点则按当前交接矩形测量。
+ * 4:3、16:10 封面可能高于 16:9 播放器；只向小 Canvas 外溢绘制会被图层边界裁掉。
+ * 两种材质共用测量阶段的几何，不改变播放器本身的尺寸或图片请求身份。
  */
 @Composable
 internal fun VideoDetailReturnCoverImage(
@@ -78,6 +80,7 @@ internal fun VideoDetailReturnCoverImage(
     backingColor: Color = Color.Unspecified,
     onDecoded: () -> Unit = {},
 ) {
+    val wholeCardReturnActive = LocalVideoDetailWholeCardReturnActive.current
     val sizeResolver = rememberConstraintsSizeResolver()
     val resolvedRequest = remember(request, sizeResolver) {
         // Keep explicit source decode dimensions/cache identity. Otherwise resolve from
@@ -95,53 +98,51 @@ internal fun VideoDetailReturnCoverImage(
         this.contentDescription = contentDescription
         role = Role.Image
     } else Modifier
-    Canvas(modifier.then(sizeResolver).then(semantics)) {
-        val alpha = alphaProvider().coerceIn(0f, 1f)
-        if (alpha <= 0f || size.width <= 0f || size.height <= 0f) return@Canvas
-        val progress = handoffProgressProvider()
-        val entryFrame = resolveVideoDetailReturnMediaLayoutFrame(
-            containerWidthPx = size.width.roundToInt(),
-            containerHeightPx = size.height.roundToInt(),
-            landingLayout = landingLayout,
-            handoffProgress = progress,
-            inverseScaleX = inverseScaleXProvider(),
-            inverseScaleY = inverseScaleYProvider(),
-            contentTopInsetPx = contentTopInsetProvider().roundToPx(),
-            nativeSnapshotBounds = nativeSnapshotBoundsProvider?.invoke(),
-        )
-        val frame = resolveVideoDetailReturnMediaFrameInSlot(entryFrame, slotOriginProvider(), progress)
-        val bounds = Rect(
-            frame.offsetXPx.toFloat(), frame.offsetYPx.toFloat(),
-            (frame.offsetXPx + frame.widthPx).toFloat(), (frame.offsetYPx + frame.heightPx).toFloat(),
-        )
-        val radius = if (landingLayout?.canRender == true) {
-            clipCornerDp.toPx() * progress.coerceIn(0f, 1f)
-        } else 0f
-        path.reset()
-        path.addRoundRect(RoundRect(bounds, CornerRadius(radius, radius)))
-        val geometry = resolveVideoDetailCoverDrawGeometry(
-            painter.intrinsicSize, bounds.size, contentScale, layoutDirection,
-        )
-        // Black loading backing and image must fade as a group. Bound that temporary
-        // surface to the media rect, and avoid it entirely at the opaque endpoint.
-        val hasBacking = backingColor != Color.Unspecified
-        val needsGroupAlpha = hasBacking && alpha < 1f
-        drawIntoCanvas { canvas ->
-            if (needsGroupAlpha) {
-                groupPaint.alpha = alpha
-                canvas.saveLayer(bounds, groupPaint)
-            }
-            try {
-                clipPath(path) {
-                    if (hasBacking) {
-                        drawRect(backingColor, topLeft = bounds.topLeft, size = bounds.size)
-                    }
-                    translate(bounds.left + geometry.offset.x, bounds.top + geometry.offset.y) {
-                        with(painter) { draw(geometry.size, alpha = if (hasBacking) 1f else alpha) }
-                    }
+    Box(modifier.then(sizeResolver).then(semantics)) {
+        Canvas(
+            Modifier.matchParentSize().videoDetailReturnMediaLayout(
+                landingLayout = landingLayout,
+                handoffProgressProvider = handoffProgressProvider,
+                inverseScaleXProvider = inverseScaleXProvider,
+                inverseScaleYProvider = inverseScaleYProvider,
+                contentTopInsetProvider = contentTopInsetProvider,
+                nativeSnapshotBoundsProvider = nativeSnapshotBoundsProvider,
+                slotOriginProvider = slotOriginProvider,
+            ),
+        ) {
+            val alpha = if (wholeCardReturnActive()) 0f else alphaProvider().coerceIn(0f, 1f)
+            if (alpha <= 0f || size.width <= 0f || size.height <= 0f) return@Canvas
+            val progress = handoffProgressProvider()
+            val bounds = Rect(Offset.Zero, size)
+            val radius = if (landingLayout?.canRender == true) {
+                clipCornerDp.toPx() * progress.coerceIn(0f, 1f)
+            } else 0f
+            path.reset()
+            path.addRoundRect(RoundRect(bounds, CornerRadius(radius, radius)))
+            val geometry = resolveVideoDetailCoverDrawGeometry(
+                painter.intrinsicSize, bounds.size, contentScale, layoutDirection,
+            )
+            // Black loading backing and image must fade as a group. Bound that temporary
+            // surface to the media rect, and avoid it entirely at the opaque endpoint.
+            val hasBacking = backingColor != Color.Unspecified
+            val needsGroupAlpha = hasBacking && alpha < 1f
+            drawIntoCanvas { canvas ->
+                if (needsGroupAlpha) {
+                    groupPaint.alpha = alpha
+                    canvas.saveLayer(bounds, groupPaint)
                 }
-            } finally {
-                if (needsGroupAlpha) canvas.restore()
+                try {
+                    clipPath(path) {
+                        if (hasBacking) {
+                            drawRect(backingColor, topLeft = bounds.topLeft, size = bounds.size)
+                        }
+                        translate(bounds.left + geometry.offset.x, bounds.top + geometry.offset.y) {
+                            with(painter) { draw(geometry.size, alpha = if (hasBacking) 1f else alpha) }
+                        }
+                    }
+                } finally {
+                    if (needsGroupAlpha) canvas.restore()
+                }
             }
         }
     }

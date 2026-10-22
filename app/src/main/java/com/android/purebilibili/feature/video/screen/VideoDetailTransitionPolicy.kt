@@ -394,7 +394,7 @@ internal fun resolveVideoDetailReturnPlayerAlpha(
 /**
  * Resident / player-section cover — must match the **stationary list card** Coil request.
  *
- * Priority: Miuix session snapshot → click [CardPositionManager] snapshot → home prefetch
+ * Priority: session snapshot → click snapshot → retained entry source → home prefetch
  * registry → route cover (last resort, may not match list pixels).
  */
 internal data class VideoDetailResidentCoverSource(
@@ -413,6 +413,7 @@ internal fun resolveVideoDetailResidentCoverSource(
     prefetchCacheKey: String? = null,
     prefetchDecodeWidthPx: Int = 0,
     prefetchDecodeHeightPx: Int = 0,
+    retainedStationarySource: VideoDetailResidentCoverSource? = null,
 ): VideoDetailResidentCoverSource? {
     fun fromSnapshot(snapshot: VideoCardSourceChromeSnapshot?): VideoDetailResidentCoverSource? {
         val url = snapshot?.coverUrl?.trim()?.takeIf { it.isNotBlank() } ?: return null
@@ -426,6 +427,8 @@ internal fun resolveVideoDetailResidentCoverSource(
     }
     fromSnapshot(sourceChromeSnapshot)?.let { return it }
     fromSnapshot(clickChromeSnapshot)?.let { return it }
+    // 导航可能先清理来源元数据，再卸载详情 entry；落位末帧不能换成兜底图片。
+    retainedStationarySource?.let { return it }
     val prefetch = prefetchUrl?.trim()?.takeIf { it.isNotBlank() }
     val prefetchKey = prefetchCacheKey?.trim()?.takeIf { it.isNotBlank() }
     if (prefetch != null && prefetchKey != null) {

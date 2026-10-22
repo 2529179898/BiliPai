@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.positionInWindow
 import com.android.purebilibili.feature.video.ambient.LocalAmbientPresentation
 import androidx.compose.ui.geometry.CornerRadius
@@ -191,6 +192,7 @@ fun TopControlBar(
     actionEndPaddingDp: Int? = null,
     isFavorited: Boolean = false,
     onFavoriteClick: () -> Unit = {},
+    onActionDockBoundsChanged: (androidx.compose.ui.geometry.Rect) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -397,7 +399,9 @@ fun TopControlBar(
                     val actionWidth = (constraints.maxWidth - reservedWidth).coerceAtLeast(0)
                     val placeable = measurable.measure(constraints.copy(minWidth = 0, maxWidth = actionWidth))
                     layout(placeable.width, placeable.height) { placeable.placeRelative(0, 0) }
-                } else Modifier),
+                } else Modifier).onGloballyPositioned {
+                    if (isFullscreen) onActionDockBoundsChanged(it.boundsInWindow())
+                },
             ) {
                 Row(
                     modifier = if (isFullscreen) Modifier

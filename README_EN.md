@@ -8,13 +8,13 @@
 
 [简体中文](README.md) · [English](README_EN.md)
 
-<img src="https://img.shields.io/badge/Source-0.5.3-007AFF?style=flat-square" alt="Source 0.5.3" />
+<img src="https://img.shields.io/badge/Source-0.5.4-007AFF?style=flat-square" alt="Source 0.5.4" />
 <img src="https://img.shields.io/badge/Android-8.0%2B-34C759?style=flat-square" alt="Android 8.0+" />
 <img src="https://img.shields.io/badge/License-GPLv3-FF3B30?style=flat-square" alt="GPLv3" />
 
 [Telegram channel](https://t.me/bilipai666) · [Telegram group](https://t.me/bilipai888/1) · [X](https://x.com/YangY_0x00)
 
-<sub>Source version 0.5.3 (501) · Updated 2026-10-22</sub>
+<sub>Source version 0.5.4 (502) · Updated 2026-10-22</sub>
 
 </div>
 

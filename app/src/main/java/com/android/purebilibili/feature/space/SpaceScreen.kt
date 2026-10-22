@@ -286,7 +286,6 @@ fun SpaceScreen(
     onUserClick: (Long) -> Unit = {},
     onTopicClick: (Long) -> Unit = {},
     onTopicKeywordClick: ((String) -> Unit)? = null,
-    onPlayAllAudioClick: ((String, Long) -> Unit)? = null,
     onDynamicDetailClick: (String) -> Unit = {},
     onArticleClick: (Long, String) -> Unit = { _, _ -> },
     onViewAllClick: (String, Long, Long, String, String) -> Unit = { _, _, _, _, _ -> },
@@ -393,27 +392,6 @@ fun SpaceScreen(
                 SpaceSubTab.SERIES,
             )
     } == true
-    val playAllSpaceVideos: () -> Unit = playAll@{
-        val state = currentSuccessState ?: return@playAll
-        val startBvid = resolveSpacePlayAllStartTarget(state.videos) ?: return@playAll
-        val playlist = buildExternalPlaylistFromSpaceVideos(
-            videos = state.videos,
-            clickedBvid = startBvid
-        ) ?: return@playAll
-        com.android.purebilibili.feature.video.player.PlaylistManager.setExternalPlaylist(
-            playlist.playlistItems,
-            playlist.startIndex,
-            source = com.android.purebilibili.feature.video.player.ExternalPlaylistSource.SPACE
-        )
-        val playbackTarget = resolveSpacePlaybackTarget(
-            syncedProgress = state.watchProgressByBvid[startBvid],
-            localPositionMs = videoProgressLookup(startBvid)
-        )
-        com.android.purebilibili.feature.video.player.PlaylistManager
-            .setPlayMode(com.android.purebilibili.feature.video.player.PlayMode.SEQUENTIAL)
-        onPlayAllAudioClick?.invoke(startBvid, playbackTarget.resumePositionMs)
-            ?: onVideoClick(startBvid, playbackTarget.cid, playbackTarget.resumePositionMs)
-    }
     val playedVideoBvid = targetBvid?.trim().orEmpty()
     val playedVideoLocatePromptEnabled by com.android.purebilibili.core.store.SettingsManager
         .getSpacePlayedVideoLocatePromptEnabled(context)
@@ -563,11 +541,6 @@ fun SpaceScreen(
                                         if (showContributionVideoMenuActions) {
                                             add(
                                                 listOf(
-                                                    AppWindowAction(
-                                                        label = "播放全部",
-                                                        icon = Icons.Outlined.PlayCircleOutline,
-                                                        onClick = playAllSpaceVideos,
-                                                    ),
                                                     contributionLayoutToggleAction(
                                                         layoutMode = contributionVideoLayoutMode,
                                                         onToggle = {
@@ -768,7 +741,6 @@ fun SpaceScreen(
                             onUserClick = onUserClick,
                             onTopicClick = onTopicClick,
                             onTopicKeywordClick = onTopicKeywordClick,
-                            onPlayAllAudioClick = onPlayAllAudioClick,
                             onDynamicDetailClick = onDynamicDetailClick,
                             onArticleClick = onArticleClick,
                             onViewAllClick = onViewAllClick,
@@ -778,7 +750,6 @@ fun SpaceScreen(
                             onCategorySelected = viewModel::selectCategory,
                             onSelectSortOrder = viewModel::selectSortOrder,
                             contributionVideoLayoutMode = contributionVideoLayoutMode,
-                            onPlayAllVideos = playAllSpaceVideos,
                             onLoadMoreVideos = viewModel::loadMoreVideos,
                             onLoadHome = viewModel::loadSpaceHome,
                             onLoadDynamic = { viewModel.loadSpaceDynamic(refresh = true) },
@@ -1181,7 +1152,6 @@ private fun SpaceContent(
     onUserClick: (Long) -> Unit,
     onTopicClick: (Long) -> Unit,
     onTopicKeywordClick: ((String) -> Unit)? = null,
-    onPlayAllAudioClick: ((String, Long) -> Unit)?,
     onDynamicDetailClick: (String) -> Unit,
     onArticleClick: (Long, String) -> Unit,
     onViewAllClick: (String, Long, Long, String, String) -> Unit,
@@ -1191,7 +1161,6 @@ private fun SpaceContent(
     onCategorySelected: (Int) -> Unit,
     onSelectSortOrder: (VideoSortOrder) -> Unit = {},
     contributionVideoLayoutMode: SpaceContributionVideoLayoutMode,
-    onPlayAllVideos: () -> Unit = {},
     onLoadMoreVideos: () -> Unit,
     onLoadHome: () -> Unit,
     onLoadDynamic: () -> Unit,
@@ -2162,7 +2131,6 @@ private fun SpaceContent(
                                     totalCount = state.totalVideos.takeIf { it > 0 } ?: state.videos.size,
                                     currentOrder = state.sortOrder,
                                     onSelectSortOrder = onSelectSortOrder,
-                                    onPlayAll = onPlayAllVideos,
                                 )
                             }
                         }
@@ -2813,7 +2781,6 @@ private fun SpaceContent(
                         totalCount = state.totalVideos.takeIf { it > 0 } ?: state.videos.size,
                         currentOrder = state.sortOrder,
                         onSelectSortOrder = onSelectSortOrder,
-                        onPlayAll = onPlayAllVideos,
                     )
                 }
             }
@@ -3631,7 +3598,6 @@ private fun SpaceContributionVideoSummaryBar(
     totalCount: Int,
     currentOrder: VideoSortOrder,
     onSelectSortOrder: (VideoSortOrder) -> Unit,
-    onPlayAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -3645,27 +3611,6 @@ private fun SpaceContributionVideoSummaryBar(
             style = MaterialTheme.typography.bodySmall,
             color = AppContentColors.secondaryText()
         )
-        Spacer(modifier = Modifier.width(14.dp))
-        Row(
-            modifier = Modifier
-                .clip(CircleShape)
-                .clickable(onClick = onPlayAll)
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            AppIcon(
-                imageVector = Icons.Outlined.PlayCircleOutline,
-                contentDescription = "播放全部",
-                modifier = Modifier.size(16.dp),
-                tint = AppContentColors.secondaryText()
-            )
-            AppText(
-                text = "播放全部",
-                style = MaterialTheme.typography.bodySmall,
-                color = AppContentColors.secondaryText()
-            )
-        }
         Spacer(modifier = Modifier.weight(1f))
 
         var sortMenuExpanded by remember { mutableStateOf(false) }

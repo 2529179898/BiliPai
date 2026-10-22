@@ -41,7 +41,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -77,6 +76,7 @@ import com.android.purebilibili.core.ui.transition.shouldUseVideoCardShellShared
 import com.android.purebilibili.core.ui.transition.videoCardShellSharedBoundsOrEmpty
 import com.android.purebilibili.core.ui.transition.withMeasuredCoverDecodeSize
 import com.android.purebilibili.core.util.CardPositionManager
+import com.android.purebilibili.core.ui.transition.videoCardSourceBoundsInRoot
 import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.core.util.HapticType
 import com.android.purebilibili.core.util.rememberHapticFeedback
@@ -187,7 +187,7 @@ internal fun HomeStyleSingleColumnVideoCard(
                 sourceCornerDp = cardCornerDp.value.roundToInt(),
                 coverBounds = sourceCoverBounds,
                 sourceLayout = VideoCardSourceLayout.SIDE_BY_SIDE,
-                infoBounds = infoCoordinates.value?.takeIf { it.isAttached }?.boundsInRoot(),
+                infoBounds = infoCoordinates.value?.takeIf { it.isAttached }?.videoCardSourceBoundsInRoot(),
                 sourceChromeSnapshot = VideoCardSourceChromeSnapshot(
                     title = video.title,
                     ownerName = video.owner.name,
@@ -236,7 +236,7 @@ internal fun HomeStyleSingleColumnVideoCard(
         modifier = modifier
             .adaptiveCardHoverEffect(shape = cardShape)
             .onGloballyPositioned { coordinates ->
-                cardBounds.value = coordinates.boundsInRoot()
+                cardBounds.value = coordinates.videoCardSourceBoundsInRoot()
             }
             .videoCardShellSharedBoundsOrEmpty(
                 enabled = useCardShellSharedBounds,
@@ -256,7 +256,7 @@ internal fun HomeStyleSingleColumnVideoCard(
                 onLongClick = if (isLongPressEnabled) onLongClick else null,
             ),
         coverModifier = Modifier.onGloballyPositioned { coordinates ->
-            coverBounds.value = coordinates.boundsInRoot()
+            coverBounds.value = coordinates.videoCardSourceBoundsInRoot()
         },
         infoModifier = Modifier.onGloballyPositioned { coordinates ->
             infoCoordinates.value = coordinates

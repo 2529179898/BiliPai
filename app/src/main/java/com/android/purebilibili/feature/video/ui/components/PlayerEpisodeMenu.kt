@@ -157,7 +157,10 @@ internal fun PanelAction(icon: ImageVector, label: String, onClick: () -> Unit) 
 /** Ordinary native page surface, independent of the application's Miuix/glass setting. */
 @Composable
 internal fun PlayerDetailPanel(title: String, isFullscreen: Boolean, playerBounds: IntRect?,
-    onDismiss: () -> Unit, compactHeight: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    onDismiss: () -> Unit, modifier: Modifier = Modifier,
+    compactHeight: Boolean = false, useGlassSurface: Boolean = false,
+    draggable: Boolean = false,
+    content: @Composable ColumnScope.(requestDismiss: () -> Unit) -> Unit) {
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
     val size = LocalWindowInfo.current.containerSize
@@ -171,16 +174,66 @@ internal fun PlayerDetailPanel(title: String, isFullscreen: Boolean, playerBound
     val bounds = resolvePlayerPanelBounds(safe, playerBounds, isFullscreen, landscape,
         with(density) { 500.dp.roundToPx() }, maxBottomHeight = compactMaxHeight)
     if (bounds.width <= 0 || bounds.height <= 0) return
+    val dragEnabled = draggable && isFullscreen && landscape
+    // 退出位移包含窗口右侧安全边距，画面和面板一直共用相同的可见边界。
+    val dragDistancePx = (size.width - bounds.left).coerceAtLeast(bounds.width)
+    val closeProgress = remember(bounds) { mutableFloatStateOf(0f) }
+    val dismissAction = remember { mutableStateOf<(() -> Unit)?>(null) }
+    ReservePlayerPanelViewport(
+        bounds,
+        enabled = isFullscreen && landscape,
+        dragDistancePx = dragDistancePx,
+        closeProgressProvider = { if (dragEnabled) closeProgress.floatValue else 0f },
+    )
     val provider = remember(bounds) { object : PopupPositionProvider {
         override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection,
             popupContentSize: IntSize) = IntOffset(bounds.left, bounds.top)
     } }
-    Popup(popupPositionProvider = provider, onDismissRequest = onDismiss,
-        properties = PopupProperties(focusable = true, clippingEnabled = false)) {
-        androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.onSurface) {
-            Column(Modifier.requiredSize(with(density) { bounds.width.toDp() }, with(density) { bounds.height.toDp() })
-                .semantics { paneTitle = title }, content = content)
+    val surfaceContent: @Composable (requestDismiss: () -> Unit) -> Unit = { requestDismiss ->
+        val panelContent: @Composable () -> Unit = {
+            Column(
+                modifier = modifier
+                    .requiredSize(with(density) { bounds.width.toDp() }, with(density) { bounds.height.toDp() })
+                    .semantics { paneTitle = title },
+                content = { content(requestDismiss) },
+            )
+        }
+        // 仅玻璃入口显式选择弹窗材质，原生面板保留原有 Surface 与默认参数。
+        if (useGlassSurface && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+            com.android.purebilibili.core.ui.AppPopupSurface(
+                type = com.android.purebilibili.core.ui.AppPopupSurfaceType.SHEET,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                content = panelContent,
+            )
+        } else {
+            androidx.compose.material3.Surface(
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                content = panelContent,
+            )
+        }
+    }
+    Popup(
+        popupPositionProvider = provider,
+        onDismissRequest = { dismissAction.value?.invoke() ?: onDismiss() },
+        properties = PopupProperties(focusable = true, clippingEnabled = false),
+    ) {
+        if (dragEnabled) {
+            LandscapeSidePanel(
+                visible = true,
+                edge = LandscapeSidePanelEdge.End,
+                width = with(density) { bounds.width.toDp() },
+                closeProgress = closeProgress,
+                dragDistance = with(density) { dragDistancePx.toDp() },
+                onDismiss = onDismiss,
+            ) { requestDismiss ->
+                SideEffect { dismissAction.value = requestDismiss }
+                surfaceContent(requestDismiss)
+            }
+        } else {
+            SideEffect { dismissAction.value = null }
+            surfaceContent(onDismiss)
         }
     }
 }

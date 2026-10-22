@@ -10,6 +10,33 @@ import kotlin.test.assertTrue
 class FloatingBottomBarGeometryTest {
 
     @Test
+    fun `top glass minimum slots keep horizontal capsules across content modes`() {
+        // Compact text, docked icon+text, floating icon+text and icon-only shells.
+        for (shell in listOf(40.dp, 48.dp, 52.dp)) {
+            val indicatorHeight = resolveBiliPaiBottomBarIndicatorHeight(shell)
+            for (contentWidth in listOf(24.dp, 48.dp, 88.dp, 160.dp)) {
+                val slot = resolveHomeTopDockMinimumSlotWidth(shell, contentWidth, true)
+                val fittedHeight = resolveFloatingDockIndicatorHeightDp(
+                    indicatorHeight.value, slot.value,
+                    FloatingBottomBarGeometryMode.TopNavigation, shell.value,
+                )
+                assertTrue(slot >= contentWidth)
+                assertTrue(slot.value / fittedHeight >= FLOATING_DOCK_MIN_INDICATOR_ASPECT - 0.001f)
+                assertEquals(indicatorHeight.value, fittedHeight, 0.001f)
+            }
+        }
+    }
+
+    @Test
+    fun `top native minimum slots preserve content sizing`() {
+        for (shell in listOf(40.dp, 48.dp, 52.dp)) {
+            for (contentWidth in listOf(24.dp, 48.dp, 88.dp)) {
+                assertEquals(contentWidth, resolveHomeTopDockMinimumSlotWidth(shell, contentWidth, false))
+            }
+        }
+    }
+
+    @Test
     fun `compact dock reuses bottom dock inset and press geometry`() {
         for (shellHeight in listOf(40f, 48f, 56f, 64f)) {
             val requestedHeight = resolveBiliPaiBottomBarIndicatorHeight(shellHeight.dp).value

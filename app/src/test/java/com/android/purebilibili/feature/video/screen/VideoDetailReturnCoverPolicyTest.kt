@@ -1881,6 +1881,39 @@ class VideoDetailReturnCoverPolicyTest {
     }
 
     @Test
+    fun residentCoverKeepsItsDecodeAndCacheIdentityAfterNavigationDropsSourceMetadata() {
+        val retained = VideoDetailResidentCoverSource(
+            url = "https://dynamic/cover.jpg",
+            cacheKey = "dynamic_cover",
+            decodeWidthPx = 640,
+            decodeHeightPx = 400,
+        )
+        val source = resolveVideoDetailResidentCoverSource(
+            sourceChromeSnapshot = null,
+            clickChromeSnapshot = null,
+            retainedStationarySource = retained,
+            prefetchUrl = "https://home/other-crop.jpg",
+            prefetchCacheKey = "home_cover",
+            routeCoverUrl = "https://detail/other-crop.jpg",
+            bvid = "BV1",
+        )
+        assertEquals(retained, source)
+        // A nested destination can still supply its own confirmed source.
+        val next = VideoCardSourceChromeSnapshot(
+            title = "child",
+            ownerName = "up",
+            coverUrl = "https://related/child.jpg",
+            coverCacheKey = "child_cover",
+        )
+        assertEquals(next.coverUrl, resolveVideoDetailResidentCoverSource(
+            sourceChromeSnapshot = next,
+            retainedStationarySource = retained,
+            routeCoverUrl = "https://detail/other-crop.jpg",
+            bvid = "BV2",
+        )?.url)
+    }
+
+    @Test
     fun residentCoverFallsBackToRouteWhenSnapshotHasNoCover() {
         val source = resolveVideoDetailResidentCoverSource(
             sourceChromeSnapshot = com.android.purebilibili.core.ui.transition.VideoCardSourceChromeSnapshot(

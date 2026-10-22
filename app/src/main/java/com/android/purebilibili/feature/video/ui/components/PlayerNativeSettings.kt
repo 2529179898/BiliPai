@@ -33,7 +33,34 @@ internal fun PlayerNativeMenuTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-internal fun PlayerNativeSettingsHost(onDismiss: () -> Unit, bottomPaddingDp: Int = 0, content: @Composable () -> Unit) {
+internal fun PlayerNativeSettingsHost(
+    onDismiss: () -> Unit,
+    bottomPaddingDp: Int = 0,
+    isFullscreen: Boolean = false,
+    playerBounds: androidx.compose.ui.unit.IntRect? = null,
+    content: @Composable () -> Unit,
+) {
+    val windowSize = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+    // 播放器提供避让宿主时，横屏更多操作与选集共用侧面板；其他入口保留原有弹窗。
+    if (isFullscreen && windowSize.width > windowSize.height && LocalPlayerPanelViewport.current != null) {
+        PlayerNativeMenuTheme {
+            PlayerDetailPanel("更多操作", isFullscreen, playerBounds, onDismiss) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(45.dp)
+                        .padding(horizontal = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("更多操作", fontSize = 16.sp)
+                    Spacer(Modifier.weight(1f))
+                    PanelAction(Icons.Outlined.Close, "关闭", onDismiss)
+                }
+                content()
+            }
+        }
+        return
+    }
     val config = LocalConfiguration.current
     val policy = resolveDanmakuSettingsPanelLayoutPolicy(
         isFullscreen = false,

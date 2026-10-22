@@ -3,6 +3,7 @@ package com.android.purebilibili.feature.dynamic
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.purebilibili.core.store.SettingsManager
+import kotlin.math.roundToInt
 
 internal enum class DynamicVideoCardLayoutMode {
     VERTICAL,
@@ -100,8 +101,7 @@ private fun formatDynamicActionCount(count: Int): String {
 }
 
 internal const val DYNAMIC_SIDEBAR_MAX_CASCADE_ITEMS = 8
-internal const val DYNAMIC_SIDEBAR_INITIAL_AVATAR_PREFETCH_COUNT = 30
-internal const val DYNAMIC_SIDEBAR_SCROLL_AVATAR_PREFETCH_COUNT = 20
+internal const val DYNAMIC_SIDEBAR_AVATAR_PREFETCH_COUNT = 6
 internal const val DYNAMIC_SIDEBAR_PREFETCH_IDLE_COUNT = 6
 internal const val DYNAMIC_SIDEBAR_PREFETCH_SCROLLING_COUNT = 15
 internal const val DYNAMIC_SIDEBAR_FLING_VELOCITY_MULTIPLIER = 0.70f
@@ -142,11 +142,31 @@ internal fun resolveDynamicSidebarUserAvatarUrl(face: String): String {
 internal fun resolveDynamicSidebarAvatarPrefetchUrls(
     users: List<SidebarUser>,
     startIndex: Int = 0,
-    limit: Int = DYNAMIC_SIDEBAR_INITIAL_AVATAR_PREFETCH_COUNT
+    limit: Int = DYNAMIC_SIDEBAR_AVATAR_PREFETCH_COUNT
 ): List<String> {
     if (startIndex < 0 || startIndex >= users.size || limit <= 0) return emptyList()
-    val endIndex = minOf(startIndex + limit, users.size)
+    val endIndex = startIndex + minOf(limit, users.size - startIndex)
     return users.subList(startIndex, endIndex).mapNotNull { user ->
         resolveDynamicSidebarUserAvatarUrl(user.face).ifEmpty { null }
-    }
+    }.distinct()
+}
+
+internal fun resolveDynamicUserAvatarDecodeSizePx(density: Float): Int =
+    (48f * (density.takeIf { it.isFinite() && it > 0f } ?: 1f))
+        .coerceIn(48f, 256f).roundToInt()
+
+/** Headers have no user identity; prefetch only three neighbors on each side of real visible users. */
+internal fun resolveDynamicSidebarNeighborAvatarUrls(
+    users: List<SidebarUser>,
+    visibleUserIds: List<Long>,
+): List<String> {
+    val visibleIds = visibleUserIds.toSet()
+    val first = users.indexOfFirst { it.uid in visibleIds }
+    val last = users.indexOfLast { it.uid in visibleIds }
+    if (first < 0) return emptyList()
+    val before = resolveDynamicSidebarAvatarPrefetchUrls(
+        users, (first - 3).coerceAtLeast(0), minOf(first, 3),
+    )
+    val after = resolveDynamicSidebarAvatarPrefetchUrls(users, last + 1, 3)
+    return (after + before.asReversed()).distinct()
 }

@@ -231,6 +231,8 @@ fun VideoSettingsPanel(
     // 定时关闭
     sleepTimerMinutes: Int?,
     onSleepTimerChange: (Int?) -> Unit,
+    isFullscreen: Boolean = false,
+    playerBounds: androidx.compose.ui.unit.IntRect? = null,
 
     // 视频控制
     onReload: () -> Unit,
@@ -436,7 +438,11 @@ fun VideoSettingsPanel(
             confirmButton = { TextButton({ onPlayerVolumeChange(draftVolume); showPlayerVolumeDialog = false }) { Text("确认") } },
         )
     }
-    PlayerNativeSettingsHost(onDismiss = onDismiss) {
+    PlayerNativeSettingsHost(
+        onDismiss = onDismiss,
+        isFullscreen = isFullscreen,
+        playerBounds = playerBounds,
+    ) {
         LazyColumn(
             modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
             contentPadding = PaddingValues(vertical = 14.dp),

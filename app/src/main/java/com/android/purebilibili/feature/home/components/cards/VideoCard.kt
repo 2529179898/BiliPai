@@ -73,6 +73,7 @@ import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.core.util.rememberHapticFeedback
 import com.android.purebilibili.core.util.animateEnter
 import com.android.purebilibili.core.util.CardPositionManager
+import com.android.purebilibili.core.ui.transition.videoCardSourceBoundsInRoot
 import com.android.purebilibili.core.util.HomeCoverReturnPrefetchEntry
 import com.android.purebilibili.core.util.HomeCoverReturnPrefetchRegistry
 import com.android.purebilibili.core.ui.transition.VideoCardSourceChromeSnapshot
@@ -122,6 +123,9 @@ import com.android.purebilibili.core.ui.transition.LocalVideoCardSharedElementSo
 import com.android.purebilibili.core.ui.transition.LocalMiuixVideoCardTransitionState
 import com.android.purebilibili.core.ui.transition.captureNativeCoverOverlayLayer
 import com.android.purebilibili.core.ui.transition.captureNativeVideoCardImage
+import com.android.purebilibili.core.ui.transition.captureWholeCardReturnBitmap
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
 import com.android.purebilibili.core.ui.transition.recordNativeVideoCardLayer
 import com.android.purebilibili.core.ui.transition.rememberNativeVideoCardLayer
 import com.android.purebilibili.core.ui.transition.LocalClickToPlayEnabled
@@ -894,6 +898,7 @@ internal fun ElegantVideoCard(
     val hasOverflowMenu = onDismiss != null || onWatchLater != null
     val hasTrailingCardAction = onUnfavorite != null || hasOverflowMenu
     val nativeCardLayer = rememberNativeVideoCardLayer()
+    val wholeCardCaptureScope = rememberCoroutineScope()
     val nativeCoverOverlayLayer = rememberNativeVideoCardLayer()
     val freezeNativeCardLayer = remember(video.bvid) { mutableStateOf(false) }
 
@@ -906,10 +911,10 @@ internal fun ElegantVideoCard(
         }
 
     val triggerCardClick = {
-        cardCoordsRef.value?.takeIf { it.isAttached }?.boundsInRoot()?.let { bounds ->
+        cardCoordsRef.value?.takeIf { it.isAttached }?.videoCardSourceBoundsInRoot()?.let { bounds ->
             val sourceCoverBounds = coverCoordsRef.value
                 ?.takeIf { it.isAttached }
-                ?.boundsInRoot()
+                ?.videoCardSourceBoundsInRoot()
             val frozenCompactStatsLayout = resolveVideoCardCompactCoverStatsLayout(
                 availableWidthDp = sourceCoverBounds?.let { coverBounds ->
                     (
@@ -1018,7 +1023,7 @@ internal fun ElegantVideoCard(
                 // 点击时冻结的信息面矩形：重建壳的信息板按它落位，而不是「卡底 − 封面底」。
                 infoBounds = infoLayoutCoordinates.value
                     ?.takeIf { it.isAttached }
-                    ?.boundsInRoot(),
+                    ?.videoCardSourceBoundsInRoot(),
             )
             // The mounted draw modifier reads this latch directly, so the layer freezes
             // before OPENING can hide the stationary title and statistics.
@@ -1027,6 +1032,12 @@ internal fun ElegantVideoCard(
                 freezeNativeCardLayer.value = true
                 captureNativeVideoCardImage(nativeCardLayer)
                 captureNativeCoverOverlayLayer(nativeCoverOverlayLayer)
+                val expectedSourceKey = CardPositionManager.lastClickedVideoSourceKey
+                if (expectedSourceKey != null) {
+                    wholeCardCaptureScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                        captureWholeCardReturnBitmap(nativeCardLayer, expectedSourceKey)
+                    }
+                }
             }
         }
         onClick(video.bvid, video.cid)

@@ -41,7 +41,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -81,6 +80,7 @@ import com.android.purebilibili.core.ui.transition.shouldUseVideoCardShellShared
 import com.android.purebilibili.core.ui.transition.videoCardShellSharedBoundsOrEmpty
 import com.android.purebilibili.core.ui.transition.withMeasuredCoverDecodeSize
 import com.android.purebilibili.core.util.CardPositionManager
+import com.android.purebilibili.core.ui.transition.videoCardSourceBoundsInRoot
 import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.core.util.HapticType
 import com.android.purebilibili.core.util.rememberHapticFeedback
@@ -253,11 +253,11 @@ fun RelatedVideoItem(
     val triggerRelatedVideoClick = {
         cardCoordinatesRef.value
             ?.takeIf { it.isAttached }
-            ?.boundsInRoot()
+            ?.videoCardSourceBoundsInRoot()
             ?.let { bounds ->
                 val sourceCoverBounds = coverCoordinatesRef.value
                     ?.takeIf { it.isAttached }
-                    ?.boundsInRoot()
+                    ?.videoCardSourceBoundsInRoot()
                 CardPositionManager.recordVideoCardPosition(
                     bvid = video.bvid,
                     sourceRoute = sourceRoute,
@@ -274,7 +274,7 @@ fun RelatedVideoItem(
                     },
                     infoBounds = infoCoordinatesRef.value
                         ?.takeIf { it.isAttached }
-                        ?.boundsInRoot(),
+                        ?.videoCardSourceBoundsInRoot(),
                     sourceChromeSnapshot = VideoCardSourceChromeSnapshot(
                         title = video.title,
                         ownerName = video.owner.name,

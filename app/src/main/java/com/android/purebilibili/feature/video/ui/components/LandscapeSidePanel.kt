@@ -58,6 +58,7 @@ internal fun LandscapeSidePanel(
     modifier: Modifier = Modifier,
     closeProgress: MutableFloatState = remember { mutableFloatStateOf(1f) },
     enableControlCenterMotion: Boolean = false,
+    dragDistance: Dp = width,
     content: @Composable (requestDismiss: () -> Unit) -> Unit,
 ) {
     // Only explicitly opted-in glass drawers receive group motion. Comment drawers
@@ -94,7 +95,7 @@ internal fun LandscapeSidePanel(
         }
     }
     val isSettlingToDismiss = remember { mutableStateOf(false) }
-    val drawerWidthPx = with(LocalDensity.current) { width.toPx().coerceAtLeast(1f) }
+    val drawerWidthPx = with(LocalDensity.current) { dragDistance.toPx().coerceAtLeast(1f) }
     val edgeDirection = if (edge == LandscapeSidePanelEdge.End) 1f else -1f
 
     fun dismissWithVelocity(velocity: Float = 0f) {

@@ -796,7 +796,7 @@ private fun VideoPlayerOverlayContent(
     var showSpeedMenu by remember { mutableStateOf(false) }
     var showRatioMenu by remember { mutableStateOf(false) }
     var showDanmakuSettings by remember { mutableStateOf(false) }
-    var showVideoSettings by remember { mutableStateOf(false) }  //  新增
+    var showVideoSettings by remember(bvid, cid, isFullscreen) { mutableStateOf(false) }
     var pendingVideoShare by remember { mutableStateOf<VideoSharePayload?>(null) }
     fun openVideoShareSheet() {
         if (bvid.isEmpty()) return
@@ -877,6 +877,9 @@ private fun VideoPlayerOverlayContent(
     val lifecycleState by lifecycleOwner.lifecycle.currentStateAsState()
     val hostLifecycleStarted = lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
     val configuration = LocalConfiguration.current
+    val topActionDockBounds = remember(isFullscreen, configuration.screenWidthDp, configuration.screenHeightDp) {
+        mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
+    }
     var showInsightDetails by remember(player, bvid, cid) { mutableStateOf(false) }
     val visualWorkActive = com.android.purebilibili.core.ui.rememberVisualWorkActive()
     // The HUD needs only the existing decoder/error summary to decide whether it is visible.
@@ -1527,6 +1530,7 @@ private fun VideoPlayerOverlayContent(
                 //  顶部控制栏 - 仅在横屏（全屏）模式显示标题和清晰度
                 if (isFullscreen) {
                     TopControlBar(
+                        onActionDockBoundsChanged = { topActionDockBounds.value = it },
                         backButtonStartPaddingDp = overlayVisualPolicy.lockButtonEndPaddingDp,
                         actionEndPaddingDp = overlayVisualPolicy.lockButtonEndPaddingDp,
                         title = title,
@@ -1596,6 +1600,7 @@ private fun VideoPlayerOverlayContent(
                 ) {
                     key(player, bvid, cid) {
                     BottomControlBar(
+                    actionDockBoundsProvider = { topActionDockBounds.value },
                     viewportWidthDpOverride = viewportWidthDpOverride,
                     isPlaying = effectiveIsPlaying,
                     progressProvider = progressProvider,
@@ -1680,7 +1685,11 @@ private fun VideoPlayerOverlayContent(
                     onPipClick = onPipClick,
                     cdnDiagnosticsAvailable = cdnCount > 0,
                     onCdnDiagnosticsClick = { showCdnDiagnostics = true },
-                    onPlayerSettingsClick = { showVideoSettings = true },
+                    onPlayerSettingsClick = {
+                        onDismissEndDrawer()
+                        if (landscapeCommentPanelVisible) onLandscapeCommentClick()
+                        showVideoSettings = true
+                    },
                     // 🔁 [新增] 播放模式
                     currentPlayMode = currentPlayMode,
                     onPlayModeClick = onPlayModeClick,
@@ -2237,6 +2246,7 @@ private fun VideoPlayerOverlayContent(
 
         if (showVideoSettings) {
             VideoSettingsPanel(
+                isFullscreen = isFullscreen,
                 sleepTimerMinutes = sleepTimerMinutes,
                 onSleepTimerChange = onSleepTimerChange,
                 onReload = onReloadVideo,
@@ -2354,6 +2364,7 @@ private fun VideoPlayerOverlayContent(
         // --- 10. 📖 [新增] 章节列表面板 ---
         if (showChapterList && viewPoints.isNotEmpty()) {
             OverlayChapterListPanel(
+                isFullscreen = isFullscreen,
                 viewPoints = viewPoints,
                 progressProvider = displayedProgressProvider,
                 onSeek = commitSeek,

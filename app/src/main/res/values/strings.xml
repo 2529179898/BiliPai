@@ -901,7 +901,7 @@
     <string name="appearance_theme_preview_selected">选中状态</string>
     <string name="appearance_theme_contrast_clear">当前配色下，文字和控件与背景区分清楚</string>
     <string name="appearance_theme_contrast_issues">还有 %1$d 处文字或控件可能不够清楚：%2$s</string>
-    <string name="appearance_theme_contrast_issue_item">%1$s %.2f:1（目标 %.1f:1）</string>
+    <string name="appearance_theme_contrast_issue_item">%1$s %2$.2f:1（目标 %3$.1f:1）</string>
     <string name="appearance_theme_contrast_explain">数值越高，文字和背景的区别越明显。背景图片可能影响实际效果。</string>
     <string name="appearance_theme_contrast_repair">修正可读性</string>
     <string name="appearance_theme_contrast_repair_summary">仅调整本模式的主要与次要文字，保留背景和强调色；其余不足的配对继续提示。</string>

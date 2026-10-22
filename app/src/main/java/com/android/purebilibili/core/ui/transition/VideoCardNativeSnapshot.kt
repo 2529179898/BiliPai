@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.rememberGraphicsLayer
 import com.android.purebilibili.core.ui.LocalSharedTransitionEnabled
 import com.android.purebilibili.core.util.CardPositionManager
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineStart
 
 internal const val VIDEO_CARD_FLYING_OVERLAY_COVER_DEPTH = 0.001f
 
@@ -246,6 +247,15 @@ internal suspend fun captureNativeVideoCardBitmap(
     )
 }
 
+/** 在来源卡离开前冻结完整像素；只允许当前点击身份接收异步结果。 */
+internal suspend fun captureWholeCardReturnBitmap(layer: GraphicsLayer, expectedSourceKey: String?) {
+    if (!isNativeVideoCardLayerDrawable(layer.size.width, layer.size.height)) return
+    val bitmap = layer.toImageBitmap()
+    if (CardPositionManager.isNativeVideoCardLayerCurrentOwner(layer)) {
+        CardPositionManager.recordWholeCardReturnBitmap(bitmap, expectedSourceKey)
+    }
+}
+
 @Composable
 internal fun rememberNativeVideoCardLayer() = rememberGraphicsLayer()
 
@@ -304,6 +314,14 @@ internal fun rememberNativeVideoCardSnapshotController(
             freezeState.value = true
             captureNativeVideoCardImage(layer)
             captureNativeCoverOverlayLayer(coverOverlayLayer)
+            val expectedSourceKey = CardPositionManager.lastClickedVideoSourceKey
+            if (expectedSourceKey != null &&
+                CardPositionManager.lastClickedVideoSourceChromeSnapshot?.isNowPlayingBar != true
+            ) {
+                captureScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                    captureWholeCardReturnBitmap(layer, expectedSourceKey)
+                }
+            }
         },
         freezeToBitmap = {
             val expectedSourceKey = CardPositionManager.lastClickedVideoSourceKey

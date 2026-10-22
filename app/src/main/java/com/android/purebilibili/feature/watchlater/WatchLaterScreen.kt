@@ -102,7 +102,6 @@ import com.android.purebilibili.core.ui.components.AppTextButton
 import com.android.purebilibili.core.ui.components.appElasticPress
 import com.android.purebilibili.core.ui.ContainerLevel
 import com.android.purebilibili.core.ui.rememberAppBackIcon
-import com.android.purebilibili.core.ui.rememberAppPlayIcon
 import com.android.purebilibili.core.ui.rememberAppWatchLaterIcon
 import com.android.purebilibili.core.network.NetworkModule
 import com.android.purebilibili.core.store.SettingsManager
@@ -129,6 +128,7 @@ import com.android.purebilibili.feature.home.components.cards.HorizontalVideoSta
 import com.android.purebilibili.feature.home.components.BiliPaiImmersiveTopBar
 import com.android.purebilibili.feature.home.components.shouldUseBiliPaiProgressiveTopBlur
 import com.android.purebilibili.core.util.CardPositionManager
+import com.android.purebilibili.core.ui.transition.videoCardSourceBoundsInRoot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -1249,7 +1249,7 @@ fun WatchLaterScreen(
         },
         containerColor = AppSurfaceTokens.groupedListContainer()
     ) { padding ->
-        // 听视频小横条悬浮在内容上方时，列表与“播放全部”FAB 上浮避让（与首页 76dp 预留一致）
+        // 听视频小横条悬浮在内容上方时，列表上浮避让（与首页 76dp 预留一致）
         val nowPlayingBarOverlayVisible = com.android.purebilibili.core.ui
             .rememberNowPlayingBarOverlayVisible()
         val bottomOverlayPadding = watchLaterBottomPadding +
@@ -1443,48 +1443,6 @@ fun WatchLaterScreen(
                 }
             }
 
-            // PiliPlus：播放全部以 extended FAB 常驻列表右下角
-            if (state.items.isNotEmpty() && !isBatchMode) {
-                com.android.purebilibili.core.ui.components.AppFloatingActionButton(
-                    onClick = {
-                        val externalPlaylist = buildExternalPlaylistFromWatchLater(
-                            items = displayedItems,
-                            clickedBvid = displayedItems.firstOrNull()?.bvid
-                        ) ?: return@AppFloatingActionButton
-
-                        com.android.purebilibili.feature.video.player.PlaylistManager.setExternalPlaylist(
-                            externalPlaylist.playlistItems,
-                            externalPlaylist.startIndex,
-                            source = com.android.purebilibili.feature.video.player.ExternalPlaylistSource.WATCH_LATER
-                        )
-                        com.android.purebilibili.feature.video.player.PlaylistManager
-                            .setPlayMode(com.android.purebilibili.feature.video.player.PlayMode.SEQUENTIAL)
-
-                        val item = displayedItems[externalPlaylist.startIndex]
-                        val target = resolveWatchLaterPlaybackTargetOrDefault(
-                            items = displayedItems,
-                            bvid = item.bvid,
-                            fallbackCid = item.cid
-                        )
-                        onVideoClick(target.bvid, target.cid, target.resumePositionMs)
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(
-                            end = AppSpacingTokens.Large,
-                            bottom = bottomContentPadding + AppSpacingTokens.Medium,
-                        ),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = AppSpacingTokens.Medium),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AppIcon(rememberAppPlayIcon(), contentDescription = null)
-                        Spacer(modifier = Modifier.width(AppSpacingTokens.Small))
-                        AppText("播放全部")
-                    }
-                }
-            }
         }
     }
 
@@ -1710,7 +1668,7 @@ private fun WatchLaterVideoCard(
     PersonalMediaCardFrame(
         stacked = stacked,
         coverModifier = Modifier.onGloballyPositioned { coordinates ->
-            coverBoundsRef.value = coordinates.boundsInRoot()
+            coverBoundsRef.value = coordinates.videoCardSourceBoundsInRoot()
         },
         selected = isSelected,
         modifier = Modifier
@@ -1727,7 +1685,7 @@ private fun WatchLaterVideoCard(
             )
             .height(IntrinsicSize.Min)
             .onGloballyPositioned { coordinates ->
-                cardBoundsRef.value = coordinates.boundsInRoot()
+                cardBoundsRef.value = coordinates.videoCardSourceBoundsInRoot()
             },
         nativeSnapshotModifier = nativeCardSnapshot.modifier,
         coverOverlayModifier = nativeCardSnapshot.coverOverlayModifier,

@@ -2703,14 +2703,6 @@ fun AppNavigation(
                                 )
                             }
                         },
-                        onPlayAllAudioClick = { bvid, resumePositionMs ->
-                            pushNavigation3Key(
-                                BiliPaiNavKey.AudioMode(
-                                    sourceBvid = bvid,
-                                    sourceResumePositionMs = resumePositionMs
-                                )
-                            )
-                        },
                         onDynamicDetailClick = { dynamicId ->
                             pushNavigation3Key(BiliPaiNavKey.DynamicDetail(dynamicId))
                         },

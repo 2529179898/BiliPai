@@ -4,7 +4,6 @@ package com.android.purebilibili.feature.dynamic
 import com.android.purebilibili.core.ui.AppContentColors
 
 import android.os.Build
-import coil3.request.crossfade
 import com.android.purebilibili.core.ui.components.FeedVerticalStaggeredGrid
 import com.android.purebilibili.core.ui.components.AppHorizontalDivider
 import com.android.purebilibili.core.ui.components.AppTextField
@@ -1929,10 +1928,7 @@ private fun HorizontalUserList(
                                     DynamicSelfAvatar(face = user.face, isSelected = isSelected)
                                 } else {
                                     PageAwareAsyncImage(
-                                        model = coil3.request.ImageRequest.Builder(LocalContext.current)
-                                            .data(user.face.let { if (it.startsWith("http://")) it.replace("http://", "https://") else it })
-                                            .crossfade(true)
-                                            .build(),
+                                        model = com.android.purebilibili.feature.dynamic.components.rememberDynamicUserAvatarRequest(user.face),
                                         contentDescription = null,
                                         modifier = Modifier.fillMaxSize().clip(CircleShape),
                                         contentScale = ContentScale.Crop

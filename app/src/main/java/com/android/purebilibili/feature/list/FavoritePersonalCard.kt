@@ -20,7 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.boundsInRoot
+import com.android.purebilibili.core.ui.transition.videoCardSourceBoundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -143,11 +143,11 @@ internal fun FavoritePersonalCard(
     PersonalMediaCardFrame(
         stacked = stacked,
         coverModifier = Modifier.onGloballyPositioned {
-            transition.bounds.coverBounds = it.boundsInRoot()
+            transition.bounds.coverBounds = it.videoCardSourceBoundsInRoot()
         },
         modifier = modifier
             .then(transition.shellModifier)
-            .onGloballyPositioned { transition.bounds.cardBounds = it.boundsInRoot() },
+            .onGloballyPositioned { transition.bounds.cardBounds = it.videoCardSourceBoundsInRoot() },
         nativeSnapshotModifier = transition.nativeCardSnapshot.modifier,
         coverOverlayModifier = transition.nativeCardSnapshot.coverOverlayModifier,
         headlineContent = {

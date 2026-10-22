@@ -28,7 +28,8 @@ fun decodeSubtitleDocument(bytes: ByteArray): String {
 }
 
 private val cueTiming = Regex("^\\s*([0-9:.,]+)\\s*-->\\s*([0-9:.,]+)(?:\\s+.*)?$")
-private val assOverrides = Regex("\\{[^}]*}")
+// Escape both literal braces for Android's ICU regex engine; this file also initializes during playback.
+private val assOverrides = Regex("\\{[^}]*\\}")
 private val textTags = Regex("<[^>]*>")
 
 fun parseSubtitleDocument(fileName: String, source: String): List<SubtitleCue> {

@@ -37,7 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.boundsInRoot
+import com.android.purebilibili.core.ui.transition.videoCardSourceBoundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -297,11 +297,11 @@ internal fun HistoryPersonalCard(
             selected = selected,
             modifier = modifier
                 .then(transition.shellModifier)
-                .onGloballyPositioned { transition.bounds.cardBounds = it.boundsInRoot() },
+                .onGloballyPositioned { transition.bounds.cardBounds = it.videoCardSourceBoundsInRoot() },
             nativeSnapshotModifier = transition.nativeCardSnapshot.modifier,
             coverOverlayModifier = transition.nativeCardSnapshot.coverOverlayModifier,
             coverModifier = Modifier.onGloballyPositioned {
-                transition.bounds.coverBounds = it.boundsInRoot()
+                transition.bounds.coverBounds = it.videoCardSourceBoundsInRoot()
             },
             headlineContent = {
                 AppText(text = video.title, style = contentTypography.title, maxLines = titleMaxLines, overflow = com.android.purebilibili.core.ui.videoCardTitleOverflow())
@@ -349,10 +349,10 @@ internal fun HistoryPersonalCard(
                 onClick = triggerClick,
                 onLongClick = onLongClick,
             )
-            .onGloballyPositioned { transition.bounds.cardBounds = it.boundsInRoot() },
+            .onGloballyPositioned { transition.bounds.cardBounds = it.videoCardSourceBoundsInRoot() },
         coverAspectRatio = com.android.purebilibili.core.ui.videoCardCoverAspectRatio(),
         coverModifier = Modifier.onGloballyPositioned {
-            transition.bounds.coverBounds = it.boundsInRoot()
+            transition.bounds.coverBounds = it.videoCardSourceBoundsInRoot()
         },
         coverOverlayModifier = transition.nativeCardSnapshot.coverOverlayModifier,
         coverContent = {

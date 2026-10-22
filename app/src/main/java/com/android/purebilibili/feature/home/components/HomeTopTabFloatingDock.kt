@@ -110,6 +110,15 @@ internal fun resolveHomeTopTabFloatingDockWidth(
     cornerRadius = shellHeight / 2,
 )
 
+/** Glass reserves a horizontal capsule before fitting tabs; native slots retain their own sizing. */
+internal fun resolveHomeTopDockMinimumSlotWidth(
+    shellHeight: Dp,
+    contentMinWidth: Dp,
+    liquidGlassEnabled: Boolean,
+): Dp = if (liquidGlassEnabled) {
+    maxOf(contentMinWidth, resolveBiliPaiBottomBarIndicatorHeight(shellHeight) * FLOATING_DOCK_MIN_INDICATOR_ASPECT)
+} else contentMinWidth
+
 /** Top category navigation matching the active bottom-bar renderer contract. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -254,13 +263,9 @@ internal fun HomeTopTabFloatingDock(
         preferredColor = AppContentColors.secondaryText(),
         backgroundColor = shellColor,
     )
-    // Text-only glass shares segmented capsule geometry; native and icon navigation keep their original insets.
-    val useTextSegmentedGeometry = liquidGlassEffectsEnabled && showText && !showIcon
-    val geometryMode = if (useTextSegmentedGeometry) {
-        FloatingBottomBarGeometryMode.Segmented
-    } else {
-        FloatingBottomBarGeometryMode.TopNavigation
-    }
+    // All glass label modes use the full navigation slot and the shell's inset capsule contour.
+    // Native renderers keep their existing TopNavigation geometry and label policy below.
+    val geometryMode = FloatingBottomBarGeometryMode.TopNavigation
     val viewportModifier = if (liquidGlassEffectsEnabled && scrollState != null) {
         // Own the optical clip at the page viewport, with the same press/velocity margins
         // as the renderer. Native toolbar placement and clipping retain their existing path.
@@ -307,7 +312,7 @@ internal fun HomeTopTabFloatingDock(
         liquidGlassTuningOverride = liquidGlassTuning,
         onItemReselected = onReselected,
         scrollState = scrollState,
-        adaptIndicatorToLabel = showText,
+        adaptIndicatorToLabel = if (liquidGlassEffectsEnabled) false else showText,
         itemContent = { index, label, selected ->
             val contentColor = LocalFloatingBottomBarContentColor.current
             val selectionScale = LocalFloatingBottomBarItemSelectionScale.current

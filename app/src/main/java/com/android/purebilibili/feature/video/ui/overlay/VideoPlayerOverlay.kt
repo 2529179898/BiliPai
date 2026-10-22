@@ -786,6 +786,7 @@ private fun VideoPlayerOverlayContent(
     // 换集后强制关掉分集/菜单等全屏遮罩，避免 Dialog/Sheet 残留挡触摸。
     LaunchedEffect(bvid, cid, isFullscreen) {
         showEpisodeMenu = false
+        showVideoSettings = false
         showQualityMenu = false
         showSpeedMenu = false
         showRatioMenu = false
@@ -1579,7 +1580,12 @@ private fun VideoPlayerOverlayContent(
                     }) else null,
                     commentsVisible = landscapeCommentPanelVisible,
                     relatedVideosVisible = endDrawerVisible && endDrawerInitialTab == 0,
-                    onMoreClick = { showVideoSettings = true },
+                    onMoreClick = {
+                        onDismissEndDrawer()
+                        if (landscapeCommentPanelVisible) onLandscapeCommentClick()
+                        showEpisodeMenu = false
+                        showVideoSettings = true
+                    },
                     showSponsorSubmitButton = sponsorContributionAvailable,
                     onSponsorSubmitClick = onSponsorContributionMarkBoundary,
                     showSponsorSegmentsButton = sponsorMarkers.isNotEmpty(),
@@ -1618,6 +1624,9 @@ private fun VideoPlayerOverlayContent(
                             onNextEpisodeClick = { navigateEpisode(forward = true) },
                             onEpisodeClick = {
                                 if (pages.size > 1 || ugcSeason?.sections?.any { it.episodes.isNotEmpty() } == true) {
+                                    onDismissEndDrawer()
+                                    if (landscapeCommentPanelVisible) onLandscapeCommentClick()
+                                    showVideoSettings = false
                                     showEpisodeMenu = true
                                 } else if (hasFavoritePlaylist) {
                                     onFavoritePlaylistClick()
@@ -2157,6 +2166,8 @@ private fun VideoPlayerOverlayContent(
 
         if (showVideoSettings) {
             VideoSettingsPanel(
+                isFullscreen = isFullscreen,
+                playerBounds = playerBoundsInWindow,
                 sleepTimerMinutes = menuSession.sleepTimerMinutes,
                 onSleepTimerChange = menuSession.onSleepTimerChange,
                 sleepWaitForVideoEnd = menuSession.sleepWaitForVideoEnd,
