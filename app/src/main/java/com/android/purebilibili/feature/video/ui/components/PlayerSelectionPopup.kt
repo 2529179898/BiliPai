@@ -1,35 +1,45 @@
 package com.android.purebilibili.feature.video.ui.components
 
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
+import com.android.purebilibili.core.theme.AppUiStyle
+import com.android.purebilibili.core.theme.LocalAppUiStyle
+import top.yukonga.miuix.kmp.basic.DropdownImpl
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider as MiuixPopupPositionProvider
+import top.yukonga.miuix.kmp.window.WindowListPopup
+import kotlin.math.roundToInt
+
 enum class PlayerListPopupPlacement { CENTER, START, END, END_BOTTOM, ANCHOR_END }
 
-/** Player-owned PiliPlus selector. Neither application material nor glass changes its geometry. */
+/** 播放器选择弹窗只按主题选择原生组件，独立于液态玻璃及页面材质。 */
 @Composable
 fun PlayerSelectionPopup(
     title: String,
@@ -51,44 +61,137 @@ fun PlayerSelectionPopup(
     val insets = WindowInsets.safeDrawing
     val left = insets.getLeft(density, direction).coerceIn(0, size.width)
     val top = insets.getTop(density).coerceIn(0, size.height)
-    val safe = IntRect(left, top,
+    val safe = IntRect(
+        left, top,
         (size.width - insets.getRight(density, direction)).coerceIn(left, size.width),
-        (size.height - insets.getBottom(density)).coerceIn(top, size.height))
+        (size.height - insets.getBottom(density)).coerceIn(top, size.height),
+    )
     val gap = with(density) { 4.dp.roundToPx() }
-    val viewport = with(density) {
-        resolvePlayerPopupViewport(safe, maxHeight?.roundToPx(), 4.dp.roundToPx(), 4.dp.roundToPx(),
-            anchorBounds.takeIf { placement == PlayerListPopupPlacement.ANCHOR_END }, gap)
-    }
+    val requestedMaxHeight = with(density) { maxHeight?.roundToPx() }
+    val viewport = resolvePlayerPopupViewport(
+        safeWindowBounds = safe,
+        requestedMaxHeight = requestedMaxHeight,
+        horizontalMargin = gap,
+        verticalMargin = gap,
+        anchorBounds = anchorBounds.takeIf { placement == PlayerListPopupPlacement.ANCHOR_END },
+        anchorGap = gap,
+    )
     if (viewport.bounds.width <= 0 || viewport.maxHeight <= 0) return
-    val provider = remember(viewport, placement, anchorBounds, gap) {
-        val measuredAnchor = anchorBounds
-        object : PopupPositionProvider {
-            override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize,
-                layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset =
-                resolvePlayerPopupOffset(viewport.bounds, popupContentSize, placement,
-                    measuredAnchor ?: anchorBounds, layoutDirection, gap)
+    val width = with(density) { viewport.bounds.width.toDp() }.coerceAtMost(maxWidth)
+    val height = with(density) { viewport.maxHeight.toDp() }
+    val menuModifier = modifier
+        .widthIn(min = minWidth.coerceAtMost(width), max = width)
+        .heightIn(max = height)
+        .semantics { paneTitle = title }
+
+    if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
+        val provider = remember(placement, anchorBounds, gap, requestedMaxHeight) {
+            val measuredAnchor = anchorBounds
+            object : MiuixPopupPositionProvider {
+                override fun calculatePosition(
+                    anchorBounds: IntRect,
+                    windowBounds: IntRect,
+                    layoutDirection: LayoutDirection,
+                    popupContentSize: IntSize,
+                    popupMargin: IntRect,
+                    alignment: MiuixPopupPositionProvider.Align,
+                ): IntOffset {
+                    val nativeViewport = resolvePlayerPopupViewport(
+                        safeWindowBounds = windowBounds,
+                        requestedMaxHeight = requestedMaxHeight,
+                        horizontalMargin = gap,
+                        verticalMargin = gap,
+                        anchorBounds = measuredAnchor.takeIf {
+                            placement == PlayerListPopupPlacement.ANCHOR_END
+                        },
+                        anchorGap = gap,
+                    )
+                    return resolvePlayerPopupOffset(
+                        viewport = nativeViewport.bounds,
+                        popupSize = popupContentSize,
+                        placement = placement,
+                        anchorBounds = measuredAnchor ?: anchorBounds,
+                        layoutDirection = layoutDirection,
+                        anchorGap = gap,
+                    )
+                }
+
+                override fun getMargins(): PaddingValues = PaddingValues(4.dp)
+            }
         }
-    }
-    Popup(popupPositionProvider = provider, onDismissRequest = onDismissRequest,
-        properties = PopupProperties(focusable = true, clippingEnabled = false)) {
-        val width = with(density) { viewport.bounds.width.toDp() }.coerceAtMost(maxWidth)
-        Column(modifier
-            .widthIn(min = minWidth.coerceAtMost(width), max = width)
-            .width(IntrinsicSize.Max)
-            .heightIn(max = with(density) { viewport.maxHeight.toDp() })
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color.Black.copy(alpha = 0.8f))
-            .clipToBounds()
-            .semantics { paneTitle = title }
-            .verticalScroll(scrollState, overscrollEffect = null)
-            .padding(vertical = 5.dp)) {
-            if (showTitle) PlayerSelectionItem(text = title, onClick = {}, enabled = false)
-            content()
+        WindowListPopup(
+            show = true,
+            popupModifier = menuModifier,
+            popupPositionProvider = provider,
+            onDismissRequest = onDismissRequest,
+            enableWindowDim = placement == PlayerListPopupPlacement.CENTER,
+            maxHeight = height,
+            minWidth = minWidth.coerceAtMost(width),
+        ) {
+            ListPopupColumn {
+                if (showTitle) SmallTitle(text = title)
+                content()
+            }
+        }
+    } else if (placement == PlayerListPopupPlacement.CENTER) {
+        AlertDialog(
+            onDismissRequest = onDismissRequest,
+            confirmButton = {},
+            title = if (showTitle) { { Text(title) } } else null,
+            text = {
+                Column(modifier = menuModifier.verticalScroll(scrollState)) { content() }
+            },
+        )
+    } else {
+        // 原生菜单从实际按钮边界定位；窗口坐标只在布局阶段换算，避免覆盖层偏移。
+        val target = anchorBounds ?: when (placement) {
+            PlayerListPopupPlacement.START -> IntRect(safe.left, safe.center.y, safe.left, safe.center.y)
+            PlayerListPopupPlacement.END -> IntRect(safe.right, safe.center.y, safe.right, safe.center.y)
+            PlayerListPopupPlacement.END_BOTTOM -> IntRect(safe.right, safe.bottom, safe.right, safe.bottom)
+            PlayerListPopupPlacement.CENTER,
+            PlayerListPopupPlacement.ANCHOR_END -> return
+        }
+        val origin = remember { mutableStateOf(Offset.Zero) }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .onGloballyPositioned { origin.value = it.positionInWindow() },
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(AbsoluteAlignment.TopLeft)
+                    .absoluteOffset {
+                        IntOffset(
+                            (target.left - origin.value.x).roundToInt(),
+                            (target.top - origin.value.y).roundToInt(),
+                        )
+                    }
+                    .size(
+                        width = with(density) { target.width.coerceAtLeast(0).toDp() },
+                        height = with(density) { target.height.coerceAtLeast(0).toDp() },
+                    ),
+            ) {
+                DropdownMenu(
+                    expanded = true,
+                    onDismissRequest = onDismissRequest,
+                    modifier = menuModifier,
+                    scrollState = scrollState,
+                ) {
+                    if (showTitle) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        )
+                    }
+                    content()
+                }
+            }
         }
     }
 }
 
-/** Fixed reference row; disabled options retain their position and expose their reason. */
+/** 选中态、禁用原因和点击行为共享，行的颜色、尺寸和交互由主题原生组件提供。 */
 @Composable
 fun PlayerSelectionItem(
     text: String,
@@ -97,19 +200,59 @@ fun PlayerSelectionItem(
     enabled: Boolean = true,
     summary: String? = null,
     modifier: Modifier = Modifier,
-    horizontalPadding: Dp = 30.dp,
+    index: Int = 0,
+    optionCount: Int = 1,
 ) {
-    val color = if (enabled || selected) Color.White else Color.White.copy(alpha = 0.4f)
-    Row(modifier.fillMaxWidth().height(35.dp)
-        .background(if (selected) Color.White.copy(alpha = 0.1f) else Color.Transparent)
-        .semantics(mergeDescendants = true) { this.selected = selected }
-        .clickable(enabled = enabled, onClick = onClick)
-        .padding(horizontal = horizontalPadding), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text, color = color, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f))
-        if (summary != null) Text(summary, color = color.copy(alpha = 0.6f), fontSize = 11.sp,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
+    PlayerNativeDropdownItem(
+        item = DropdownItem(text = text, summary = summary),
+        optionSize = optionCount,
+        isSelected = selected,
+        index = index,
+        enabled = enabled,
+        modifier = modifier,
+        onSelectedIndexChange = { onClick() },
+    )
+}
+
+@Composable
+internal fun PlayerNativeDropdownItem(
+    item: DropdownItem,
+    optionSize: Int,
+    isSelected: Boolean,
+    index: Int,
+    enabled: Boolean = item.enabled,
+    modifier: Modifier = Modifier,
+    onSelectedIndexChange: (Int) -> Unit,
+) {
+    val itemModifier = modifier.semantics(mergeDescendants = true) { selected = isSelected }
+    if (LocalAppUiStyle.current == AppUiStyle.MIUIX) {
+        Box(modifier = itemModifier) {
+            DropdownImpl(
+                item = item,
+                optionSize = optionSize,
+                isSelected = isSelected,
+                index = index,
+                enabled = enabled,
+                onSelectedIndexChange = onSelectedIndexChange,
+            )
+        }
+    } else {
+        DropdownMenuItem(
+            modifier = itemModifier,
+            text = {
+                Column {
+                    Text(text = item.text)
+                    item.summary?.let {
+                        Text(text = it, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            enabled = enabled,
+            trailingIcon = if (isSelected) {
+                { Icon(Icons.Default.Check, contentDescription = null) }
+            } else null,
+            onClick = { onSelectedIndexChange(index) },
+        )
     }
 }
 

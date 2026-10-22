@@ -1641,22 +1641,10 @@ fun PortraitVideoPager(
         }
     }
 
-    // 默认画质异步解析完成后补发首屏播放请求:
-    // 组合页流程可能早于解析完成触发并被占位守卫挡下,这里负责补发。
-    // 用户手动切档时 currentPlayingBvid 非空,不会误触。
-    LaunchedEffect(portraitSelectedQuality) {
-        if (portraitSelectedQuality <= 0 || !currentPlayingBvid.isNullOrBlank() || pageItems.isEmpty()) {
-            return@LaunchedEffect
-        }
-        val initialPage = pagerState.currentPage
-        requestPortraitPlaybackForPage(
-            targetPage = initialPage,
-            applyInitialSeekOnFirstPage = initialPage == 0
-        )
-    }
-
     // 拖动期间仅预取；停稳后才替换媒体，回撤不会打断原视频。
-    LaunchedEffect(pagerState, pageItems, isPortraitPlaybackAllowed) {
+    // 默认画质就绪后重新检查当前页。共享播放器的 BVID 是入口种子，
+    // 不能据此认定媒体已准备；复用与在途请求去重由播放请求内部判断。
+    LaunchedEffect(pagerState, pageItems, isPortraitPlaybackAllowed, portraitSelectedQuality) {
         snapshotFlow {
             if (pagerState.isScrollInProgress) null else pagerState.currentPage
         }
@@ -2597,7 +2585,7 @@ private fun VideoPageItem(
         resolvePortraitVideoViewportVerticalOffsetDp(
             currentVideoAspect = portraitPagerViewportAspect,
             fillContainer = portraitPagerFillContainer,
-            isLandscape = portraitPageWidthPx > portraitPageHeightPx
+            isLandscape = portraitPageWidthPx > portraitPageHeightPx,
         ).dp.toPx()
     }
     // 评论 / UP 半屏共用上缩：取较大进度；下拉 UP 预览时 progress 下降，视频跟手回位。
@@ -3812,8 +3800,7 @@ private fun VideoPageItem(
             isPlaying = exoPlayer.isPlaying,
             playbackState = exoPlayer.playbackState,
         )
-        com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlay(
-            state = com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlayState(
+        val portraitOverlayState = com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlayState(
                 player = exoPlayer,
                 title = title,
                 isVisible = isCurrentPage && resolvePortraitOverlayControlsVisible(
@@ -3941,8 +3928,8 @@ private fun VideoPageItem(
                 videoEnhancementAlgorithm = enhancement.config.algorithm,
                 anime4kPreset = enhancement.config.preset,
                 fsrSharpness = enhancement.config.fsrSharpness,
-            ),
-            actions = com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlayActions(
+            )
+        val portraitOverlayActions = com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlayActions(
                 onToggleVisible = { onPortraitOverlayVisibleChange(!portraitOverlayVisible) },
                 onQualitySelected = { index -> availableQualityIds.getOrNull(index)?.let(onQualitySelected) },
                 onQualityChange = onQualitySelected,
@@ -4284,7 +4271,10 @@ private fun VideoPageItem(
                         "分享视频",
                     ))
                 },
-            ),
+            )
+        com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlay(
+            state = portraitOverlayState,
+            actions = portraitOverlayActions,
         )
         AnimatedVisibility(
             visible = portraitPlaybackRecovering && portraitOverlayVisible &&
@@ -4764,12 +4754,15 @@ internal fun shouldAllowPortraitPlayback(
     return isCurrentStoryTab && isLifecycleResumed
 }
 
-@Suppress("UNUSED_PARAMETER")
 internal fun resolvePortraitVideoViewportVerticalOffsetDp(
     currentVideoAspect: Float,
     fillContainer: Boolean,
-    isLandscape: Boolean = false
-): Int = 0
+    isLandscape: Boolean = false,
+): Int {
+    // 横向视频在竖屏全屏里上移，给底部信息区与控制条让出画面；材质不改变这一几何。
+    if (fillContainer || isLandscape) return 0
+    return if (currentVideoAspect > 1f) -48 else 0
+}
 
 @Composable
 internal fun PortraitVideoViewportContainer(
@@ -4815,7 +4808,7 @@ internal fun PortraitVideoViewportContainer(
                     y = resolvePortraitVideoViewportVerticalOffsetDp(
                         currentVideoAspect = currentVideoAspect,
                         fillContainer = fillContainer,
-                        isLandscape = isLandscape
+                        isLandscape = isLandscape,
                     ).dp
                 )
         ) {

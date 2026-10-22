@@ -816,6 +816,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
         progress = if (duration > 0L) currentPosition.toFloat() / duration else 0f
     }
     private var remoteTransferJob: Job? = null
+    private var playbackStopGeneration = 0L
     private var remotePreferencesJob: Job? = null
     private val remoteReclaimMutex = kotlinx.coroutines.sync.Mutex()
 
@@ -846,6 +847,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
                 hasSeparatePlaybackAccount = NetworkModule.playbackAccount() != null,
                 snapshot = request
             )) return
+        val stopGeneration = playbackStopGeneration
         remoteTransferJob = scope.launch {
             var stoppedLocal = false
             var transferred = false
@@ -880,7 +882,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
             } catch (e: Exception) {
                 Logger.w(TAG, "Remote audio transfer unavailable; retaining local playback", e)
             } finally {
-                if (!transferred) {
+                if (!transferred && stopGeneration == playbackStopGeneration) {
                     remoteAudio.close()
                     if (stoppedLocal && player === local && !pageOwnership.isRetained(local)) {
                         local.prepare()
@@ -2422,10 +2424,24 @@ class MiniPlayerManager private constructor(private val context: Context) :
         updateMediaMetadata(title = title, artist = "番剧", coverUrl = coverUrl)
     }
 
-    fun dismiss() {
+    fun dismiss() = dismiss(taskRemoved = false)
+
+    internal fun dismissForTaskRemoval() {
+        AudioNowPlayingSession.dismiss()
+        AudioNowPlayingSession.publishBarOverlayVisible(false)
+        dismiss(taskRemoved = true)
+    }
+
+    private fun dismiss(taskRemoved: Boolean) {
+        playbackStopGeneration++
         remoteTransferJob?.cancel()
         remotePreferencesJob?.cancel()
-        remoteAudio.close()
+        if (taskRemoved) {
+            // 独立音频服务由自己的任务移除回调清理快照，避免提前销毁中断清理。
+            remoteAudio.disconnect()
+        } else {
+            remoteAudio.close()
+        }
         resetBackgroundOptimizationState()
         Logger.d(TAG) { "Dismissing mini player (isLiveMode=$isLiveMode)" }
         
@@ -2467,7 +2483,7 @@ class MiniPlayerManager private constructor(private val context: Context) :
         videoAspectRatio = 16f / 9f
         
         releaseMediaSession()
-        clearPlaybackNotificationArtifacts()
+        clearPlaybackNotificationArtifacts(stopServiceDirectly = taskRemoved)
     }
 
     private fun releaseMediaSession() {

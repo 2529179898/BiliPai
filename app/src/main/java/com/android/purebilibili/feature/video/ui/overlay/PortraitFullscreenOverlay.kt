@@ -518,98 +518,58 @@ private fun PortraitProgressControlStrip(
         }
         Spacer(modifier = Modifier.weight(1f))
         if (showSubtitleChip) {
-            PortraitChromeChip(
-                label = "字幕",
-                highlighted = subtitleEnabled,
+            PlayerControlTextAction(
+                text = "字幕",
+                description = "字幕",
+                selected = subtitleEnabled,
                 onClick = onSubtitleClick,
                 modifier = Modifier.playerActionBounds {
                     onActionBoundsChanged(PlayerControlAnchor.SUBTITLE, it)
                 },
             )
-            Spacer(modifier = Modifier.width(8.dp))
         }
-        PortraitChromeChip(
-            label = currentAudioQualityLabel,
-            highlighted = false,
-            showHiResBadge = isHiResAudioSelected,
-            showDolbyBadge = isDolbyAudioSelected,
+        PlayerControlTextAction(
+            text = currentAudioQualityLabel,
+            description = "音质",
             onClick = onAudioQualityClick,
+            trailingContent = if (isHiResAudioSelected || isDolbyAudioSelected) {
+                {
+                    if (isHiResAudioSelected) HiResBadge()
+                    if (isDolbyAudioSelected) {
+                        if (isHiResAudioSelected) Spacer(modifier = Modifier.width(4.dp))
+                        DolbyBadge()
+                    }
+                }
+            } else null,
             modifier = Modifier.playerActionBounds {
                 onActionBoundsChanged(PlayerControlAnchor.AUDIO, it)
             },
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        PortraitChromeChip(
-            label = currentQualityLabel,
-            highlighted = false,
+        PlayerControlTextAction(
+            text = currentQualityLabel,
+            description = "画质",
             onClick = onQualityClick,
             modifier = Modifier.playerActionBounds {
                 onActionBoundsChanged(PlayerControlAnchor.QUALITY, it)
             },
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        PortraitChromeChip(
-            label = currentRatioLabel,
-            highlighted = false,
+        PlayerControlTextAction(
+            text = currentRatioLabel,
+            description = "画面比例",
             onClick = onRatioClick,
             modifier = Modifier.playerActionBounds {
                 onActionBoundsChanged(PlayerControlAnchor.RATIO, it)
             },
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        PortraitChromeChip(
-            label = PlaybackSpeed.formatSpeed(currentSpeed),
-            highlighted = currentSpeed != 1.0f,
+        PlayerControlTextAction(
+            text = piliPlaybackSpeedLabel(currentSpeed),
+            description = "倍速",
+            selected = currentSpeed != 1.0f,
             onClick = onSpeedClick,
             modifier = Modifier.playerActionBounds {
                 onActionBoundsChanged(PlayerControlAnchor.SPEED, it)
             },
         )
-    }
-}
-
-@Composable
-private fun PortraitChromeChip(
-    label: String,
-    highlighted: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    showHiResBadge: Boolean = false,
-    showDolbyBadge: Boolean = false
-) {
-    val glass = LocalPlayerControlGlassEnabled.current
-    PlayerControlGlassDock(enabled = true, modifier = modifier) {
-        AppSurface(
-            onClick = onClick,
-            modifier = Modifier,
-            shape = AppShapes.container(ContainerLevel.Pill),
-            color = if (glass) Color.Transparent else Color.White.copy(alpha = 0.14f),
-            contentColor = if (highlighted) {
-                MaterialTheme.colorScheme.primaryFixed
-            } else {
-                Color.White
-            }
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AppText(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (showHiResBadge) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    HiResBadge()
-                }
-                if (showDolbyBadge) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    DolbyBadge()
-                }
-            }
-        }
     }
 }
 

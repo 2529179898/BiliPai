@@ -7,9 +7,13 @@ import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.data.model.response.RecommendResponse
 import com.android.purebilibili.data.model.response.VideoItem
 import com.android.purebilibili.data.model.response.ViewInfo
+import com.android.purebilibili.data.model.response.UgcEpisode
+import com.android.purebilibili.data.model.response.resolveCollectionEpisodeAccessLabel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 class ContentRequestException(val code: Int, message: String) : Exception(
     when (code) {
@@ -23,6 +27,18 @@ class ContentRequestException(val code: Int, message: String) : Exception(
 
 /** Shared calls used by both frontends; mobile retains its feed merge/filter policies. */
 object SharedContentRepository {
+    private val collectionAccessRequests = Semaphore(3)
+
+    /** 仅展示缺少角标的条目时查询，复用详情缓存和请求合并，不批量预取整个合集。 */
+    suspend fun collectionEpisodeAccessLabel(episode: UgcEpisode): String? {
+        episode.accessLabel?.let { return it }
+        if (episode.bvid.isBlank() && episode.aid <= 0) return null
+        return collectionAccessRequests.withPermit {
+            val info = detail(episode.bvid, episode.aid).getOrNull()
+            resolveCollectionEpisodeAccessLabel(episode, info)
+        }
+    }
+
     private data class DetailKey(val accountScope: String, val bvid: String, val aid: Long)
     private val detailCache = OnDemandRequestCache<DetailKey, Result<ViewInfo>>(
         maxEntries = 48,

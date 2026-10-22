@@ -29,10 +29,15 @@ The port is distributed under this repository's [GPL-3.0 license](LICENSE).
 Source paths, preserved behavior, and modifications are recorded in
 [the port documentation](docs/telegram-thanos-port.md).
 
-## HyperIsland
+## Miuix
 
-The liquid navigation indicator motion tuning and deformation formulas are adapted from
-[HyperIsland](https://github.com/1812z/HyperIsland).
+UI components and liquid-glass indicator behavior reference
+[Miuix](https://github.com/compose-miuix-ui/miuix).
+
+## Retained third-party motion license
+
+The following MIT notice is retained for previously adapted motion code.
+It is separate from the Miuix reference above.
 
 Copyright (c) 2026 1812z
 

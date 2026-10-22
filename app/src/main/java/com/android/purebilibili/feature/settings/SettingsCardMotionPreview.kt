@@ -24,8 +24,10 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import com.android.purebilibili.core.ui.AppContentColors
 import com.android.purebilibili.core.ui.components.AppText
+import com.android.purebilibili.R
 import kotlin.math.sin
 
 /** 用本地示意场景分别展示各开关的作用；不启动播放器或改变真实页面的转场状态。 */
@@ -54,14 +56,22 @@ internal fun SettingsCardMotionPreview(
         SettingsFeaturePreview.RETURN_FOLLOW,
     )
     val caption = when (feature) {
-        SettingsFeaturePreview.CARD_ENTRANCE -> if (enabled) "首页卡片依次淡入" else "首页卡片直接显示"
-        SettingsFeaturePreview.RELATED_EXPAND -> if (enabled) listOf("点击相关推荐", "推荐卡片展开", "进入新的视频页")[phase] else "点击相关推荐，普通页面切换"
-        SettingsFeaturePreview.LIVE_FRAME -> if (enabled) "当前画面继续播放并参与过渡" else "使用静态封面过渡"
-        SettingsFeaturePreview.RETURN_CONTENT -> if (enabled) "返回途中逐渐恢复封面与信息" else "返回完成后恢复卡片"
-        SettingsFeaturePreview.RETURN_TILT -> if (enabled) "画面随手指倾斜" else "相同路线，画面不倾斜"
-        SettingsFeaturePreview.RETURN_FOLLOW -> if (enabled) "画面随手指移动" else "画面沿固定路线返回"
-        SettingsFeaturePreview.TRANSITION_BLUR -> if (enabled) "后方页面模糊，前景保持清晰" else "后方页面保持清晰"
-        else -> if (enabled) listOf("点击首页卡片", "封面与标题展开", "进入详情页")[phase] else "点击首页卡片，普通页面切换"
+        SettingsFeaturePreview.CARD_ENTRANCE -> stringResource(if (enabled) R.string.preview_caption_card_entrance_on else R.string.preview_caption_card_entrance_off)
+        SettingsFeaturePreview.RELATED_EXPAND -> if (enabled) listOf(
+            stringResource(R.string.preview_caption_related_step_1),
+            stringResource(R.string.preview_caption_related_step_2),
+            stringResource(R.string.preview_caption_related_step_3),
+        )[phase] else stringResource(R.string.preview_caption_related_off)
+        SettingsFeaturePreview.LIVE_FRAME -> stringResource(if (enabled) R.string.preview_caption_live_on else R.string.preview_caption_live_off)
+        SettingsFeaturePreview.RETURN_CONTENT -> stringResource(if (enabled) R.string.preview_caption_return_content_on else R.string.preview_caption_return_content_off)
+        SettingsFeaturePreview.RETURN_TILT -> stringResource(if (enabled) R.string.preview_caption_return_tilt_on else R.string.preview_caption_return_tilt_off)
+        SettingsFeaturePreview.RETURN_FOLLOW -> stringResource(if (enabled) R.string.preview_caption_return_follow_on else R.string.preview_caption_return_follow_off)
+        SettingsFeaturePreview.TRANSITION_BLUR -> stringResource(if (enabled) R.string.preview_caption_transition_blur_on else R.string.preview_caption_transition_blur_off)
+        else -> if (enabled) listOf(
+            stringResource(R.string.preview_caption_card_step_1),
+            stringResource(R.string.preview_caption_card_step_2),
+            stringResource(R.string.preview_caption_card_step_3),
+        )[phase] else stringResource(R.string.preview_caption_card_off)
     }
     Box(modifier) {
         Canvas(

@@ -197,6 +197,10 @@ internal fun SettingsSearchResultsSection(
             AppPreferenceGroup {
                 results.forEachIndexed { index, result ->
                     key(result.settingId) {
+                    val titleResId = settingsSearchResultTitleResource(result.settingId)
+                    val localizedTitle = if (titleResId != null) stringResource(titleResId) else result.title
+                    val summaryResId = settingsSearchResultSummaryResource(result.settingId)
+                    val localizedSummary = if (summaryResId != null) stringResource(summaryResId) else result.subtitle
                     val item = settingsItemDirectory.firstOrNull { it.settingId == result.settingId }
                     val context = LocalContext.current
                     val valueFlow = remember(item, context) { item?.observeValue?.invoke(context) }
@@ -212,8 +216,8 @@ internal fun SettingsSearchResultsSection(
                         AppPreference(
                             icon = visual.icon,
                             iconPainter = visual.iconResId?.let { painterResource(id = it) },
-                            title = result.title,
-                            subtitle = listOf(result.path, resolveSettingsSearchDescriptionSnippet(result.subtitle, query)).filter { it.isNotBlank() }.joinToString("\n"),
+                            title = localizedTitle,
+                            subtitle = listOf(result.path, resolveSettingsSearchDescriptionSnippet(localizedSummary, query)).filter { it.isNotBlank() }.joinToString("\n"),
                             value = currentValue,
                             onClick = { onResultClick(result) },
                             iconTint = visual.iconTint,

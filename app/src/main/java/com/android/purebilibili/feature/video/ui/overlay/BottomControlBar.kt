@@ -181,6 +181,8 @@ fun BottomControlBar(
     onSpeedClick: () -> Unit = {},
     onRatioClick: () -> Unit = {},
     onQualityClick: () -> Unit = {},
+    currentAudioQualityLabel: String = "",
+    onAudioQualityClick: () -> Unit = {},
     hasEpisodeEntry: Boolean = false,
     onEpisodeClick: () -> Unit = {},
     onPreviousEpisodeClick: () -> Unit = {},
@@ -375,13 +377,21 @@ fun BottomControlBar(
                         )
                     }
                     PlayerControlTextAction(
-                        text = "${currentSpeed}X", description = "倍速", onClick = onSpeedClick,
+                        text = piliPlaybackSpeedLabel(currentSpeed), description = "倍速",
+                        selected = currentSpeed != 1f, onClick = onSpeedClick,
                         modifier = anchor(PlayerControlAnchor.SPEED, "player_speed_action"),
                     )
                     if (showExtendedOptions && currentQualityLabel.isNotEmpty()) {
                         PlayerControlTextAction(
                             text = currentQualityLabel, description = "画质", onClick = onQualityClick,
                             modifier = anchor(PlayerControlAnchor.QUALITY, "player_quality_action"),
+                        )
+                    }
+                    if (showExtendedOptions && currentAudioQualityLabel.isNotEmpty()) {
+                        PlayerControlTextAction(
+                            text = currentAudioQualityLabel, description = "音质",
+                            onClick = onAudioQualityClick,
+                            modifier = anchor(PlayerControlAnchor.AUDIO, "player_audio_action"),
                         )
                     }
                     PlayerControlIconAction(
@@ -408,15 +418,18 @@ fun BottomControlBar(
         ) {
             when (menu) {
                 PlayerControlAnchor.SUBTITLE -> {
+                    val tracks = resolveSubtitlePanelTrackOptions(subtitleControlState.trackOptions)
                     PlayerSelectionItem(
+                        index = 0, optionCount = tracks.size + 1,
                         text = "关闭字幕", selected = !subtitleControlState.enabled,
                         onClick = {
                             localMenu = null
                             subtitleControlCallbacks.onDisplayModeChange(SubtitleDisplayMode.OFF)
                         },
                     )
-                    resolveSubtitlePanelTrackOptions(subtitleControlState.trackOptions).forEach { track ->
+                    tracks.forEachIndexed { index, track ->
                         PlayerSelectionItem(
+                            index = index + 1, optionCount = tracks.size + 1,
                             text = track.label, selected = subtitleControlState.enabled && track.selected,
                             onClick = {
                                 localMenu = null
@@ -427,12 +440,15 @@ fun BottomControlBar(
                     }
                 }
                 PlayerControlAnchor.TRANSLATION -> {
+                    val languages = aiAudioInfo?.items.orEmpty()
                     PlayerSelectionItem(
+                        index = 0, optionCount = languages.size + 1,
                         text = "关闭翻译", selected = currentAudioLang.isNullOrBlank(),
                         onClick = { localMenu = null; onAudioLangChange("") },
                     )
-                    aiAudioInfo?.items?.forEach { language ->
+                    languages.forEachIndexed { index, language ->
                         PlayerSelectionItem(
+                            index = index + 1, optionCount = languages.size + 1,
                             text = language.langDoc,
                             selected = currentAudioLang == language.langCode,
                             onClick = { localMenu = null; onAudioLangChange(language.langCode) },
@@ -442,6 +458,7 @@ fun BottomControlBar(
                 PlayerControlAnchor.ENHANCEMENT -> {
                     listOf("禁用", "效率", "画质").forEachIndexed { index, label ->
                         PlayerSelectionItem(
+                            index = index, optionCount = 3,
                             text = label,
                             selected = if (index == 0) !anime4kEnabled else anime4kEnabled &&
                                 videoEnhancementAlgorithm == VideoEnhancementAlgorithm.ANIME4K &&

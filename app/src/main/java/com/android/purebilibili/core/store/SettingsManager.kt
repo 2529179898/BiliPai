@@ -486,6 +486,20 @@ enum class BottomProgressBehavior(
 }
 
 
+enum class PlayerProgressPlacement(
+    val value: Int,
+    val label: String
+) {
+    ABOVE_CONTROLS(0, "控制栏上方"),
+    BOTTOM_EDGE(1, "视频最底部");
+
+    companion object {
+        fun fromValue(value: Int): PlayerProgressPlacement {
+            return entries.find { it.value == value } ?: ABOVE_CONTROLS
+        }
+    }
+}
+
 data class PlayerControlVisibilitySettings(
     val showCastButton: Boolean = true,
     val showFollowButton: Boolean = true,
@@ -1401,6 +1415,7 @@ object SettingsManager {
     private val KEY_DANMAKU_CLOUD_SYNC_ENABLED = booleanPreferencesKey("danmaku_cloud_sync_enabled")
     private val KEY_SHOW_PLAYER_CAST_BUTTON = booleanPreferencesKey("show_player_cast_button")
     private val KEY_SHOW_VIDEO_FOLLOW_BUTTON = booleanPreferencesKey("show_video_follow_button")
+    private val KEY_PLAYER_PROGRESS_PLACEMENT = intPreferencesKey("player_progress_placement")
     private val KEY_COMPACT_PLAYER_CHROME = booleanPreferencesKey("compact_player_chrome")
     private val KEY_SEARCH_HOT_SECTION_ENABLED = booleanPreferencesKey("search_hot_section_enabled")
     private val KEY_SEARCH_DISCOVER_SECTION_ENABLED = booleanPreferencesKey("search_discover_section_enabled")
@@ -2029,6 +2044,21 @@ private val KEY_APP_FONT_WEIGHT = intPreferencesKey("app_font_weight")
         context.settingsDataStore.edit { it[KEY_COMPACT_PLAYER_CHROME] = enabled }
     }
 
+
+    fun getPlayerProgressPlacement(context: Context): Flow<PlayerProgressPlacement> =
+        context.settingsDataStore.data.map { preferences ->
+            PlayerProgressPlacement.fromValue(
+                preferences[KEY_PLAYER_PROGRESS_PLACEMENT]
+                    ?: PlayerProgressPlacement.ABOVE_CONTROLS.value
+            )
+        }.distinctUntilChanged()
+
+    suspend fun setPlayerProgressPlacement(
+        context: Context,
+        placement: PlayerProgressPlacement
+    ) {
+        context.settingsDataStore.edit { it[KEY_PLAYER_PROGRESS_PLACEMENT] = placement.value }
+    }
 
     // --- Auto Play on Enter (Click to Play) ---
     private val KEY_CLICK_TO_PLAY = booleanPreferencesKey("click_to_play")

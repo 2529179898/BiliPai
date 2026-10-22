@@ -389,7 +389,7 @@ internal fun resolveFullscreenLockButtonVisualState(
     }
 }
 
-/** Media contrast belongs to this control, not the surrounding page's accent palette. */
+/** 非玻璃播放器的侧边锁定入口；玻璃布局使用自己的独立实现。 */
 @Composable
 internal fun FullscreenLockButton(
     visualState: FullscreenLockButtonVisualState,
@@ -398,42 +398,17 @@ internal fun FullscreenLockButton(
     iconSizeDp: Int,
     modifier: Modifier = Modifier,
 ) {
-    val controlHeight = 34.dp
-    val foreground = Color.White
-    val background = if (LocalPlayerControlGlassEnabled.current) Color.Transparent else Color(0x45000000)
-    PlayerControlTouchBounds(height = controlHeight) {
-    PlayerControlGlassDock(
-        enabled = true,
-        modifier = modifier
-            .width(34.dp)
-            .height(controlHeight),
-        shape = RoundedCornerShape(cornerRadiusDp.dp),
-    ) {
-        CompositionLocalProvider(
-            com.android.purebilibili.core.ui.LocalAppButtonSlotColorCorrectionEnabled provides false,
-        ) {
-            AppSurface(
-                onClick = onClick,
-                color = background,
-                contentColor = foreground,
-                shape = RoundedCornerShape(cornerRadiusDp.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    AppIcon(
-                        imageVector = when (visualState.icon) {
-                            FullscreenLockButtonIcon.LOCKED -> Icons.Outlined.Lock
-                            FullscreenLockButtonIcon.UNLOCKED -> Icons.Outlined.LockOpen
-                        },
-                        contentDescription = visualState.contentDescription,
-                        tint = foreground,
-                        modifier = Modifier.size(iconSizeDp.dp),
-                    )
-                }
-            }
-        }
-    }
-    }
+    NativePlayerSideButton(
+        icon = when (visualState.icon) {
+            FullscreenLockButtonIcon.LOCKED -> Icons.Outlined.Lock
+            FullscreenLockButtonIcon.UNLOCKED -> Icons.Outlined.LockOpen
+        },
+        contentDescription = visualState.contentDescription,
+        onClick = onClick,
+        modifier = modifier,
+        cornerRadiusDp = cornerRadiusDp,
+        iconSizeDp = iconSizeDp,
+    )
 }
 
 
@@ -508,6 +483,7 @@ fun VideoPlayerOverlay(
     state: VideoPlayerOverlayState,
     actions: VideoPlayerOverlayActions,
 ) {
+    // 液态玻璃只更换按钮材质，布局、尺寸与菜单锚点由本文件统一提供。
     // Keep the non-inline backdrop slot small. Capturing this screen's locals
     // here exceeds DEX's 255 argument-register limit in synthetic constructors.
     PlayerControlsBackdropHost(
@@ -1167,6 +1143,10 @@ private fun VideoPlayerOverlayContent(
             showOnlineCount = showOnlineCount
         )
     }
+    val landscapeSidePanelsAvailable = isFullscreen && bvid.isNotBlank() &&
+        (state.playerViewportSize.takeIf { it.width > 0 && it.height > 0 }
+            ?.let { it.width > it.height }
+            ?: (configuration.screenWidthDp > configuration.screenHeightDp))
     val hasEpisodeEntry = remember(pages, ugcSeason, hasFavoritePlaylist) {
         shouldShowEpisodeEntryFromVideoData(
             relatedVideosCount = relatedVideos.size,
@@ -1307,7 +1287,8 @@ private fun VideoPlayerOverlayContent(
     val playerMenuVisible = bottomControlFloatingPanelVisible || showQualityMenu ||
         showSpeedMenu || showRatioMenu || showAudioQualityMenu || showSubtitleMenu || showEpisodeMenu ||
         showChapterList || showDanmakuSettings || showVideoSettings || showCastDialog ||
-        showSponsorSegments || showPlayerInformation || danmakuComposerVisible
+        showSponsorSegments || showPlayerInformation || danmakuComposerVisible ||
+        endDrawerVisible || landscapeCommentPanelVisible
     val latestPanelVisibility by rememberUpdatedState(actions.onFloatingPanelVisibilityChange)
     LaunchedEffect(playerMenuVisible) { latestPanelVisibility(playerMenuVisible) }
     DisposableEffect(Unit) { onDispose { latestPanelVisibility(false) } }
@@ -1687,6 +1668,17 @@ private fun VideoPlayerOverlayContent(
                     onShareClick = { onShare?.invoke() ?: openVideoShareSheet() },
                     onCastClick = onCastClickAction,
                     showCastButton = playerControlVisibility.showCastButton,
+                    onCommentClick = if (landscapeSidePanelsAvailable) ({
+                        onDismissEndDrawer()
+                        onLandscapeCommentClick()
+                    }) else null,
+                    onRelatedVideosClick = if (landscapeSidePanelsAvailable && relatedVideos.isNotEmpty()) ({
+                        if (landscapeCommentPanelVisible) onLandscapeCommentClick()
+                        if (endDrawerVisible && endDrawerInitialTab == 0) onDismissEndDrawer()
+                        else onShowEndDrawer(0)
+                    }) else null,
+                    commentsVisible = landscapeCommentPanelVisible,
+                    relatedVideosVisible = endDrawerVisible && endDrawerInitialTab == 0,
                     onMoreClick = { showVideoSettings = true },
                     showSponsorSubmitButton = sponsorContributionAvailable,
                     onSponsorSubmitClick = onSponsorContributionMarkBoundary,
@@ -1749,6 +1741,9 @@ private fun VideoPlayerOverlayContent(
                             onAnime4kPresetChange = onAnime4kPresetChange,
                             currentQualityLabel = currentQualityLabel,
                             onQualityClick = { showQualityMenu = true },
+                            currentAudioQualityLabel = audioQualityPresentation.label
+                                .takeIf { availableAudioQualities.size > 1 }.orEmpty(),
+                            onAudioQualityClick = { showAudioQualityMenu = true },
                             videoshotData = videoshotData,
                             viewPoints = viewPoints,
                             sponsorMarkers = sponsorMarkers,
@@ -1790,8 +1785,10 @@ private fun VideoPlayerOverlayContent(
                 exit = fadeOut(OverlayControlFadeSpec),
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Start))
-                    .offset(x = 34.dp, y = (-13.6f).dp)
+                    .padding(start = resolveSymmetricPlayerSideInset(
+                        insets = WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
+                        minimum = 4.dp,
+                    ))
             ) {
                 FullscreenLockButton(
                     visualState = fullscreenLockButtonState,
@@ -1809,28 +1806,16 @@ private fun VideoPlayerOverlayContent(
                 exit = fadeOut(OverlayControlFadeSpec),
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.End))
-                    .offset(x = (-34).dp, y = (-13.6f).dp)
+                    .padding(end = resolveSymmetricPlayerSideInset(
+                        insets = WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal),
+                        minimum = 4.dp,
+                    ))
             ) {
-                PlayerControlTouchBounds(height = 34.dp) {
-                    PlayerControlGlassDock(enabled = true, shape = RoundedCornerShape(8.dp)) {
-                        AppSurface(
-                            onClick = onCaptureScreenshot,
-                            color = if (LocalPlayerControlGlassEnabled.current) Color.Transparent else Color(0x45000000),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.size(34.dp),
-                        ) {
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                AppIcon(
-                                    imageVector = Icons.Outlined.Camera,
-                                    contentDescription = "截图",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        }
-                    }
-                }
+                NativePlayerSideButton(
+                    icon = Icons.Outlined.Camera,
+                    contentDescription = "截图",
+                    onClick = onCaptureScreenshot,
+                )
             }
         }
 
@@ -3441,6 +3426,10 @@ private fun LandscapeEpisodeItem(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
+                com.android.purebilibili.feature.video.ui.components.CollectionAccessBadge(
+                    episode = episode,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                )
                 com.android.purebilibili.feature.home.components.cards.VideoCardCoverDurationText(
                     text = FormatUtils.formatDuration(checkedEpisodeArc.duration),
                     modifier = Modifier
@@ -3474,6 +3463,9 @@ private fun LandscapeEpisodeItem(
             modifier = Modifier.weight(1f).fillMaxHeight(),
             verticalArrangement = Arrangement.SpaceAround // 分散对齐
         ) {
+            if (episode.arc?.pic.isNullOrBlank()) {
+                com.android.purebilibili.feature.video.ui.components.CollectionAccessBadge(episode = episode)
+            }
             // 标题
             AppText(
                 text = episode.title,

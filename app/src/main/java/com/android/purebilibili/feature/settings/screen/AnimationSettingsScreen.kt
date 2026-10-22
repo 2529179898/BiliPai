@@ -71,6 +71,35 @@ import android.os.Build
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.math.roundToInt
 
+@Composable
+private fun localizedAnimationSettingTitle(settingId: String): String {
+    val titleResId = when (settingId) {
+            "animation.ui_entrance_animation_enabled" -> R.string.animation_title_ui_entrance
+            "animation.global_drag_feedback_enabled" -> R.string.animation_title_drag_feedback
+            "animation.haptic_feedback_enabled" -> R.string.animation_title_haptic
+            "animation.global_text_tap_copy_enabled" -> R.string.animation_title_tap_copy
+            "animation.maid_lottie_animation_enabled" -> R.string.animation_title_maid
+            "animation.card_animation_enabled" -> R.string.animation_title_card_entrance
+            "animation.card_transition_enabled" -> R.string.animation_title_card_transition
+            "animation.related_video_transition_enabled" -> R.string.animation_title_related_transition
+            "animation.live_surface_card_transition_enabled" -> R.string.animation_title_live_transition
+            "animation.app_navigation_settings.video_return_content_follow_progress_enabled" -> R.string.animation_title_return_follow
+            "animation.app_navigation_settings.video_shared_return_gesture_follow_enabled" -> R.string.animation_title_return_tilt
+            "animation.app_navigation_settings.video_shared_return_gesture_translation_enabled" -> R.string.animation_title_return_translation
+            "animation.video_transition_realtime_blur_enabled" -> R.string.animation_title_transition_blur
+            "animation.app_navigation_settings.miuix_transition_blur_enabled" -> R.string.animation_title_back_blur
+            "animation.full_screen_swipe_back_enabled" -> R.string.animation_title_fullscreen_swipe_back
+            "animation.video_shared_transition_speed" -> R.string.animation_title_video_speed
+            "animation.skeleton_breathing_enabled" -> R.string.animation_title_skeleton
+            "animation.header_blur_enabled" -> R.string.animation_title_header_blur
+            "animation.progressive_top_blur_enabled" -> R.string.animation_title_progressive_blur
+            "animation.progressive_top_fade_enabled" -> R.string.animation_title_progressive_fade
+            "animation.bottom_bar_blur_enabled" -> R.string.animation_title_bottom_blur
+        else -> return settingItemTitle(settingId)
+    }
+    return stringResource(titleResId)
+}
+
 /**
  *  动画与效果设置二级页面
  * 管理卡片动画、过渡效果、磨砂效果等
@@ -84,7 +113,7 @@ fun AnimationSettingsScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val screenTitle = if (advancedOnly) "玻璃高级调节" else stringResource(R.string.animation_effects_title)
+    val screenTitle = if (advancedOnly) stringResource(R.string.animation_glass_advanced_title) else stringResource(R.string.animation_effects_title)
     val backLabel = stringResource(R.string.common_back)
     val bottomContentPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
@@ -144,7 +173,7 @@ fun AnimationSettingsContent(
                     .onFailure { error ->
                         Toast.makeText(
                             context,
-                            error.message ?: "无法读取液态玻璃设置文件",
+                            error.message ?: context.getString(R.string.animation_glass_import_read_failed),
                             Toast.LENGTH_SHORT,
                         ).show()
                     }
@@ -166,19 +195,15 @@ fun AnimationSettingsContent(
         baseTier = deviceUiProfile.motionTier,
         cardAnimationEnabled = state.cardAnimationEnabled
     )
-    val motionTierLabel = remember(cardMotionTier) {
-        when (cardMotionTier) {
-            MotionTier.Reduced -> "低动效"
-            MotionTier.Normal -> "标准"
-            MotionTier.Enhanced -> "增强"
-        }
+    val motionTierLabel = when (cardMotionTier) {
+            MotionTier.Reduced -> stringResource(R.string.animation_motion_tier_reduced)
+            MotionTier.Normal -> stringResource(R.string.animation_motion_tier_standard)
+            MotionTier.Enhanced -> stringResource(R.string.animation_motion_tier_enhanced)
     }
-    val motionTierHint = remember(cardMotionTier) {
-        when (cardMotionTier) {
-            MotionTier.Reduced -> "动画更轻、更快，减少性能开销"
-            MotionTier.Normal -> "平衡性能与动效，适合大多数设备"
-            MotionTier.Enhanced -> "动画幅度更大，层次更明显"
-        }
+    val motionTierHint = when (cardMotionTier) {
+            MotionTier.Reduced -> stringResource(R.string.animation_motion_tier_reduced_hint)
+            MotionTier.Normal -> stringResource(R.string.animation_motion_tier_standard_hint)
+            MotionTier.Enhanced -> stringResource(R.string.animation_motion_tier_enhanced_hint)
     }
     val isLiquidGlassAvailable = shouldAllowHomeChromeLiquidGlass(Build.VERSION.SDK_INT)
     val liquidGlassPreviewImageUri by SettingsManager
@@ -232,14 +257,12 @@ fun AnimationSettingsContent(
     val effectiveEntranceSpec = rememberEffectiveEntranceMotionSpec()
     // 开关开着、但有效参数被降级为不动画 → 系统减弱动效在生效。
     val entranceDowngradedBySystem = uiEntranceAnimationEnabled && !effectiveEntranceSpec.animate
-    val sharedTransitionSpeedOptions = remember {
-        listOf(
-            AppSegmentOption(VideoSharedTransitionSpeed.FAST, "快速"),
-            AppSegmentOption(VideoSharedTransitionSpeed.STANDARD, "标准"),
-            AppSegmentOption(VideoSharedTransitionSpeed.SLOW, "慢速"),
-            AppSegmentOption(VideoSharedTransitionSpeed.CUSTOM, "自定")
-        )
-    }
+    val sharedTransitionSpeedOptions = listOf(
+            AppSegmentOption(VideoSharedTransitionSpeed.FAST, stringResource(R.string.animation_speed_fast)),
+            AppSegmentOption(VideoSharedTransitionSpeed.STANDARD, stringResource(R.string.animation_speed_standard)),
+            AppSegmentOption(VideoSharedTransitionSpeed.SLOW, stringResource(R.string.animation_speed_slow)),
+            AppSegmentOption(VideoSharedTransitionSpeed.CUSTOM, stringResource(R.string.animation_speed_custom))
+    )
     val predictiveBackStyle = remember(appNavigationSettings) {
         if (appNavigationSettings.predictiveBackEnabled) {
             BiliPaiPredictiveBackAnimationStyle.fromStorageValue(
@@ -249,27 +272,23 @@ fun AnimationSettingsContent(
             BiliPaiPredictiveBackAnimationStyle.NONE
         }
     }
-    val predictiveBackStyleOptions = remember {
-        listOf(
-            AppSegmentOption(BiliPaiPredictiveBackAnimationStyle.NONE, "无"),
+    val predictiveBackStyleOptions = listOf(
+            AppSegmentOption(BiliPaiPredictiveBackAnimationStyle.NONE, stringResource(R.string.animation_back_style_none)),
             AppSegmentOption(BiliPaiPredictiveBackAnimationStyle.AOSP, "AOSP"),
             AppSegmentOption(BiliPaiPredictiveBackAnimationStyle.MIUIX, "Miuix"),
-            AppSegmentOption(BiliPaiPredictiveBackAnimationStyle.SCALE, "缩放"),
-            AppSegmentOption(BiliPaiPredictiveBackAnimationStyle.CLASSIC, "经典"),
-        )
-    }
+            AppSegmentOption(BiliPaiPredictiveBackAnimationStyle.SCALE, stringResource(R.string.animation_back_style_scale)),
+            AppSegmentOption(BiliPaiPredictiveBackAnimationStyle.CLASSIC, stringResource(R.string.animation_back_style_classic)),
+    )
     val predictiveBackExitDirection = remember(appNavigationSettings.predictiveBackExitDirection) {
         BiliPaiPredictiveBackExitDirection.fromStorageValue(
             appNavigationSettings.predictiveBackExitDirection
         )
     }
-    val predictiveBackExitDirectionOptions = remember {
-        listOf(
-            AppSegmentOption(BiliPaiPredictiveBackExitDirection.FOLLOW_GESTURE, "跟随手势"),
-            AppSegmentOption(BiliPaiPredictiveBackExitDirection.ALWAYS_RIGHT, "始终向右"),
-            AppSegmentOption(BiliPaiPredictiveBackExitDirection.ALWAYS_LEFT, "始终向左"),
-        )
-    }
+    val predictiveBackExitDirectionOptions = listOf(
+            AppSegmentOption(BiliPaiPredictiveBackExitDirection.FOLLOW_GESTURE, stringResource(R.string.animation_exit_follow_gesture)),
+            AppSegmentOption(BiliPaiPredictiveBackExitDirection.ALWAYS_RIGHT, stringResource(R.string.animation_exit_always_right)),
+            AppSegmentOption(BiliPaiPredictiveBackExitDirection.ALWAYS_LEFT, stringResource(R.string.animation_exit_always_left)),
+    )
     var customTransitionDurationMillis by remember(state.videoSharedTransitionCustomDurationMillis) {
         mutableIntStateOf(state.videoSharedTransitionCustomDurationMillis)
     }
@@ -303,7 +322,7 @@ fun AnimationSettingsContent(
             if (!advancedOnly) {
             item(key = "animation_page_title") {
                 Box(modifier = Modifier.entrance()) {
-                    AppPreferenceSectionTitle("页面动画")
+                    AppPreferenceSectionTitle(stringResource(R.string.animation_section_page))
                 }
             }
             item(key = "animation_page") {
@@ -312,8 +331,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.ui_entrance_animation_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.UI_ENTRANCE_ANIMATION),
-                                title = settingItemTitle("animation.ui_entrance_animation_enabled"),
-                                subtitle = "进入页面时内容依次淡入",
+                                title = localizedAnimationSettingTitle("animation.ui_entrance_animation_enabled"),
+                                subtitle = stringResource(R.string.animation_ui_entrance_summary),
                                 checked = uiEntranceAnimationEnabled,
                                 onCheckedChange = { value ->
                                     scope.launch {
@@ -327,8 +346,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.global_drag_feedback_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.DRAG_FEEDBACK),
-                                title = settingItemTitle("animation.global_drag_feedback_enabled"),
-                                subtitle = "统一控制按钮与胶囊的拖动形变，关闭后保留按压反馈",
+                                title = localizedAnimationSettingTitle("animation.global_drag_feedback_enabled"),
+                                subtitle = stringResource(R.string.animation_drag_feedback_summary),
                                 checked = globalDragFeedbackEnabled,
                                 onCheckedChange = { value ->
                                     scope.launch { SettingsManager.setGlobalDragFeedbackEnabled(context, value) }
@@ -340,8 +359,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.haptic_feedback_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.HAPTIC_FEEDBACK),
-                                title = settingItemTitle("animation.haptic_feedback_enabled"),
-                                subtitle = "切换页面或完成操作时轻微振动",
+                                title = localizedAnimationSettingTitle("animation.haptic_feedback_enabled"),
+                                subtitle = stringResource(R.string.animation_haptic_summary),
                                 checked = state.hapticFeedbackEnabled,
                                 onCheckedChange = viewModel::toggleHapticFeedback,
                                 iconTint = AppContentColors.secondaryText(),
@@ -351,8 +370,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.global_text_tap_copy_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.COPY_TEXT),
-                                title = settingItemTitle("animation.global_text_tap_copy_enabled"),
-                                subtitle = "点按正文文字即可复制",
+                                title = localizedAnimationSettingTitle("animation.global_text_tap_copy_enabled"),
+                                subtitle = stringResource(R.string.animation_tap_copy_summary),
                                 checked = globalTextTapCopyEnabled,
                                 onCheckedChange = { enabled ->
                                     scope.launch {
@@ -370,7 +389,7 @@ fun AnimationSettingsContent(
                                     .padding(horizontal = 16.dp, vertical = 12.dp)
                             ) {
                                 AppText(
-                                    text = "系统已开启「减弱动效」，入场动画已自动关闭。",
+                                    text = stringResource(R.string.animation_reduced_motion_notice),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = AppContentColors.secondaryText()
                                 )
@@ -382,7 +401,7 @@ fun AnimationSettingsContent(
 
             item(key = "animation_maid_lottie_title") {
                 Box(modifier = Modifier.entrance()) {
-                    AppPreferenceSectionTitle("蓝雪女仆")
+                    AppPreferenceSectionTitle(stringResource(R.string.animation_section_maid))
                 }
             }
             item(key = "animation_maid_lottie") {
@@ -391,8 +410,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.maid_lottie_animation_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.ANIMATION),
-                                title = settingItemTitle("animation.maid_lottie_animation_enabled"),
-                                subtitle = "关闭后隐藏女仆动画和静态图",
+                                title = localizedAnimationSettingTitle("animation.maid_lottie_animation_enabled"),
+                                subtitle = stringResource(R.string.animation_maid_summary),
                                 checked = maidLottieAnimationEnabled,
                                 onCheckedChange = { enabled ->
                                     scope.launch {
@@ -431,8 +450,8 @@ fun AnimationSettingsContent(
                             SettingsItemAnchor("animation.card_animation_enabled") {
                                 AppSwitchPreference(
                                     icon = rememberSettingsSemanticIcon(SettingsIconRole.CARD_ENTRANCE_ANIMATION),
-                                title = settingItemTitle("animation.card_animation_enabled"),
-                                subtitle = "打开首页时卡片依次淡入",
+                                title = localizedAnimationSettingTitle("animation.card_animation_enabled"),
+                                subtitle = stringResource(R.string.animation_card_entrance_summary),
                                 checked = state.cardAnimationEnabled,
                                 onCheckedChange = { viewModel.toggleCardAnimation(it) },
                                 iconTint = AppContentColors.secondaryText()
@@ -442,8 +461,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.card_transition_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.CARD_TRANSITION_ANIMATION),
-                                title = settingItemTitle("animation.card_transition_enabled"),
-                                subtitle = "封面和标题平滑过渡到详情页",
+                                title = localizedAnimationSettingTitle("animation.card_transition_enabled"),
+                                subtitle = stringResource(R.string.animation_card_transition_summary),
                                 checked = state.cardTransitionEnabled,
                                 onCheckedChange = { viewModel.toggleCardTransition(it) },
                                 iconTint = AppContentColors.secondaryText()
@@ -453,11 +472,11 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.related_video_transition_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.RELATED_VIDEO_TRANSITION),
-                                title = settingItemTitle("animation.related_video_transition_enabled"),
+                                title = localizedAnimationSettingTitle("animation.related_video_transition_enabled"),
                                 subtitle = if (relatedVideoTransitionEnabled) {
-                                    "点开相关推荐时，卡片展开为视频页"
+                                    stringResource(R.string.animation_related_transition_on)
                                 } else {
-                                    "点开相关推荐时，使用普通页面动画"
+                                    stringResource(R.string.animation_related_transition_off)
                                 },
                                 checked = relatedVideoTransitionEnabled,
                                 onCheckedChange = { enabled ->
@@ -473,8 +492,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.live_surface_card_transition_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.LIVE_SURFACE_TRANSITION),
-                                title = settingItemTitle("animation.live_surface_card_transition_enabled"),
-                                subtitle = "过渡时保留正在播放的画面",
+                                title = localizedAnimationSettingTitle("animation.live_surface_card_transition_enabled"),
+                                subtitle = stringResource(R.string.animation_live_transition_summary),
                                 checked = liveSurfaceCardTransitionEnabled,
                                 onCheckedChange = { viewModel.toggleLiveSurfaceCardTransition(it) },
                                 enabled = state.cardTransitionEnabled,
@@ -485,11 +504,11 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.app_navigation_settings.video_return_content_follow_progress_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.RETURN_CONTENT_FOLLOW),
-                                title = settingItemTitle("animation.app_navigation_settings.video_return_content_follow_progress_enabled"),
+                                title = localizedAnimationSettingTitle("animation.app_navigation_settings.video_return_content_follow_progress_enabled"),
                                 subtitle = if (appNavigationSettings.videoReturnContentFollowProgressEnabled) {
-                                    "返回途中，封面和信息逐渐恢复为卡片"
+                                    stringResource(R.string.animation_return_follow_on)
                                 } else {
-                                    "返回完成后，再切换为视频卡片"
+                                    stringResource(R.string.animation_return_follow_off)
                                 },
                                 checked = appNavigationSettings.videoReturnContentFollowProgressEnabled,
                                 onCheckedChange = { enabled ->
@@ -505,11 +524,11 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.app_navigation_settings.video_shared_return_gesture_follow_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.RETURN_GESTURE_POSE),
-                                title = settingItemTitle("animation.app_navigation_settings.video_shared_return_gesture_follow_enabled"),
+                                title = localizedAnimationSettingTitle("animation.app_navigation_settings.video_shared_return_gesture_follow_enabled"),
                                 subtitle = if (appNavigationSettings.videoSharedReturnGestureFollowEnabled) {
-                                    "滑动返回时，画面随手指倾斜"
+                                    stringResource(R.string.animation_return_tilt_on)
                                 } else {
-                                    "画面不倾斜；是否随手指移动由下方控制"
+                                    stringResource(R.string.animation_return_tilt_off)
                                 },
                                 checked = appNavigationSettings.videoSharedReturnGestureFollowEnabled,
                                 onCheckedChange = { enabled ->
@@ -528,11 +547,11 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.app_navigation_settings.video_shared_return_gesture_translation_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.RETURN_GESTURE_TRANSLATION),
-                                title = settingItemTitle("animation.app_navigation_settings.video_shared_return_gesture_translation_enabled"),
+                                title = localizedAnimationSettingTitle("animation.app_navigation_settings.video_shared_return_gesture_translation_enabled"),
                                 subtitle = if (appNavigationSettings.videoSharedReturnGestureTranslationEnabled) {
-                                    "滑动返回时，画面随手指移动"
+                                    stringResource(R.string.animation_return_translation_on)
                                 } else {
-                                    "画面沿固定路线返回；倾斜由上方控制"
+                                    stringResource(R.string.animation_return_translation_off)
                                 },
                                 checked = appNavigationSettings.videoSharedReturnGestureTranslationEnabled,
                                 onCheckedChange = { enabled ->
@@ -548,8 +567,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.video_transition_realtime_blur_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.WALLPAPER_EFFECT),
-                                title = settingItemTitle("animation.video_transition_realtime_blur_enabled"),
-                                subtitle = "转场更有层次感；关闭可省电",
+                                title = localizedAnimationSettingTitle("animation.video_transition_realtime_blur_enabled"),
+                                subtitle = stringResource(R.string.animation_transition_blur_summary),
                                 checked = videoTransitionRealtimeBlurEnabled,
                                 onCheckedChange = { viewModel.toggleVideoTransitionRealtimeBlur(it) },
                                 iconTint = AppContentColors.secondaryText()
@@ -558,8 +577,8 @@ fun AnimationSettingsContent(
                         AppPreferenceDivider()
                         SettingsSingleChoicePreference(
                             icon = rememberSettingsSemanticIcon(SettingsIconRole.PREDICTIVE_BACK),
-                            title = "页面切换动画",
-                            subtitle = "页面进入与返回共用的动画样式",
+                            title = stringResource(R.string.animation_back_title),
+                            subtitle = stringResource(R.string.animation_back_summary),
                             options = predictiveBackStyleOptions,
                             selectedValue = predictiveBackStyle,
                             onSelectionChange = { style ->
@@ -576,8 +595,8 @@ fun AnimationSettingsContent(
                         if (predictiveBackStyle == BiliPaiPredictiveBackAnimationStyle.MIUIX) {
                             AppPreferenceDivider()
                             AppSliderDialogPreference(
-                                title = "返回预览幅度",
-                                subtitle = "调整滑动返回时的预览幅度",
+                                title = stringResource(R.string.animation_back_preview_title),
+                                subtitle = stringResource(R.string.animation_back_preview_summary),
                                 value = appNavigationSettings
                                     .miuixPredictiveBackMaxProgressPercent
                                     .toFloat(),
@@ -601,11 +620,11 @@ fun AnimationSettingsContent(
                                     icon = rememberSettingsSemanticIcon(
                                         SettingsIconRole.MIUIX_TRANSITION_BLUR
                                     ),
-                                    title = settingItemTitle("animation.app_navigation_settings.miuix_transition_blur_enabled"),
+                                    title = localizedAnimationSettingTitle("animation.app_navigation_settings.miuix_transition_blur_enabled"),
                                     subtitle = if (appNavigationSettings.miuixTransitionBlurEnabled) {
-                                        "滑动返回时，模糊后方页面"
+                                        stringResource(R.string.animation_back_blur_on)
                                     } else {
-                                        "返回时不模糊后方页面"
+                                        stringResource(R.string.animation_back_blur_off)
                                     },
                                     checked = appNavigationSettings.miuixTransitionBlurEnabled,
                                     onCheckedChange = { enabled ->
@@ -623,8 +642,8 @@ fun AnimationSettingsContent(
                         if (predictiveBackStyle == BiliPaiPredictiveBackAnimationStyle.SCALE) {
                             AppPreferenceDivider()
                             SettingsSingleChoicePreference(
-                                title = "缩放退出方向",
-                                subtitle = "仅缩放样式使用",
+                                title = stringResource(R.string.animation_exit_direction_title),
+                                subtitle = stringResource(R.string.animation_exit_direction_summary),
                                 options = predictiveBackExitDirectionOptions,
                                 selectedValue = predictiveBackExitDirection,
                                 onSelectionChange = { direction ->
@@ -641,11 +660,11 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.full_screen_swipe_back_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.FULLSCREEN_SWIPE_BACK),
-                                title = settingItemTitle("animation.full_screen_swipe_back_enabled"),
+                                title = localizedAnimationSettingTitle("animation.full_screen_swipe_back_enabled"),
                                 subtitle = if (fullScreenSwipeBackEnabled) {
-                                    "列表和设置页可从屏幕中间右滑返回"
+                                    stringResource(R.string.animation_fullscreen_swipe_back_on)
                                 } else {
-                                    "使用屏幕边缘的系统返回手势"
+                                    stringResource(R.string.animation_fullscreen_swipe_back_off)
                                 },
                                 checked = fullScreenSwipeBackEnabled,
                                 onCheckedChange = { enabled ->
@@ -659,8 +678,8 @@ fun AnimationSettingsContent(
                         AppPreferenceDivider()
                         SettingsItemAnchor("animation.video_shared_transition_speed") {
                             SettingsSingleChoicePreference(
-                                title = settingItemTitle("animation.video_shared_transition_speed"),
-                                subtitle = "进出详情页的转场速度",
+                                title = localizedAnimationSettingTitle("animation.video_shared_transition_speed"),
+                                subtitle = stringResource(R.string.animation_video_speed_summary),
                                 options = sharedTransitionSpeedOptions,
                                 selectedValue = state.videoSharedTransitionSpeed,
                                 onSelectionChange = viewModel::setVideoSharedTransitionSpeed
@@ -669,8 +688,8 @@ fun AnimationSettingsContent(
                         if (state.videoSharedTransitionSpeed == VideoSharedTransitionSpeed.CUSTOM) {
                             AppPreferenceDivider()
                             AppSliderDialogPreference(
-                                title = "自定义时长",
-                                subtitle = "数值越大，视频转场越慢",
+                                title = stringResource(R.string.animation_custom_duration_title),
+                                subtitle = stringResource(R.string.animation_custom_duration_summary),
                                 value = customTransitionDurationMillis.toFloat(),
                                 onValueChange = { value ->
                                     val snappedValue = snapCustomTransitionDuration(value)
@@ -693,7 +712,7 @@ fun AnimationSettingsContent(
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             AppText(
-                                text = "首页动画强度",
+                                text = stringResource(R.string.animation_home_motion_title),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = AppContentColors.secondaryText()
                             )
@@ -712,7 +731,7 @@ fun AnimationSettingsContent(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             AppText(
-                                text = "此项只调整首页卡片，设置页动画独立控制。",
+                                text = stringResource(R.string.animation_home_motion_summary),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppContentColors.secondaryText()
                             )
@@ -725,7 +744,7 @@ fun AnimationSettingsContent(
             }
             item(key = "animation_glass_title") {
                 Box(modifier = Modifier.entrance()) {
-                    AppPreferenceSectionTitle(if (advancedOnly) "玻璃高级调节" else "液态玻璃与磨砂")
+                    AppPreferenceSectionTitle(if (advancedOnly) stringResource(R.string.animation_glass_advanced_title) else stringResource(R.string.animation_glass_section_title))
                 }
             }
             item(key = "animation_glass") {
@@ -733,7 +752,7 @@ fun AnimationSettingsContent(
                     AppPreferenceGroup {
                         if (!isLiquidGlassAvailable || !state.androidNativeLiquidGlassEnabled) {
                             AppText(
-                                text = if (!isLiquidGlassAvailable) "当前设备不支持玻璃效果，以下参数暂不生效" else "先在外观设置中启用液态玻璃，以下参数暂不生效",
+                                text = if (!isLiquidGlassAvailable) stringResource(R.string.animation_glass_unavailable) else stringResource(R.string.animation_glass_disabled),
                                 modifier = Modifier.padding(16.dp),
                                 color = AppContentColors.secondaryText(),
                             )
@@ -778,7 +797,7 @@ fun AnimationSettingsContent(
                                                         )
                                                         putExtra(
                                                             Intent.EXTRA_TEXT,
-                                                            "BiliPai 液态玻璃设置，可在“动画与触感 > 液态玻璃与磨砂”中导入。",
+                                                            context.getString(R.string.animation_glass_share_text),
                                                         )
                                                         addFlags(
                                                             Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -787,13 +806,13 @@ fun AnimationSettingsContent(
                                                     context.startActivity(
                                                         Intent.createChooser(
                                                             shareIntent,
-                                                            "分享液态玻璃设置",
+                                                            context.getString(R.string.animation_glass_share_title),
                                                         )
                                                     )
                                                 }.onFailure { error ->
                                                     Toast.makeText(
                                                         context,
-                                                        error.message ?: "无法打开系统分享",
+                                                        error.message ?: context.getString(R.string.animation_glass_share_failed),
                                                         Toast.LENGTH_SHORT,
                                                     ).show()
                                                 }
@@ -801,7 +820,7 @@ fun AnimationSettingsContent(
                                             .onFailure { error ->
                                                 Toast.makeText(
                                                     context,
-                                                    error.message ?: "液态玻璃设置导出失败",
+                                                    error.message ?: context.getString(R.string.animation_glass_export_failed),
                                                     Toast.LENGTH_SHORT,
                                                 ).show()
                                             }
@@ -813,8 +832,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.skeleton_breathing_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.SKELETON_BREATHING),
-                                title = settingItemTitle("animation.skeleton_breathing_enabled"),
-                                subtitle = "加载时，占位卡片轻轻明暗变化",
+                                title = localizedAnimationSettingTitle("animation.skeleton_breathing_enabled"),
+                                subtitle = stringResource(R.string.animation_skeleton_summary),
                                 checked = skeletonBreathingEnabled,
                                 onCheckedChange = { enabled ->
                                     scope.launch {
@@ -830,8 +849,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.header_blur_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.TOP_BAR_BLUR),
-                                title = settingItemTitle("animation.header_blur_enabled"),
-                                subtitle = "模糊顶栏背后的内容，不含折射和光效",
+                                title = localizedAnimationSettingTitle("animation.header_blur_enabled"),
+                                subtitle = stringResource(R.string.animation_header_blur_summary),
                                 checked = state.headerBlurEnabled,
                                 onCheckedChange = { viewModel.toggleHeaderBlur(it) },
                                 iconTint = AppContentColors.secondaryText()
@@ -841,8 +860,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.progressive_top_blur_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.PROGRESSIVE_TOP_BLUR),
-                                title = settingItemTitle("animation.progressive_top_blur_enabled"),
-                                subtitle = "顶栏模糊随滚动渐变（需 Android 13+）",
+                                title = localizedAnimationSettingTitle("animation.progressive_top_blur_enabled"),
+                                subtitle = stringResource(R.string.animation_progressive_blur_summary),
                                 checked = state.progressiveTopBlurEnabled,
                                 onCheckedChange = { viewModel.toggleProgressiveTopBlur(it) },
                                 titleTrailingContent = {
@@ -858,8 +877,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.progressive_top_fade_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.PROGRESSIVE_TOP_FADE),
-                                title = settingItemTitle("animation.progressive_top_fade_enabled"),
-                                subtitle = "状态栏到顶栏用纯色渐变过渡，比模糊更省电",
+                                title = localizedAnimationSettingTitle("animation.progressive_top_fade_enabled"),
+                                subtitle = stringResource(R.string.animation_progressive_fade_summary),
                                 checked = state.progressiveTopFadeEnabled,
                                 onCheckedChange = { viewModel.toggleProgressiveTopFade(it) },
                                 iconTint = AppContentColors.secondaryText()
@@ -869,8 +888,8 @@ fun AnimationSettingsContent(
                         SettingsItemAnchor("animation.bottom_bar_blur_enabled") {
                             AppSwitchPreference(
                                 icon = rememberSettingsSemanticIcon(SettingsIconRole.BOTTOM_BAR_BLUR),
-                                title = settingItemTitle("animation.bottom_bar_blur_enabled"),
-                                subtitle = "模糊底栏背后的内容，不含折射和光效",
+                                title = localizedAnimationSettingTitle("animation.bottom_bar_blur_enabled"),
+                                subtitle = stringResource(R.string.animation_bottom_blur_summary),
                                 checked = state.bottomBarBlurEnabled,
                                 onCheckedChange = { viewModel.toggleBottomBarBlur(it) },
                                 iconTint = AppContentColors.secondaryText()
@@ -913,7 +932,7 @@ fun AnimationSettingsContent(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             AppText(
-                                text = "如果出现掉帧或耗电增加，可关闭部分动画或玻璃效果。",
+                                text = stringResource(R.string.animation_performance_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = AppContentColors.secondaryText()
                             )
@@ -938,22 +957,22 @@ fun AnimationSettingsContent(
             },
             title = {
                 AppText(
-                    text = "导入液态玻璃设置？",
+                    text = stringResource(R.string.animation_import_title),
                     fontWeight = FontWeight.Bold,
                 )
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AppText(
-                        text = "配置：${importSession.profile.profileName}",
+                        text = stringResource(R.string.animation_import_profile, importSession.profile.profileName),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     AppText(
-                        text = "将替换 $importCount 项液态玻璃参数，包括质感强度、预设、图标与文字颜色以及高级调节。",
+                        text = stringResource(R.string.animation_import_details, importCount),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     AppText(
-                        text = "预览图片和其他应用设置不会改变。",
+                        text = stringResource(R.string.animation_import_unchanged),
                         style = MaterialTheme.typography.bodySmall,
                         color = AppContentColors.link(),
                     )
@@ -971,14 +990,14 @@ fun AnimationSettingsContent(
                                         pendingLiquidGlassImport = null
                                         Toast.makeText(
                                             context,
-                                            "已导入 ${result.appliedKeys.size} 项液态玻璃设置",
+                                            context.getString(R.string.animation_import_success, result.appliedKeys.size),
                                             Toast.LENGTH_SHORT,
                                         ).show()
                                     }
                                     .onFailure { error ->
                                         Toast.makeText(
                                             context,
-                                            error.message ?: "液态玻璃设置导入失败",
+                                            error.message ?: context.getString(R.string.animation_glass_import_failed),
                                             Toast.LENGTH_SHORT,
                                         ).show()
                                     }
@@ -988,7 +1007,7 @@ fun AnimationSettingsContent(
                         }
                     },
                 ) {
-                    AppText(if (isLiquidGlassImporting) "正在应用" else "确认导入")
+                    AppText(if (isLiquidGlassImporting) stringResource(R.string.animation_import_applying) else stringResource(R.string.animation_import_confirm))
                 }
             },
             dismissButton = {
@@ -997,7 +1016,7 @@ fun AnimationSettingsContent(
                         if (!isLiquidGlassImporting) pendingLiquidGlassImport = null
                     },
                 ) {
-                    AppText("取消")
+                    AppText(stringResource(R.string.common_cancel))
                 }
             },
         )

@@ -33,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.android.purebilibili.R
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -96,7 +97,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
     }
 
     fun openNotificationSettings() {
-        statusMessage = if (notificationsCanPost) null else "通知权限或通知渠道未开启，请在系统设置中允许通知"
+        statusMessage = if (notificationsCanPost) null else context.getString(R.string.notify_open_permission_message)
         val notificationIntent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
             putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
         }
@@ -110,7 +111,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                     },
                 )
             }.onFailure {
-                Toast.makeText(context, "无法打开系统通知设置", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.notify_open_settings_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -121,10 +122,10 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
             statusMessage = null
             save()
             if (!MessageNotificationSync.sync(context)) {
-                statusMessage = "设置已保存，但常驻后台未能启动，将使用系统周期检查"
+                statusMessage = context.getString(R.string.notify_background_fallback_status)
                 Toast.makeText(
                     context,
-                    "常驻后台启动失败，已保留周期检查作为兜底",
+                    context.getString(R.string.notify_background_fallback_toast),
                     Toast.LENGTH_SHORT,
                 ).show()
             }
@@ -132,7 +133,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
             throw cancellation
         } catch (error: Exception) {
             val message = error.message?.takeIf { it.isNotBlank() }
-                ?: "设置保存失败，请稍后重试"
+                ?: context.getString(R.string.notify_save_failed)
             statusMessage = message
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
@@ -147,10 +148,10 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
         val usable = refreshNotificationStatus()
         if (request == NotificationPermissionRequest.MASTER_ENABLE) {
             if (!granted) {
-                statusMessage = "未授予通知权限，无法开启后台通知；可点下方通知权限前往系统设置"
+                statusMessage = context.getString(R.string.notify_permission_denied_status)
                 Toast.makeText(
                     context,
-                    "未授予通知权限，无法开启后台通知",
+                    context.getString(R.string.notify_permission_denied),
                     Toast.LENGTH_SHORT,
                 ).show()
             } else if (usable) {
@@ -158,8 +159,8 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                     persistAndSync { MessageNotificationSettingsStore.setEnabled(context, true) }
                 }
             } else {
-                statusMessage = "通知权限已授予，但系统通知或通知渠道仍处于关闭状态"
-                Toast.makeText(context, "请先在系统设置中开启通知", Toast.LENGTH_SHORT).show()
+                statusMessage = context.getString(R.string.notify_permission_channels_off)
+                Toast.makeText(context, context.getString(R.string.notify_enable_in_settings), Toast.LENGTH_SHORT).show()
             }
         } else if (request == NotificationPermissionRequest.PERMISSION_ROW) {
             if (granted && usable) {
@@ -168,9 +169,9 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 }
             } else {
                 val message = if (!granted) {
-                    "通知权限未开启，可再次点击此项前往系统设置"
+                    context.getString(R.string.notify_permission_not_enabled)
                 } else {
-                    "通知权限已授予，但系统通知或通知渠道仍处于关闭状态"
+                    context.getString(R.string.notify_permission_channels_off)
                 }
                 statusMessage = message
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -202,21 +203,21 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
     }
 
     val notificationPermissionValue = when {
-        !notificationPermissionGranted && permissionRequestAttempted -> "未开启 · 前往系统设置"
-        !notificationPermissionGranted -> "未开启"
-        !notificationsCanPost -> "系统已关闭 · 前往系统设置"
-        else -> "已开启"
+        !notificationPermissionGranted && permissionRequestAttempted -> context.getString(R.string.notify_permission_off_open_settings)
+        !notificationPermissionGranted -> context.getString(R.string.notify_permission_off)
+        !notificationsCanPost -> context.getString(R.string.notify_system_off_open_settings)
+        else -> context.getString(R.string.notify_enabled)
     }
     val masterSubtitle = when {
-        !notificationPermissionGranted -> "应用关闭后定期检查新消息；未登录时不检查。请先开启通知权限"
-        !notificationsCanPost -> "应用关闭后定期检查新消息；系统通知或通知渠道已关闭"
-        else -> "应用关闭后定期检查新消息；未登录时不检查"
+        !notificationPermissionGranted -> context.getString(R.string.notify_master_subtitle_permission)
+        !notificationsCanPost -> context.getString(R.string.notify_master_subtitle_channels)
+        else -> context.getString(R.string.notify_master_subtitle)
     }
 
     SettingsPageScaffold(
-        title = "消息通知",
+        title = context.getString(R.string.notify_settings_title),
         onBack = onBack,
-        backContentDescription = "返回",
+        backContentDescription = context.getString(R.string.notify_back),
         bottomContentPadding = bottomContentPadding,
         scrollHost = SettingsPageScrollHost.External,
         externalContentHandlesTopPadding = true,
@@ -229,7 +230,7 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
         ) {
             Spacer(modifier = Modifier.height(LocalSettingsTopContentPadding.current))
             AppText(
-                text = "离开应用后也检查新消息。更频繁检查和保持后台运行会增加耗电；系统可能中止检查。",
+                text = context.getString(R.string.notify_intro),
                 style = MaterialTheme.typography.bodySmall,
                 color = AppContentColors.secondaryText(),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -243,12 +244,12 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 )
             }
 
-            AppPreferenceSectionTitle("后台通知")
+            AppPreferenceSectionTitle(context.getString(R.string.notify_section_background))
             SettingsCardGroup {
                 SettingsItemAnchor("notification.enabled") {
                     SettingSwitchItem(
                         icon = rememberSettingsSemanticIcon(SettingsIconRole.MESSAGE_NOTIFICATION),
-                        title = settingItemTitle("notification.enabled"),
+                        title = context.getString(R.string.notify_item_enabled),
                         subtitle = masterSubtitle,
                         checked = settings.enabled,
                         onCheckedChange = { enabled ->
@@ -281,19 +282,19 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 SettingsItemAnchor("notification.mode") {
                     AppSingleChoicePreference(
                         icon = rememberSettingsSemanticIcon(SettingsIconRole.NOTIFICATION_DELIVERY_MODE),
-                        title = settingItemTitle("notification.mode"),
-                        subtitle = "省电优先可减少耗电，更及时会增加检查频率",
+                        title = context.getString(R.string.notify_item_mode),
+                        subtitle = context.getString(R.string.notify_mode_subtitle),
                         selectedValue = settings.mode,
                         options = listOf(
                             AppChoiceOption(
                                 value = MessageNotificationMode.POWER_SAVING,
-                                label = "省电优先",
-                                description = "检查较少，通知可能延迟，耗电更低",
+                                label = context.getString(R.string.notify_mode_saving),
+                                description = context.getString(R.string.notify_mode_saving_desc),
                             ),
                             AppChoiceOption(
                                 value = MessageNotificationMode.MORE_TIMELY,
-                                label = "更及时",
-                                description = "检查更频繁，耗电略增",
+                                label = context.getString(R.string.notify_mode_timely),
+                                description = context.getString(R.string.notify_mode_timely_desc),
                             ),
                         ),
                         onValueChange = { mode ->
@@ -308,13 +309,13 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 }
             }
 
-            AppPreferenceSectionTitle("通知范围")
+            AppPreferenceSectionTitle(context.getString(R.string.notify_section_scope))
             SettingsCardGroup {
                 SettingsItemAnchor("notification.notify_private_messages") {
                     SettingSwitchItem(
                         icon = rememberSettingsSemanticIcon(SettingsIconRole.NOTIFICATION_SCOPE_MESSAGE),
-                        title = settingItemTitle("notification.notify_private_messages"),
-                        subtitle = if (!settings.enabled) "先开启“后台消息通知”" else "收到新私信时通知",
+                        title = context.getString(R.string.notify_item_private_messages),
+                        subtitle = if (!settings.enabled) context.getString(R.string.notify_enable_master_first) else context.getString(R.string.notify_private_messages),
                         checked = settings.notifyPrivateMessages,
                         onCheckedChange = { enabled ->
                             scope.launch {
@@ -330,8 +331,8 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 SettingsItemAnchor("notification.notify_replies") {
                     SettingSwitchItem(
                         icon = rememberSettingsSemanticIcon(SettingsIconRole.NOTIFICATION_SCOPE_REPLY),
-                        title = settingItemTitle("notification.notify_replies"),
-                        subtitle = if (!settings.enabled) "先开启“后台消息通知”" else "有人回复视频或动态评论时通知",
+                        title = context.getString(R.string.notify_item_replies),
+                        subtitle = if (!settings.enabled) context.getString(R.string.notify_enable_master_first) else context.getString(R.string.notify_replies),
                         checked = settings.notifyReplies,
                         onCheckedChange = { enabled ->
                             scope.launch {
@@ -347,8 +348,8 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 SettingsItemAnchor("notification.notify_at_me") {
                     SettingSwitchItem(
                         icon = rememberSettingsSemanticIcon(SettingsIconRole.NOTIFICATION_SCOPE_AT_ME),
-                        title = settingItemTitle("notification.notify_at_me"),
-                        subtitle = if (!settings.enabled) "先开启“后台消息通知”" else "有人在评论或动态中提到我时通知",
+                        title = context.getString(R.string.notify_item_at_me),
+                        subtitle = if (!settings.enabled) context.getString(R.string.notify_enable_master_first) else context.getString(R.string.notify_at_me),
                         checked = settings.notifyAtMe,
                         onCheckedChange = { enabled ->
                             scope.launch {
@@ -364,8 +365,8 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 SettingsItemAnchor("notification.notify_likes") {
                     SettingSwitchItem(
                         icon = rememberSettingsSemanticIcon(SettingsIconRole.NOTIFICATION_SCOPE_LIKE),
-                        title = settingItemTitle("notification.notify_likes"),
-                        subtitle = if (!settings.enabled) "先开启“后台消息通知”" else "收到点赞、投币或收藏时通知",
+                        title = context.getString(R.string.notify_item_likes),
+                        subtitle = if (!settings.enabled) context.getString(R.string.notify_enable_master_first) else context.getString(R.string.notify_likes),
                         checked = settings.notifyLikes,
                         onCheckedChange = { enabled ->
                             scope.launch {
@@ -381,8 +382,8 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 SettingsItemAnchor("notification.notify_system_notices") {
                     SettingSwitchItem(
                         icon = rememberSettingsSemanticIcon(SettingsIconRole.NOTIFICATION_SCOPE_SYSTEM),
-                        title = settingItemTitle("notification.notify_system_notices"),
-                        subtitle = if (!settings.enabled) "先开启“后台消息通知”" else "收到 B 站系统消息时通知",
+                        title = context.getString(R.string.notify_item_system),
+                        subtitle = if (!settings.enabled) context.getString(R.string.notify_enable_master_first) else context.getString(R.string.notify_system),
                         checked = settings.notifySystemNotices,
                         onCheckedChange = { enabled ->
                             scope.launch {
@@ -398,8 +399,8 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 SettingsItemAnchor("notification.notify_dynamic_updates") {
                     SettingSwitchItem(
                         icon = rememberSettingsSemanticIcon(SettingsIconRole.NOTIFICATION_SCOPE_DYNAMIC_UP),
-                        title = settingItemTitle("notification.notify_dynamic_updates"),
-                        subtitle = if (!settings.enabled) "先开启“后台消息通知”" else "需 App 授权；UP 红点消失才清除通知，未知状态保留",
+                        title = context.getString(R.string.notify_item_dynamic),
+                        subtitle = if (!settings.enabled) context.getString(R.string.notify_enable_master_first) else context.getString(R.string.notify_dynamic),
                         checked = settings.notifyDynamicUpdates,
                         onCheckedChange = { enabled ->
                             scope.launch {
@@ -415,8 +416,8 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 SettingsItemAnchor("notification.notify_live_alerts") {
                     SettingSwitchItem(
                         icon = rememberSettingsSemanticIcon(SettingsIconRole.NOTIFICATION_SCOPE_LIVE),
-                        title = settingItemTitle("notification.notify_live_alerts"),
-                        subtitle = if (!settings.enabled) "先开启“后台消息通知”" else "关注的主播开播时通知",
+                        title = context.getString(R.string.notify_item_live),
+                        subtitle = if (!settings.enabled) context.getString(R.string.notify_enable_master_first) else context.getString(R.string.notify_live),
                         checked = settings.notifyLiveAlerts,
                         onCheckedChange = { enabled ->
                             scope.launch {
@@ -430,16 +431,16 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                 }
             }
 
-            AppPreferenceSectionTitle("后台运行")
+            AppPreferenceSectionTitle(context.getString(R.string.notify_section_resident))
             SettingsCardGroup {
                 SettingsItemAnchor("notification.resident_enabled") {
                     SettingSwitchItem(
                         icon = rememberSettingsSemanticIcon(SettingsIconRole.BATTERY_STATUS),
-                        title = settingItemTitle("notification.resident_enabled"),
+                        title = context.getString(R.string.notify_item_resident),
                         subtitle = if (settings.enabled && notificationsCanPost) {
-                            "保持应用后台运行以更及时地收到通知；会增加耗电，系统仍可能终止"
+                            context.getString(R.string.notify_resident_enabled_desc)
                         } else {
-                            "需要先开启后台消息通知和可用的通知权限；会增加耗电，系统仍可能终止"
+                            context.getString(R.string.notify_resident_requires_desc)
                         },
                         checked = settings.residentEnabled,
                         onCheckedChange = { enabled ->
@@ -450,13 +451,13 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
                                     }
                                 }
                             } else if (!settings.enabled) {
-                                statusMessage = "请先开启后台消息通知，再启用常驻后台"
-                                Toast.makeText(context, "请先开启后台消息通知，再启用常驻后台", Toast.LENGTH_SHORT).show()
+                                statusMessage = context.getString(R.string.notify_resident_first_status)
+                                Toast.makeText(context, context.getString(R.string.notify_resident_first_status), Toast.LENGTH_SHORT).show()
                             } else if (!notificationPermissionGranted || !notificationsCanPost) {
-                                statusMessage = "请先在通知权限中开启通知，并确保通知渠道未被系统关闭"
+                                statusMessage = context.getString(R.string.notify_permission_setup_status)
                                 Toast.makeText(
                                     context,
-                                    "请先在通知权限中开启通知，并确保通知渠道未被系统关闭",
+                                    context.getString(R.string.notify_permission_setup_status),
                                     Toast.LENGTH_SHORT,
                                 ).show()
                                 if (notificationPermissionGranted && !notificationsCanPost) {
@@ -476,13 +477,13 @@ fun MessageNotificationSettingsScreen(onBack: () -> Unit) {
 
             }
 
-            AppPreferenceSectionTitle("发送通知")
+            AppPreferenceSectionTitle(context.getString(R.string.notify_section_send))
             SettingsCardGroup {
                 SettingClickableItem(
                     icon = rememberSettingsSemanticIcon(SettingsIconRole.PERMISSION),
-                    title = "发送通知",
+                    title = context.getString(R.string.notify_section_send),
                     value = notificationPermissionValue,
-                    subtitle = "点按检查授权；系统禁用通知时需前往设置",
+                    subtitle = context.getString(R.string.notify_permission_subtitle),
                     onClick = {
                         if (!notificationPermissionGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             if (permissionRequestAttempted) {

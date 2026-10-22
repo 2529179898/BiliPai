@@ -4620,8 +4620,7 @@ private fun VideoPlayerSectionContent(
                     renderingPaused = suppressTransientOverlaysForTransition,
                     modifier = Modifier.fillMaxSize()
                 )
-                // Use measured common chrome when available; the first frame reserves PiliPlus'
-                // progress/optional chapter strip + 7dp gap + 34dp row + 12dp at either edge.
+                // 控制栏实测高度决定弹幕底部避让，两种材质使用同一几何。
                 val commandControlsReservePx = measuredBottomControlsHeightPx.takeIf { it > 0 }
                     ?: with(density) { bottomGestureExclusionHeightDp.dp.roundToPx() }
                 com.android.purebilibili.feature.video.ui.overlay.CommandDanmakuOverlay(

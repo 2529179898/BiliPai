@@ -100,7 +100,8 @@ sealed class BangumiPlayerState {
         val isVip: Boolean = false,
         val isLiked: Boolean = false,
         val likeStatusKnown: Boolean = false,
-        val coinCount: Int = 0
+        val coinCount: Int = 0,
+        val videoshotData: VideoshotData? = null
     ) : BangumiPlayerState()
     
     data class Error(
@@ -183,6 +184,7 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
     private var bangumiHeartbeatJob: Job? = null
     /** Only the latest episode request may update the player state. */
     private var playbackLoadJob: Job? = null
+    private var videoshotLoadJob: Job? = null
     private var openingSkippedEpisodeId: Long = 0L
     private var endingSkippedEpisodeId: Long = 0L
     private var progressManager: PlaybackProgressManager? = null
@@ -308,6 +310,7 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
     override fun onCleared() {
         flushBangumiPlaybackHeartbeat()
         bangumiHeartbeatJob?.cancel()
+        videoshotLoadJob?.cancel()
         super.onCleared()
         // 监听器会随 player 一起清理，无需手动移除
     }
@@ -398,6 +401,7 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
         currentEpId = epId
         followVerificationJob?.cancel()
         playbackLoadJob?.cancel()
+        videoshotLoadJob?.cancel()
         playbackLoadJob = viewModelScope.launch {
             _uiState.value = BangumiPlayerState.Loading
             
@@ -710,6 +714,11 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
                 seasonUserVip = detail.userStatus?.vip == 1
             )
             val qualityOptions = resolveBangumiQualityOptions(playData)
+            val retainedVideoshot = (_uiState.value as? BangumiPlayerState.Success)
+                ?.takeIf {
+                    it.currentEpisode.id == episode.id && it.currentEpisode.cid == episode.cid &&
+                        it.currentEpisode.bvid == episode.bvid && it.currentEpisode.aid == episode.aid
+                }?.videoshotData
 
             _uiState.value = BangumiPlayerState.Success(
                 seasonDetail = correctedDetail,
@@ -729,9 +738,11 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
                 hasPaid = playData.hasPaid,
                 playbackStatus = playData.status,
                 isLoggedIn = isLoggedIn,
-                isVip = isVip
+                isVip = isVip,
+                videoshotData = retainedVideoshot,
             )
 
+            loadEpisodeVideoshot(episode)
             verifyPlaybackFollowStatus(detail)
             refreshEpisodeInteractionState(
                 episodeAid = episode.aid,
@@ -825,6 +836,27 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
         }
     }
     
+    private fun loadEpisodeVideoshot(episode: BangumiEpisode) {
+        videoshotLoadJob?.cancel()
+        if ((_uiState.value as? BangumiPlayerState.Success)?.videoshotData != null) return
+        val previewBvid = episode.bvid.ifBlank {
+            episode.aid.takeIf { it > 0L }?.let(com.android.purebilibili.core.util.IdUtils::av2bv).orEmpty()
+        }
+        if (previewBvid.isBlank() || episode.cid <= 0L) return
+        videoshotLoadJob = viewModelScope.launch {
+            val data = com.android.purebilibili.data.repository.VideoRepository
+                .getVideoshot(previewBvid, episode.cid)
+            ensureActive()
+            val current = _uiState.value as? BangumiPlayerState.Success ?: return@launch
+            if (current.currentEpisode.id == episode.id &&
+                current.currentEpisode.bvid == episode.bvid && current.currentEpisode.cid == episode.cid &&
+                current.currentEpisode.aid == episode.aid
+            ) {
+                _uiState.value = current.copy(videoshotData = data)
+            }
+        }
+    }
+
     /**
      * 切换剧集
      */
@@ -838,6 +870,7 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
         followVerificationJob?.cancel()
         playbackLoadJob?.cancel()
         currentEpId = episode.id
+        videoshotLoadJob?.cancel()
         val newIndex = currentState.seasonDetail.episodes?.indexOfFirst { it.id == episode.id } ?: 0
         
         _uiState.value = currentState.copy(
@@ -845,6 +878,7 @@ class BangumiPlayerViewModel : BasePlayerViewModel() {
             currentEpisodeIndex = newIndex,
             playUrl = null,
             audioUrl = null,
+            videoshotData = null,
             playbackErrorMessage = null
         )
         exoPlayer?.stop()

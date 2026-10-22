@@ -94,9 +94,11 @@ fun CollectionSheet(
     ugcSeason: UgcSeason,
     currentBvid: String,
     currentCid: Long = 0L,
+    currentVideoInfo: com.android.purebilibili.data.model.response.ViewInfo? = null,
     onDismiss: () -> Unit,
     onEpisodeClick: (UgcEpisode) -> Unit
 ) {
+    val sheetMaxHeight = episodeSheetMaxHeight()
     val context = LocalContext.current
     val clearIcon = rememberAppClearIcon()
     val scope = rememberCoroutineScope()
@@ -178,7 +180,7 @@ fun CollectionSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
+                .heightIn(max = sheetMaxHeight)
         ) {
             // ── 工具栏（PiliPlus：标题 + 收藏 + 跳转/定位 + 排序 + 关闭）──
             Row(
@@ -365,6 +367,7 @@ fun CollectionSheet(
                     )
                     CollectionEpisodeRow(
                         episode = episode,
+                        knownDetail = currentVideoInfo,
                         isCurrentEpisode = isCurrentEpisode,
                         onClick = {
                             if (!isCurrentEpisode) {
@@ -392,7 +395,8 @@ internal fun CollectionEpisodeRow(
     episode: UgcEpisode,
     isCurrentEpisode: Boolean,
     onClick: () -> Unit,
-    onPartClick: (Page) -> Unit
+    onPartClick: (Page) -> Unit,
+    knownDetail: com.android.purebilibili.data.model.response.ViewInfo? = null,
 ) {
     val arc = episode.arc
     val publishTimeText = remember(episode.arc?.pubdate, episode.arc?.ctime) {
@@ -424,6 +428,11 @@ internal fun CollectionEpisodeRow(
                         modifier = Modifier.fillMaxSize()
                     )
                 }
+                CollectionAccessBadge(
+                    episode = episode,
+                    knownDetail = knownDetail,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp),
+                )
                 VideoCardCoverDurationText(
                     text = FormatUtils.formatDuration(arc?.duration ?: 0),
                     modifier = Modifier

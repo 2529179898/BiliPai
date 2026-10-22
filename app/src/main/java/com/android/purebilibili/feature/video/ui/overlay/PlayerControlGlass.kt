@@ -154,6 +154,14 @@ internal fun PlayerControlGlassDock(
     }
 }
 
+/** Shared transport capsule; the seek host retains pointer ownership inside its own slot. */
+@Composable
+internal fun Modifier.playerControlGlassProgressDock(): Modifier {
+    val backdrop = LocalPlayerControlBackdrop.current
+    if (!LocalPlayerControlGlassEnabled.current || backdrop == null) return this
+    return playerControlGlassSurface(backdrop, shape = RoundedCornerShape(24.dp))
+}
+
 /** Shared Miuix material for player chrome and gesture feedback; capture stays caller-owned. */
 @Composable
 internal fun Modifier.playerControlGlassSurface(

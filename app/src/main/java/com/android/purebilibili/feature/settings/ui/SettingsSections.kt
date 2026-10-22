@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -238,8 +239,9 @@ internal fun SettingsRootCategoryListSection(
         categories.forEachIndexed { index, category ->
             val visual = rememberSettingsEntryVisual(category.searchTarget)
             SettingsRootCategoryRow(
-                title = category.title,
-                subtitle = category.subtitle,
+                title = stringResource(category.titleResource()),
+                subtitle = stringResource(category.subtitleResource()),
+                iconColorKey = category.title,
                 icon = visual.icon,
                 iconPainter = visual.iconResId?.let { painterResource(id = it) },
                 iconTint = siblingTints[index],
@@ -264,6 +266,7 @@ internal fun SettingsRootCategoryListSection(
 private fun SettingsRootCategoryRow(
     title: String,
     subtitle: String,
+    iconColorKey: String = title,
     icon: ImageVector?,
     iconPainter: androidx.compose.ui.graphics.painter.Painter?,
     iconTint: Color,
@@ -285,7 +288,7 @@ private fun SettingsRootCategoryRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (LocalAppUiStyle.current == AppUiStyle.MIUIX || com.android.purebilibili.core.ui.components.useColorfulPreferenceIcons()) {
-            SettingsFunctionIcon(title = title, imageVector = icon, painter = iconPainter)
+            SettingsFunctionIcon(title = iconColorKey, imageVector = icon, painter = iconPainter)
         } else Box(
             modifier = Modifier
                 .size(visualSpec.categoryIconBubbleSize)

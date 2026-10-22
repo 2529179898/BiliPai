@@ -23,6 +23,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -48,21 +50,22 @@ import com.android.purebilibili.feature.dynamic.components.resolveImagePreviewGa
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 
-internal enum class SettingsFeaturePreview(val settingId: String, val fallbackTitle: String, val summary: String = "") {
-    TOP_BLUR("animation.progressive_top_blur_enabled", "顶栏渐变模糊"),
-    IMAGE_PAGE("playback.image_preview3d_page_enabled", "图片立体翻页"),
-    LONG_PRESS("playback.long_press_speed", "长按临时加速"),
-    CARD_ENTRANCE("animation.card_animation_enabled", "首页卡片淡入", "打开首页时，卡片按顺序淡入；关闭后直接显示。"),
-    CARD_EXPAND("animation.card_transition_enabled", "卡片展开动画", "点击视频卡片时，封面和标题从卡片位置平滑过渡到详情页；关闭后使用普通页面切换。"),
-    RELATED_EXPAND("animation.related_video_transition_enabled", "推荐卡片展开动画", "点击详情页下方的相关推荐时，推荐卡片展开为新的视频页。需开启卡片展开动画。"),
-    LIVE_FRAME("animation.live_surface_card_transition_enabled", "用当前画面过渡", "展开过程中保留当前播放画面；关闭后使用封面作为过渡画面。需开启卡片展开动画。示意画面无需加载视频。"),
-    RETURN_CONTENT("animation.app_navigation_settings.video_return_content_follow_progress_enabled", "返回时渐变为卡片", "返回途中，视频画面逐渐还原为封面和卡片信息；关闭后在返回完成时切换。需开启卡片展开动画。"),
-    RETURN_TILT("animation.app_navigation_settings.video_shared_return_gesture_follow_enabled", "返回时倾斜", "滑动返回时，画面随手指产生倾斜；关闭后不倾斜。这里保持相同的移动路线，单独比较倾斜。需开启卡片展开动画。"),
-    RETURN_FOLLOW("animation.app_navigation_settings.video_shared_return_gesture_translation_enabled", "返回时跟手", "滑动返回时，画面随手指移动；关闭后沿固定路线返回。这里保持画面不倾斜，单独比较移动。需开启卡片展开动画。"),
-    TRANSITION_BLUR("animation.video_transition_realtime_blur_enabled", "转场时模糊背景", "卡片展开或返回时，后方页面实时模糊，前景视频保持清晰；关闭后背景保持清晰。");
-
-    val title: String
-        get() = settingsItemDirectory.firstOrNull { it.settingId == settingId }?.title ?: fallbackTitle
+internal enum class SettingsFeaturePreview(
+    val settingId: String,
+    @StringRes val titleResId: Int,
+    @StringRes val summaryResId: Int = 0,
+) {
+    TOP_BLUR("animation.progressive_top_blur_enabled", R.string.preview_title_top_blur, R.string.preview_summary_top_blur),
+    IMAGE_PAGE("playback.image_preview3d_page_enabled", R.string.preview_title_image_page, R.string.preview_summary_image_page),
+    LONG_PRESS("playback.long_press_speed", R.string.preview_title_long_press, R.string.preview_summary_long_press),
+    CARD_ENTRANCE("animation.card_animation_enabled", R.string.preview_title_card_entrance, R.string.preview_summary_card_entrance),
+    CARD_EXPAND("animation.card_transition_enabled", R.string.preview_title_card_expand, R.string.preview_summary_card_expand),
+    RELATED_EXPAND("animation.related_video_transition_enabled", R.string.preview_title_related_expand, R.string.preview_summary_related_expand),
+    LIVE_FRAME("animation.live_surface_card_transition_enabled", R.string.preview_title_live_frame, R.string.preview_summary_live_frame),
+    RETURN_CONTENT("animation.app_navigation_settings.video_return_content_follow_progress_enabled", R.string.preview_title_return_content, R.string.preview_summary_return_content),
+    RETURN_TILT("animation.app_navigation_settings.video_shared_return_gesture_follow_enabled", R.string.preview_title_return_tilt, R.string.preview_summary_return_tilt),
+    RETURN_FOLLOW("animation.app_navigation_settings.video_shared_return_gesture_translation_enabled", R.string.preview_title_return_follow, R.string.preview_summary_return_follow),
+    TRANSITION_BLUR("animation.video_transition_realtime_blur_enabled", R.string.preview_title_transition_blur, R.string.preview_summary_transition_blur);
 }
 
 /** 演示状态只存在于面板内，不调用设置写入或真实播放器。材质由现有自适应控件处理。 */
@@ -75,11 +78,12 @@ internal fun SettingsFeaturePreviewEntry(
     transitionDurationMillis: Int? = null,
 ) {
     var open by rememberSaveable(feature) { mutableStateOf(false) }
+    val previewLabel = stringResource(R.string.preview_accessibility, stringResource(feature.titleResId))
     AppIconButton(
         onClick = { open = true },
         modifier = modifier
             .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-            .semantics { contentDescription = "查看${feature.title}的动画演示" },
+            .semantics { contentDescription = previewLabel },
     ) {
         AppIcon(
             painter = painterResource(R.drawable.ms_play_circle_outline_24),
@@ -102,15 +106,16 @@ internal fun SettingsCardPreviewGroupHeader(
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
     var selected by rememberSaveable { mutableStateOf(SettingsFeaturePreview.CARD_EXPAND) }
+    val previewAccessibilityLabel = stringResource(R.string.preview_card_accessibility)
     Row(modifier = modifier, verticalAlignment = Alignment.Bottom) {
-        Box(Modifier.weight(1f)) { AppPreferenceSectionTitle("卡片动画") }
+        Box(Modifier.weight(1f)) { AppPreferenceSectionTitle(stringResource(R.string.animation_section_card)) }
         AppTextButton(
             onClick = { open = true },
             modifier = Modifier
                 .padding(end = 16.dp)
                 .heightIn(min = 48.dp)
-                .semantics { contentDescription = "查看卡片动画效果预览" },
-        ) { AppText("效果预览", style = MaterialTheme.typography.labelLarge) }
+                .semantics { contentDescription = previewAccessibilityLabel },
+        ) { AppText(stringResource(R.string.preview_button), style = MaterialTheme.typography.labelLarge) }
     }
     if (open) {
         SettingsFeaturePreviewDialog(
@@ -139,6 +144,10 @@ private fun SettingsFeaturePreviewDialog(
     var replay by rememberSaveable(feature) { mutableIntStateOf(0) }
     val progress = remember(feature) { Animatable(0f) }
     val reduceMotion = LocalSystemReduceMotion.current || !LocalComponentMotionEnabled.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val localizedFeatureOptions = availableFeatures.map {
+        AppChoiceOption(it, context.getString(it.titleResId))
+    }
     // 单次播放；关闭面板即取消。减少动态效果时展示中间状态供静态比较。
     LaunchedEffect(feature, enabled, replay, reduceMotion, transitionDurationMillis) {
         if (reduceMotion || currentCoroutineContext()[MotionDurationScale]?.scaleFactor == 0f) {
@@ -152,15 +161,13 @@ private fun SettingsFeaturePreviewDialog(
     }
     val contentMaxHeight = (LocalConfiguration.current.screenHeightDp.dp * 0.55f).coerceAtLeast(80.dp)
     val explanation = when (feature) {
-        SettingsFeaturePreview.TOP_BLUR -> "页面内容经过顶栏时，背景呈现由上到下逐渐减弱的模糊，标题保持清晰。实际效果需 Android 13+；与顶栏磨砂互斥，开启此功能会关闭顶栏磨砂。"
-        SettingsFeaturePreview.IMAGE_PAGE -> "左右滑动查看图片时，图片带有透视旋转；关闭后使用平面横滑。下方使用同一组示意图片对比。"
-        SettingsFeaturePreview.LONG_PRESS -> "播放时按住画面，临时使用当前设置的 ${formatPlaybackSpeed(speed)}；松手恢复原来的播放速度。本演示以原速 1x 为例。"
-        else -> feature.summary
+        SettingsFeaturePreview.LONG_PRESS -> stringResource(feature.summaryResId, formatPlaybackSpeed(speed))
+        else -> stringResource(feature.summaryResId)
     }
     AppAlertDialog(
         onDismissRequest = onDismiss,
         contentLayout = resolveAppContentDialogLayoutPolicy(maxWidthDp = 560, minWidthDp = 0, horizontalPaddingDp = 16),
-        title = { AppText(if (availableFeatures.isEmpty()) feature.title else "卡片动画预览") },
+        title = { AppText(if (availableFeatures.isEmpty()) stringResource(feature.titleResId) else stringResource(R.string.preview_card_title)) },
         text = {
             Column(
                 modifier = Modifier
@@ -170,9 +177,9 @@ private fun SettingsFeaturePreviewDialog(
             ) {
                 if (onFeatureSelected != null) {
                     AppSingleChoicePreference(
-                        title = "演示功能",
+                        title = stringResource(R.string.preview_function_title),
                         selectedValue = feature,
-                        options = availableFeatures.map { AppChoiceOption(it, it.title) },
+                        options = localizedFeatureOptions,
                         presentation = AppSingleChoicePresentation.WINDOW_POPUP,
                         onValueChange = onFeatureSelected,
                         modifier = Modifier.fillMaxWidth(),
@@ -189,15 +196,15 @@ private fun SettingsFeaturePreviewDialog(
                                 .semantics { selected = enabled == choice },
                         ) {
                             AppText(if (feature == SettingsFeaturePreview.LONG_PRESS) {
-                                if (choice) "长按演示" else "正常播放"
-                            } else if (choice) "开启效果" else "关闭效果")
+                                if (choice) stringResource(R.string.preview_long_press_demo) else stringResource(R.string.preview_normal_playback)
+                            } else if (choice) stringResource(R.string.preview_enable_effect) else stringResource(R.string.preview_disable_effect))
                         }
                     }
                 }
                 AppText(
                     if (feature == SettingsFeaturePreview.LONG_PRESS) {
-                        if (enabled) "当前演示：按住后临时变速" else "当前演示：保持原速"
-                    } else "当前演示：${if (enabled) "开启" else "关闭"}",
+                        stringResource(if (enabled) R.string.preview_status_long_press_on else R.string.preview_status_long_press_off)
+                    } else stringResource(if (enabled) R.string.preview_status_enabled else R.string.preview_status_disabled),
                     style = MaterialTheme.typography.labelMedium,
                 )
                 FeaturePreviewScene(
@@ -208,21 +215,21 @@ private fun SettingsFeaturePreviewDialog(
                         .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                 )
-                AppText("示意预览，不会修改设置", style = MaterialTheme.typography.bodySmall,
+                AppText(stringResource(R.string.preview_illustration_notice), style = MaterialTheme.typography.bodySmall,
                     color = AppContentColors.secondaryText())
                 if (transitionDurationMillis != null) {
-                    AppText("已跟随当前转场速度；返回手势为自动示意。", style = MaterialTheme.typography.bodySmall)
+                    AppText(stringResource(R.string.preview_transition_speed_notice), style = MaterialTheme.typography.bodySmall)
                 }
                 if (reduceMotion) {
-                    AppText("已按系统或应用的减少动态效果设置展示静态对比。", style = MaterialTheme.typography.bodySmall)
+                    AppText(stringResource(R.string.preview_reduce_motion_notice), style = MaterialTheme.typography.bodySmall)
                 }
                 if (feature in setOf(SettingsFeaturePreview.TOP_BLUR, SettingsFeaturePreview.TRANSITION_BLUR) && Build.VERSION.SDK_INT < 31) {
-                    AppText("当前系统无法渲染预览模糊，请参考上方文字说明。", style = MaterialTheme.typography.bodySmall)
+                    AppText(stringResource(R.string.preview_blur_unavailable_notice), style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
-        dismissButton = { AppDialogAction(onClick = { replay++ }) { AppText("重播") } },
-        confirmButton = { AppDialogAction(onClick = onDismiss) { AppText("关闭") } },
+        dismissButton = { AppDialogAction(onClick = { replay++ }) { AppText(stringResource(R.string.preview_replay)) } },
+        confirmButton = { AppDialogAction(onClick = onDismiss) { AppText(stringResource(R.string.common_close)) } },
     )
 }
 
@@ -236,14 +243,13 @@ private fun FeaturePreviewScene(
 ) {
     val accent = AppContentColors.accent()
     val ink = AppContentColors.primaryText()
-    Box(modifier.semantics {
-        contentDescription = when (feature) {
-            SettingsFeaturePreview.TOP_BLUR -> if (enabled) "内容向上滚动，顶栏背景从上到下逐渐清晰，标题保持清晰" else "内容向上滚动，顶栏背景无模糊"
-            SettingsFeaturePreview.IMAGE_PAGE -> if (enabled) "图片横滑时产生透视旋转" else "图片平面横滑"
-            SettingsFeaturePreview.LONG_PRESS -> if (enabled) "正常播放，按住临时加速，松手恢复原速" else "保持原来的播放速度"
-            else -> feature.summary + if (enabled) " 当前演示开启效果。" else " 当前演示关闭效果。"
-        }
-    }) {
+    val sceneDescription = when (feature) {
+        SettingsFeaturePreview.TOP_BLUR -> stringResource(if (enabled) R.string.preview_scene_top_blur_on else R.string.preview_scene_top_blur_off)
+        SettingsFeaturePreview.IMAGE_PAGE -> stringResource(if (enabled) R.string.preview_scene_image_3d_on else R.string.preview_scene_image_3d_off)
+        SettingsFeaturePreview.LONG_PRESS -> stringResource(if (enabled) R.string.preview_scene_long_press_on else R.string.preview_scene_long_press_off)
+        else -> stringResource(if (enabled) R.string.preview_scene_enabled else R.string.preview_scene_disabled, stringResource(feature.titleResId))
+    }
+    Box(modifier.semantics { contentDescription = sceneDescription }) {
         when (feature) {
             SettingsFeaturePreview.TOP_BLUR -> {
                 PreviewScrollingCards(progress, accent, Modifier.fillMaxSize())
@@ -266,7 +272,7 @@ private fun FeaturePreviewScene(
                     modifier = Modifier.fillMaxWidth().height(64.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    AppText("首页 · 顶栏标题", color = ink)
+                    AppText(stringResource(R.string.preview_home_top_title), color = ink)
                 }
             }
             SettingsFeaturePreview.IMAGE_PAGE -> {
@@ -297,7 +303,7 @@ private fun FeaturePreviewScene(
                         }, accent)
                     }
                 }
-                AppText("图片 1 → 图片 2", modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp), color = ink)
+                AppText(stringResource(R.string.preview_image_pair), modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp), color = ink)
             }
             SettingsFeaturePreview.LONG_PRESS -> {
                 Canvas(Modifier.fillMaxSize()) {
@@ -328,9 +334,9 @@ private fun FeaturePreviewScene(
                 }
                 AppText(
                     when (stage) {
-                        1 -> "按住 · ${formatPlaybackSpeed(speed)}"
-                        2 -> "松手 · 恢复 1x"
-                        else -> "正常播放 · 1x"
+                        1 -> stringResource(R.string.preview_hold_speed, formatPlaybackSpeed(speed))
+                        2 -> stringResource(R.string.preview_release_speed)
+                        else -> stringResource(R.string.preview_normal_speed)
                     },
                     modifier = Modifier.align(Alignment.TopCenter).padding(12.dp), color = ink,
                 )

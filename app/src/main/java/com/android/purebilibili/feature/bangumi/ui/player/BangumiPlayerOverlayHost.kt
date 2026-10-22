@@ -1,17 +1,24 @@
 package com.android.purebilibili.feature.bangumi.ui.player
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.purebilibili.core.store.SettingsManager
 import com.android.purebilibili.core.store.DanmakuSettings
 import com.android.purebilibili.core.store.resolveDanmakuSettingsScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.platform.LocalContext
 import androidx.media3.exoplayer.ExoPlayer
 import com.android.purebilibili.feature.bangumi.BangumiOverlayUnsupportedAction
 import com.android.purebilibili.data.model.response.Page
+import com.android.purebilibili.data.model.response.VideoshotData
 import com.android.purebilibili.feature.bangumi.resolveBangumiOverlayQualityLabel
 import com.android.purebilibili.feature.bangumi.resolveBangumiOverlayShareTitle
 import com.android.purebilibili.feature.bangumi.resolveBangumiOverlaySwitchableQualityIds
@@ -27,10 +34,20 @@ import com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlay
 import com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlayState
 import com.android.purebilibili.feature.video.ui.overlay.VideoPlayerOverlayActions
 import com.android.purebilibili.feature.video.playback.audio.AudioQualityOption
+import com.android.purebilibili.feature.video.danmaku.DanmakuManager
+import com.android.purebilibili.feature.video.playback.session.PlaybackSeekSessionState
+import com.android.purebilibili.feature.video.playback.session.cancelPlaybackSeekInteraction
+import com.android.purebilibili.feature.video.playback.session.commitPlaybackSeekInteraction
+import com.android.purebilibili.feature.video.playback.session.shouldUsePlaybackSeekSessionPosition
+import com.android.purebilibili.feature.video.playback.session.startPlaybackSeekInteraction
+import com.android.purebilibili.feature.video.playback.session.syncPlaybackSeekSession
+import com.android.purebilibili.feature.video.playback.session.updatePlaybackSeekInteraction
+import com.android.purebilibili.feature.video.usecase.seekPlayerFromUserAction
 
 @Composable
 internal fun BangumiPlayerOverlayHost(
     player: ExoPlayer,
+    danmakuManager: DanmakuManager,
     features: BangumiPlayerFeatures,
     seasonId: Long,
     epId: Long,
@@ -39,6 +56,7 @@ internal fun BangumiPlayerOverlayHost(
     bvid: String,
     aid: Long,
     cid: Long,
+    videoshotData: VideoshotData?,
     coverUrl: String,
     currentVideoUrl: String,
     currentAudioUrl: String,
@@ -112,6 +130,22 @@ internal fun BangumiPlayerOverlayHost(
         acceptDescription = acceptDescription
     )
     val switchableQualityIds = resolveBangumiOverlaySwitchableQualityIds(acceptQuality)
+    // 拖动与待落地进度绑定当前剧集，玻璃和原生控制栏共用同一会话。
+    var seekSession by remember(player, epId, bvid, cid) {
+        mutableStateOf(PlaybackSeekSessionState())
+    }
+    LaunchedEffect(player, epId, bvid, cid) {
+        while (isActive) {
+            if (seekSession.isSliderMoving || seekSession.pendingSeekPositionMs != null) {
+                seekSession = syncPlaybackSeekSession(
+                    state = seekSession,
+                    playbackPositionMs = player.currentPosition,
+                    hasPlaybackResumedAfterPendingSeek = player.isPlaying || !player.playWhenReady,
+                )
+            }
+            delay(100L)
+        }
+    }
 
     VideoPlayerOverlay(
         state = VideoPlayerOverlayState(
@@ -126,6 +160,8 @@ internal fun BangumiPlayerOverlayHost(
             isLoggedIn = isLoggedIn,
             bvid = bvid,
             cid = cid,
+            videoshotData = videoshotData,
+            isSeekScrubbing = seekSession.isSliderMoving,
             videoOwnerName = title,
             videoSharePlayCountText = "",
             videoDuration = player.duration.coerceAtLeast(0L),
@@ -194,6 +230,38 @@ internal fun BangumiPlayerOverlayHost(
             currentPageIndex = currentPageIndex,
         ),
         actions = VideoPlayerOverlayActions(
+            onSeekStart = danmakuManager::prepareForSeekScrub,
+            onSeekDragStart = { position ->
+                seekSession = startPlaybackSeekInteraction(
+                    state = seekSession.copy(playbackPositionMs = player.currentPosition),
+                    player = player,
+                    positionMs = position,
+                )
+            },
+            onSeekDragUpdate = { position ->
+                seekSession = updatePlaybackSeekInteraction(seekSession, position)
+            },
+            onSeekDragCancel = {
+                seekSession = cancelPlaybackSeekInteraction(seekSession)
+                danmakuManager.cancelSeekScrub()
+            },
+            onSeekTo = { position ->
+                val result = commitPlaybackSeekInteraction(
+                    state = seekSession.copy(playbackPositionMs = player.currentPosition),
+                    player = player,
+                    positionMs = position,
+                )
+                seekSession = result.state
+                seekPlayerFromUserAction(
+                    player = player,
+                    positionMs = result.committedPositionMs,
+                    shouldResumePlaybackOverride = result.shouldResumePlayback,
+                )
+                danmakuManager.seekTo(result.committedPositionMs)
+            },
+            progressDisplayOverridePositionProvider = {
+                seekSession.sliderPositionMs.takeIf { shouldUsePlaybackSeekSessionPosition(seekSession) }
+            },
             onToggleVisible = onToggleVisible,
             onQualitySelected = { index ->
                 acceptQuality.getOrNull(index)?.let(onQualityChange)

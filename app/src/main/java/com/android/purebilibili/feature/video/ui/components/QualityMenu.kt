@@ -6,7 +6,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.purebilibili.core.store.SettingsManager
 
@@ -37,7 +36,7 @@ fun QualitySelectionMenu(
             PlayerSelectionItem(
                 modifier = Modifier.playerPopupSelectedOption(selected),
                 text = quality, summary = hint, selected = selected,
-                horizontalPadding = 15.dp,
+                index = index, optionCount = qualities.size,
                 enabled = hint == null && !selected,
                 onClick = { onQualitySelected(index) },
             )
@@ -69,11 +68,12 @@ fun SpeedSelectionMenu(
         },
         anchorBounds = anchorBounds,
     ) {
-        options.forEach { speed ->
+        options.forEachIndexed { index, speed ->
             val selected = speed == currentSpeed
             PlayerSelectionItem(
                 modifier = Modifier.playerPopupSelectedOption(selected),
                 text = "${speed}X", selected = selected,
+                index = index, optionCount = options.size,
                 enabled = !selected,
                 onClick = { onSpeedSelected(speed) },
             )

@@ -23,6 +23,14 @@ plugins {
     // id("com.google.firebase.crashlytics")
 }
 
+// 发布使用已保存的规则；交互采集仅通过显式生成任务执行。
+// 采集结果独立写入 generated/baselineProfiles，不覆盖 main/baseline-prof.txt 的热点补充。
+baselineProfile {
+    automaticGenerationDuringBuild = false
+    saveInSrc = true
+    mergeIntoMain = true
+}
+
 abstract class PrepareKspGeneratedDirsTask : org.gradle.api.DefaultTask() {
     @get:org.gradle.api.tasks.OutputDirectories
     abstract val outputDirs: org.gradle.api.file.ConfigurableFileCollection
@@ -117,6 +125,11 @@ val buildReleaseTag = providers.gradleProperty("bili.build.releaseTag")
 
 android {
     namespace = "com.android.purebilibili"
+    androidResources {
+        generateLocaleConfig = true
+        // localeFilters is forwarded to aapt2's -c option; use Android resource qualifier syntax.
+        localeFilters += listOf("en", "zh-rCN", "zh-rTW")
+    }
     compileSdk {
         version = release(37) {
             minorApiLevel = 0
@@ -129,8 +142,8 @@ android {
         targetSdk = 37
         // 版本名按发行计划确定；versionCode 每次发布单调 +1
         // 规范：docs/wiki/VERSIONING.md · 更新日志：CHANGELOG.md
-        versionCode = 497
-        versionName = "0.5.2"
+        versionCode = 501
+        versionName = "0.5.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

@@ -350,6 +350,7 @@ fun PortraitSubtitleHost(
         onControlsChange(controlState, controlCallbacks)
     }
 
+    val glassLayout = com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
     Box(modifier = modifier.fillMaxSize()) {
         if (keepMounted && subtitleSession.selectedTrackKey == null) {
             Column(
@@ -365,9 +366,17 @@ fun PortraitSubtitleHost(
                             }
                         )
                     }
-                    .fillMaxWidth()
-                    .padding(horizontal = subtitleAppearance.horizontalPadding.dp)
-                    .padding(bottom = (bottomPaddingDp + subtitleAppearance.bottomPadding).dp)
+                    .then(
+                        if (glassLayout) Modifier
+                            .fillMaxWidth(0.92f)
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = bottomPaddingDp.dp)
+                            .padding(vertical = 6.dp)
+                        else Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = subtitleAppearance.horizontalPadding.dp)
+                            .padding(bottom = (bottomPaddingDp + subtitleAppearance.bottomPadding).dp)
+                    )
                     .then(
                         if (subtitlePositionLocked) {
                             Modifier
@@ -402,22 +411,61 @@ fun PortraitSubtitleHost(
                     ),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val showPrimary = !primaryText.isNullOrBlank()
-                val showSecondary = !secondaryText.isNullOrBlank()
-                val secondaryAsPrimary = showSecondary && !showPrimary
-                if (showSecondary) PiliStyledSubtitleText(
-                    text = secondaryText.orEmpty(),
-                    baseFontSizeSp = if (secondaryAsPrimary) textSizeSpec.primarySp else textSizeSpec.secondarySp,
-                    appearance = subtitleAppearance,
-                    isFullscreen = false,
-                    color = Color.White.copy(alpha = 0.88f),
-                )
-                if (showPrimary) PiliStyledSubtitleText(
-                    text = primaryText.orEmpty(),
-                    baseFontSizeSp = textSizeSpec.primarySp,
-                    appearance = subtitleAppearance,
-                    isFullscreen = false,
-                )
+                if (glassLayout) {
+                    val shadow = Shadow(
+                        color = Color.Black.copy(alpha = 0.85f),
+                        offset = Offset(0f, 1.5f),
+                        blurRadius = 6f
+                    )
+                    val showPrimary = !primaryText.isNullOrBlank()
+                    val showSecondary = !secondaryText.isNullOrBlank()
+                    val secondaryAsPrimary = showSecondary && !showPrimary
+                    AppText(
+                        text = secondaryText.orEmpty(),
+                        color = Color.White.copy(alpha = if (showSecondary) 0.88f else 0f),
+                        fontSize = if (secondaryAsPrimary) {
+                            textSizeSpec.primarySp.sp
+                        } else {
+                            textSizeSpec.secondarySp.sp
+                        },
+                        fontWeight = if (secondaryAsPrimary) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center,
+                        style = androidx.compose.ui.text.TextStyle(shadow = shadow),
+                        modifier = Modifier.then(
+                            if (showSecondary) Modifier else Modifier.height(0.dp)
+                        )
+                    )
+                    AppText(
+                        text = primaryText.orEmpty(),
+                        color = Color.White.copy(alpha = if (showPrimary) 1f else 0f),
+                        fontSize = textSizeSpec.primarySp.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        textAlign = TextAlign.Center,
+                        style = androidx.compose.ui.text.TextStyle(shadow = shadow),
+                        modifier = Modifier.then(
+                            if (showPrimary) Modifier else Modifier.height(0.dp)
+                        )
+                    )
+                } else {
+                    val showPrimary = !primaryText.isNullOrBlank()
+                    val showSecondary = !secondaryText.isNullOrBlank()
+                    val secondaryAsPrimary = showSecondary && !showPrimary
+                    if (showSecondary) PiliStyledSubtitleText(
+                        text = secondaryText.orEmpty(),
+                        baseFontSizeSp = if (secondaryAsPrimary) textSizeSpec.primarySp else textSizeSpec.secondarySp,
+                        appearance = subtitleAppearance,
+                        isFullscreen = false,
+                        color = Color.White.copy(alpha = 0.88f),
+                    )
+                    if (showPrimary) PiliStyledSubtitleText(
+                        text = primaryText.orEmpty(),
+                        baseFontSizeSp = textSizeSpec.primarySp,
+                        appearance = subtitleAppearance,
+                        isFullscreen = false,
+                    )
+                }
             }
         }
 

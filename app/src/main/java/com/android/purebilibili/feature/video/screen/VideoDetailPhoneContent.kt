@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.purebilibili.core.ui.AppShapes
@@ -536,16 +537,18 @@ private fun ExternalPlaylistQueueCollapsedBar(
     modifier: Modifier = Modifier
 ) {
     val shape = AppShapes.container(ContainerLevel.Pill)
+    // 队列入口按内容紧凑排版，两种材质共用最小高度，大字体可自然撑高。
+    val minBarHeight = 40.dp
     if (liquidGlassEnabled) {
         BottomBarMatchedReusableLiquidDock(
             shape = shape,
             modifier = modifier
                 .fillMaxWidth()
-                .height(64.dp),
+                .heightIn(min = minBarHeight),
             backdrop = backdrop,
             reuseEnabled = true,
             drawShellLens = true,
-            shellLensIntensity = resolveFloatingDockGeometryScale(64f),
+            shellLensIntensity = resolveFloatingDockGeometryScale(minBarHeight.value),
             isScrollInProgressProvider = isScrollInProgressProvider,
         ) {
             ExternalPlaylistQueueCollapsedBarContent(
@@ -560,7 +563,7 @@ private fun ExternalPlaylistQueueCollapsedBar(
     AppSurface(
         modifier = modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .heightIn(min = minBarHeight)
             // 先 clip 再 haze：否则模糊层按矩形绘制，左/右端会露出直角（与展开 sheet 一致）。
             .clip(shape)
             .then(
@@ -572,8 +575,7 @@ private fun ExternalPlaylistQueueCollapsedBar(
                 } else {
                     Modifier
                 }
-            )
-            .clickable { onClick() },
+            ),
         shape = shape,
         color = AppSurfaceTokens.cardContainer().copy(alpha = 0.74f),
         tonalElevation = 0.dp,
@@ -595,26 +597,31 @@ private fun ExternalPlaylistQueueCollapsedBarContent(
     title: String,
     videoCount: Int,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = modifier
+                .fillMaxWidth()
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AppText(
                 text = title,
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = AppContentColors.primaryText()
+                color = AppContentColors.primaryText(),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.width(8.dp))
             AppText(
                 text = "${videoCount}个视频",
                 color = AppContentColors.accent(),
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
             )
             Spacer(modifier = Modifier.width(4.dp))
             AppIcon(

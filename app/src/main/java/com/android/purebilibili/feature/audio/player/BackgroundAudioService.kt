@@ -34,6 +34,7 @@ import com.android.purebilibili.core.player.SharedPlaybackRequest
 import com.android.purebilibili.core.store.MultiProcessPreferences
 import com.android.purebilibili.core.store.TokenManager
 import com.android.purebilibili.core.util.MediaUtils
+import com.android.purebilibili.core.util.Logger
 import com.android.purebilibili.feature.video.playback.audio.resolveAudioStreamSelection
 import com.android.purebilibili.feature.video.player.PlayMode
 import com.google.common.util.concurrent.ListenableFuture
@@ -42,12 +43,15 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Owns only an audio renderer, a bounded transport queue and the system media session. */
 class BackgroundAudioService : MediaSessionService() {
@@ -67,6 +71,7 @@ class BackgroundAudioService : MediaSessionService() {
     private var historyStartedAt = System.currentTimeMillis() / 1000L
     private var committed = false
     private var nativeReleased = false
+    private var taskRemoved = false
     private var restoring: Job? = null
     private val stateStore by lazy { MultiProcessPreferences.get(this, "background_audio") }
     private val snapshotKey = stringPreferencesKey("snapshot")
@@ -125,9 +130,11 @@ class BackgroundAudioService : MediaSessionService() {
         }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = session
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
+        session.takeUnless { taskRemoved || nativeReleased }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (taskRemoved || nativeReleased) return START_NOT_STICKY
         if (intent?.action == ACTION_PROMOTE || intent == null) {
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "后台音频", NotificationManager.IMPORTANCE_LOW))
@@ -157,6 +164,7 @@ class BackgroundAudioService : MediaSessionService() {
 
     private val callback = object : MediaSession.Callback {
         override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
+            if (taskRemoved || nativeReleased) return MediaSession.ConnectionResult.reject()
             if (controller.uid != android.os.Process.myUid() && !controller.isTrusted) return MediaSession.ConnectionResult.reject()
             val commands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
             if (controller.uid == android.os.Process.myUid()) {
@@ -172,6 +180,10 @@ class BackgroundAudioService : MediaSessionService() {
             command: SessionCommand, args: Bundle
         ): ListenableFuture<SessionResult> {
             val result = SettableFuture.create<SessionResult>()
+            if (taskRemoved || nativeReleased) {
+                result.set(SessionResult(SessionResult.RESULT_ERROR_INVALID_STATE))
+                return result
+            }
             scope.launch {
                 try {
                     when (command.customAction) {
@@ -452,17 +464,23 @@ class BackgroundAudioService : MediaSessionService() {
     }
 
     private suspend fun closeSession() {
-        if (nativeReleased) return
-        committed = false
-        generation++
-        nextLoad?.cancel()
-        errorRecovery?.cancel()
-        snapshot = null
-        player.stop()
-        try {
-            stateStore.edit { it.remove(snapshotKey) }
-        } finally {
+        if (!nativeReleased) {
+            committed = false
+            generation++
+            nextLoad?.cancel()
+            errorRecovery?.cancel()
+            pauseRelease?.cancel()
+            snapshot = null
+            player.pause()
+            player.stop()
             releaseNativeResources()
+        }
+        try {
+            // 清理开始后即使服务销毁，也应完成删除，避免旧播放意图残留。
+            withContext(NonCancellable) {
+                stateStore.edit { it.remove(snapshotKey) }
+            }
+        } finally {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -475,6 +493,22 @@ class BackgroundAudioService : MediaSessionService() {
         preparing = null
         session.release()
         player.release()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (taskRemoved) return
+        taskRemoved = true
+        // 先取消恢复、预取及快照写入，再清理；服务存活至快照删除完成。
+        scope.coroutineContext.cancelChildren()
+        scope.launch {
+            try {
+                closeSession()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Logger.e("BackgroundAudioService", "Failed to clear removed task audio snapshot", error)
+            }
+        }
     }
 
     override fun onDestroy() {

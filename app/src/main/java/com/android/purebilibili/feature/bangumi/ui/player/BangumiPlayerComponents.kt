@@ -62,6 +62,7 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.ui.PlayerView
 import com.android.purebilibili.core.plugin.PluginManager
 import com.android.purebilibili.data.model.response.Page
+import com.android.purebilibili.data.model.response.VideoshotData
 import com.android.purebilibili.core.util.FormatUtils
 import com.android.purebilibili.core.util.Logger
 import com.android.purebilibili.feature.anime4k.Anime4KConfig
@@ -125,6 +126,7 @@ fun BangumiPlayerView(
     bvid: String = "",
     aid: Long = 0L,
     cid: Long = 0L,
+    videoshotData: VideoshotData? = null,
     coverUrl: String = "",
     currentVideoUrl: String = "",
     currentAudioUrl: String = "",
@@ -759,7 +761,17 @@ fun BangumiPlayerView(
             },
         )
         if (showGestureIndicator && gestureMode == BangumiGestureMode.Seek) {
-            BangumiGestureIndicator(
+            if (videoshotData?.isValid == true) {
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    com.android.purebilibili.feature.video.ui.components.CompactSeekPreview(
+                        videoshotData = videoshotData,
+                        targetPositionMs = seekPreviewPosition,
+                        durationMs = duration,
+                        containerHeightDp = maxHeight.value.toInt(),
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+            } else BangumiGestureIndicator(
                 mode = gestureMode,
                 value = when (gestureMode) {
                     BangumiGestureMode.Brightness -> currentBrightness
@@ -817,6 +829,7 @@ fun BangumiPlayerView(
         ) {
         BangumiPlayerOverlayHost(
             player = exoPlayer,
+            danmakuManager = danmakuManager,
             features = features.copy(
                 isFlippedHorizontal = features.isFlippedHorizontal && !requiresHdrSurface,
                 isFlippedVertical = features.isFlippedVertical && !requiresHdrSurface,
@@ -836,6 +849,7 @@ fun BangumiPlayerView(
             bvid = bvid,
             aid = aid,
             cid = cid,
+            videoshotData = videoshotData,
             coverUrl = coverUrl,
             currentVideoUrl = currentVideoUrl,
             currentAudioUrl = currentAudioUrl,

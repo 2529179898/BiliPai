@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -228,7 +229,7 @@ fun OnboardingBottomSheet(
                                     MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                                 )
                             ) {
-                                AppText("跳过", fontWeight = FontWeight.Medium)
+                                AppText(stringResource(R.string.onboarding_skip), fontWeight = FontWeight.Medium)
                             }
 
                             // 下一步按钮
@@ -246,7 +247,7 @@ fun OnboardingBottomSheet(
                                     contentColor = resolveFilledButtonContentColor(MaterialTheme.colorScheme)
                                 )
                             ) {
-                                AppText("下一步", fontWeight = FontWeight.SemiBold)
+                                AppText(stringResource(R.string.onboarding_next), fontWeight = FontWeight.SemiBold)
                             }
                         } else {
                             // 最后一页：开始使用
@@ -263,7 +264,7 @@ fun OnboardingBottomSheet(
                                 )
                             ) {
                                 AppText(
-                                    "开始探索 BiliPai",
+                                    stringResource(R.string.onboarding_start_exploring),
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.labelLarge
                                 )
@@ -355,7 +356,7 @@ private fun WelcomePage(hazeState: HazeState) {
 
         // 标题 - 动画项 1
         AppText(
-            "欢迎使用 BiliPai",
+            stringResource(R.string.onboarding_welcome_title),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = AppContentColors.primaryText(),
@@ -369,7 +370,7 @@ private fun WelcomePage(hazeState: HazeState) {
 
         // 副标题 - 动画项 2
         AppText(
-            "简洁 · 流畅 · 开源",
+            stringResource(R.string.onboarding_welcome_subtitle),
             style = MaterialTheme.typography.bodyLarge,
             color = AppContentColors.secondaryText(),
             letterSpacing = 3.sp,
@@ -390,17 +391,17 @@ private fun WelcomePage(hazeState: HazeState) {
         ) {
             FeatureBadge(
                 emoji = "🎨",
-                label = "个性外观",
+                label = stringResource(R.string.onboarding_feature_appearance),
                 animationProgress = animatedItems[3].value
             )
             FeatureBadge(
                 emoji = "⚡",
-                label = "极速播放",
+                label = stringResource(R.string.onboarding_feature_fast_playback),
                 animationProgress = animatedItems[4].value
             )
             FeatureBadge(
                 emoji = "🔒",
-                label = "隐私优先",
+                label = stringResource(R.string.onboarding_feature_privacy),
                 animationProgress = animatedItems[5].value
             )
         }
@@ -427,7 +428,7 @@ private fun WelcomePage(hazeState: HazeState) {
             }
         ) {
             AppText(
-                "本应用仅供学习交流，所有内容版权归 Bilibili 及原作者。",
+                stringResource(R.string.onboarding_disclaimer),
                 style = MaterialTheme.typography.bodySmall,
                 color = disclaimerColors.contentColor,
                 textAlign = TextAlign.Center,
@@ -509,7 +510,7 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
 
         // 标题 - 动画项 1
         AppText(
-            "个性化外观",
+            stringResource(R.string.onboarding_appearance_title),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             color = AppContentColors.primaryText(),
@@ -523,7 +524,7 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
 
         // 副标题 - 动画项 2
         AppText(
-            "打造专属于你的界面风格",
+            stringResource(R.string.onboarding_appearance_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = AppContentColors.secondaryText(),
             modifier = Modifier.graphicsLayer {
@@ -537,8 +538,8 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
         // 功能列表 - 动画项 3, 4, 5, 6
         FeatureListItem(
             icon = "🎨",
-            title = "多种主题色",
-            description = "粉色、蓝色、紫色...随心切换",
+            title = stringResource(R.string.onboarding_theme_colors_title),
+            description = stringResource(R.string.onboarding_theme_colors_description),
             animationProgress = animatedItems[3].value,
             hazeState = hazeState
         )
@@ -547,8 +548,8 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
 
         FeatureListItem(
             icon = "🌙",
-            title = "深色模式",
-            description = "护眼夜间模式，跟随系统或手动切换",
+            title = stringResource(R.string.onboarding_dark_mode_title),
+            description = stringResource(R.string.onboarding_dark_mode_description),
             animationProgress = animatedItems[4].value,
             hazeState = hazeState
         )
@@ -557,8 +558,8 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
 
         FeatureListItem(
             icon = "✨",
-            title = "动态取色",
-            description = "Android 12+ 支持系统壁纸取色",
+            title = stringResource(R.string.onboarding_dynamic_color_title),
+            description = stringResource(R.string.onboarding_dynamic_color_description),
             animationProgress = animatedItems[5].value,
             hazeState = hazeState
         )
@@ -567,8 +568,8 @@ private fun AppearanceSettingsPage(hazeState: HazeState) {
 
         FeatureListItem(
             icon = "👁️",
-            title = "护眼模式",
-            description = "柔和屏幕色调，保护视力",
+            title = stringResource(R.string.onboarding_eye_comfort_title),
+            description = stringResource(R.string.onboarding_eye_comfort_description),
             animationProgress = animatedItems[6].value,
             hazeState = hazeState
         )
@@ -647,7 +648,7 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
 
         // 标题 - 动画项 1
         AppText(
-            "智能播放体验",
+            stringResource(R.string.onboarding_playback_title),
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             color = AppContentColors.primaryText(),
@@ -661,7 +662,7 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
 
         // 副标题 - 动画项 2
         AppText(
-            "流畅观看，省流省电",
+            stringResource(R.string.onboarding_playback_subtitle),
             style = MaterialTheme.typography.bodyMedium,
             color = AppContentColors.secondaryText(),
             modifier = Modifier.graphicsLayer {
@@ -675,8 +676,8 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
         // 功能列表 - 动画项 3, 4, 5, 6
         FeatureListItem(
             icon = "📺",
-            title = "智能画质",
-            description = "WiFi/流量自动切换画质，省流量模式可用",
+            title = stringResource(R.string.onboarding_adaptive_quality_title),
+            description = stringResource(R.string.onboarding_adaptive_quality_description),
             animationProgress = animatedItems[3].value,
             hazeState = hazeState
         )
@@ -685,8 +686,8 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
 
         FeatureListItem(
             icon = "🖼️",
-            title = "小窗播放",
-            description = "边刷视频边聊天，多任务神器",
+            title = stringResource(R.string.onboarding_picture_in_picture_title),
+            description = stringResource(R.string.onboarding_picture_in_picture_description),
             animationProgress = animatedItems[4].value,
             hazeState = hazeState
         )
@@ -695,8 +696,8 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
 
         FeatureListItem(
             icon = "👆",
-            title = "手势控制",
-            description = "左右滑动快进，上下调节音量亮度",
+            title = stringResource(R.string.onboarding_gestures_title),
+            description = stringResource(R.string.onboarding_gestures_description),
             animationProgress = animatedItems[5].value,
             hazeState = hazeState
         )
@@ -705,8 +706,8 @@ private fun PlaybackSettingsPage(hazeState: HazeState) {
 
         FeatureListItem(
             icon = "👍",
-            title = "双击点赞",
-            description = "双击画面快速点赞，设置中可开关",
+            title = stringResource(R.string.onboarding_double_tap_like_title),
+            description = stringResource(R.string.onboarding_double_tap_like_description),
             animationProgress = animatedItems[6].value,
             hazeState = hazeState
         )
