@@ -2,6 +2,7 @@
 package com.android.purebilibili.feature.video.screen
 
 import com.android.purebilibili.core.ui.AppContentColors
+import com.android.purebilibili.core.ui.motion.AppMotionEasing
 import com.android.purebilibili.core.ui.components.appElasticPress
 
 
@@ -288,7 +289,7 @@ import kotlin.math.roundToInt
 private val commentBackToTopRestoreFlow =
     kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
-private const val CONTINUOUS_PLAYER_MORPH_DURATION_MILLIS = 280
+private const val CONTINUOUS_PLAYER_MORPH_DURATION_MILLIS = 240
 
 private const val VIDEO_DETAIL_COLLAPSE_SIGNAL_IDLE_TIMEOUT_MS = 120L
 
@@ -2636,12 +2637,16 @@ internal fun VideoDetailScreenStateHolder(
                 continuousPlayerProgress.snapTo(1f)
                 continuousPlayerPhase = ContinuousPlayerTransitionPhase.Fullscreen
             }
-            // 仅清理「已处于 Fullscreen 但窗口已回竖屏」的陈旧进度。
+            // 自动旋回竖屏也从当前进度收起，与手动退出共用连续过渡。
             // AwaitingLandscape 已请求旋转，但系统窗口方向可能尚未更新，不能提前清理。
             !isLandscape &&
                 continuousPlayerPhase == ContinuousPlayerTransitionPhase.Fullscreen -> {
-                continuousPlayerProgress.snapTo(0f)
-                continuousPlayerPhase = ContinuousPlayerTransitionPhase.Inline
+                applyContinuousPlayerDecision(
+                    reduceContinuousPlayerTransition(
+                        phase = continuousPlayerPhase,
+                        event = ContinuousPlayerTransitionEvent.OrientationChanged(false),
+                    )
+                )
             }
             // 等待横屏期间保留当前播放器尺寸，不再先播放竖屏铺满动画。
             // 初始竖屏观测不代表用户退出，不能误派发成「回竖屏」事件。
@@ -2669,7 +2674,8 @@ internal fun VideoDetailScreenStateHolder(
                         durationMillis = (CONTINUOUS_PLAYER_MORPH_DURATION_MILLIS * remaining)
                             .roundToInt()
                             .coerceAtLeast(1),
-                        easing = FastOutSlowInEasing,
+                        // 系统旋转后立即承接收起，避免慢起步造成第二次停顿。
+                        easing = AppMotionEasing.Continuity,
                     ),
                 )
                 applyContinuousPlayerDecision(

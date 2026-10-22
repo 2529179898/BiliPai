@@ -295,9 +295,10 @@ internal fun resolveIndicatorOwnedTargetOnDragStop(
     targetIndex: Int,
     selectedIndex: Int,
     hasExternalPagerPosition: Boolean,
+    indicatorPosition: Float = targetIndex.toFloat(),
 ): Int? {
     if (!hasExternalPagerPosition) return null
-    if (targetIndex == selectedIndex) return null
+    if (targetIndex == selectedIndex && abs(indicatorPosition - targetIndex) <= 0.001f) return null
     return targetIndex
 }
 
@@ -312,6 +313,7 @@ internal fun shouldSuppressExternalPagerIndicatorFollow(
     externalPosition: Float?,
     isPagerScrolling: Boolean,
     catchUpEpsilon: Float = EXTERNAL_PAGER_INDICATOR_CATCH_UP_EPSILON,
+    internalPosition: Float? = null,
 ): Boolean {
     if (ownedTargetIndex == null) return false
     val target = ownedTargetIndex.toFloat()
@@ -324,6 +326,8 @@ internal fun shouldSuppressExternalPagerIndicatorFollow(
     }
     if (isPagerScrolling) return true
     if (externalPosition == null) return true
+    // 页面已到位时，仍让指示器完成自己的吸附，避免截断松手位置弹簧。
+    if (internalPosition != null && abs(internalPosition - target) > 0.001f) return true
     return !isExternalPagerCaughtUpToOwnedTarget(
         ownedTargetIndex = ownedTargetIndex,
         externalPosition = externalPosition,
@@ -766,6 +770,7 @@ fun FloatingBottomBar(
                     targetIndex = targetIndex,
                     selectedIndex = selected,
                     hasExternalPagerPosition = indicatorPositionLatest != null,
+                    indicatorPosition = if (isLiquidGlassMode) value else targetIndex.toFloat(),
                 )
                 pagerFollowGate.previousExternalPosition = null
                 if (targetIndex != selected) {
@@ -956,7 +961,8 @@ fun FloatingBottomBar(
         // Position is in slots: search/label width changes must not recreate the shape spring.
         geometryKey = safeTabsCount,
         canSettle = canRecoil,
-        selectionKey = { selectedIndexLatest.value() },
+        // 松手即确认拖动落点；稍后的页面回执不能再触发一次选中形变。
+        selectionKey = { pagerFollowGate.ownedTargetIndex ?: selectedIndexLatest.value() },
         interactionActive = {
             resolveFloatingDockWobbleManualInteraction(
                 indicatorDragging = dampedDragAnimation.isDragging,
@@ -1120,8 +1126,12 @@ fun FloatingBottomBar(
         snapshotFlow {
             val external = indicatorPositionLatest?.invoke()
             val scrolling = isScrollInProgressLatest()
-            Triple(external, scrolling, dampedDragAnimation.isDragging)
-        }.collect { (external, scrolling, dragging) ->
+            Triple(external, scrolling, dampedDragAnimation.isDragging) to
+                if (isLiquidGlassMode && pagerFollowGate.ownedTargetIndex != null) {
+                    dampedDragAnimation.value
+                } else null
+        }.collect { (pagerInput, internalPosition) ->
+            val (external, scrolling, dragging) = pagerInput
             if (dragging) {
                 pagerMotionActive = false
                 return@collect
@@ -1132,6 +1142,7 @@ fun FloatingBottomBar(
                     previousExternalPosition = pagerFollowGate.previousExternalPosition,
                     externalPosition = external,
                     isPagerScrolling = scrolling,
+                    internalPosition = internalPosition,
                 )
             ) {
                 pagerFollowGate.previousExternalPosition = external

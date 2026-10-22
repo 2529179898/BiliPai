@@ -1,5 +1,6 @@
 package com.android.purebilibili.feature.video.ui.components.glass
 
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.runtime.Composable
 import com.android.purebilibili.feature.video.ui.components.PlayerListPopupPlacement
 import com.android.purebilibili.feature.video.ui.components.QualitySelectionMenu as NativeQualitySelectionMenu
@@ -15,6 +16,7 @@ fun QualitySelectionMenu(
     onQualitySelected: (Int) -> Unit, onDismiss: () -> Unit,
     useDialog: Boolean = false,
     placement: PlayerListPopupPlacement = PlayerListPopupPlacement.CENTER,
+    anchorBounds: IntRect? = null,
 ) = NativeQualitySelectionMenu(
     qualities = qualities,
     qualityIds = qualityIds,
@@ -26,14 +28,16 @@ fun QualitySelectionMenu(
     onDismiss = onDismiss,
     useDialog = useDialog,
     placement = placement,
+    anchorBounds = anchorBounds,
 )
 
-enum class SpeedSelectionMenuPlacement { CENTER, RIGHT_SIDE }
+enum class SpeedSelectionMenuPlacement { CENTER, RIGHT_SIDE, ANCHOR_END }
 
 @Composable
 fun SpeedSelectionMenu(
     currentSpeed: Float, onSpeedSelected: (Float) -> Unit,
     onDismiss: () -> Unit, placement: SpeedSelectionMenuPlacement,
+    anchorBounds: IntRect? = null,
 ) = NativeSpeedSelectionMenu(
     currentSpeed = currentSpeed,
     onSpeedSelected = onSpeedSelected,
@@ -41,7 +45,9 @@ fun SpeedSelectionMenu(
     placement = when (placement) {
         SpeedSelectionMenuPlacement.CENTER -> NativeSpeedSelectionMenuPlacement.CENTER
         SpeedSelectionMenuPlacement.RIGHT_SIDE -> NativeSpeedSelectionMenuPlacement.RIGHT_SIDE
+        SpeedSelectionMenuPlacement.ANCHOR_END -> NativeSpeedSelectionMenuPlacement.ANCHOR_END
     },
+    anchorBounds = anchorBounds,
 )
 
 @Composable
@@ -49,4 +55,5 @@ fun SpeedSelectionMenuDialog(
     currentSpeed: Float, onSpeedSelected: (Float) -> Unit,
     onDismiss: () -> Unit,
     placement: SpeedSelectionMenuPlacement = SpeedSelectionMenuPlacement.CENTER,
-) = SpeedSelectionMenu(currentSpeed, onSpeedSelected, onDismiss, placement)
+    anchorBounds: IntRect? = null,
+) = SpeedSelectionMenu(currentSpeed, onSpeedSelected, onDismiss, placement, anchorBounds)

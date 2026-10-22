@@ -42,7 +42,10 @@ internal class LiquidIndicatorWobble(initialPosition: Float) {
     val isSelectionMotion: Boolean get() = selectionMotion
 
     /** A changed selection arms one recoil even when its position jumps between frames. */
-    fun onSelectionChanged(continuous: Boolean = false) {
+    fun onSelectionChanged(continuous: Boolean = false, preserveRelease: Boolean = false) {
+        // 拖动提交的选中回执只确认落点，不重新驱动已开始的松手回弹。
+        // 新的点按仍可接管当前形变。
+        if (preserveRelease && releaseMotion) return
         if (continuous) {
             // Retargeting keeps the shape and its velocity. Even a selection that
             // lands between samples receives one small, continuous response.
@@ -275,7 +278,7 @@ fun rememberLiquidIndicatorWobble(
                     } else if (released) {
                         wobble.onInteractionReleased(next.position)
                     } else if (!next.manual && (selectionChanged || explicitTapStarted)) {
-                        wobble.onSelectionChanged(continuous)
+                        wobble.onSelectionChanged(continuous, preserveRelease = !explicitTapStarted)
                     }
                     result.isSelectionMotion = wobble.isSelectionMotion
                     result.velocityWeight = wobble.velocityWeight

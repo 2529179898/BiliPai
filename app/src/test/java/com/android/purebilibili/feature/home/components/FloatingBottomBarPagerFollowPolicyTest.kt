@@ -8,6 +8,23 @@ import kotlin.test.assertTrue
 
 class FloatingBottomBarPagerFollowPolicyTest {
     @Test
+    fun `returning to the selected tab retains ownership until local absorption finishes`() {
+        val target = resolveIndicatorOwnedTargetOnDragStop(
+            targetIndex = 1, selectedIndex = 1, hasExternalPagerPosition = true,
+            indicatorPosition = 1.3f,
+        )
+        assertEquals(1, target)
+        assertTrue(shouldSuppressExternalPagerIndicatorFollow(
+            ownedTargetIndex = target, previousExternalPosition = 1f,
+            externalPosition = 1f, isPagerScrolling = false, internalPosition = 1.12f,
+        ))
+        assertFalse(shouldSuppressExternalPagerIndicatorFollow(
+            ownedTargetIndex = target, previousExternalPosition = 1f,
+            externalPosition = 1f, isPagerScrolling = false, internalPosition = 1f,
+        ))
+    }
+
+    @Test
     fun `tap animation stays non manual after its press bloom finishes`() {
         for (dragSignal in listOf<Boolean?>(null, false)) {
             assertFalse(resolveFloatingDockWobbleManualInteraction(

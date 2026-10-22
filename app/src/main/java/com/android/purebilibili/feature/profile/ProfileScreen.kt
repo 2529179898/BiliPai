@@ -1424,6 +1424,21 @@ private fun ProfileSpaceContent(
                         captureBackground()
                     }
                 }
+                ProfileSpaceTabsHost(
+                    sharedGlassTabs = LocalAppThemeConfig.current.liquidGlassEnabled,
+                    currentPage = { pagerState.currentPage },
+                    tabsVisible = {
+                        mobilePageListStates.getValue(profileTabs[pagerState.currentPage].tab)
+                            .firstVisibleItemIndex <= 1
+                    },
+                    tabs = { tabModifier ->
+                        ProfileSpaceTabs(space.selectedTab, onTabSelected, tabModifier, pagerState)
+                    },
+                    nativeTabs = { page, tabModifier ->
+                        ProfileSpaceTabs(profileTabs[page].tab, onTabSelected, tabModifier, pagerState)
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                ) { tabSlot ->
                 AppHorizontalPager(
                     state = pagerState,
                     userScrollEnabled = false,
@@ -1497,13 +1512,11 @@ private fun ProfileSpaceContent(
                             contentColor = contentChrome.onSurfaceColor,
                         )
                         }
-                        ProfileSpaceTabs(
-                            selectedTab = space.selectedTab,
-                            onTabSelected = onTabSelected,
-                            modifier = Modifier.stationaryPagerHeader(pagerState, page).onGloballyPositioned {
+                        tabSlot(
+                            page,
+                            Modifier.stationaryPagerHeader(pagerState, page).onGloballyPositioned {
                                 if (page == selectedPage) mobileTabsRootBottomPx = it.boundsInRoot().bottom
                             },
-                            pagerState = pagerState,
                         )
                         ProfileSpaceTabBody(
                             user = user,
@@ -1531,6 +1544,7 @@ private fun ProfileSpaceContent(
                 }
                 }
                 } // AppHorizontalPager
+                } // ProfileSpaceTabsHost
 
             }
             ProfilePinnedSpaceTopBarBackground(
@@ -1741,11 +1755,25 @@ private fun ProfileSpaceFeedColumn(
     var feedRootTopPx by remember { mutableStateOf(0f) }
     var tabsRootBottomPx by remember { mutableStateOf(Float.POSITIVE_INFINITY) }
     val tabs = remember { defaultProfileSpaceTabs() }
+    ProfileSpaceTabsHost(
+        sharedGlassTabs = LocalAppThemeConfig.current.liquidGlassEnabled,
+        currentPage = { pagerState.currentPage },
+        tabsVisible = {
+            pageListStates.getValue(tabs[pagerState.currentPage].tab).firstVisibleItemIndex == 0
+        },
+        tabs = { tabModifier ->
+            ProfileSpaceTabs(space.selectedTab, onTabSelected, tabModifier, pagerState)
+        },
+        nativeTabs = { page, tabModifier ->
+            ProfileSpaceTabs(tabs[page].tab, onTabSelected, tabModifier, pagerState)
+        },
+        modifier = modifier.fillMaxHeight(),
+    ) { tabSlot ->
     AppHorizontalPager(
         state = pagerState,
         userScrollEnabled = false,
         key = { tabs[it].tab },
-        modifier = modifier.fillMaxHeight().contentTabPagerGestures(
+        modifier = Modifier.fillMaxSize().contentTabPagerGestures(
             pager = pagerState,
             enabled = true,
             contentTopPx = {
@@ -1764,13 +1792,11 @@ private fun ProfileSpaceFeedColumn(
         contentPadding = contentPadding
     ) {
         item {
-            ProfileSpaceTabs(
-                selectedTab = space.selectedTab,
-                onTabSelected = onTabSelected,
-                modifier = Modifier.stationaryPagerHeader(pagerState, page).onGloballyPositioned {
+            tabSlot(
+                page,
+                Modifier.stationaryPagerHeader(pagerState, page).onGloballyPositioned {
                     if (isPageActive) tabsRootBottomPx = it.boundsInRoot().bottom
                 },
-                pagerState = pagerState,
             )
         }
         item {
@@ -1798,6 +1824,7 @@ private fun ProfileSpaceFeedColumn(
         }
     }
     } // AppHorizontalPager
+    } // ProfileSpaceTabsHost
 }
 
 @Composable

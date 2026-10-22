@@ -7,6 +7,28 @@ import kotlin.test.assertTrue
 
 class LiquidIndicatorWobbleTest {
     @Test
+    fun `selection acknowledgement preserves the entire drag release trajectory`() {
+        val reference = LiquidIndicatorWobble(0f)
+        val acknowledged = LiquidIndicatorWobble(0f)
+        for (wobble in listOf(reference, acknowledged)) {
+            wobble.onInteractionStarted()
+            wobble.advance(0.6f, frame, manualInteraction = true)
+            wobble.onInteractionReleased()
+        }
+        repeat(120) { index ->
+            if (index == 2 || index == 8) {
+                acknowledged.onSelectionChanged(continuous = true, preserveRelease = true)
+            }
+            val position = (0.6f + index * 0.04f).coerceAtMost(1f)
+            reference.advance(position, frame)
+            acknowledged.advance(position, frame)
+            assertEquals(reference.stretch, acknowledged.stretch)
+            assertEquals(reference.velocityWeight, acknowledged.velocityWeight)
+        }
+        assertEquals(0f, acknowledged.stretch)
+    }
+
+    @Test
     fun `release hands velocity deformation over without a release frame cut`() {
         for (velocity in listOf(-2f, 2f)) {
             val wobble = LiquidIndicatorWobble(0f)

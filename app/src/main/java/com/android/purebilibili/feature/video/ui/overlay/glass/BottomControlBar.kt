@@ -29,6 +29,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.style.TextAlign
@@ -416,6 +418,7 @@ fun BottomControlBar(
     seekPositionMs: Long = progress.current,
     isSeekScrubbing: Boolean = false,
     onSpeedClick: () -> Unit = {},
+    onSpeedAnchorChanged: (IntRect) -> Unit = {},
     onRatioClick: () -> Unit = {},
     onNextEpisodeClick: () -> Unit = {},
     hasNextEpisode: Boolean = false,
@@ -454,6 +457,7 @@ fun BottomControlBar(
     onAudioQualityClick: () -> Unit = {},
     currentQualityLabel: String = "",
     onQualityClick: () -> Unit = {},
+    onQualityAnchorChanged: (IntRect) -> Unit = {},
 
     // Features
     videoshotData: com.android.purebilibili.data.model.response.VideoshotData? = null,
@@ -741,6 +745,11 @@ fun BottomControlBar(
     } else {
         progressLayoutPolicy
     }
+    var heatmapVisible by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(true) }
+    var chaptersVisible by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(true) }
+    // 开关只控制玻璃横屏的可视数据，不更改请求、缓存与原生播放器路径。
+    val visibleRidgeSamples = if (glassProgressDock && !heatmapVisible) emptyList() else pbpRidgeSamples
+    val visibleViewPoints = if (glassProgressDock && !chaptersVisible) emptyList() else viewPoints
     val progressBarContent: @Composable () -> Unit = {
         val renderProgress: @Composable (Modifier) -> Unit = { progressModifier ->
             PlayerControlProgressBar(
@@ -755,9 +764,9 @@ fun BottomControlBar(
                 onSeekDragUpdate = onSeekDragUpdate,
                 onSeekDragCancel = onSeekDragCancel,
                 videoshotData = videoshotData,
-                viewPoints = viewPoints,
+                viewPoints = visibleViewPoints,
                 sponsorMarkers = sponsorMarkers,
-                pbpRidgeSamples = pbpRidgeSamples,
+                pbpRidgeSamples = visibleRidgeSamples,
                 currentChapterProvider = currentChapterProvider,
                 onChapterClick = onChapterClick,
                 modifier = progressModifier
@@ -812,7 +821,7 @@ fun BottomControlBar(
             progressBarContent()
             PlayerControlViewPointSegments(
                 progressProvider = progressProvider,
-                viewPoints = viewPoints,
+                viewPoints = visibleViewPoints,
                 onSeek = onSeek,
                 spacing = layoutPolicy.progressSpacingDp.dp,
                 modifier = Modifier
@@ -879,16 +888,9 @@ fun BottomControlBar(
                 val minimumLeftWidthDp = leftDockPaddingDp + timeEndSpacingDp +
                     danmakuActionWidthDp * ((if (showDanmakuToggle) 2 else 0) + 1) +
                     (if (liquidGlassEnabled) layoutPolicy.playButtonSizeDp else 0)
-                PlayerControlMiddleRow(
-                    minimumLeftWidth = minimumLeftWidthDp.dp,
-                    alignToolsBesideLeftDock = liquidGlassEnabled,
-                    rightDockBoundsProvider = {
-                        if (liquidGlassEnabled) actionDockBoundsProvider() else null
-                    },
-                    modifier = Modifier.weight(1f),
-                ) {
+                val playbackDock: @Composable () -> Unit = {
                     PlayerControlGlassDock(
-                        enabled = true,
+                        enabled = !liquidGlassEnabled,
                         modifier = Modifier.then(
                             when {
                                 isFullscreen -> Modifier.height(PlayerChromeLayout.CircularButtonSizeDp.dp)
@@ -910,12 +912,15 @@ fun BottomControlBar(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Row(
-                                modifier = Modifier.weight(1f, fill = false)
-                                    .horizontalScroll(rememberScrollState())
+                                // 合并玻璃栏由外层统一滚动，内层不能再接收无限宽滚动约束。
+                                modifier = Modifier
+                                    .then(if (liquidGlassEnabled) Modifier else Modifier
+                                        .weight(1f, fill = false)
+                                        .horizontalScroll(rememberScrollState()))
                                     .testTag("player_time_viewport"),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                if (isFullscreen && uiLayoutWidthDp >= 840 && showNextEpisodeButton) {
+                                if (isFullscreen && !liquidGlassEnabled && uiLayoutWidthDp >= 840 && showNextEpisodeButton) {
                                     AppIconButton(
                                         onClick = onNextEpisodeClick,
                                         modifier = Modifier.size(PlayerChromeLayout.CircularButtonSizeDp.dp),
@@ -985,14 +990,16 @@ fun BottomControlBar(
                             }
                         }
                     }
-
+                }
+                val toolsDock: @Composable () -> Unit = {
                     // Right: Function Buttons
                     PlayerControlGlassDock(
-                        enabled = true,
+                        enabled = !liquidGlassEnabled,
                         modifier = if (isFullscreen) Modifier.height(PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier,
                     ) {
                         LandscapeDockActionRow(
                             spacing = actionSpacing,
+                            scrollEnabled = !liquidGlassEnabled,
                             modifier = if (isFullscreen) Modifier
                                 .fillMaxHeight()
                                 .padding(horizontal = 10.dp)
@@ -1043,9 +1050,7 @@ fun BottomControlBar(
                             // Quality
                             if (currentQualityLabel.isNotEmpty() || liquidGlassEnabled) {
                                 AppText(
-                                    text = if (liquidGlassEnabled) {
-                                        "${currentQualityLabel.ifBlank { "画质" }} · ${currentRatio.displayName}"
-                                    } else currentQualityLabel,
+                                    text = if (liquidGlassEnabled) currentQualityLabel.ifBlank { "画质" } else currentQualityLabel,
                                     color = Color.White,
                                     fontSize = layoutPolicy.actionTextFontSp.sp,
                                     lineHeight = (layoutPolicy.actionTextFontSp + 2).sp,
@@ -1055,6 +1060,7 @@ fun BottomControlBar(
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier
                                         .then(if (isFullscreen) Modifier.heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier)
+                                        .playerGlassMenuAnchor(onQualityAnchorChanged)
                                         .clickable(onClick = onQualityClick)
                                         .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                                 )
@@ -1087,6 +1093,7 @@ fun BottomControlBar(
                                 softWrap = false,
                                 modifier = Modifier
                                     .then(if (isFullscreen) Modifier.heightIn(min = PlayerChromeLayout.CircularButtonSizeDp.dp) else Modifier)
+                                    .playerGlassMenuAnchor(onSpeedAnchorChanged)
                                     .clickable(onClick = onSpeedClick)
                                     .then(if (isFullscreen) Modifier.wrapContentSize(Alignment.Center) else Modifier)
                             )
@@ -1106,7 +1113,7 @@ fun BottomControlBar(
                                 )
                             }
 
-                            if (showSubtitleButton || liquidGlassEnabled) {
+                            if (showSubtitleButton && !liquidGlassEnabled) {
                                 AppText(
                                     text = "字幕",
                                     color = when {
@@ -1175,7 +1182,7 @@ fun BottomControlBar(
                                 // The popup inherits the fixed control-row density; restore the system
                                 // font scale for menu items and keep only the "更多" label fixed.
                                 CompositionLocalProvider(LocalDensity provides chromeDensity) {
-                                AppWindowActionMenu(
+                                PlayerGlassActionMenu(
                                     // 其它文字项与右侧退全屏按钮都紧贴内容，而 IconButton 的默认
                                     // 最小槽位 40dp 会给“更多”两侧各留约 8dp，看起来比相邻项宽。
                                     // 这里把它收到文字宽（两个字 ≈ 2×字号）再加一点余量：
@@ -1185,6 +1192,26 @@ fun BottomControlBar(
                                     ),
                                     groups = listOf(
                                         listOfNotNull(
+                                            if (liquidGlassEnabled) AppWindowAction(
+                                                label = "弹幕热度曲线",
+                                                selected = heatmapVisible,
+                                                onClick = { heatmapVisible = !heatmapVisible },
+                                            ) else null,
+                                            if (liquidGlassEnabled && viewPoints.isNotEmpty()) AppWindowAction(
+                                                label = "显示章节标记",
+                                                selected = chaptersVisible,
+                                                onClick = { chaptersVisible = !chaptersVisible },
+                                            ) else null,
+                                            if (liquidGlassEnabled) AppWindowAction(
+                                                label = "字幕",
+                                                enabled = subtitleTrackAvailable,
+                                                selected = subtitleEnabled,
+                                                onClick = {
+                                                    showMoreActionsPanel = false
+                                                    showVideoEnhancementPanel = false
+                                                    showSubtitlePanel = true
+                                                },
+                                            ) else null,
                                             if (liquidGlassEnabled) AppWindowAction(
                                                 label = "画面比例 · ${currentRatio.displayName}",
                                                 onClick = {
@@ -1322,6 +1349,32 @@ fun BottomControlBar(
                         }
                     }
                 }
+                // 玻璃横屏将播放、弹幕与常用工具合为一块内容宽底板；原生保留双栏布局。
+                if (liquidGlassEnabled) {
+                    PlayerCenteredGlassDock(
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        PlayerControlGlassDock(enabled = true) {
+                            Row(
+                                modifier = Modifier
+                                    .horizontalScroll(rememberScrollState())
+                                    .height(PlayerChromeLayout.CircularButtonSizeDp.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                playbackDock()
+                                toolsDock()
+                            }
+                        }
+                    }
+                } else {
+                    PlayerControlMiddleRow(
+                        minimumLeftWidth = minimumLeftWidthDp.dp,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        playbackDock()
+                        toolsDock()
+                    }
+                }
             } else {
                 // Inline controls: play/pause stays at the bottom-left, then time and danmaku.
                 Row(
@@ -1329,13 +1382,16 @@ fun BottomControlBar(
                         .weight(1f),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    PlayerPlayPauseButton(
-                        isPlaying = isPlaying,
-                        onClick = onPlayPauseClick,
-                        sizeDp = layoutPolicy.playButtonSizeDp,
-                        iconSizeDp = layoutPolicy.playIconSizeDp,
-                    )
-                    Spacer(modifier = Modifier.width(layoutPolicy.afterPlaySpacingDp.dp))
+                    // 玻璃内嵌播放器由中央按钮控制播放，原生保留左下角入口与间距。
+                    if (!liquidGlassEnabled) {
+                        PlayerPlayPauseButton(
+                            isPlaying = isPlaying,
+                            onClick = onPlayPauseClick,
+                            sizeDp = layoutPolicy.playButtonSizeDp,
+                            iconSizeDp = layoutPolicy.playIconSizeDp,
+                        )
+                        Spacer(modifier = Modifier.width(layoutPolicy.afterPlaySpacingDp.dp))
+                    }
                     val showDanmakuToggle = shouldShowDanmakuToggleInControlBar(
                         isFullscreen = isFullscreen,
                         widthDp = uiLayoutWidthDp
@@ -1463,7 +1519,7 @@ fun BottomControlBar(
                                     modifier = Modifier
                                         .sizeIn(
                                             minWidth = InlineDockActionMinWidth,
-                                            minHeight = 48.dp,
+                                            minHeight = if (liquidGlassEnabled) 40.dp else 48.dp,
                                         )
                                         .clickable(enabled = subtitleTrackAvailable) {
                                             val nextShowSubtitlePanel = !showSubtitlePanel
@@ -1486,7 +1542,7 @@ fun BottomControlBar(
                                     modifier = Modifier
                                         .sizeIn(
                                             minWidth = InlineDockActionMinWidth,
-                                            minHeight = 48.dp,
+                                            minHeight = if (liquidGlassEnabled) 40.dp else 48.dp,
                                         )
                                         .clickable(onClick = onRatioClick),
                                     contentAlignment = Alignment.Center
@@ -1581,7 +1637,7 @@ fun BottomControlBar(
                                     modifier = Modifier
                                         .sizeIn(
                                             minWidth = InlineDockActionMinWidth,
-                                            minHeight = 48.dp,
+                                            minHeight = if (liquidGlassEnabled) 40.dp else 48.dp,
                                         )
                                         .clickable {
                                             val nextShowSubtitlePanel = !showSubtitlePanel
@@ -1599,7 +1655,7 @@ fun BottomControlBar(
                                 )
                             }
 
-                            if (showMoreActionsButton || sponsorContributionAvailable || isFullscreen) {
+                            if (showMoreActionsButton || sponsorContributionAvailable || isFullscreen || liquidGlassEnabled) {
                                 AppWindowActionMenu(
                                     groups = listOf(
                                         listOfNotNull(
@@ -1655,7 +1711,7 @@ fun BottomControlBar(
                                                     onAudioQualityClick()
                                                 }
                                             ) else null,
-                                            if (showPortraitSwitchButton && !showDirectTools) {
+                                            if ((showPortraitSwitchButton || (liquidGlassEnabled && showPortraitSwitchButtonInline)) && !showDirectTools) {
                                                 AppWindowAction(label = "竖屏", onClick = {
                                                         showMoreActionsPanel = false
                                                         onPortraitFullscreen()
@@ -1705,7 +1761,7 @@ fun BottomControlBar(
                             }
 
                             // 📱 [修复] 竖屏全屏按钮 - 仅在非全屏且有需要时显示，避免挤压平板控制栏
-                            if (showPortraitSwitchButtonInline) {
+                            if (showPortraitSwitchButtonInline && !liquidGlassEnabled) {
                                 AppText(
                                     text = "竖屏",
                                     color = Color.White,
@@ -1891,6 +1947,36 @@ fun BottomControlBar(
     }
 }
 
+/** 玻璃横屏底栏以整条控制行居中，宽度受右侧全屏按钮的可用空间限制。 */
+@Composable
+private fun PlayerCenteredGlassDock(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    var rowCenter by remember { mutableStateOf<Float?>(null) }
+    Layout(
+        content = content,
+        modifier = modifier.onGloballyPositioned { coordinates ->
+            val parent = coordinates.parentLayoutCoordinates
+            rowCenter = parent?.let {
+                it.size.width / 2f - it.localPositionOf(coordinates, Offset.Zero).x
+            }
+        },
+    ) { measurables, constraints ->
+        val center = (rowCenter ?: constraints.maxWidth / 2f)
+            .coerceIn(0f, constraints.maxWidth.toFloat())
+        // 对称预留两侧空间，长内容只在 dock 内滚动，不覆盖独立全屏入口。
+        val availableWidth = (2f * minOf(center, constraints.maxWidth - center))
+            .toInt().coerceIn(0, constraints.maxWidth)
+        val dock = measurables.single().measure(
+            constraints.copy(minWidth = 0, maxWidth = availableWidth),
+        )
+        layout(constraints.maxWidth, dock.height) {
+            dock.place((center - dock.width / 2f).roundToInt(), 0)
+        }
+    }
+}
+
 /**
  * Keep the two middle docks at their measured content widths, with an 8dp minimum gap.
  * Glass groups them at the start; native keeps the tools at the end. Both retain scrolling.
@@ -1974,10 +2060,13 @@ private fun PlayerPlayPauseButton(
 private fun LandscapeDockActionRow(
     spacing: Dp,
     modifier: Modifier = Modifier,
+    scrollEnabled: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
     Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
+        modifier = modifier.then(
+            if (scrollEnabled) Modifier.horizontalScroll(rememberScrollState()) else Modifier
+        ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(spacing),
         content = content,
@@ -2731,5 +2820,59 @@ private fun ProgressSeekPreview(
     } else {
         SeekPreviewBubbleSimple(targetPositionMs = target, currentPositionMs = currentPosition,
             offsetX = thumbCenterXPx, containerWidth = containerWidthPx, placement = placement)
+    }
+}
+
+
+/** 记录完整按钮槽位，三类菜单共用窗口坐标与同一定位器。 */
+private fun Modifier.playerGlassMenuAnchor(onBounds: (IntRect) -> Unit): Modifier =
+    onGloballyPositioned { coordinates ->
+        val bounds = coordinates.boundsInWindow()
+        onBounds(IntRect(bounds.left.roundToInt(), bounds.top.roundToInt(),
+            bounds.right.roundToInt(), bounds.bottom.roundToInt()))
+    }
+
+@Composable
+private fun PlayerGlassActionMenu(
+    groups: List<List<AppWindowAction>>,
+    modifier: Modifier = Modifier,
+    onExpandedChange: (Boolean) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    if (!LocalAppThemeConfig.current.liquidGlassEnabled) {
+        AppWindowActionMenu(groups = groups, modifier = modifier,
+            onExpandedChange = onExpandedChange, content = content)
+        return
+    }
+    var expanded by remember { mutableStateOf(false) }
+    var anchor by remember { mutableStateOf<IntRect?>(null) }
+    Box(
+        modifier = modifier
+            .height(PlayerChromeLayout.CircularButtonSizeDp.dp)
+            .playerGlassMenuAnchor { anchor = it }
+            .clickable { expanded = true; onExpandedChange(true) },
+        contentAlignment = Alignment.Center,
+    ) { content() }
+    if (expanded) {
+        com.android.purebilibili.feature.video.ui.components.PlayerSelectionPopup(
+            title = "更多", showTitle = false,
+            placement = com.android.purebilibili.feature.video.ui.components.PlayerListPopupPlacement.ANCHOR_END,
+            anchorBounds = anchor,
+            onDismissRequest = { expanded = false; onExpandedChange(false) },
+        ) {
+            val actions = groups.flatten()
+            actions.forEachIndexed { index, action ->
+                com.android.purebilibili.feature.video.ui.components.PlayerSelectionItem(
+                    text = action.label, summary = action.summary,
+                    selected = action.selected, enabled = action.enabled,
+                    index = index, optionCount = actions.size,
+                    onClick = {
+                        expanded = false
+                        onExpandedChange(false)
+                        action.onClick?.invoke()
+                    },
+                )
+            }
+        }
     }
 }

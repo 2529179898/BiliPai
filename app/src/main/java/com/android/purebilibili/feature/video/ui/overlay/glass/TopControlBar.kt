@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -200,6 +201,7 @@ fun TopControlBar(
     val configuration = LocalConfiguration.current
     val ambient = LocalAmbientPresentation.current
     var rowOrigin by remember { mutableStateOf<Offset?>(null) }
+    var rowWidthPx by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val videoContentBounds = remember(ambient) {
         derivedStateOf {
             ambient?.current?.contentBoundsInWindow ?: ambient?.videoBoundsInWindow?.invoke()
@@ -306,7 +308,10 @@ fun TopControlBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .onGloballyPositioned { rowOrigin = it.positionInWindow() }
+                .onGloballyPositioned {
+                    rowOrigin = it.positionInWindow()
+                    rowWidthPx = it.size.width
+                }
                 .layout { measurable, constraints ->
                     val bounds = videoContentBounds.value
                     val origin = rowOrigin
@@ -361,7 +366,17 @@ fun TopControlBar(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(layoutPolicy.backToTitleSpacingDp.dp))
+                Spacer(modifier = if (separateGlassMore) Modifier.layout { _, constraints ->
+                    val bounds = videoContentBounds.value
+                    val origin = rowOrigin
+                    val defaultGap = layoutPolicy.backToTitleSpacingDp.dp.roundToPx()
+                    val titleStart = if (bounds != null && origin != null) {
+                        kotlin.math.ceil(bounds.left + 12.dp.toPx() - origin.x -
+                            leftSectionStartOffset.toPx() - layoutPolicy.buttonSizeDp.dp.toPx()).toInt()
+                    } else defaultGap
+                    val gap = maxOf(defaultGap, titleStart).coerceIn(0, constraints.maxWidth)
+                    layout(gap, 0) {}
+                } else Modifier.width(layoutPolicy.backToTitleSpacingDp.dp))
 
                 if (isFullscreen) {
                     AdaptivePlayerTitleInfoDock(
@@ -519,7 +534,18 @@ fun TopControlBar(
                 }
             }
             if (separateGlassMore) {
-                Spacer(modifier = Modifier.width(PlayerChromeLayout.ActionGapDp.dp))
+                // 标题与操作底板都避开黑边，独立圆钮保留屏幕安全区位置。
+                Spacer(modifier = Modifier.layout { _, constraints ->
+                    val bounds = videoContentBounds.value
+                    val origin = rowOrigin
+                    val defaultGap = PlayerChromeLayout.ActionGapDp.dp.roundToPx()
+                    val actionEndGap = if (bounds != null && origin != null && rowWidthPx > 0) {
+                        kotlin.math.ceil(origin.x + rowWidthPx -
+                            layoutPolicy.buttonSizeDp.dp.toPx() - bounds.right + 12.dp.toPx()).toInt()
+                    } else defaultGap
+                    val gap = maxOf(defaultGap, actionEndGap).coerceIn(0, constraints.maxWidth)
+                    layout(gap, 0) {}
+                })
                 PlayerControlGlassDock(
                     enabled = true,
                     shape = androidx.compose.foundation.shape.CircleShape,
@@ -607,6 +633,49 @@ private fun AdaptivePlayerTitleInfoDock(
 ) {
     val motionEnabled = LocalComponentMotionEnabled.current
     val layoutDirection = LocalLayoutDirection.current
+    val textMeasurer = rememberTextMeasurer()
+    val baseTextStyle = if (com.android.purebilibili.core.theme.LocalAppUiStyle.current ==
+        com.android.purebilibili.core.theme.AppUiStyle.MIUIX) {
+        top.yukonga.miuix.kmp.theme.MiuixTheme.textStyles.main
+    } else LocalTextStyle.current
+    val metaTextStyle = baseTextStyle.copy(fontSize = 11.sp, lineHeight = 14.sp)
+    val density = LocalDensity.current
+    // 最小宽度按当前主题真实字形预留完整状态；时间变化与宽度动画都不能裁掉分钟。
+    val minimumStatusWidth = with(density) {
+        val battery = statusInfo.battery
+        val batteryWidth = if (battery != null) {
+            22.dp + 6.dp + textMeasurer.measure(
+                battery.displayText, style = metaTextStyle, maxLines = 1, softWrap = false,
+            ).size.width.toDp()
+        } else 0.dp
+        val time = statusInfo.currentTimeText?.takeIf { it.isNotBlank() }
+        val timeWidth = if (time != null) {
+            listOf(time, "88:88", "23:59", "00:00").maxOf { value ->
+                textMeasurer.measure(value, style = metaTextStyle, maxLines = 1, softWrap = false).size.width
+            }.toDp()
+        } else 0.dp
+        batteryWidth + timeWidth + (if (battery != null && time != null) 6.dp else 0.dp) + 32.dp
+    }
+    // 两行取较宽者作为内容宽度，避免短标题沿用长标题的固定胶囊长度。
+    val naturalWidth = with(density) {
+        val titleWidth = textMeasurer.measure(
+            title,
+            style = baseTextStyle.copy(fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            softWrap = false,
+        ).size.width.toDp()
+        val metaParts = listOfNotNull(
+            statusInfo.battery?.displayText,
+            statusInfo.currentTimeText?.takeIf { it.isNotBlank() },
+            onlineCount.takeIf { it.isNotBlank() },
+        )
+        val metaWidth = metaParts.sumOf { textMeasurer.measure(
+            it, style = metaTextStyle, maxLines = 1, softWrap = false,
+        ).size.width }.toDp() +
+            (if (statusInfo.battery != null) 28.dp else 0.dp) +
+            (6 * (metaParts.size - 1).coerceAtLeast(0)).dp
+        maxOf(maxOf(titleWidth, metaWidth) + 32.dp, minimumStatusWidth)
+    }
     BoxWithConstraints(
         modifier = modifier.heightIn(min = alignedGlassHeight ?: 48.dp),
         contentAlignment = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) {
@@ -618,9 +687,9 @@ private fun AdaptivePlayerTitleInfoDock(
         // Use the actual player slot: side panes can leave much less room than the window.
         // Keep a circular glass affordance at the collapsed endpoint so the title does not
         // vanish into an unexplained gap beside the back button.
-        val hasRoom = maxWidth >= 160.dp
+        val hasRoom = maxWidth >= maxOf(minimumStatusWidth, PlayerChromeLayout.CircularButtonSizeDp.dp)
         val collapsedSize = PlayerChromeLayout.CircularButtonSizeDp.dp
-        val targetWidth = if (hasRoom) maxWidth.coerceAtMost(420.dp) else collapsedSize
+        val targetWidth = if (hasRoom) naturalWidth.coerceIn(maxOf(collapsedSize, minimumStatusWidth), maxOf(minimumStatusWidth, maxWidth.coerceAtMost(420.dp))) else collapsedSize
         val animatedWidth = animateFloatAsState(
             targetValue = targetWidth.value,
             animationSpec = if (motionEnabled) appPressHighlightPressSpec() else snap(),
@@ -632,7 +701,10 @@ private fun AdaptivePlayerTitleInfoDock(
             label = "playerTitleHorizontalContent",
         )
         val dockWidth = animatedWidth.value
-            .coerceIn(collapsedSize.value, maxWidth.coerceAtLeast(collapsedSize).value)
+            .coerceIn(
+                (if (hasRoom) maxOf(collapsedSize, minimumStatusWidth) else collapsedSize).value,
+                maxWidth.coerceAtLeast(collapsedSize).value,
+            )
             .dp
         Box(
             modifier = Modifier

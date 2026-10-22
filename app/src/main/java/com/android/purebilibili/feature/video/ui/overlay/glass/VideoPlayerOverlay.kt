@@ -791,6 +791,11 @@ private fun VideoPlayerOverlayContent(
     val onShowDanmakuPool = actions.onShowDanmakuPool
 
     var showQualityMenu by remember { mutableStateOf(false) }
+    var qualityMenuAnchor by remember { mutableStateOf<androidx.compose.ui.unit.IntRect?>(null) }
+    var speedMenuAnchor by remember { mutableStateOf<androidx.compose.ui.unit.IntRect?>(null) }
+    val anchoredGlassMenus = isFullscreen &&
+        com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled
+
     var showAudioQualityMenu by remember { mutableStateOf(false) }
     var showSpeedMenu by remember { mutableStateOf(false) }
     var showRatioMenu by remember { mutableStateOf(false) }
@@ -1618,6 +1623,7 @@ private fun VideoPlayerOverlayContent(
                     seekPositionProvider = seekPositionProvider,
                     isSeekScrubbing = isSeekScrubbing,
                     onSpeedClick = { showSpeedMenu = true },
+                    onSpeedAnchorChanged = { speedMenuAnchor = it },
                     onRatioClick = { showRatioMenu = true },
                     onNextEpisodeClick = {
                         onDismissEndDrawer()
@@ -1669,6 +1675,7 @@ private fun VideoPlayerOverlayContent(
                     onAudioQualityClick = { showAudioQualityMenu = true },
                     currentQualityLabel = currentQualityLabel,
                     onQualityClick = { showQualityMenu = true },
+                    onQualityAnchorChanged = { qualityMenuAnchor = it },
                     // 🖼️ [新增] 视频预览图数据
                     videoshotData = videoshotData,
                     // 📖 [新增] 视频章节数据
@@ -1723,8 +1730,9 @@ private fun VideoPlayerOverlayContent(
             )
         }
 
-        // Restore 0.4.7 playback placement only for glass fullscreen; native and inline stay unchanged.
-        if (isFullscreen && com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
+        // 玻璃横屏与详情内嵌播放器共用中央入口，竖屏分页继续使用其独立控制层。
+        if ((isFullscreen || configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT) &&
+            com.android.purebilibili.core.ui.LocalAppThemeConfig.current.liquidGlassEnabled) {
             CenterPlaybackControl(
                 visible = isVisible &&
                     (pluginPlaybackStatus.first || player.playbackState == Player.STATE_READY || player.playbackState == Player.STATE_ENDED) &&
@@ -1733,7 +1741,7 @@ private fun VideoPlayerOverlayContent(
                     !endDrawerVisible && !landscapeCommentPanelVisible && !showInsightDetails,
                 isPlaying = effectiveIsPlaying,
                 onPlayPause = { togglePlayPause() },
-                diameter = 72.dp,
+                diameter = if (isFullscreen) 72.dp else 56.dp,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -2074,7 +2082,9 @@ private fun VideoPlayerOverlayContent(
                 },
                 onDismiss = { showQualityMenu = false },
                 useDialog = true,
-                placement = if (isFullscreen) PlayerListPopupPlacement.END_BOTTOM else PlayerListPopupPlacement.CENTER,
+                placement = if (anchoredGlassMenus) PlayerListPopupPlacement.ANCHOR_END
+                    else if (isFullscreen) PlayerListPopupPlacement.END_BOTTOM else PlayerListPopupPlacement.CENTER,
+                anchorBounds = qualityMenuAnchor.takeIf { anchoredGlassMenus },
             )
         }
 
@@ -2104,7 +2114,10 @@ private fun VideoPlayerOverlayContent(
                     showSpeedMenu = false
                 },
                 onDismiss = { showSpeedMenu = false },
-                placement = if (isFullscreen) {
+                anchorBounds = speedMenuAnchor.takeIf { anchoredGlassMenus },
+                placement = if (anchoredGlassMenus) {
+                    SpeedSelectionMenuPlacement.ANCHOR_END
+                } else if (isFullscreen) {
                     SpeedSelectionMenuPlacement.RIGHT_SIDE
                 } else {
                     SpeedSelectionMenuPlacement.CENTER
